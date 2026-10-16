@@ -1,0 +1,47 @@
+[tools]
+python = "3.12"
+uv = "latest"
+
+[env]
+_.python.venv = { path = ".venv", create = true }
+PYTHONPATH = "{{config_root}}"
+
+[tasks.sync]
+description = "Install and lock Python (uv) and Web (bun + varlock) dependencies"
+run = "uv sync --python 3.12 && cd web && bun install && bun run prepare"
+
+[tasks.test]
+description = "Run the publication and web-rendering stress tests via uv + pytest"
+run = "uv run --python 3.12 pytest -v tests/test_publication_stress.py"
+
+[tasks.export-web]
+description = "Export all three books and static PDF/SVG/PNG deliverables into web/public"
+run = "uv run --python 3.12 polytypst --export-web"
+
+[tasks.check-web]
+description = "Run Bun native typecheck (bun check), type-aware lint (bun lint --type-aware), and format check (bun fmt --check)"
+run = "cd web && bun run env:check && bun check && bun lint --type-aware src && bun fmt --check src convex vite.config.ts"
+
+[tasks.build-web]
+description = "Run Varlock check, Bun native check/lint/fmt, and Vite 8 production build"
+run = "cd web && bun run env:check && bun check && bun lint --type-aware src && bun fmt --check src convex vite.config.ts && bun run build"
+
+[tasks.seed-convex]
+description = "Seed Modern Firm, Serre, and Kerodon into the Convex backend"
+run = "cd web && bunx varlock run -- bun run scripts/seedConvex.ts"
+
+[tasks.dev-convex]
+description = "Run the Convex backend daemon"
+run = "cd web && bunx varlock run -- bunx convex dev"
+
+[tasks.dev-web]
+description = "Preview the built Cloudflare application on port 8788"
+run = "cd web && bunx varlock run -- bunx wrangler dev --port 8788"
+
+[tasks.deploy-prod]
+description = "Deploy Convex functions and Cloudflare Worker to production"
+run = "cd web && bunx varlock run -- bunx convex deploy --yes && bun run build && bunx wrangler deploy"
+
+[tasks.check-env]
+description = "Validate environment variables and scan for leaks with Varlock"
+run = "cd web && bun run env:check && bun run env:scan"

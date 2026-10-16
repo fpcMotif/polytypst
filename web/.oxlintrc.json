@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "options": {
+    "typeAware": true
+  },
+  "plugins": ["react", "typescript", "oxc", "jsx-a11y"],
+  "ignorePatterns": ["convex/_generated/**", "dist/**", "env.d.ts"],
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-restricted-types": [
+      "error",
+      {
+        "types": {
+          "Record<string, unknown>": {
+            "message": "Use a specific interface or typed object instead of Record<string, unknown>"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+.wrangler/
+.convex/
+public/assets/
+public/data/
+tsconfig.tsbuildinfo
+env.d.ts
+*.pdf
+*.epub
