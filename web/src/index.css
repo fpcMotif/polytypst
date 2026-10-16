@@ -2,7 +2,11 @@
 
 :root {
   --font-editorial-cjk: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
-  --font-math-serif: "Libertinus Serif", "New Computer Modern", "Times New Roman", Georgia, serif;
+  --font-math-serif: "KaTeX_Main", "Latin Modern Roman", "Libertinus Serif", Georgia, serif;
+  --math-ink: #1b1b1f;
+  --math-muted: #6b6b73;
+  --math-rule: #d9d6cf;
+  --math-link: #1f3f7a;
 }
 
 .editorial-prose {
@@ -12,53 +16,155 @@
   color: #1c1917;
 }
 
+.math-serif {
+  font-family: var(--font-math-serif);
+}
+
+.math-column {
+  max-width: 50rem;
+  margin-inline: auto;
+}
+
 .math-prose {
   font-family: var(--font-math-serif);
-  line-height: 1.82;
-  color: #0f172a;
+  font-size: 1.1875rem;
+  line-height: 1.6;
+  color: var(--math-ink);
+  text-align: justify;
+  hyphens: auto;
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
 }
 
-.editorial-var {
+@media (max-width: 639px) {
+  .math-prose {
+    font-size: 1.0625rem;
+    text-align: left;
+  }
+
+  .thm-rule {
+    padding-left: 0.75em;
+  }
+}
+
+.math-prose > * + * {
+  margin-top: 0.85em;
+}
+
+.math-prose .katex,
+.math-serif .katex {
+  font-size: 1em;
+}
+
+.math-display {
+  margin: 0.9em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+}
+
+.math-display .katex-display {
+  margin: 0;
+}
+
+.math-heading {
+  font-weight: 700;
+  text-align: left;
+  hyphens: manual;
+  margin-top: 1.9em !important;
+  margin-bottom: -0.2em;
+}
+
+.math-heading-2 {
+  font-size: 1.3em;
+}
+
+.math-heading-3 {
+  font-size: 1.1em;
+}
+
+.thm {
+  margin-block: 1.35em !important;
+}
+
+.thm-rule {
+  padding-left: 1em;
+  border-left: 2px solid var(--math-rule);
+}
+
+.thm-head {
   font-style: normal;
   font-weight: 700;
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-  display: inline-block;
-  padding: 0.05rem 0.42rem;
-  margin: 0 0.08rem;
-  border-radius: 0.3rem;
-  background-color: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fde68a;
-  font-size: 0.92em;
-  line-height: 1.35;
 }
 
-.editorial-ref {
-  font-weight: 600;
-  color: #b45309;
-  text-decoration: underline;
-  text-decoration-color: #fcd34d;
-  text-underline-offset: 3px;
-  padding: 0 0.15rem;
-  border-radius: 0.2rem;
-  transition: background-color 150ms ease;
+.thm-head-remark {
+  font-weight: 400;
+  font-style: italic;
 }
 
-.editorial-ref:hover {
-  background-color: #fef3c7;
-  color: #78350f;
+.thm-note {
+  font-style: normal;
+  font-weight: 400;
+}
+
+.thm-italic {
+  font-style: italic;
+}
+
+.thm-tag,
+.math-tag {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.68em;
+  letter-spacing: 0.02em;
+  color: var(--math-muted);
+  text-decoration: none;
+  font-style: normal;
+}
+
+.thm-tag {
+  float: right;
+  margin-left: 1em;
+  line-height: 2.2;
 }
 
 .math-ref {
-  font-weight: 600;
-  color: #1d4ed8;
-  text-decoration: underline;
-  text-decoration-color: #93c5fd;
-  text-underline-offset: 3px;
+  color: var(--math-link);
+  text-decoration: none;
 }
 
-.katex-display {
-  margin: 0.85em 0 !important;
-  overflow-x: auto;
-  overflow-y: hidden;
+@media (hover: hover) {
+  .thm-tag:hover,
+  .math-tag:hover,
+  .math-ref:hover {
+    color: var(--math-link);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.math-figure-img {
+  outline: 1px solid oklch(0 0 0 / 0.1);
+  outline-offset: -1px;
+}
+
+.editorial-var {
+  font-style: italic;
+  font-weight: 600;
+  font-family: Georgia, "Times New Roman", serif;
+  padding: 0 0.1em;
+  color: #1c1917;
+}
+
+.editorial-ref {
+  color: var(--math-link);
+  text-decoration: underline;
+  text-decoration-color: #d6d3d1;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 150ms ease-out;
+}
+
+@media (hover: hover) {
+  .editorial-ref:hover {
+    text-decoration-color: currentColor;
+  }
 }

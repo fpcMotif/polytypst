@@ -1,12 +1,7 @@
 import katex from "katex";
 
 const KATEX_MACROS: Record<string, string> = {
-  "\\mathbf": "\\mathbf",
-  "\\mathcal": "\\mathcal",
-  "\\mathbb": "\\mathbb",
-  "\\mathfrak": "\\mathfrak",
   "\\mathscr": "\\mathcal",
-  "\\operatorname": "\\operatorname",
   "\\id": "\\operatorname{id}",
   "\\Hom": "\\operatorname{Hom}",
   "\\Fun": "\\operatorname{Fun}",
@@ -17,7 +12,7 @@ const KATEX_MACROS: Record<string, string> = {
   "\\GL": "\\operatorname{GL}",
 };
 
-function escapeHtml(raw: string): string {
+export function escapeHtml(raw: string): string {
   return raw
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -30,6 +25,7 @@ function renderTeXSegment(tex: string, displayMode: boolean): string {
     .replace(/\\textnormal\{/g, "\\text{")
     .replace(/\\varinjlim/g, "\\underset{\\longrightarrow}{\\lim}")
     .replace(/\\varprojlim/g, "\\underset{\\longleftarrow}{\\lim}")
+    .replace(/(\^[0-9a-zA-Z]+)\^(\{[^}]+\})/g, "{$1}^$2")
     .trim();
   if (!cleaned) {
     return "";
@@ -54,16 +50,15 @@ export function renderMathProseToHtml(input: string): string {
   const displayChunks: string[] = [];
   let text = input.replace(/\$\$([\s\S]+?)\$\$/g, (_, mathBody: string) => {
     const idx = displayChunks.length;
-    displayChunks.push(
-      `<div class="my-4 overflow-x-auto py-1 text-center">${renderTeXSegment(mathBody, true)}</div>`,
-    );
+    displayChunks.push(`<div class="math-display">${renderTeXSegment(mathBody, true)}</div>`);
     return `@@DISPLAY_MATH_${idx}@@`;
   });
 
   const inlineChunks: string[] = [];
-  text = text.replace(/\$([^$\n]+?)\$/g, (_, mathBody: string) => {
+  text = text.replace(/\$([^$]+?)\$/g, (_, mathBody: string) => {
     const idx = inlineChunks.length;
-    inlineChunks.push(renderTeXSegment(mathBody, false));
+    const isMultilineEnv = mathBody.includes("\\begin{");
+    inlineChunks.push(renderTeXSegment(mathBody, isMultilineEnv));
     return `@@INLINE_MATH_${idx}@@`;
   });
 
@@ -79,7 +74,7 @@ export function renderMathProseToHtml(input: string): string {
   );
   htmlOut = htmlOut.replace(
     /\(Tag\s+([0-9A-Z]{4})\)/g,
-    '<a href="https://kerodon.net/tag/$1" target="_blank" rel="noreferrer" class="inline-flex items-center gap-0.5 text-xs font-mono px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100">Tag $1 ↗</a>',
+    '(<a href="https://kerodon.net/tag/$1" target="_blank" rel="noreferrer" class="math-tag">Tag $1</a>)',
   );
 
   htmlOut = htmlOut.replace(/@@INLINE_MATH_(\d+)@@/g, (_, idxStr: string) => {
