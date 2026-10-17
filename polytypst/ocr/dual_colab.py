@@ -33,11 +33,13 @@ class DualColabG4Cluster:
         self,
         gpu_type: str = "G4",
         num_workers: int = 2,
+        shards_per_gpu: int = 3,
         session_prefix: str = "g4-jina",
         timeout_sec: float = 7200.0,
     ):
         self.gpu_type: str = gpu_type
         self.num_workers: int = num_workers
+        self.shards_per_gpu: int = shards_per_gpu
         self.session_prefix: str = session_prefix
         self.timeout_sec: float = timeout_sec
 
@@ -80,12 +82,7 @@ class DualColabG4Cluster:
         """Split a list of page paths into balanced chunks."""
         if not pages or num_chunks <= 1:
             return [pages]
-        k, m = divmod(len(pages), num_chunks)
-        chunks: list[list[Path]] = []
-        for i in range(num_chunks):
-            start = i * k + min(i, m)
-            end = (i + 1) * k + min(i + 1, m)
-            chunks.append(pages[start:end])
+        chunks = [pages[i::num_chunks] for i in range(num_chunks)]
         return [c for c in chunks if len(c) > 0]
 
     @staticmethod
@@ -105,6 +102,23 @@ class DualColabG4Cluster:
         if res.returncode != 0:
             print(f"[{session_name}] Warning: Session creation error: {res.stderr.strip() or res.stdout.strip()}")
             return False
+        _ = subprocess.run(
+            [
+                "colab",
+                "install",
+                "--session",
+                session_name,
+                "transformers",
+                "accelerate",
+                "einops",
+                "timm",
+                "pillow",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
         return True
 
     @staticmethod
@@ -222,10 +236,11 @@ class DualColabG4Cluster:
         # Launch worker asynchronously on remote VM
         launch_code = (
             "import subprocess, sys\n"
-            "p = subprocess.Popen([sys.executable, '/content/worker.py', '--pages', '/content/pages', '--out', '/content/markdown'])\n"
+            "log_f = open('/content/worker.log', 'w')\n"
+            f"p = subprocess.Popen([sys.executable, '/content/worker.py', '--pages', '/content/pages', '--out', '/content/markdown', '--shards', '{self.shards_per_gpu}'], stdout=log_f, stderr=subprocess.STDOUT)\n"
             "print('Launched worker PID:', p.pid)\n"
         )
-        print(f"[{session_name}] Launching Jina OCR v1 worker on {self.gpu_type}...")
+        print(f"[{session_name}] Launching Jina OCR v1 worker on {self.gpu_type} ({self.shards_per_gpu} shards)...")
         _ = subprocess.run(
             ["colab", "exec", "--session", session_name, "--timeout", "30"],
             input=launch_code,
@@ -239,7 +254,7 @@ class DualColabG4Cluster:
         poll_start = time.time()
         archive_ready = False
         while time.time() - poll_start < self.timeout_sec:
-            time.sleep(12)
+            time.sleep(15)
             try:
                 ls_res = subprocess.run(
                     ["colab", "ls", "--session", session_name, "/content"],
