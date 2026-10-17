@@ -1,25 +1,23 @@
 """Command-line interface for polytypst."""
 
 import argparse
-import os
+import json
+import subprocess
 import sys
 from pathlib import Path
-import json
-import shutil
 
-from .ocr.apple_vision import AppleVisionOCREngine
-from .ocr.mistral import MistralOCREngine
-from .ocr.jina import JinaOCREngine
-from .ocr.tesseract import TesseractOCREngine
-from .ocr.splitter import TwoUpSplitter
-from .ocr.base import OCRLine, OCRPage
-from .vision.typesafe_jev import TypeSafeJevVision
-from .vision.cropper import HighDPICropper
-from .vision.vector_figures import generate_all_vector_figures
-from .parser.stitcher import DocumentStitcher, FigureBlock
-from .compiler.typst import TypstCompiler
-from .compiler.epub import PandocCompilers
 import pymupdf
+
+from .compiler.epub import PandocCompilers
+from .compiler.typst import TypstCompiler
+from .ocr.apple_vision import AppleVisionOCREngine
+from .ocr.base import OCRLine, OCRPage
+from .ocr.jina import JinaOCREngine
+from .ocr.mistral import MistralOCREngine
+from .ocr.splitter import TwoUpSplitter
+from .ocr.tesseract import TesseractOCREngine
+from .parser.stitcher import DocumentStitcher, FigureBlock
+from .vision.vector_figures import generate_all_vector_figures
 
 
 def main():
@@ -31,7 +29,11 @@ def main():
     parser.add_argument("--export-web", action="store_true", help="Export web catalog and static assets to polytypst/web/public")
     parser.add_argument("-o", "--output", type=Path, default=Path("output"), help="Output directory")
     parser.add_argument("--formats", type=str, default="typst,pdf,epub,latex", help="Comma-separated formats: typst,pdf,epub,latex")
-    parser.add_argument("--ocr-engine", type=str, choices=["apple_vision", "mistral", "jina", "tesseract"], default="apple_vision")
+    parser.add_argument("--ocr-engine", type=str, choices=["apple_vision", "mistral", "jina", "tesseract"], default="jina")
+    parser.add_argument("--mode", type=str, choices=["dual-g4", "local", "apple-vision"], default="dual-g4", help="Execution engine mode: dual-g4 (Colab Blackwell GPU), local, or apple-vision")
+    parser.add_argument("--gpu-type", type=str, default="G4", help="Colab GPU accelerator: G4, L4, T4")
+    parser.add_argument("--colab-workers", type=int, default=2, help="Number of Colab GPU workers")
+    parser.add_argument("--no-verify", action="store_true", help="Disable Apple Vision cross-verification")
     parser.add_argument("--languages", type=str, default="zh-Hans,en-US,fr-FR", help="Comma-separated OCR languages")
     parser.add_argument("--font-style", type=str, choices=["songti", "pingfang"], default="songti", help="Primary CJK typography: songti (academic serif) or pingfang (modern sans)")
     parser.add_argument("--columns", type=int, choices=[1, 2], default=1, help="Number of text columns (1 for standard book, 2 for academic math)")
@@ -56,6 +58,18 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     figures_dir = out_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
+    if not args.book:
+        from .core.pipeline import UniversalPDFPipeline
+        pipeline = UniversalPDFPipeline(
+            pdf_path=args.pdf_path,
+            output_dir=out_dir,
+            gpu_type=args.gpu_type,
+            num_colab_workers=args.colab_workers,
+        )
+        res = pipeline.process(mode=args.mode, double_check_with_mac=(not args.no_verify))
+        print(f"\n🎉 polytypst build complete! Master file: {res.master_markdown_path}")
+        return
+
 
     print(f"=== polytypst processing: {args.pdf_path.name} ===")
     print(f"Target formats: {args.formats}")
@@ -109,6 +123,7 @@ def main():
             engine = JinaOCREngine()
         else:
             engine = TesseractOCREngine(languages=args.languages)
+        ocr_pages = engine.recognize_document(img_paths)
         for p in ocr_pages:
             with open(cache_dir / f"page_{p.page_number:03d}.json", "w") as fp:
                 json.dump({
@@ -170,7 +185,7 @@ def main():
         try:
             typst_compiler.compile_pdf(typ_path, pdf_path)
             print(f"SUCCESS: Typst PDF generated at {pdf_path} ({pdf_path.stat().st_size / (1024*1024):.2f} MB)")
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, RuntimeError) as e:
             print(f"Typst compilation warning: {e}")
 
     # Pandoc Markdown, EPUB & LaTeX Compilers
@@ -187,7 +202,7 @@ def main():
         try:
             pandoc_compiler.compile_epub(md_path, epub_path)
             print(f"SUCCESS: EPUB generated at {epub_path} ({epub_path.stat().st_size / (1024*1024):.2f} MB)")
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, RuntimeError) as e:
             print(f"EPUB compilation warning: {e}")
 
     if "latex" in formats or "tex" in formats:
@@ -196,7 +211,7 @@ def main():
         try:
             pandoc_compiler.compile_latex(md_path, tex_path)
             print(f"SUCCESS: LaTeX generated at {tex_path} ({tex_path.stat().st_size / (1024*1024):.2f} MB)")
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, RuntimeError) as e:
             print(f"LaTeX generation warning: {e}")
 
     print("\n🎉 polytypst build complete!")

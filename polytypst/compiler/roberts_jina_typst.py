@@ -75,6 +75,26 @@ ROBERTS_TYPST_HEADER = """
   #text(8.5pt, fill: rgb("#555555"), font: "Songti SC")[#it.supplement #context it.counter.display(it.numbering)#h(0.6em)#it.body]
 ]
 
+#set table(stroke: none, inset: (x: 0.2em, y: 0.3em))
+#show table: set text(size: 9.5pt)
+#show figure.where(kind: table): it => block(width: 100%, breakable: false, above: 1.4em, below: 1.2em)[
+  #set par(leading: 0.4em, first-line-indent: 0pt, spacing: 0pt)
+  #set block(spacing: 0pt)
+  #line(length: 100%, stroke: 0.8pt)
+  #v(0.45em)
+  #grid(
+    columns: (auto, 1fr),
+    column-gutter: 1.2em,
+    text(9pt, weight: "bold", font: "Songti SC")[#it.supplement #context it.counter.display(it.numbering)],
+    align(center, text(9pt, weight: "bold", font: "Songti SC")[#it.caption.body]),
+  )
+  #v(0.45em)
+  #line(length: 100%, stroke: 0.4pt)
+  #it.body
+  #v(0.2em)
+  #line(length: 100%, stroke: 0.8pt)
+]
+
 // --- Front Matter ---
 #align(center + horizon)[
   #text(9.5pt, tracking: 0.25em, fill: rgb("#64748b"), font: "Songti SC")[当代世界学术名著 · 经济学系列]
@@ -491,7 +511,7 @@ class RobertsJinaTypstCompiler:
         for fig_id, cap_label in ROBERTS_FIGURES_META.items():
             fig_snippet = (
                 f"\n#figure(\n"
-                f'  image("figures/fig_{fig_id}.svg", width: 78%),\n'
+                f'  image("figures/fig_{fig_id}.svg"),\n'
                 f"  caption: [{cap_label}]\n"
                 f") <fig-{fig_id}>\n"
             )
@@ -507,6 +527,11 @@ class RobertsJinaTypstCompiler:
         typst_body = re.sub(
             r",\s*caption:\s*\[([^\]]+?)\s*\{\\#tab:([12])\}\]\s*,\s*kind:\s*table\s*\)",
             r',\n  caption: figure.caption(position: top, [\1]),\n  supplement: [表],\n  numbering: "1",\n  kind: table,\n) <tab-\2>',
+            typst_body,
+        )
+        typst_body = re.sub(
+            r"columns: 2,\s*align: \(auto,auto,\),\s*table\.header\(\[(逻辑[^\]]*)\], \[\],\),\s*table\.hline\(\),",
+            r"columns: (1fr, 1fr),\n    align: left + horizon,\n    table.cell(colspan: 2, inset: (x: 0.2em, y: 0.5em))[*\1*],\n    table.hline(stroke: 0.4pt),",
             typst_body,
         )
 

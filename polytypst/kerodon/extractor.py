@@ -102,30 +102,53 @@ class KerodonExtractor:
     def __init__(self, cache_dir: Path):
         self.cache_dir = Path(cache_dir)
 
-    def extract_chapter_1(self) -> KerodonChapter:
-        """Parse all cached pages into a structured KerodonChapter object."""
-        ch_file = self.cache_dir / "tag_0001.html"
+    def extract_chapter(self, number: int, tag: str) -> KerodonChapter:
+        """Dynamically parse all sections and subsections for any chapter from cache."""
+        ch_file = self.cache_dir / f"tag_{tag}.html"
+        ch_html = ch_file.read_text(encoding="utf-8") if ch_file.exists() else ""
+
+        # Extract Title
+        m_title = re.search(r"<title>(.*?)</title>", ch_html)
+        raw_title = m_title.group(1) if m_title else f"Chapter {number}"
+        # Clean title: e.g. "Chapter 2 (007J): Examples of $\infty $-Categories&mdash;Kerodon"
+        ch_title = re.sub(r"^Chapter\s+\d+.*?:", "", raw_title)
+        ch_title = re.sub(r"&mdash;.*$", "", ch_title).strip()
+
+        # Intro text
         intro_text = ""
-        if ch_file.exists():
-            html = ch_file.read_text(encoding="utf-8")
-            # Extract chapter intro paragraph before first section
-            m_intro = re.search(r"<p>(A principal goal of algebraic topology.*?)</p>", html, re.DOTALL)
-            if m_intro:
-                intro_text = re.sub(r"<[^>]+>", " ", m_intro.group(1)).strip()
+        m_intro = re.search(r"<div id=\"content\"[^>]*>.*?<p>(.*?)</p>", ch_html, re.DOTALL)
+        if m_intro:
+            cand = re.sub(r"<[^>]+>", " ", m_intro.group(1)).strip()
+            if len(cand) > 30 and not cand.startswith("Chapter"):
+                intro_text = cand
 
         chapter = KerodonChapter(
-            tag="0001",
-            number="1",
-            title=r"The Language of $\infty$-Categories",
+            tag=tag,
+            number=str(number),
+            title=ch_title,
             intro_text=intro_text
         )
 
-        for sec_tag, (sec_num, sec_title, subsec_defs) in self.SECTION_MAP.items():
-            sec_file = self.cache_dir / f"tag_{sec_tag}.html"
-            intro_envs = []
-            if sec_file.exists():
-                intro_envs = self._parse_environments_from_html(sec_file.read_text(encoding="utf-8"))
+        # Find section links from chapter sidebar
+        sec_links = re.findall(r"<a class=\"sidebar-link\" href=\"/tag/([0-9A-Z]{4})\">([^<]+<span[^>]*>[^<]+</span>)</a>", ch_html)
+        if not sec_links:
+            sec_links = re.findall(r"<a[^>]*href=\"/tag/([0-9A-Z]{4})\"[^>]*>(?:Section\s+)?([0-9]+\.[0-9]+.*?)</a>", ch_html)
 
+        seen_sec_tags = set()
+        for sec_tag, sec_title_html in sec_links:
+            if sec_tag in seen_sec_tags:
+                continue
+            seen_sec_tags.add(sec_tag)
+            sec_file = self.cache_dir / f"tag_{sec_tag}.html"
+            sec_html = sec_file.read_text(encoding="utf-8") if sec_file.exists() else ""
+
+            m_sec_h2 = re.search(r"<h2[^>]*>(.*?)</h2>", sec_html)
+            sec_h2_text = re.sub(r"<[^>]+>", " ", m_sec_h2.group(1)).strip() if m_sec_h2 else sec_tag
+            m_sec_num = re.search(r"(\d+\.\d+)", sec_h2_text)
+            sec_num = m_sec_num.group(1) if m_sec_num else f"{number}.x"
+            sec_title = sec_h2_text.replace(sec_num, "").strip() if sec_num else sec_h2_text
+
+            intro_envs = self._parse_environments_from_html(sec_html) if sec_html else []
             section = KerodonSection(
                 tag=sec_tag,
                 number=sec_num,
@@ -133,23 +156,37 @@ class KerodonExtractor:
                 intro_environments=intro_envs
             )
 
-            for sub_tag, sub_num, sub_title in subsec_defs:
-                sub_file = self.cache_dir / f"tag_{sub_tag}.html"
-                sub_envs = []
-                if sub_file.exists():
-                    sub_envs = self._parse_environments_from_html(sub_file.read_text(encoding="utf-8"))
+            # Find subsections
+            sub_matches = re.findall(r"<a[^>]*href=\"/tag/([0-9A-Z]{4})\"[^>]*>(.*?)</a>", sec_html)
+            seen_subs = set()
+            for sub_tag, sub_label in sub_matches:
+                sub_text = re.sub(r"<[^>]+>", " ", sub_label).strip()
+                if "Subsection" in sub_text and sub_tag not in seen_subs:
+                    seen_subs.add(sub_tag)
+                    sub_file = self.cache_dir / f"tag_{sub_tag}.html"
+                    sub_html = sub_file.read_text(encoding="utf-8") if sub_file.exists() else ""
 
-                subsection = KerodonSubsection(
-                    tag=sub_tag,
-                    number=sub_num,
-                    title=sub_title,
-                    environments=sub_envs
-                )
-                section.subsections.append(subsection)
+                    m_sub_h3 = re.search(r"<h[23][^>]*>(.*?)</h[23]>", sub_html)
+                    sub_h3_text = re.sub(r"<[^>]+>", " ", m_sub_h3.group(1)).strip() if m_sub_h3 else sub_tag
+                    m_sub_num = re.search(r"(\d+\.\d+\.\d+)", sub_h3_text)
+                    sub_num = m_sub_num.group(1) if m_sub_num else f"{sec_num}.{len(seen_subs)}"
+                    sub_title = sub_h3_text.replace(sub_num, "").strip() if sub_num else sub_h3_text
+
+                    sub_envs = self._parse_environments_from_html(sub_html) if sub_html else []
+                    section.subsections.append(KerodonSubsection(
+                        tag=sub_tag,
+                        number=sub_num,
+                        title=sub_title,
+                        environments=sub_envs
+                    ))
 
             chapter.sections.append(section)
 
         return chapter
+
+    def extract_chapter_1(self) -> KerodonChapter:
+        """Extract Chapter 1."""
+        return self.extract_chapter(1, "0001")
 
     def _parse_environments_from_html(self, html: str) -> List[KerodonEnvironment]:
         """Extract individual articles from HTML page content."""
@@ -164,25 +201,26 @@ class KerodonExtractor:
             hdr_m = re.search(r"<a class=\"environment-identifier\"[^>]*>(.*?)</a>", body, re.DOTALL)
             if hdr_m:
                 hdr_text = re.sub(r"<[^>]+>", " ", hdr_m.group(1)).strip()
-                # Match: "Definition 1.1.0.2 (The Simplex Category) ."
                 m_num = re.search(r"(\d+\.\d+\.\d+\.\d+)", hdr_text)
                 if m_num:
                     num = m_num.group(1)
-                m_title = re.search(r"\((.*)\)", hdr_text)
+                m_title = re.search(r"\((.*?)\)", hdr_text)
                 if m_title:
                     title = m_title.group(1).strip()
 
-            # Extract commutative diagrams
+            # Extract commutative diagrams from any equation div
             diagrams = []
             diag_idx = 1
-            eq_matches = list(re.finditer(r"<div class=\"equation\">\s*\\\[\s*(.*?)\s*\\\]\s*</div>", body, re.DOTALL))
+            eq_matches = list(re.finditer(r"<div class=\"equation\">\s*(.*?)\s*</div>", body, re.DOTALL))
             for eq_m in eq_matches:
                 eq_code = eq_m.group(1).strip()
                 if r"\xymatrix" in eq_code or r"\begin{xy}" in eq_code:
+                    clean_diag = re.sub(r"\\label\{[^}]+\}", "", eq_code)
+                    clean_diag = re.sub(r"\\begin\{equation\*?\}|\\end\{equation\*?\}|\\begin\{gathered\}|\\end\{gathered\}|\\\[|\\\]", "", clean_diag).strip()
                     diagram = KerodonDiagram(
                         tag=tag,
                         index=diag_idx,
-                        latex_source=eq_code,
+                        latex_source=clean_diag,
                         caption=f"Diagram {diag_idx} in Tag {tag} ({num})"
                     )
                     diagrams.append(diagram)
@@ -210,16 +248,17 @@ class KerodonExtractor:
         # Remove header link paragraph
         s = re.sub(r"<p><a class=\"environment-identifier\"[^>]*>.*?</a>\s*", "<p>", s, flags=re.DOTALL)
 
-        # Replace equation divs containing xymatrix with a special marker
+        # Replace any equation div
         def replace_eq(m):
             code = m.group(1).strip()
-            if r"\xymatrix" in code or r"\begin{xy}" in code:
-                return f"\n\n:::COMMUTATIVE_DIAGRAM:::{code}:::END_DIAGRAM:::\n\n"
+            clean_c = re.sub(r"\\label\{[^}]+\}", "", code)
+            clean_c = re.sub(r"\\begin\{equation\*?\}|\\end\{equation\*?\}|\\begin\{gathered\}|\\end\{gathered\}|\\\[|\\\]", "", clean_c).strip()
+            if r"\xymatrix" in clean_c or r"\begin{xy}" in clean_c:
+                return f"\n\n:::COMMUTATIVE_DIAGRAM:::{clean_c}:::END_DIAGRAM:::\n\n"
             else:
-                return f"\n\n$$\n{code}\n$$\n\n"
+                return f"\n\n$$\n{clean_c}\n$$\n\n"
 
-        s = re.sub(r"<div class=\"equation\">\s*\\\[\s*(.*?)\s*\\\]\s*</div>", replace_eq, s, flags=re.DOTALL)
-
+        s = re.sub(r"<div class=\"equation\">\s*(.*?)\s*</div>", replace_eq, s, flags=re.DOTALL)
         # Italics and bold
         s = re.sub(r"<em>(.*?)</em>", r"*\1*", s, flags=re.DOTALL)
         s = re.sub(r"<strong>(.*?)</strong>", r"**\1**", s, flags=re.DOTALL)

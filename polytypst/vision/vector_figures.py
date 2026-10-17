@@ -5,6 +5,11 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Ellipse, FancyArrow, Rectangle
+from matplotlib.axis import Axis
+from matplotlib.spines import Spine
+from matplotlib.text import Annotation, Text
+from matplotlib.transforms import Bbox
 
 # Configure matplotlib for publication styling
 plt.rcParams["font.sans-serif"] = ["Songti SC", "PingFang SC", "Heiti SC", "Hiragino Sans GB", "DejaVu Sans"]
@@ -12,332 +17,379 @@ plt.rcParams["axes.unicode_minus"] = False
 plt.rcParams["svg.fonttype"] = "none"  # Preserve text in SVG
 
 
-def generate_figure_1(out_path: Path) -> None:
-    """Figure 1: Organization Design Model Flowchart."""
-    fig, ax = plt.subplots(figsize=(6.4, 3.2), dpi=300)
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 5.6)
+INK = "#1a1a1a"
+ZH_FONT = "Songti SC"
+LATIN_FONT = "STIX Two Text"
+# Traced pixel coordinates come from 150-dpi scans of the original book; this
+# factor keeps each figure at its original size relative to the text block.
+PX_PT = 0.33
+CURVE_LW = 0.9
+AXIS_LW = 0.7
+GUIDE_LW = 0.5
+
+
+def _canvas(w_px: float, h_px: float, px_pt: float = PX_PT):
+    fig = plt.figure(figsize=(w_px * px_pt / 72, h_px * px_pt / 72))
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, w_px)
+    ax.set_ylim(h_px, 0)
     ax.axis("off")
+    return fig, ax
 
-    box_blue = dict(boxstyle="round,pad=0.42,rounding_size=0.15", fc="#f0f7ff", ec="#0284c7", lw=1.2)
-    box_gray = dict(boxstyle="round,pad=0.42,rounding_size=0.15", fc="#f8fafc", ec="#475569", lw=1.2)
-    box_amber = dict(boxstyle="round,pad=0.42,rounding_size=0.15", fc="#fffbeb", ec="#d97706", lw=1.2)
-    box_green = dict(boxstyle="round,pad=0.42,rounding_size=0.15", fc="#f0fdf4", ec="#16a34a", lw=1.4)
 
-    ax.text(5.0, 4.85, "设计者 (Designer)", ha="center", va="center", size=10.5, weight="bold", color="#0369a1", bbox=box_blue)
-    ax.text(2.0, 3.2, "战略 (Strategy)", ha="center", va="center", size=10, weight="bold", color="#1e293b", bbox=box_gray)
-    ax.text(5.0, 3.2, "活动 (Activities)", ha="center", va="center", size=10, weight="bold", color="#b45309", bbox=box_amber)
-    ax.text(8.0, 3.2, "组织 (Organization)", ha="center", va="center", size=10, weight="bold", color="#1e293b", bbox=box_gray)
+def _save(fig, out_path: Path) -> None:
+    renderer = fig.canvas.get_renderer()
+    ax = fig.axes[0]
+    extents = [
+        a.get_tightbbox(renderer)
+        for a in ax.get_children()
+        if a.get_visible() and a is not ax.patch and not isinstance(a, (Spine, Axis))
+        and not (isinstance(a, Text) and not isinstance(a, Annotation) and not a.get_text())
+    ]
+    box = Bbox.union([b for b in extents if b is not None and (b.width > 0 or b.height > 0)])
+    fig.savefig(out_path, format="svg", bbox_inches=box.transformed(fig.dpi_scale_trans.inverted()).padded(0.03))
+    plt.close(fig)
 
-    ax.text(2.0, 1.15, "环境 (Environment)", ha="center", va="center", size=10, weight="bold", color="#475569", bbox=box_gray)
-    ax.text(6.6, 1.15, "绩效 (Performance)", ha="center", va="center", size=11, weight="bold", color="#15803d", bbox=box_green)
 
-    arrow_subtle = dict(arrowstyle="->", lw=1.2, color="#475569", shrinkA=6, shrinkB=6)
+def _zh(ax, x, y, s, size=8.0, **kw):
+    kw.setdefault("ha", "center")
+    kw.setdefault("va", "center")
+    ax.text(x, y, s, fontfamily=ZH_FONT, fontsize=size, color=INK, **kw)
 
-    ax.annotate("", xy=(2.2, 3.65), xytext=(4.4, 4.45), arrowprops=arrow_subtle)
-    ax.annotate("", xy=(7.8, 3.65), xytext=(5.6, 4.45), arrowprops=arrow_subtle)
 
-    ax.annotate("", xy=(3.85, 3.2), xytext=(3.15, 3.2), arrowprops=arrow_subtle)
-    ax.annotate("", xy=(6.65, 3.2), xytext=(6.15, 3.2), arrowprops=arrow_subtle)
+def _latin(ax, x, y, s, size=8.5, **kw):
+    kw.setdefault("ha", "center")
+    kw.setdefault("va", "center")
+    ax.text(x, y, s, fontfamily=LATIN_FONT, fontsize=size, color=INK, **kw)
 
-    ax.annotate("", xy=(5.85, 1.62), xytext=(2.6, 2.75), arrowprops=arrow_subtle)
-    ax.annotate("", xy=(6.35, 1.62), xytext=(5.0, 2.75), arrowprops=arrow_subtle)
-    ax.annotate("", xy=(7.05, 1.62), xytext=(7.7, 2.75), arrowprops=arrow_subtle)
 
+def _line(ax, xs, ys, lw=AXIS_LW, style="solid"):
+    dashes = {"solid": None, "dashed": (4, 2.5), "dotted": (1, 1.8)}[style]
+    (ln,) = ax.plot(xs, ys, color=INK, lw=lw, solid_capstyle="butt", clip_on=False)
+    if dashes:
+        ln.set_dashes(dashes)
+
+
+def _arrow(ax, start, end, lw=0.7):
     ax.annotate(
         "",
-        xy=(5.25, 1.15),
-        xytext=(3.35, 1.15),
-        arrowprops=dict(
-            arrowstyle="simple,tail_width=1.6,head_width=5.2,head_length=5.2",
-            fc="#94a3b8",
-            ec="#475569",
-            lw=0.8,
-        ),
+        xy=end,
+        xytext=start,
+        arrowprops=dict(arrowstyle="-|>,head_length=0.5,head_width=0.22", lw=lw, color=INK, shrinkA=0, shrinkB=0),
+        annotation_clip=False,
     )
 
-    fig.tight_layout()
-    fig.savefig(out_path, format="svg", bbox_inches="tight")
-    plt.close(fig)
+
+def _hollow_arrow(ax, x, y, dx, dy):
+    ax.add_patch(
+        FancyArrow(
+            x, y, dx, dy, width=7, head_width=19, head_length=16,
+            length_includes_head=True, fc="white", ec=INK, lw=0.7, joinstyle="miter",
+        )
+    )
 
 
-def generate_figure_2(out_path: Path):
-    """Figure 2: 2x2 Matrix of Complementarity (Ford vs Toyota)."""
-    fig, ax = plt.subplots(figsize=(5.4, 3.6), dpi=300)
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 8)
-    ax.axis("off")
-
-    # Outer and inner grid lines
-    ax.plot([3, 9], [2, 2], color="#334155", lw=1.5)
-    ax.plot([3, 9], [4.8, 4.8], color="#94a3b8", lw=1.0)
-    ax.plot([3, 9], [7.6, 7.6], color="#334155", lw=1.5)
-
-    ax.plot([3, 3], [2, 7.6], color="#334155", lw=1.5)
-    ax.plot([6, 6], [2, 7.6], color="#94a3b8", lw=1.0)
-    ax.plot([9, 9], [2, 7.6], color="#334155", lw=1.5)
-
-    # Background fills for cells
-    rect_tl = plt.Rectangle((3.05, 4.85), 2.9, 2.7, fc="#f8fafc", zorder=0)
-    rect_tr = plt.Rectangle((6.05, 4.85), 2.9, 2.7, fc="#eff6ff", zorder=0)
-    rect_bl = plt.Rectangle((3.05, 2.05), 2.9, 2.7, fc="#fefce8", zorder=0)
-    rect_br = plt.Rectangle((6.05, 2.05), 2.9, 2.7, fc="#f8fafc", zorder=0)
-
-    for r in [rect_tl, rect_tr, rect_bl, rect_br]:
-        ax.add_patch(r)
-
-    # Cell texts
-    ax.text(4.5, 6.2, "通用汽车", ha="center", va="center", size=11.5, weight="bold", color="#1e293b")
-    ax.text(7.5, 6.2, "丰田", ha="center", va="center", size=12, weight="bold", color="#1d4ed8")
-    ax.text(7.5, 5.4, "(现代互补模式)", ha="center", va="center", size=8.5, color="#3b82f6")
-
-    ax.text(4.5, 3.4, "福特", ha="center", va="center", size=12, weight="bold", color="#b45309")
-    ax.text(4.5, 2.6, "(传统大批量生产)", ha="center", va="center", size=8.5, color="#d97706")
-
-    ax.text(7.5, 3.4, "？", ha="center", va="center", size=14, weight="bold", color="#94a3b8")
-    ax.text(7.5, 2.6, "(非匹配选择)", ha="center", va="center", size=8.5, color="#94a3b8")
-
-    # Axis indicators
-    ax.text(2.4, 6.2, "高", ha="center", va="center", size=10, color="#475569")
-    ax.text(2.4, 3.4, "低", ha="center", va="center", size=10, color="#475569")
-    ax.text(1.5, 4.8, "柔性", ha="center", va="center", size=11, weight="bold", color="#1e293b", rotation=90)
-
-    ax.text(4.5, 1.4, "低", ha="center", va="center", size=10, color="#475569")
-    ax.text(7.5, 1.4, "高", ha="center", va="center", size=10, color="#475569")
-    ax.text(6.0, 0.6, "多样性", ha="center", va="center", size=11, weight="bold", color="#1e293b")
-
-    fig.tight_layout()
-    fig.savefig(out_path, format="svg", bbox_inches="tight")
-    plt.close(fig)
+def _smooth(points, n=24):
+    """Catmull-Rom spline through the traced points, so curves pass exactly through peaks."""
+    p = np.asarray(points, dtype=float)
+    p = np.vstack([p[0], p, p[-1]])
+    t = np.linspace(0, 1, n, endpoint=False)[:, None]
+    segments = []
+    for i in range(1, len(p) - 2):
+        p0, p1, p2, p3 = p[i - 1], p[i], p[i + 1], p[i + 2]
+        segments.append(
+            0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t**2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t**3)
+        )
+    segments.append(p[-2][None])
+    return np.vstack(segments)
 
 
-def generate_figure_3(out_path: Path):
-    """Figure 3: Classical Concave Relationship."""
-    fig, ax = plt.subplots(figsize=(5.5, 3.4), dpi=300)
-    x = np.linspace(0.8, 5.2, 200)
-    y = -0.55 * (x - 3.2)**2 + 4.2
-
-    ax.plot(x, y, color="#1e293b", lw=2.0)
-    ax.set_xlim(0, 6)
-    ax.set_ylim(0, 5.0)
-
-    ax.plot(3.2, 4.2, "o", color="#1e293b", ms=5)
-    ax.text(3.2, 4.5, "X (最优选择)", ha="center", va="bottom", size=10.5, weight="bold", color="#0f172a")
-    ax.plot([3.2, 3.2], [0, 4.2], ":", color="#94a3b8", lw=1.0)
-
-    ax.plot(1.8, 3.12, "o", color="#b45309", ms=5)
-    ax.text(1.7, 3.4, "Y (次优点)", ha="right", va="bottom", size=10, weight="bold", color="#b45309")
-    ax.plot([1.8, 1.8], [0, 3.12], ":", color="#94a3b8", lw=1.0)
-
-    # Arrow from Y to X indicating improvement
-    ax.annotate("局部渐进改进 (kaizen)", xy=(2.9, 4.1), xytext=(1.9, 4.2),
-                arrowprops=dict(arrowstyle="->", lw=1.0, color="#0284c7"),
-                size=8.5, color="#0284c7")
-
-    ax.set_xlabel("选择水平 (Choice Level)", size=10, labelpad=6, color="#334155")
-    ax.set_ylabel("绩效 (Performance)", size=10, labelpad=6, color="#334155")
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_color("#64748b")
-    ax.spines["bottom"].set_color("#64748b")
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    fig.tight_layout()
-    fig.savefig(out_path, format="svg", bbox_inches="tight")
-    plt.close(fig)
+def _relax(curve, sigma_px=16.0):
+    """Gaussian-smooth along arc length; odd reflection at the ends keeps endpoints and end slopes fixed."""
+    seg = np.hypot(*np.diff(curve, axis=0).T)
+    s = np.concatenate([[0], np.cumsum(seg)])
+    u = np.arange(0, s[-1], 1.0)
+    c = np.column_stack([np.interp(u, s, curve[:, 0]), np.interp(u, s, curve[:, 1])])
+    k = int(3 * sigma_px)
+    if len(c) <= 2 * k + 1:
+        return curve
+    kernel = np.exp(-0.5 * (np.arange(-k, k + 1) / sigma_px) ** 2)
+    kernel /= kernel.sum()
+    padded = np.vstack([2 * c[0] - c[k:0:-1], c, 2 * c[-1] - c[-2:-k - 2:-1]])
+    out = np.column_stack([np.convolve(padded[:, i], kernel, mode="valid") for i in range(2)])
+    out[0], out[-1] = curve[0], curve[-1]
+    return out
 
 
-def generate_figure_4(out_path: Path):
-    """Figure 4: Shifted Relationship."""
-    fig, ax = plt.subplots(figsize=(5.5, 3.4), dpi=300)
-    x = np.linspace(0.8, 5.4, 200)
-    y1 = -0.65 * (x - 2.6)**2 + 4.0
-    y2 = -0.55 * (x - 4.1)**2 + 4.6
-
-    ax.plot(x, y1, color="#475569", lw=1.8, label="初始环境关系")
-    ax.plot(x, y2, color="#0284c7", lw=2.0, linestyle="--", label="新环境关系")
-    ax.set_xlim(0, 6)
-    ax.set_ylim(0, 5.2)
-
-    ax.plot(2.6, 4.0, "o", color="#475569", ms=5)
-    ax.text(2.6, 4.3, "X", ha="center", va="bottom", size=10.5, weight="bold", color="#334155")
-
-    ax.plot(4.1, 4.6, "o", color="#0284c7", ms=5)
-    ax.text(4.1, 4.9, "X' (新最佳点)", ha="center", va="bottom", size=10.5, weight="bold", color="#0284c7")
-
-    # Shift arrow
-    ax.annotate("", xy=(3.9, 4.5), xytext=(2.8, 4.1),
-                arrowprops=dict(arrowstyle="->", lw=1.2, color="#0284c7", linestyle="--"))
-
-    ax.set_xlabel("选择水平 (Choice Level)", size=10, labelpad=6, color="#334155")
-    ax.set_ylabel("绩效 (Performance)", size=10, labelpad=6, color="#334155")
-    ax.legend(frameon=False, loc="upper left", fontsize=8.5)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_color("#64748b")
-    ax.spines["bottom"].set_color("#64748b")
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    fig.tight_layout()
-    fig.savefig(out_path, format="svg", bbox_inches="tight")
-    plt.close(fig)
+def _bezier(p0, p1, p2, p3, n=200):
+    t = np.linspace(0, 1, n)[:, None]
+    p0, p1, p2, p3 = (np.asarray(p, dtype=float) for p in (p0, p1, p2, p3))
+    return (1 - t) ** 3 * p0 + 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t**2 * p2 + t**3 * p3
 
 
-def generate_figure_5(out_path: Path):
-    """Figure 5: Non-Concave Relationship (Multiple Local Optima)."""
-    fig, ax = plt.subplots(figsize=(5.5, 3.4), dpi=300)
-    x = np.linspace(0.8, 5.2, 300)
-    y = 2.0 + 1.7 * np.sin(x * 1.9 - 0.6) + 0.5 * x
-
-    ax.plot(x, y, color="#1e293b", lw=2.0)
-    ax.set_xlim(0, 6)
-    ax.set_ylim(0, 5.8)
-
-    ax.plot(1.8, 3.9, "o", color="#d97706", ms=5)
-    ax.text(1.8, 4.2, "Y (局部最佳)", ha="center", va="bottom", size=9.5, weight="bold", color="#d97706")
-
-    ax.plot(3.1, 2.3, "o", color="#ef4444", ms=5)
-    ax.text(3.1, 1.8, "Z (内在不匹配)", ha="center", va="top", size=9.5, weight="bold", color="#ef4444")
-
-    ax.plot(4.8, 5.2, "o", color="#16a34a", ms=5)
-    ax.text(4.8, 5.5, "X (全局最佳)", ha="center", va="bottom", size=9.5, weight="bold", color="#16a34a")
-
-    ax.set_xlabel("选择水平 (Choice Level)", size=10, labelpad=6, color="#334155")
-    ax.set_ylabel("绩效 (Performance)", size=10, labelpad=6, color="#334155")
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_color("#64748b")
-    ax.spines["bottom"].set_color("#64748b")
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    fig.tight_layout()
-    fig.savefig(out_path, format="svg", bbox_inches="tight")
-    plt.close(fig)
+def _curve(ax, points, style="solid", lw=CURVE_LW):
+    c = _relax(_smooth(points))
+    _line(ax, c[:, 0], c[:, 1], lw=lw, style=style)
+    return c
 
 
-def generate_figure_6(out_path: Path):
-    """Figure 6: 2D Contour Map with Peaks A and B."""
-    fig, ax = plt.subplots(figsize=(5.2, 3.6), dpi=300)
-    x = np.linspace(-3, 3, 200)
-    y = np.linspace(-3, 3, 200)
-    X, Y = np.meshgrid(x, y)
-    Z = np.exp(-((X - 1.2)**2 + (Y - 1.2)**2)) + 0.7 * np.exp(-((X + 1.2)**2 + (Y + 1.2)**2))
-
-    cs = ax.contour(X, Y, Z, levels=7, colors="#475569", linewidths=1.1)
-    ax.clabel(cs, inline=True, fontsize=7.5, fmt="%.1f")
-
-    ax.plot(1.2, 1.2, "o", color="#16a34a", ms=6)
-    ax.text(1.4, 1.2, "A (丰田模式峰值)", size=10, weight="bold", color="#15803d")
-
-    ax.plot(-1.2, -1.2, "o", color="#d97706", ms=6)
-    ax.text(-1.0, -1.2, "B (福特模式峰值)", size=10, weight="bold", color="#b45309")
-
-    ax.set_xlabel("选择维度 1 (多样性)", size=10, color="#334155")
-    ax.set_ylabel("选择维度 2 (柔性)", size=10, color="#334155")
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    fig.tight_layout()
-    fig.savefig(out_path, format="svg", bbox_inches="tight")
-    plt.close(fig)
+def _y_at(curve, x):
+    return float(np.interp(x, curve[:, 0], curve[:, 1]))
 
 
-def generate_figure_7(out_path: Path):
-    """Figure 7: Discontinuous Jump in Optimal Choice Over Time."""
-    fig, ax = plt.subplots(figsize=(5.5, 3.4), dpi=300)
-    t = np.linspace(0, 10, 200)
-    p_incumbent = 3.0 + 0.15 * t
-    p_modern = 1.2 + 0.45 * t
-
-    ax.plot(t, p_incumbent, color="#94a3b8", lw=1.8, linestyle="--", label="传统模式 (福特式)")
-    ax.plot(t, p_modern, color="#0284c7", lw=2.2, label="现代模式 (丰田式)")
-
-    t_cross = (3.0 - 1.2) / (0.45 - 0.15)
-    p_cross = 3.0 + 0.15 * t_cross
-    ax.plot(t_cross, p_cross, "o", color="#e11d48", ms=6)
-    ax.annotate("突破点 / 范式转移", xy=(t_cross, p_cross), xytext=(t_cross - 2.8, p_cross + 0.9),
-                arrowprops=dict(arrowstyle="->", lw=1.1, color="#e11d48"),
-                size=9.5, weight="bold", color="#e11d48")
-
-    ax.set_xlabel("时间 / 环境变迁", size=10, labelpad=6, color="#334155")
-    ax.set_ylabel("实现绩效", size=10, labelpad=6, color="#334155")
-    ax.legend(frameon=False, loc="upper left", fontsize=8.5)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_color("#64748b")
-    ax.spines["bottom"].set_color("#64748b")
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    fig.tight_layout()
-    fig.savefig(out_path, format="svg", bbox_inches="tight")
-    plt.close(fig)
+def _axes_l(ax, x0, y_top, y_base, x_right):
+    _line(ax, [x0, x0, x_right], [y_top, y_base, y_base])
 
 
-def generate_figure_8(out_path: Path):
-    """Figure 8: Feasible Frontier of Cooperation and Initiative."""
-    fig, ax = plt.subplots(figsize=(5.5, 3.4), dpi=300)
-    c = np.linspace(0.5, 4.5, 200)
-    i_frontier = 4.5 - 0.3 * c**1.8
+def generate_figure_1(out_path: Path) -> None:
+    """图 1: 设计者、战略、活动、组织、环境与绩效 (original p.12)."""
+    svg = """<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="20 8 405 272" width="218pt" height="146pt" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="tikz-stealth" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="7.5" markerHeight="6" orient="auto">
+      <path d="M 0 0.5 L 9.5 4 L 0 7.5 L 2.6 4 Z" fill="#1a1a1a"/>
+    </marker>
+  </defs>
+  <line x1="188" y1="42" x2="106" y2="104" stroke="#1a1a1a" stroke-width="0.95" marker-end="url(#tikz-stealth)"/>
+  <line x1="272" y1="42" x2="354" y2="104" stroke="#1a1a1a" stroke-width="0.95" marker-end="url(#tikz-stealth)"/>
+  <line x1="124" y1="126" x2="179" y2="126" stroke="#1a1a1a" stroke-width="0.95" marker-end="url(#tikz-stealth)"/>
+  <line x1="281" y1="126" x2="316" y2="126" stroke="#1a1a1a" stroke-width="0.95" marker-end="url(#tikz-stealth)"/>
 
-    ax.plot(c, i_frontier, color="#1e293b", lw=2.0)
-    ax.fill_between(c, 0, i_frontier, color="#f1f5f9", alpha=0.8)
+  <line x1="124" y1="145" x2="313" y2="229" stroke="#1a1a1a" stroke-width="6.2"/>
+  <line x1="122" y1="144" x2="314" y2="229.5" stroke="#ffffff" stroke-width="4.2"/>
+  <path d="M 306 218.5 L 316.5 230.5 L 300.5 231" fill="none" stroke="#1a1a1a" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 
-    ax.plot(0.8, 4.25, "o", color="#0284c7", ms=5)
-    ax.text(1.0, 4.25, "市场交易 (高主动，低合作)", size=9.5, weight="bold", color="#0369a1")
+  <line x1="363" y1="145" x2="363" y2="224" stroke="#1a1a1a" stroke-width="6.2"/>
+  <line x1="363" y1="144" x2="363" y2="225" stroke="#ffffff" stroke-width="4.2"/>
+  <path d="M 356 217 L 363 226.5 L 370 217" fill="none" stroke="#1a1a1a" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 
-    ax.plot(4.0, 1.0, "o", color="#b45309", ms=5)
-    ax.text(2.4, 0.7, "内部科层 (高合作，低主动)", size=9.5, weight="bold", color="#b45309")
+  <line x1="124" y1="250" x2="313" y2="250" stroke="#1a1a1a" stroke-width="6.2"/>
+  <line x1="123" y1="250" x2="314" y2="250" stroke="#ffffff" stroke-width="4.2"/>
+  <path d="M 306 243 L 315.5 250 L 306 257" fill="none" stroke="#1a1a1a" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 
-    ax.set_xlim(0, 5)
-    ax.set_ylim(0, 5)
-    ax.set_xlabel("合作行为 (Cooperation)", size=10, labelpad=6, color="#334155")
-    ax.set_ylabel("主动行为 (Initiative)", size=10, labelpad=6, color="#334155")
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_color("#64748b")
-    ax.spines["bottom"].set_color("#64748b")
-    ax.set_xticks([])
-    ax.set_yticks([])
+  <rect x="188" y="18" width="84" height="36" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.05"/>
+  <text x="230" y="41" text-anchor="middle" font-family="Songti SC, STSong, Noto Serif CJK SC, serif" font-size="15.5" fill="#1a1a1a">设计者</text>
 
-    fig.tight_layout()
-    fig.savefig(out_path, format="svg", bbox_inches="tight")
-    plt.close(fig)
+  <rect x="40" y="108" width="84" height="36" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.05"/>
+  <text x="82" y="131" text-anchor="middle" font-family="Songti SC, STSong, Noto Serif CJK SC, serif" font-size="15.5" fill="#1a1a1a">战略</text>
+
+  <ellipse cx="230" cy="126" rx="45" ry="20" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.05"/>
+  <text x="230" y="131" text-anchor="middle" font-family="Songti SC, STSong, Noto Serif CJK SC, serif" font-size="15.5" fill="#1a1a1a">活动</text>
+
+  <rect x="321" y="108" width="84" height="36" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.05"/>
+  <text x="363" y="131" text-anchor="middle" font-family="Songti SC, STSong, Noto Serif CJK SC, serif" font-size="15.5" fill="#1a1a1a">组织</text>
+
+  <rect x="40" y="232" width="84" height="36" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.05"/>
+  <text x="82" y="255" text-anchor="middle" font-family="Songti SC, STSong, Noto Serif CJK SC, serif" font-size="15.5" fill="#1a1a1a">环境</text>
+
+  <rect x="321" y="232" width="84" height="36" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.05"/>
+  <rect x="324" y="235" width="78" height="30" fill="none" stroke="#1a1a1a" stroke-width="0.65"/>
+  <text x="363" y="255" text-anchor="middle" font-family="Songti SC, STSong, Noto Serif CJK SC, serif" font-size="15.5" fill="#1a1a1a">绩效</text>
+</svg>
+"""
+    out_path.write_text(svg, encoding="utf-8")
 
 
-def generate_figure_9(out_path: Path):
-    """Figure 9: Expanded Frontier via Relational Contracts."""
-    fig, ax = plt.subplots(figsize=(5.5, 3.4), dpi=300)
-    c = np.linspace(0.5, 4.5, 200)
-    i1 = 4.0 - 0.3 * c**1.8
-    i2 = 4.8 - 0.25 * c**1.7
+def generate_figure_2(out_path: Path) -> None:
+    """图 2: 柔性 × 多样性 2×2 矩阵 (original p.24)."""
+    svg = """<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="24 10 355 252" width="205pt" height="145pt" xmlns="http://www.w3.org/2000/svg">
+  <rect x="112" y="20" width="252" height="178" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.5"/>
+  <line x1="238" y1="20" x2="238" y2="198" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="4 3"/>
+  <line x1="112" y1="109" x2="364" y2="109" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="4 3"/>
 
-    ax.plot(c, i1, color="#94a3b8", lw=1.6, linestyle="--", label="单期边界 (市场/科层二分)")
-    ax.plot(c, i2, color="#0284c7", lw=2.2, label="长期关系边界 (关系型契约)")
+  <rect x="132" y="44" width="86" height="42" rx="6" fill="#ffffff" stroke="#334155" stroke-width="1.35"/>
+  <text x="175" y="70" text-anchor="middle" font-family="Songti SC, PingFang SC, STSong, serif" font-size="15" font-weight="500" fill="#0f172a">通用汽车</text>
 
-    ax.plot(2.5, 3.2, "o", color="#16a34a", ms=6)
-    ax.text(2.6, 3.3, "R (关系型契约双高点)", size=10, weight="bold", color="#15803d")
+  <rect x="258" y="44" width="86" height="42" rx="6" fill="#ffffff" stroke="#334155" stroke-width="1.35"/>
+  <text x="301" y="70" text-anchor="middle" font-family="Songti SC, PingFang SC, STSong, serif" font-size="15" font-weight="500" fill="#0f172a">丰田</text>
 
-    ax.set_xlim(0, 5)
-    ax.set_ylim(0, 5.2)
-    ax.set_xlabel("合作行为 (Cooperation)", size=10, labelpad=6, color="#334155")
-    ax.set_ylabel("主动行为 (Initiative)", size=10, labelpad=6, color="#334155")
-    ax.legend(frameon=False, loc="upper right", fontsize=8.5)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_color("#64748b")
-    ax.spines["bottom"].set_color("#64748b")
-    ax.set_xticks([])
-    ax.set_yticks([])
+  <rect x="132" y="132" width="86" height="42" rx="6" fill="#ffffff" stroke="#334155" stroke-width="1.35"/>
+  <text x="175" y="158" text-anchor="middle" font-family="Songti SC, PingFang SC, STSong, serif" font-size="15" font-weight="500" fill="#0f172a">福特</text>
 
-    fig.tight_layout()
-    fig.savefig(out_path, format="svg", bbox_inches="tight")
-    plt.close(fig)
+  <rect x="258" y="132" width="86" height="42" rx="6" fill="#f1f5f9" stroke="#64748b" stroke-width="1.35" stroke-dasharray="4 3"/>
+  <text x="301" y="159" text-anchor="middle" font-family="STIX Two Text, Times New Roman, serif" font-size="18" font-weight="600" fill="#334155">?</text>
+
+  <text x="44" y="102" text-anchor="middle" font-family="Songti SC, PingFang SC, STSong, serif" font-size="15" font-weight="600" fill="#1e293b">柔</text>
+  <text x="44" y="124" text-anchor="middle" font-family="Songti SC, PingFang SC, STSong, serif" font-size="15" font-weight="600" fill="#1e293b">性</text>
+  <text x="88" y="70" text-anchor="middle" font-family="Songti SC, PingFang SC, STSong, serif" font-size="13.5" font-weight="500" fill="#475569">高</text>
+  <text x="88" y="158" text-anchor="middle" font-family="Songti SC, PingFang SC, STSong, serif" font-size="13.5" font-weight="500" fill="#475569">低</text>
+
+  <text x="175" y="222" text-anchor="middle" font-family="Songti SC, PingFang SC, STSong, serif" font-size="13.5" font-weight="500" fill="#475569">低</text>
+  <text x="301" y="222" text-anchor="middle" font-family="Songti SC, PingFang SC, STSong, serif" font-size="13.5" font-weight="500" fill="#475569">高</text>
+  <text x="238" y="250" text-anchor="middle" font-family="Songti SC, PingFang SC, STSong, serif" font-size="15" font-weight="600" fill="#1e293b" letter-spacing="2">多样性</text>
+</svg>
+"""
+    out_path.write_text(svg, encoding="utf-8")
+
+
+def generate_figure_3(out_path: Path) -> None:
+    """图 3: 选择和绩效关系的经典模型 (original p.32)."""
+    fig, ax = _canvas(480, 300)
+    _axes_l(ax, 42, 18, 237, 442)
+    c = _curve(ax, [(42, 147), (90, 97), (135, 52), (200, 22), (255, 52), (327, 105), (375, 157), (417, 202)])
+    for x, label in ((200, "X"), (327, "Y")):
+        _line(ax, [x, x], [_y_at(c, x), 237], lw=GUIDE_LW, style="dashed")
+        _latin(ax, x, 252, label)
+    _zh(ax, 262, 278, "选择")
+    _zh(ax, 20, 140, "绩效", rotation=90)
+    _save(fig, out_path)
+
+
+def generate_figure_4(out_path: Path) -> None:
+    """图 4: 选择和绩效的关系发生改变 (original p.33)."""
+    fig, ax = _canvas(500, 330)
+    _axes_l(ax, 57, 15, 210, 475)
+    _curve(ax, [(65, 170), (90, 135), (140, 92), (205, 62), (260, 80), (312, 120), (360, 180)])
+    new = _curve(ax, [(140, 160), (170, 110), (205, 62), (260, 30), (312, 22), (360, 30), (395, 48)], style="dashed")
+    for x, label in ((205, "X"), (312, "X′")):
+        _line(ax, [x, x], [_y_at(new, x), 210], lw=GUIDE_LW, style="dashed")
+        _latin(ax, x, 226, label)
+    _zh(ax, 260, 252, "选择")
+    _zh(ax, 36, 112, "绩效", rotation=90)
+    _save(fig, out_path)
+
+
+def generate_figure_5(out_path: Path) -> None:
+    """图 5: 非凹性的绩效关系 (original p.35)."""
+    fig, ax = _canvas(530, 340)
+    _axes_l(ax, 50, 18, 262, 505)
+    c = _curve(ax, [
+        (50, 118), (90, 75), (130, 35), (165, 25), (200, 35), (245, 85), (290, 130),
+        (322, 140), (360, 122), (382, 100), (405, 90), (430, 110), (470, 152),
+    ])
+    for x, label in ((165, "Y"), (322, "Z"), (405, "X")):
+        _line(ax, [x, x], [_y_at(c, x), 262], lw=GUIDE_LW, style="dashed")
+        _latin(ax, x, 278, label)
+    _zh(ax, 262, 306, "选择")
+    _zh(ax, 28, 135, "绩效", rotation=90)
+    _save(fig, out_path)
+
+
+def _two_peak_field(x, y):
+    def bump(cx, cy, sx, sy, theta_deg, height):
+        th = np.deg2rad(theta_deg)
+        u = (x - cx) * np.cos(th) + (y - cy) * np.sin(th)
+        v = -(x - cx) * np.sin(th) + (y - cy) * np.cos(th)
+        return height * np.exp(-(u**2 / (2 * sx**2) + v**2 / (2 * sy**2)))
+
+    return bump(281, 118, 58, 40, 35, 1.0) + bump(163, 215, 34, 52, 15, 0.92)
+
+
+def generate_figure_6(out_path: Path) -> None:
+    """图 6: 非凹性允许存在多个不同的内在相互匹配的点 (original p.36)."""
+    fig, ax = _canvas(460, 395)
+    _axes_l(ax, 65, 50, 332, 435)
+
+    xs, ys = np.meshgrid(np.linspace(75, 425, 400), np.linspace(18, 325, 360))
+    z = _two_peak_field(xs, ys)
+    ax.contour(xs, ys, z, levels=[0.13, 0.3, 0.52, 0.74], colors=INK, linewidths=CURVE_LW)
+    for cx, cy in ((281, 118), (163, 215)):
+        ax.add_patch(Ellipse((cx, cy), 10, 8, fill=False, ec=INK, lw=CURVE_LW))
+
+    # Arrows point uphill and cross a contour line, as in the original.
+    arrows = [  # (peak, screen angle in degrees, contour level)
+        ((281, 118), -60, 0.3), ((281, 118), 30, 0.13), ((281, 118), 100, 0.3),
+        ((163, 215), 15, 0.13), ((163, 215), 50, 0.3), ((163, 215), 140, 0.3), ((163, 215), -45, 0.74),
+    ]
+    for (cx, cy), angle, level in arrows:
+        ray = np.deg2rad(angle)
+        r = np.arange(0, 260, 0.5)
+        vals = _two_peak_field(cx + r * np.cos(ray), cy + r * np.sin(ray))
+        hit = r[np.argmax(vals < level)]
+        px, py = cx + hit * np.cos(ray), cy + hit * np.sin(ray)
+        gx = _two_peak_field(px + 0.5, py) - _two_peak_field(px - 0.5, py)
+        gy = _two_peak_field(px, py + 0.5) - _two_peak_field(px, py - 0.5)
+        d = np.array([gx, gy]) / np.hypot(gx, gy)
+        _arrow(ax, (px - 14 * d[0], py - 14 * d[1]), (px + 9 * d[0], py + 9 * d[1]), lw=0.6)
+
+    for (cx, cy), label in (((163, 215), "A"), ((281, 118), "B")):
+        _line(ax, [52, cx], [cy, cy], lw=GUIDE_LW)
+        _line(ax, [cx, cx], [cy, 345], lw=GUIDE_LW)
+        _latin(ax, 38, cy, label)
+        _latin(ax, cx, 362, label)
+    _save(fig, out_path)
+
+
+def generate_figure_7(out_path: Path) -> None:
+    """图 7: 非凹性绩效关系的转变导致最佳绩效点的不连续改变 (original p.38)."""
+    # Traced from a 220-dpi crop, hence the smaller pixel-to-point factor.
+    fig, ax = _canvas(1150, 790, px_pt=0.225)
+    t1, t2, t3 = (480, 445), (282, 565), (130, 658)
+
+    _arrow(ax, t1, (482, 72))
+    _arrow(ax, t1, (1052, 445))
+    _line(ax, [t2[0], t2[0]], [t2[1], 100])
+    _line(ax, [t2[0], 1030], [t2[1], t2[1]])
+    _line(ax, [t3[0], t3[0]], [t3[1], 60])
+    _line(ax, [t3[0], 1045], [t3[1], t3[1]])
+    _arrow(ax, t1, (70, 712))
+
+    lw = 1.2
+    back = _curve(ax, [(482, 180), (520, 120), (610, 85), (690, 125), (760, 180), (830, 165), (900, 148), (980, 180), (1080, 222)], lw=lw)
+    mid = _curve(ax, [(282, 300), (330, 250), (430, 210), (520, 260), (640, 305), (720, 265), (822, 210), (920, 245), (1015, 290)], lw=lw)
+    front = _curve(ax, [(130, 430), (170, 385), (250, 352), (380, 400), (480, 445), (560, 438), (610, 410), (700, 320), (808, 267), (900, 300), (975, 380)], lw=lw)
+
+    guides = [
+        (back, 610, t1[1], "dashed", "Y₁", 6), (back, 900, t1[1], "dotted", "X₁", 6),
+        (mid, 430, t2[1], "dashed", "Y₂", 6), (mid, 822, t2[1], "dashed", "X₂", 24),
+        (front, 255, t3[1], "dotted", "Y₃", 6), (front, 808, t3[1], "dashed", "X₃", 6),
+    ]
+    for curve, x, base, style, label, dx in guides:
+        _line(ax, [x, x], [_y_at(curve, x), base], lw=0.8, style=style)
+        _latin(ax, x + dx, base + 30, label, size=8.5)
+
+    _zh(ax, 525, 48, "绩效")
+    _zh(ax, 1105, 445, "选择")
+    _latin(ax, 505, 472, "T₁")
+    _latin(ax, 244, 548, "T₂")
+    _latin(ax, 44, 672, "T₃")
+    _zh(ax, 48, 750, "时间")
+    _save(fig, out_path)
+
+
+def _arrow_to(ax, start, curve, frac, gap=3.0):
+    """Arrow from a label to the point at `frac` along `curve`, stopping `gap` px short of the line."""
+    tip = curve[int(frac * (len(curve) - 1))]
+    d = tip - np.asarray(start, dtype=float)
+    _arrow(ax, start, tip - gap * d / np.hypot(*d))
+
+
+def generate_figure_8(out_path: Path) -> None:
+    """图 8: 合作和主动行为 (original p.64)."""
+    fig, ax = _canvas(450, 337)
+    _axes_l(ax, 62, 12, 285, 410)
+    frontier = _bezier((62, 65), (92, 215), (160, 272), (330, 285))
+    _line(ax, frontier[:, 0], frontier[:, 1], lw=CURVE_LW)
+    _arrow_to(ax, (125, 58), frontier, 0.05)
+    _zh(ax, 155, 48, "市场")
+    _arrow_to(ax, (180, 160), frontier, 0.28)
+    _zh(ax, 212, 152, "边界")
+    _arrow_to(ax, (318, 212), frontier, 0.9)
+    _zh(ax, 330, 168, "理想的")
+    _zh(ax, 330, 192, "等级机构")
+    _zh(ax, 28, 150, "主动行为", rotation=90)
+    _zh(ax, 210, 310, "合作行为")
+    _save(fig, out_path)
+
+
+def generate_figure_9(out_path: Path) -> None:
+    """图 9: 长期关系拓宽了可实现的行为的组合 (original p.115)."""
+    fig, ax = _canvas(470, 395)
+    _axes_l(ax, 58, 30, 348, 455)
+    outer = _bezier((58, 62), (170, 95), (290, 200), (312, 348))
+    inner = _bezier((58, 62), (95, 150), (200, 290), (312, 348))
+    for c in (outer, inner):
+        _line(ax, c[:, 0], c[:, 1], lw=CURVE_LW)
+    _arrow_to(ax, (162, 48), inner, 0.14)
+    _zh(ax, 192, 28, "市场交易")
+    _arrow_to(ax, (262, 156), outer, 0.6)
+    _latin(ax, 276, 148, "R")
+    _arrow_to(ax, (318, 232), inner, 0.78)
+    _zh(ax, 352, 220, "内部供应")
+    _zh(ax, 24, 195, "主动行为", rotation=90)
+    _zh(ax, 265, 375, "合作行为")
+    _save(fig, out_path)
 
 
 def generate_serre_figure_1(out_path: Path) -> None:

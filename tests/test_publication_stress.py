@@ -179,6 +179,12 @@ def test_serre_semantic_theorem_and_proof_environments() -> None:
     assert typ_text.count("#lemma(") + typ_text.count("#lemma[") >= 20, "Expected structured #lemma blocks in Serre Typst"
     assert typ_text.count("#corollary(") + typ_text.count("#corollary[") >= 15, "Expected structured #corollary blocks in Serre Typst"
     assert typ_text.count("#definition(") + typ_text.count("#definition[") >= 10, "Expected structured #definition blocks in Serre Typst"
+    for callout_color in ("#2563eb", "#4f46e5", "#f8fafc"):
+        assert callout_color not in typ_text, f"Non-monograph callout color {callout_color} in Serre Typst"
+    assert '<séries-de-dirichlet-à-coefficients-positifs.>\n\n#proposition[\n#strong[PROPOSITION 7.]' in typ_text
+    assert "upright(A r g)" not in typ_text and 'upright("Arg")' in typ_text
+    assert "bb(R) \\( z - z_0 \\)" not in typ_text and "R \\( z - z_0 \\)" in typ_text
+    assert "lr(|z - 1|)" in typ_text
 
 
 def test_serre_vector_figures_embedded() -> None:
@@ -504,6 +510,57 @@ def test_serre_figure_cross_references_and_notation_math_mode() -> None:
 
     for bad_prose in ["l'arc BB'", "arcs CC' et DD'", "le demi-plan H"]:
         assert bad_prose not in md_text, f"Un-mathified symbol in Serre prose: '{bad_prose}'"
+
+
+def _pandoc_ast_problems(blocks: list, problems: list[str]) -> None:
+    for node in blocks:
+        if isinstance(node, list):
+            _pandoc_ast_problems(node, problems)
+            continue
+        if not isinstance(node, dict) or "t" not in node:
+            continue
+        kind, content = node["t"], node.get("c")
+        if kind in ("RawInline", "RawBlock") and content[0] in ("tex", "latex"):
+            problems.append(f"raw TeX dropped by pandoc: {content[1][:60]}")
+        elif kind == "Str" and ("\\" in content or "^{" in content or "_{" in content):
+            problems.append(f"LaTeX left as plain text: {content[:60]}")
+        elif kind == "OrderedList":
+            (_, style, delim), items = content[0], content[1]
+            first_block = items[0][0] if items and items[0] else {}
+            inlines = first_block.get("c", []) if first_block.get("t") in ("Para", "Plain") else []
+            formula_only = bool(inlines) and inlines[0].get("t") == "Math" and all(
+                i.get("t") in ("Math", "Space", "SoftBreak") or (i.get("t") == "Str" and i["c"] in ".,;:")
+                for i in inlines
+            )
+            if style["t"] == "Decimal" and delim["t"] == "TwoParens" and formula_only:
+                problems.append(f"equation number parsed as list marker: {inlines[0]['c'][1][:60]}")
+        if isinstance(content, list):
+            _pandoc_ast_problems(content, problems)
+
+
+def test_serre_every_formula_reaches_pandoc_as_math() -> None:
+    import json
+    import subprocess
+
+    ast = json.loads(
+        subprocess.run(
+            ["pandoc", str(SERRE_DIR / "combined_serre.md"), "-f", "markdown", "-t", "json"],
+            capture_output=True, text=True, check=True,
+        ).stdout
+    )
+    problems: list[str] = []
+    _pandoc_ast_problems(ast["blocks"], problems)
+    assert not problems, f"{len(problems)} formulas not parsed as math: {problems[:8]}"
+
+    typ_text = (SERRE_DIR / "serre_cours_darithmetique.typ").read_text(encoding="utf-8")
+    tex_text = (SERRE_DIR / "serre_cours_darithmetique.tex").read_text(encoding="utf-8")
+    assert r"z\^{}\{12\}" not in tex_text, "Display math escaped as text in Serre LaTeX"
+    assert "numbering: _ => [(44)]" in typ_text, "Equation (44) lost its right-aligned number in Typst"
+    assert r"\tag{44}" in tex_text, "Equation (44) lost its \\tag in LaTeX"
+    assert r"\begin{align*}" in tex_text, "Consecutive equation groups not rendered with align* in LaTeX"
+    assert not re.search(r"\\\[\s*\\begin\{align\*\}", tex_text), "align* must not be nested inside \\[...\\]"
+    assert "rmath[$ R_lambda R_mu $]" in typ_text, "Equations (62)-(65) not aligned with rmath grid in Typst"
+    assert "[(62)]" in typ_text and "[(65)]" in typ_text, "Equations (62)-(65) missing right-aligned tags in Typst grid"
 
 
 KERODON_DIR = ROOT_DIR / "output" / "kerodon"

@@ -315,41 +315,204 @@ def _kerodon_env_to_blocks(env) -> List[Dict[str, Any]]:
     return out
 
 
+def convert_ahlfors_to_math_web_blocks(ahlfors_dir: Path) -> List[Dict[str, Any]]:
+    md_dir = ahlfors_dir / "markdown"
+    chapters_def = [
+        (1, "Complex Numbers", 1, 36),
+        (2, "Complex Functions", 37, 64),
+        (3, "Analytic Functions as Mappings", 65, 116),
+        (4, "Complex Integration", 117, 190),
+        (5, "Series and Product Developments", 191, 244),
+        (6, "Conformal Mapping. Dirichlet's Problem", 245, 278),
+        (7, "Elliptic Functions", 279, 298),
+        (8, "Global Analytic Functions", 299, 340),
+    ]
+    chapters: List[Dict[str, Any]] = []
+    for ch_num, ch_title, start_p, end_p in chapters_def:
+        blocks: List[Dict[str, Any]] = []
+        for pno in range(start_p, end_p + 1):
+            p_file = md_dir / f"p_{pno:03d}.md"
+            if not p_file.exists():
+                continue
+            text = p_file.read_text(encoding="utf-8").strip()
+            paras = re.split(r"\n\s*\n", text)
+            for p in paras:
+                p = p.strip()
+                if not p or p.startswith("//") or "1.1.1.1.1" in p:
+                    continue
+                h_m = re.match(r"^(#{1,4})\s+(.+)$", p)
+                if h_m and "\n" not in p:
+                    hashes, title = h_m.groups()
+                    blocks.append({
+                        "type": "heading",
+                        "level": min(len(hashes), 3),
+                        "text": title.strip()
+                    })
+                elif re.match(r"^(?:Theorem|Definition|Lemma|Corollary|Proposition)\s*([0-9\.]*)", p, re.IGNORECASE):
+                    m = re.match(r"^(Theorem|Definition|Lemma|Corollary|Proposition)\s*([0-9\.]*)[\.\—\-\:]?\s*(.*)$", p, re.IGNORECASE | re.DOTALL)
+                    if m:
+                        kind, num, body = m.groups()
+                        blocks.append({
+                            "type": "theorem",
+                            "kind": kind.capitalize(),
+                            "number": num.strip(),
+                            "content": body.strip() or p
+                        })
+                    else:
+                        blocks.append({"type": "math-paragraph", "content": p})
+                else:
+                    blocks.append({"type": "math-paragraph", "content": p})
+        chapters.append({
+            "slug": f"ch-{ch_num}",
+            "number": f"Chapter {ch_num}",
+            "title": ch_title,
+            "blocks": blocks
+        })
+    return chapters
+
+
+def convert_goursat_to_math_web_blocks(goursat_md_path: Path) -> List[Dict[str, Any]]:
+    if not goursat_md_path.exists():
+        return []
+    text = goursat_md_path.read_text(encoding="utf-8")
+    raw_chaps = re.split(r"\n(?=#+ (?:CHAPTER|Chapitre))", text)
+    chapters: List[Dict[str, Any]] = []
+    for idx, raw in enumerate(raw_chaps):
+        lines = [l.strip() for l in raw.strip().split("\n") if l.strip()]
+        if not lines:
+            continue
+        title = lines[0].lstrip("#").strip()
+        slug = f"ch-{idx}"
+        number = "Preface & Introduction" if idx == 0 else f"Chapter {idx}"
+        blocks: List[Dict[str, Any]] = []
+        paras = re.split(r"\n\s*\n", raw.strip())
+        for p in paras:
+            p = p.strip()
+            if not p:
+                continue
+            h_m = re.match(r"^(#{1,4})\s+(.+)$", p)
+            if h_m and "\n" not in p:
+                hashes, t = h_m.groups()
+                blocks.append({"type": "heading", "level": min(len(hashes), 3), "text": t.strip()})
+            else:
+                blocks.append({"type": "math-paragraph", "content": p})
+        chapters.append({
+            "slug": slug,
+            "number": number,
+            "title": title,
+            "blocks": blocks
+        })
+    return chapters
+
+
+def convert_taocp_to_math_web_blocks(taocp_typ_path: Path) -> List[Dict[str, Any]]:
+    if not taocp_typ_path.exists():
+        return []
+    text = taocp_typ_path.read_text(encoding="utf-8")
+    raw_chaps = re.split(r"\n(?=={1,2}\s+(?:\*?5\.\d|\*?6\.\d|Chapter Five|Chapter Six|Preface|About|Notes|Answers|Appendix|Table|Index))", text)
+    chapters: List[Dict[str, Any]] = []
+    idx = 0
+    for raw in raw_chaps:
+        raw = raw.strip()
+        if not raw.startswith("="):
+            continue
+        lines = [l.strip() for l in raw.split("\n") if l.strip()]
+        title = lines[0].lstrip("=").strip()
+        blocks: List[Dict[str, Any]] = []
+        paras = re.split(r"\n\s*\n", raw)
+        for p in paras:
+            p = p.strip()
+            if not p:
+                continue
+            h_m = re.match(r"^(=+)\s+(.+)$", p)
+            if h_m and "\n" not in p:
+                eqs, t = h_m.groups()
+                blocks.append({"type": "heading", "level": min(len(eqs), 3), "text": t.strip()})
+            else:
+                blocks.append({"type": "math-paragraph", "content": p})
+
+        max_chunk = 600
+        if len(blocks) <= max_chunk:
+            idx += 1
+            chapters.append({
+                "slug": f"sec-{idx}",
+                "number": f"Section {idx}",
+                "title": title,
+                "blocks": blocks
+            })
+        else:
+            for part_i in range(0, len(blocks), max_chunk):
+                idx += 1
+                sub_blocks = blocks[part_i:part_i + max_chunk]
+                part_num = (part_i // max_chunk) + 1
+                chapters.append({
+                    "slug": f"sec-{idx}",
+                    "number": f"Section {idx}",
+                    "title": f"{title} (Part {part_num})",
+                    "blocks": sub_blocks
+                })
+    return chapters
+
 def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
     assets_dir = web_public_dir / "assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
 
+    existing_books_map = {}
+    cat_file = web_public_dir / "data" / "catalog.json"
+    if cat_file.exists():
+        try:
+            old_data = json.loads(cat_file.read_text(encoding="utf-8"))
+            for b in old_data.get("books", []):
+                existing_books_map[b["slug"]] = b
+        except Exception:
+            pass
+
     roberts_out_dir = root_dir / "output" / "modern_firm"
     serre_out_dir = root_dir / "output" / "serre_arithmetique"
     kerodon_out_dir = root_dir / "output" / "kerodon"
+    ahlfors_out_dir = root_dir / "output" / "ahlfors"
+    goursat_out_dir = root_dir / "output" / "goursat_colab"
+    taocp_out_dir = root_dir / "output" / "taocp"
     kerodon_pdf = root_dir / "kerodon.pdf"
 
-    for slug, src_dir, base_prefix in [
+    sync_configs = [
         ("modern-firm", roberts_out_dir, "book"),
         ("serre-arithmetique", serre_out_dir, "serre_cours_darithmetique"),
         ("kerodon-ch1", kerodon_out_dir, "chapter1"),
-    ]:
+        ("ahlfors", ahlfors_out_dir, "ahlfors_complete"),
+        ("goursat-analyse", goursat_out_dir, "book"),
+        ("taocp-vol3", taocp_out_dir, "taocp_vol3"),
+    ]
+
+    for slug, src_dir, base_prefix in sync_configs:
         dest = assets_dir / slug
         dest_figs = dest / "figures"
         dest_figs.mkdir(parents=True, exist_ok=True)
-        for ext in ("pdf", "typ", "tex", "epub", "md"):
-            cand = src_dir / f"{base_prefix}.{ext}"
-            if not cand.exists():
-                cand = src_dir / f"book.{ext}"
-            if cand.exists():
-                shutil.copy2(cand, dest / f"book.{ext}")
-        src_figs = src_dir / "figures"
-        if src_figs.exists():
-            for fig_f in src_figs.iterdir():
-                if fig_f.suffix.lower() in (".svg", ".png"):
-                    shutil.copy2(fig_f, dest_figs / fig_f.name)
+        if src_dir.exists():
+            for ext in ("pdf", "typ", "tex", "epub", "md"):
+                cand = src_dir / f"{base_prefix}.{ext}"
+                if not cand.exists():
+                    cand = src_dir / f"book.{ext}"
+                if cand.exists():
+                    shutil.copy2(cand, dest / f"book.{ext}")
+            src_figs = src_dir / "figures"
+            if src_figs.exists():
+                for fig_f in src_figs.iterdir():
+                    if fig_f.suffix.lower() in (".svg", ".png", ".jpg", ".jpeg"):
+                        shutil.copy2(fig_f, dest_figs / fig_f.name)
+            src_figs_color = src_dir / "figures_color"
+            if src_figs_color.exists():
+                for fig_f in src_figs_color.iterdir():
+                    if fig_f.suffix.lower() in (".svg", ".png"):
+                        shutil.copy2(fig_f, dest_figs / fig_f.name)
 
-    roberts_chapters = convert_roberts_to_business_web_blocks(roberts_out_dir / "book.md")
-    serre_chapters = convert_serre_to_math_web_blocks(serre_out_dir / "combined_serre.md")
-    kerodon_chapters = convert_kerodon_to_math_web_blocks(kerodon_out_dir, kerodon_pdf)
+    books_payload: List[Dict[str, Any]] = []
 
-    books_payload = [
-        {
+    if "modern-firm" in existing_books_map and not (roberts_out_dir / "book.md").exists():
+        books_payload.append(existing_books_map["modern-firm"])
+    elif (roberts_out_dir / "book.md").exists():
+        roberts_chapters = convert_roberts_to_business_web_blocks(roberts_out_dir / "book.md")
+        books_payload.append({
             "slug": "modern-firm",
             "title": "现代企业：基于绩效与增长的组织设计",
             "subtitle": "The Modern Firm: Organizational Design for Performance and Growth",
@@ -359,12 +522,7 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
             "renderingMode": "editorial-business",
             "renderingBadge": "Editorial HTML Typography (Non-LaTeX Web Prose + Vector SVG Diagrams)",
             "description": "斯坦福商学院经典战略组织著作。网页端采用纯正商业社论排版（不使用繁琐的 MathJax/LaTeX 公式渲染，将分析点 X、Y、Z 与图 1—图 9、表 1—表 2 转化为原生交互式锚点与高清矢量图），本地 PDF/Typst/LaTeX 则保持严谨出版级数学排版。",
-            "stats": {
-                "pages": 252,
-                "figures": 9,
-                "tables": 2,
-                "chapters": len(roberts_chapters)
-            },
+            "stats": {"pages": 252, "figures": 9, "tables": 2, "chapters": len(roberts_chapters)},
             "deliverables": {
                 "pdf": "/assets/modern-firm/book.pdf",
                 "typst": "/assets/modern-firm/book.typ",
@@ -372,8 +530,13 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
                 "epub": "/assets/modern-firm/book.epub"
             },
             "chapters": roberts_chapters
-        },
-        {
+        })
+
+    if "serre-arithmetique" in existing_books_map and not (serre_out_dir / "combined_serre.md").exists():
+        books_payload.append(existing_books_map["serre-arithmetique"])
+    elif (serre_out_dir / "combined_serre.md").exists():
+        serre_chapters = convert_serre_to_math_web_blocks(serre_out_dir / "combined_serre.md")
+        books_payload.append({
             "slug": "serre-arithmetique",
             "title": "Cours d'arithmétique",
             "subtitle": "Presses Universitaires de France — Collection « Le Mathématicien »",
@@ -383,12 +546,7 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
             "renderingMode": "math-katex",
             "renderingBadge": "KaTeX / MathJax Engine + Semantic French Theorem Callouts",
             "description": "塞尔经典法文数论名著。完整收录第一部分（二次型、p-进域、Hasse-Minkowski 定理）与第二部分（Dirichlet 算术级数定理、模形式与 Hecke 算子），网页端搭载 KaTeX 实时公式渲染与高清复平面基本域矢量图。",
-            "stats": {
-                "pages": 173,
-                "figures": 3,
-                "tables": 0,
-                "chapters": len(serre_chapters)
-            },
+            "stats": {"pages": 173, "figures": 3, "tables": 0, "chapters": len(serre_chapters)},
             "deliverables": {
                 "pdf": "/assets/serre-arithmetique/book.pdf",
                 "typst": "/assets/serre-arithmetique/book.typ",
@@ -396,8 +554,13 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
                 "epub": "/assets/serre-arithmetique/book.epub"
             },
             "chapters": serre_chapters
-        },
-        {
+        })
+
+    if "kerodon-ch1" in existing_books_map and not (kerodon_out_dir / "cache_web").exists():
+        books_payload.append(existing_books_map["kerodon-ch1"])
+    elif (kerodon_out_dir / "cache_web").exists() and kerodon_pdf.exists():
+        kerodon_chapters = convert_kerodon_to_math_web_blocks(kerodon_out_dir, kerodon_pdf)
+        books_payload.append({
             "slug": "kerodon-ch1",
             "title": "Kerodon — Chapter 1: The Language of ∞-Categories",
             "subtitle": "An Online Resource for Homotopy-Coherent Mathematics",
@@ -407,12 +570,7 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
             "renderingMode": "math-katex",
             "renderingBadge": "KaTeX Engine + Kerodon Tag Permalinks + 300-DPI Commutative Diagrams",
             "description": "Jacob Lurie 高阶范畴论巨著第一章。涵盖单纯集、基本群胚、拟范畴、同伦范畴与神经函子，包含 237 个结构化数学环境、精确 Tag 永久链接与 60 幅 300-DPI 交换图。",
-            "stats": {
-                "pages": 74,
-                "figures": 60,
-                "tables": 0,
-                "chapters": len(kerodon_chapters)
-            },
+            "stats": {"pages": 74, "figures": 60, "tables": 0, "chapters": len(kerodon_chapters)},
             "deliverables": {
                 "pdf": "/assets/kerodon-ch1/book.pdf",
                 "typst": "/assets/kerodon-ch1/book.typ",
@@ -420,8 +578,76 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
                 "epub": "/assets/kerodon-ch1/book.epub"
             },
             "chapters": kerodon_chapters
-        }
-    ]
+        })
+
+    if ahlfors_out_dir.exists():
+        ahlfors_chapters = convert_ahlfors_to_math_web_blocks(ahlfors_out_dir)
+        if ahlfors_chapters:
+            books_payload.append({
+                "slug": "ahlfors",
+                "title": "Complex Analysis (Third Edition)",
+                "subtitle": "An Introduction to the Theory of Analytic Functions of One Complex Variable",
+                "author": "Lars V. Ahlfors",
+                "language": "en-US",
+                "domain": "Complex Function Theory & Riemann Surfaces",
+                "renderingMode": "math-katex",
+                "renderingBadge": "1979 McGraw-Hill Standard + KaTeX Engine + Pen-and-Ink Figures",
+                "description": "哈佛大学阿尔福斯经典复分析教程（第三版）。完整收录 8 章全本，涵盖代数复数、复函数、解析映射、复积分、级数展开、共形映射与狄利克雷问题、椭圆函数以及全局解析函数，附带 50 幅高精度出版级矢量与黑白插图。",
+                "stats": {"pages": 340, "figures": 50, "tables": 0, "chapters": len(ahlfors_chapters)},
+                "deliverables": {
+                    "pdf": "/assets/ahlfors/book.pdf",
+                    "typst": "/assets/ahlfors/book.typ",
+                    "latex": "/assets/ahlfors/book.tex",
+                    "epub": "/assets/ahlfors/book.epub"
+                },
+                "chapters": ahlfors_chapters
+            })
+
+    if (goursat_out_dir / "book.md").exists():
+        goursat_chapters = convert_goursat_to_math_web_blocks(goursat_out_dir / "book.md")
+        if goursat_chapters:
+            books_payload.append({
+                "slug": "goursat-analyse",
+                "title": "A Course in Mathematical Analysis, Volume I",
+                "subtitle": "Derivatives and Differentials, Definite Integrals, Expansion in Series, Applications to Geometry",
+                "author": "Édouard Goursat (Trans. E. R. Hedrick)",
+                "language": "en-US",
+                "domain": "Classical Mathematical Analysis & Differential Geometry",
+                "renderingMode": "math-katex",
+                "renderingBadge": "Dover/Hedrick Edition + KaTeX Modern Notation + Restored Figures",
+                "description": "法国巴黎大学古萨经典数学分析教程第一卷。涵盖实变函数微分与偏导数、隐函数、定积分、级数展开与几何应用，全书 646 页完整数字化重构与 KaTeX 数学排版。",
+                "stats": {"pages": 646, "figures": 52, "tables": 0, "chapters": len(goursat_chapters)},
+                "deliverables": {
+                    "pdf": "/assets/goursat-analyse/book.pdf",
+                    "typst": "/assets/goursat-analyse/book.typ",
+                    "latex": "/assets/goursat-analyse/book.tex",
+                    "epub": "/assets/goursat-analyse/book.epub"
+                },
+                "chapters": goursat_chapters
+            })
+
+    if (taocp_out_dir / "taocp_vol3.typ").exists():
+        taocp_chapters = convert_taocp_to_math_web_blocks(taocp_out_dir / "taocp_vol3.typ")
+        if taocp_chapters:
+            books_payload.append({
+                "slug": "taocp-vol3",
+                "title": "The Art of Computer Programming, Vol. 3: Sorting and Searching",
+                "subtitle": "Second Edition — Authentic Computer Modern & Knuthian Typography",
+                "author": "Donald E. Knuth",
+                "language": "en-US",
+                "domain": "Algorithms, Data Structures & Combinatorial Computing",
+                "renderingMode": "math-katex",
+                "renderingBadge": "Knuth CM Typeface + 300-DPI Matched Diagrams + Complete Exercises",
+                "description": "高德纳计算机程序设计艺术第三卷：排序与查找。包含第 5 章（内部排序、外部排序、最优排序）与第 6 章（顺序查找、树查找、散列法），并收录全部习题精析与数学常数附录，共 768 页完整出版级重现。",
+                "stats": {"pages": 768, "figures": 230, "tables": 12, "chapters": len(taocp_chapters)},
+                "deliverables": {
+                    "pdf": "/assets/taocp-vol3/book.pdf",
+                    "typst": "/assets/taocp-vol3/book.typ",
+                    "latex": "/assets/taocp-vol3/book.tex",
+                    "epub": "/assets/taocp-vol3/book.epub"
+                },
+                "chapters": taocp_chapters
+            })
 
     catalog_data = {"books": books_payload}
     data_dir = web_public_dir / "data"

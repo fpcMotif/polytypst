@@ -128,3 +128,33 @@ export const upsertChapter = mutation({
     return await ctx.db.insert("chapters", args);
   },
 });
+
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const updateBookDeliverablePdf = mutation({
+  args: {
+    slug: v.string(),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const book = await ctx.db
+      .query("books")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .unique();
+    if (!book) throw new Error(`Book with slug "${args.slug}" not found`);
+    const pdfUrl = await ctx.storage.getUrl(args.storageId);
+    if (!pdfUrl) throw new Error("Failed to get storage URL");
+    await ctx.db.patch(book._id, {
+      deliverables: {
+        ...book.deliverables,
+        pdf: pdfUrl,
+      },
+    });
+    return pdfUrl;
+  },
+});

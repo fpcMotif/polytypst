@@ -1,6 +1,6 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { BookData } from "../src/types";
 
@@ -52,6 +52,30 @@ async function main() {
         blocksJson: JSON.stringify(ch.blocks),
       });
     }
+
+    const relPdf = book.deliverables.pdf.replace(/^\//, "");
+    const localPdfPath = resolve(import.meta.dirname, "../public", relPdf);
+    if (existsSync(localPdfPath)) {
+      try {
+        const uploadUrl = await client.mutation(api.books.generateUploadUrl);
+        const pdfBytes = readFileSync(localPdfPath);
+        const res = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/pdf" },
+          body: pdfBytes,
+        });
+        const { storageId } = await res.json();
+        if (storageId) {
+          const liveUrl = await client.mutation(api.books.updateBookDeliverablePdf, {
+            slug: book.slug,
+            storageId,
+          });
+          console.log(`Uploaded ${book.slug} PDF to Convex Storage -> ${liveUrl}`);
+        }
+      } catch (err) {
+        console.warn(`Could not upload PDF for ${book.slug}:`, err);
+      }
+    }
     console.log(`Seeded ${book.slug} (${book.chapters.length} chapters) into Convex at ${convexUrl}`);
   }
 
@@ -77,6 +101,30 @@ async function main() {
     readerName: "Homotopy Reader",
     quoteText: "Tag 000R · The Boundary of Δⁿ",
     note: "All 237 environments and 60 300-DPI commutative diagrams linked to official Kerodon tags.",
+  });
+
+  await client.mutation(api.books.addAnnotation, {
+    bookSlug: "ahlfors",
+    chapterSlug: "ch-1",
+    readerName: "Harvard Mathematics",
+    quoteText: "The Algebra of Complex Numbers",
+    note: "Classic McGraw-Hill 1979 Crown Octavo edition with modernized KaTeX typography and 50 publication-grade vector figures.",
+  });
+
+  await client.mutation(api.books.addAnnotation, {
+    bookSlug: "goursat-analyse",
+    chapterSlug: "ch-1",
+    readerName: "Sorbonne Analysis Group",
+    quoteText: "Derivatives and Differentials",
+    note: "Complete Dover/Hedrick English translation of Goursat Cours d'analyse with fully restored mathematical formulas and geometric figures.",
+  });
+
+  await client.mutation(api.books.addAnnotation, {
+    bookSlug: "taocp-vol3",
+    chapterSlug: "sec-4",
+    readerName: "Stanford CS & TeX Project",
+    quoteText: "Chapter Five: Sorting",
+    note: "Donald Knuth's masterpiece sorting algorithms with 300-DPI matched graphics and authentic Computer Modern typography.",
   });
 
   console.log("Convex seeding complete!");
