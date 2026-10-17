@@ -254,9 +254,18 @@ class FigureExtractor:
         extracted: list[ExtractedFigure] = []
         seen_ids: set[str] = set()
         pages_to_scan: set[int] = set()
+        md_pages_dir = out_dir.parent / "markdown_pages"
         for pno in range(1, len(doc) + 1):
             t = doc[pno - 1].get_text()
-            if "Fig" in t or "fig" in t or "FIG" in t:
+            md_path = md_pages_dir / f"p_{pno:03d}.md"
+            md_txt = md_path.read_text(encoding="utf-8") if md_path.exists() else ""
+            if (
+                "Fig" in t
+                or "fig" in t
+                or "FIG" in t
+                or "Fig" in md_txt
+                or "FIG" in md_txt
+            ):
                 pages_to_scan.add(pno)
                 pages_to_scan.add(max(1, pno - 1))
                 pages_to_scan.add(min(len(doc), pno + 1))
@@ -437,7 +446,9 @@ class FigureExtractor:
                     if dest_path.exists():
                         with Image.open(dest_path) as cim:
                             w_px, h_px = cim.size
-                        ok, reasons = TypeSafeJevVision.verify_cropped_diagram(dest_path)
+                        ok, reasons = TypeSafeJevVision.verify_cropped_diagram(
+                            dest_path
+                        )
                         if not ok:
                             print(
                                 f"Warning: Figure {fig_id} on page {pno} verification warnings: {reasons}"

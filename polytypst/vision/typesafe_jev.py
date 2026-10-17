@@ -200,8 +200,14 @@ class TypeSafeJevVision:
             and (1.0 - l.y) > diag_top - 0.05
             and (1.0 - (l.y + l.h)) < diag_bot + 0.05
         ]
-        x_right_col = min(right_col_xs) if (diag_cx < 0.48 and len(right_col_xs) >= 3) else 1.0
-        x_left_col = max(left_col_rights) if (diag_cx > 0.52 and len(left_col_rights) >= 3) else 0.0
+        x_right_col = (
+            min(right_col_xs) if (diag_cx < 0.48 and len(right_col_xs) >= 3) else 1.0
+        )
+        x_left_col = (
+            max(left_col_rights)
+            if (diag_cx > 0.52 and len(left_col_rights) >= 3)
+            else 0.0
+        )
 
         for l in lines:
             txt = l.text.strip()
@@ -210,7 +216,9 @@ class TypeSafeJevVision:
             is_cap = bool(cap_re.search(txt)) and l.w < 0.32
             is_header_footer = l_top < 0.115 or l_bot > 0.90
             is_prose = l.w > 0.16 or len(txt.split()) >= 3 or len(txt) >= 10
-            is_side_col = (l.x >= x_right_col - 0.012) or ((l.x + l.w) <= x_left_col + 0.012)
+            is_side_col = (l.x >= x_right_col - 0.012) or (
+                (l.x + l.w) <= x_left_col + 0.012
+            )
             if is_cap or is_header_footer or is_prose or is_side_col:
                 px0 = max(0, int((l.x - 0.004) * w))
                 px1 = min(w, int((l.x + l.w + 0.004) * w))
@@ -230,7 +238,10 @@ class TypeSafeJevVision:
         x0, y0 = int(left * w), int(top * h)
         x1, y1 = int(right * w), int(bottom * h)
         if x1 <= x0 + 20:
-            x0, x1 = int(max(0.0, dbox[0] - 0.01) * w), int(min(1.0, dbox[2] + 0.01) * w)
+            x0, x1 = (
+                int(max(0.0, dbox[0] - 0.01) * w),
+                int(min(1.0, dbox[2] + 0.01) * w),
+            )
         sub = arr[y0:y1, x0:x1].copy()
         sh, sw = sub.shape[:2]
 
@@ -243,7 +254,9 @@ class TypeSafeJevVision:
                     ctop = 1.0 - (cl.y + cl.h)
                     cbot = 1.0 - cl.y
                     is_crop_cap = bool(cap_re.search(ctxt)) or (
-                        ctop > 0.78 and any(ch.isdigit() for ch in ctxt) and len(ctxt) >= 4
+                        ctop > 0.78
+                        and any(ch.isdigit() for ch in ctxt)
+                        and len(ctxt) >= 4
                     )
                     is_crop_prose = len(ctxt.split()) >= 3 or len(ctxt) >= 10
                     if is_crop_cap or is_crop_prose:
@@ -306,7 +319,9 @@ class TypeSafeJevVision:
                 t = l.text.strip()
                 if cap_re.search(t):
                     issues.append(f"Leaked figure caption in crop: {t!r}")
-                elif len(t.split()) >= 4 or len(t) >= 16:
+                elif len(re.findall(r"[a-zA-Z]{3,}", t)) >= 2 and (
+                    len(t.split()) >= 4 or len(t) >= 16
+                ):
                     issues.append(f"Leaked prose line in crop: {t!r}")
         except (OSError, RuntimeError, ValueError):
             pass

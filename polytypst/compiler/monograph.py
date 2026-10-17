@@ -4,12 +4,14 @@ import functools
 import re
 import shutil
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from re import Pattern
 
 import pymupdf
 from PIL import Image
+
+from .presets import CompositionConfig, resolve_composition
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,9 @@ class MonographSpec:
     publisher: str = "Cambridge University Press"
     series: str = "Cambridge Studies in Advanced Mathematics"
     year: int = 2007
+    publisher_key: str = "cambridge"
+    lang: str = "en"
+    domain: str = "math"
     preface_page: int | None = None
     chapters: list[ChapterSpec] = field(default_factory=list)
     sections: dict[str, tuple[int, str]] = field(default_factory=dict)
@@ -90,7 +95,7 @@ KODAIRA_SPEC = MonographSpec(
         "5.3": (235, "The principle of reflection"),
         "6.1": (258, "Differential forms"),
         "6.2": (271, "Riemann surfaces"),
-        "6.3": (278, "Differential forms on a Riemann surface"),
+        "6.3": (279, "Differential forms on a Riemann surface"),
         "6.4": (305, "Dirichlet's Principle"),
         "7.1": (330, "Planar Riemann surfaces"),
         "7.2": (351, "Compact Riemann surfaces"),
@@ -119,19 +124,44 @@ KODAIRA_SPEC = MonographSpec(
 )
 
 
-def resolve_monograph_spec(pdf_path: Path, total_pages: int) -> MonographSpec:
+def resolve_monograph_spec(
+    pdf_path: Path,
+    total_pages: int,
+    publisher_key: str = "cambridge",
+    lang: str = "en",
+    domain: str = "math",
+) -> MonographSpec:
+    comp = resolve_composition(publisher=publisher_key, lang=lang, domain=domain)
     name_low = pdf_path.name.lower()
     if (
         total_pages == 417
         or "kodaira" in name_low
         or "complex analysis ( etc.)" in name_low
     ):
-        return KODAIRA_SPEC
+        if (
+            comp.publisher.key == "cambridge"
+            and comp.language.code == "en"
+            and comp.domain.key == "math"
+        ):
+            return KODAIRA_SPEC
+        return replace(
+            KODAIRA_SPEC,
+            publisher=comp.publisher.imprint_name,
+            series=comp.publisher.default_series,
+            publisher_key=comp.publisher.key,
+            lang=comp.language.code,
+            domain=comp.domain.key,
+        )
     slug = re.sub(r"[^a-z0-9]+", "_", pdf_path.stem.lower()).strip("_") or "book"
     return MonographSpec(
         slug=slug,
         title=pdf_path.stem,
         author="Author",
+        publisher=comp.publisher.imprint_name,
+        series=comp.publisher.default_series,
+        publisher_key=comp.publisher.key,
+        lang=comp.language.code,
+        domain=comp.domain.key,
         chapters=[ChapterSpec(1, pdf_path.stem, 1, total_pages)],
     )
 
@@ -201,6 +231,18 @@ KNOWN_MATH_WORDS: set[str] = {
     "integral",
     "in",
     "rev",
+    "eq",
+    "neq",
+    "cont",
+    "down",
+    "t",
+    "b",
+    "tr",
+    "br",
+    "bl",
+    "tl",
+    "prec",
+    "succ",
     "subset",
     "supset",
     "union",
@@ -231,6 +273,7 @@ KNOWN_MATH_WORDS: set[str] = {
     "chevron",
     "abs",
     "norm",
+    "lr",
     "floor",
     "ceil",
     "round",
@@ -528,19 +571,20 @@ def convert_latex_sqrt(s: str) -> str:
             pos = end_pos
         elif cur < len(s) and s[cur] == "{":
             rad, end_pos = parse_braced(s, cur)
-            res.append(f" sqrt({convert_latex_sqrt(rad)}) ")
+            rad_clean = convert_latex_sqrt(rad).strip()
+            res.append(f" sqrt({rad_clean if rad_clean else 'quad'}) ")
             pos = end_pos
         else:
-            res.append(" sqrt ")
+            res.append(" sqrt(quad) ")
             pos = cur
     return "".join(res)
 
 
 UNARY_MACROS: list[tuple[Pattern[str], str]] = [
-    (re.compile(r"\\(?:overline|bar)(?=\s*\{)"), " overline(({0})) "),
-    (re.compile(r"\\underline(?=\s*\{)"), " underline(({0})) "),
-    (re.compile(r"\\(?:widetilde|tilde)(?=\s*\{)"), " tilde(({0})) "),
-    (re.compile(r"\\(?:widehat|hat)(?=\s*\{)"), " hat(({0})) "),
+    (re.compile(r"\\(?:overline|bar)(?=\s*\{)"), " overline({0}) "),
+    (re.compile(r"\\underline(?=\s*\{)"), " underline({0}) "),
+    (re.compile(r"\\(?:widetilde|tilde)(?=\s*\{)"), " tilde({0}) "),
+    (re.compile(r"\\(?:widehat|hat)(?=\s*\{)"), " hat({0}) "),
     (re.compile(r"\\check(?=\s*\{)"), " caron({0}) "),
     (re.compile(r"\\vec(?=\s*\{)"), " arrow({0}) "),
     (re.compile(r"\\ddot(?=\s*\{)"), " dot.double({0}) "),
@@ -615,18 +659,23 @@ ENV_ALIGNED_RE = re.compile(
 
 
 def convert_environments(code: str) -> str:
-    if "\\begin" not in code:
+    if "begin" not in code:
         return code
+    code = re.sub(r"\\\s+(begin|end)\b", r"\\\1", code)
     code = ENV_VMATRIX_ARRAY_RE.sub(r"\\begin{vmatrix}\1\\end{vmatrix}", code)
 
     def repl_matrix(m: re.Match[str]) -> str:
         env = m.group(1)
         body = m.group(2).strip()
-        delim = '"|"' if env in ("vmatrix", "Vmatrix") else '"("'
+        delim = (
+            '"|"'
+            if env in ("vmatrix", "Vmatrix")
+            else ('"["' if env == "bmatrix" else '"("')
+        )
         rows = re.split(r"\\\\", body)
         out_rows: list[str] = []
         for r in rows:
-            r_clean = r.strip()
+            r_clean = re.sub(r"&\.\s*", "& ", r.strip())
             if not r_clean:
                 continue
             cells = [c.strip() for c in r_clean.split("&")]
@@ -643,8 +692,10 @@ def convert_environments(code: str) -> str:
             r_clean = r.strip()
             if not r_clean:
                 continue
-            parts = [p.strip() for p in r_clean.split("&") if p.strip()]
-            rows.append(" ".join(parts))
+            parts = [
+                p.strip().rstrip(",").strip() for p in r_clean.split("&") if p.strip()
+            ]
+            rows.append(" quad ".join(parts))
         return "cases(" + ", ".join(rows) + ")"
 
     code = ENV_CASES_RE.sub(repl_cases, code)
@@ -773,6 +824,16 @@ def sanitize_math_code(code: str, is_display: bool = False) -> str:
         .replace(r"\Rightarrow", " => ")
         .replace(r"\Leftarrow", " <= ")
         .replace(r"\Leftrightarrow", " <=> ")
+        .replace(r"\uparrow", " arrow.t ")
+        .replace(r"\downarrow", " arrow.b ")
+        .replace(r"\updownarrow", " arrow.t.b ")
+        .replace(r"\Uparrow", " arrow.t.double ")
+        .replace(r"\Downarrow", " arrow.b.double ")
+        .replace(r"\nearrow", " arrow.tr ")
+        .replace(r"\searrow", " arrow.br ")
+        .replace(r"\swarrow", " arrow.bl ")
+        .replace(r"\nwarrow", " arrow.tl ")
+        .replace(r"\colon", ": ")
         .replace(r"\iff", " <=> ")
         .replace(r"\implies", " => ")
         .replace(r"\to", " -> ")
@@ -838,12 +899,24 @@ def sanitize_math_code(code: str, is_display: bool = False) -> str:
     code = re.sub(r"\\supseteq(?![a-zA-Z])", " supset.eq ", code)
     code = re.sub(r"\\subsetneq(?![a-zA-Z])", " subset.neq ", code)
     code = re.sub(r"\\supsetneq(?![a-zA-Z])", " supset.neq ", code)
+    code = re.sub(r"\\prec(?![a-zA-Z])", " prec ", code)
+    code = re.sub(r"\\succ(?![a-zA-Z])", " succ ", code)
+    code = re.sub(r"\\preceq(?![a-zA-Z])", " prec.eq ", code)
+    code = re.sub(r"\\succeq(?![a-zA-Z])", " succ.eq ", code)
     code = re.sub(r"\\sim(?![a-zA-Z])", " tilde.op ", code)
     code = re.sub(r"\\simeq(?![a-zA-Z])", " tilde.eq ", code)
     code = re.sub(r"\\cong(?![a-zA-Z])", " tilde.equiv ", code)
     code = re.sub(r"\\(?:lVert|rVert|Vert)(?![a-zA-Z])", r"\|", code)
     if r"\|" in code:
-        code = re.sub(r"\\\|\s*([^|\n]+?)\s*\\\|", r" norm(\1) ", code)
+        code = re.sub(
+            r"\\\|\s*([^|\n]+?)\s*\\\|",
+            lambda m: (
+                f" lr(|| {m.group(1)} ||) "
+                if "," in m.group(1)
+                else f" norm({m.group(1)}) "
+            ),
+            code,
+        )
         code = code.replace(r"\|", " || ")
     code = code.replace(r"\left", "").replace(r"\right", "").replace(r"\middle", "")
     code = re.sub(r"\\[bB]igg?(?:[lr])?(?![a-zA-Z])", "", code)
@@ -932,22 +1005,36 @@ def sanitize_math_code(code: str, is_display: bool = False) -> str:
 
     segments = re.split(r'("[^"]*")', code)
     for idx in range(0, len(segments), 2):
-        segments[idx] = MULTI_TOK_RE.sub(fix_tok, segments[idx])
+        seg = MULTI_TOK_RE.sub(fix_tok, segments[idx])
+        if (
+            "|" in seg
+            and seg.count("|") % 2 == 0
+            and "||" not in seg
+            and " | " not in seg
+        ):
+            seg = re.sub(
+                r"\|([^|\n]+?)\|",
+                lambda m: (
+                    f" lr(| {m.group(1)} |) "
+                    if "," in m.group(1)
+                    else f" abs({m.group(1)}) "
+                ),
+                seg,
+            )
+        segments[idx] = seg
     code = "".join(segments)
-
-    unquoted_check = re.sub(r'"[^"]*"', "", code)
-    if (
-        "|" in unquoted_check
-        and unquoted_check.count("|") % 2 == 0
-        and "||" not in unquoted_check
-        and " | " not in unquoted_check
-    ):
-        code = re.sub(r"\|([^|\n]+?)\|", r" abs(\1) ", code)
 
     code = normalize_differentials(code)
 
     code = re.sub(r"_([a-zA-Z0-9]+)\(", r"_(\1)(", code)
     code = re.sub(r"\^([a-zA-Z0-9]+)\(", r"^(\1)(", code)
+    code = re.sub(r"(_(?:\([^\)]+\)|[a-zA-Z0-9]+))('+)", r"\2\1", code)
+    code = re.sub(
+        r"([a-zA-Z0-9_']+\([^\(\)]+\))\s*/\s*([a-zA-Z0-9_']+\([^\(\)]+\))",
+        r"\1 \/ \2",
+        code,
+    )
+    code = re.sub(r"\bsqrt\(\s*\)", "sqrt(quad)", code)
     code = re.sub(r"\s+([,\.\:\;])", r"\1", code)
 
     unquoted = re.sub(r'"[^"]*"', "", code)
@@ -1056,8 +1143,30 @@ class MonographCompiler:
 
     def __init__(self, spec: MonographSpec) -> None:
         self.spec: MonographSpec = spec
+        self.composition: CompositionConfig = resolve_composition(
+            publisher=spec.publisher_key,
+            lang=spec.lang,
+            domain=spec.domain,
+        )
+        self._seen_sections: set[str] = set()
 
     def build_typst_preamble(self) -> str:
+        pub = self.composition.publisher
+        lang = self.composition.language
+        dom = self.composition.domain
+        font_expr = self.composition.typst_font_tuple()
+        hyph_str = "true" if lang.hyphenate else "false"
+        eq_num_str = (
+            "none"
+            if dom.equation_numbering == "none"
+            else f'"{dom.equation_numbering}"'
+        )
+        rule_line = (
+            f"#v(-0.35em)\n      #line(length: 100%, stroke: {pub.header_rule_pt}pt + luma(120))"
+            if pub.header_rule_pt > 0
+            else ""
+        )
+        heading_rules = self.composition.typst_heading_rules()
         return f"""#set document(
   title: "{self.spec.title} — {self.spec.author}",
   author: "{self.spec.author}",
@@ -1065,9 +1174,9 @@ class MonographCompiler:
 )
 
 #set page(
-  width: 442pt,
-  height: 663pt,
-  margin: (inside: 56pt, outside: 56pt, top: 56pt, bottom: 62pt),
+  width: {pub.width_pt}pt,
+  height: {pub.height_pt}pt,
+  margin: (inside: {pub.margin_inside_pt}pt, outside: {pub.margin_outside_pt}pt, top: {pub.margin_top_pt}pt, bottom: {pub.margin_bottom_pt}pt),
   header: context {{
     let page-number = counter(page).get().first()
     let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
@@ -1078,42 +1187,41 @@ class MonographCompiler:
         #let title = if secs != () {{ secs.last().body }} else if chaps != () {{ chaps.last().body }} else {{ "{self.spec.title}" }}
         #grid(
           columns: (1fr, auto),
-          align(left)[#text(8.5pt, font: "New Computer Modern", style: "italic")[#title]],
-          align(right)[#text(9.5pt, font: "New Computer Modern")[#page-number]]
+          align(left)[#text(8.5pt, font: {font_expr}, style: "italic")[#title]],
+          align(right)[#text(9.5pt, font: {font_expr})[#page-number]]
         )
       ] else [
         #let chaps = query(heading.where(level: 1).before(here()))
         #let title = if chaps != () {{ chaps.last().body }} else {{ "{self.spec.title}" }}
         #grid(
           columns: (auto, 1fr),
-          align(left)[#text(9.5pt, font: "New Computer Modern")[#page-number]],
-          align(right)[#text(8.5pt, font: "New Computer Modern", style: "italic")[#title]]
+          align(left)[#text(9.5pt, font: {font_expr})[#page-number]],
+          align(right)[#text(8.5pt, font: {font_expr}, style: "italic")[#title]]
         )
       ]
-      #v(-0.35em)
-      #line(length: 100%, stroke: 0.35pt + luma(120))
+      {rule_line}
     ]
   }},
   footer: none
 )
 
 #set text(
-  font: "New Computer Modern",
-  size: 10pt,
-  lang: "en",
-  hyphenate: true
+  font: {font_expr},
+  size: {pub.body_size_pt:g}pt,
+  lang: "{lang.typst_lang}",
+  hyphenate: {hyph_str}
 )
 
 #set par(
-  leading: 0.65em,
-  spacing: 0.85em,
+  leading: {lang.leading},
+  spacing: {lang.par_spacing},
   justify: true,
-  first-line-indent: 1.5em,
+  first-line-indent: {lang.first_line_indent},
   linebreaks: "optimized"
 )
 
-#show math.equation: set text(font: "New Computer Modern Math")
-#set math.equation(numbering: "(1)")
+#show math.equation: set text(font: "{lang.math_font}")
+#set math.equation(numbering: {eq_num_str})
 #let dd = math.dif
 #let dv(f, x, deg: none) = if deg == none {{ $(dif f)/(dif x)$ }} else {{ $(dif^deg f)/(dif x^deg)$ }}
 #let pdv(f, x, deg: none) = if deg == none {{ $(partial f)/(partial x)$ }} else {{ $(partial^deg f)/(partial x^deg)$ }}
@@ -1168,41 +1276,18 @@ class MonographCompiler:
 
 #show heading: set par(justify: false, first-line-indent: 0pt)
 
-#show heading.where(level: 1): it => {{
-  v(2.4em)
-  align(left)[
-    #text(16pt, weight: "bold", font: "New Computer Modern")[#it.body]
-  ]
-  v(0.6em)
-  line(length: 100%, stroke: 0.6pt + black)
-  v(1.4em)
-}}
-
-#show heading.where(level: 2): it => {{
-  v(1.4em)
-  text(12pt, weight: "bold", font: "New Computer Modern")[#it.body]
-  v(0.55em)
-}}
-
-#show heading.where(level: 3): it => {{
-  v(1.1em)
-  text(10.5pt, weight: "bold", style: "italic", font: "New Computer Modern")[#it.body]
-  v(0.35em)
-}}
-
-#show heading.where(level: 4): it => {{
-  v(0.95em)
-  text(10pt, weight: "bold", font: "New Computer Modern")[#smallcaps(it.body)]
-  v(0.4em)
-}}
+{heading_rules}
 
 #show figure.caption: it => [
   #v(0.35em)
-  #text(8.5pt, font: "New Computer Modern")[#it.body]
+  #text(8.5pt, font: {font_expr})[#it.body]
 ]
 """
 
     def build_typst_title_page(self) -> str:
+        font_expr = self.composition.typst_font_tuple()
+        pub = self.composition.publisher
+        lang = self.composition.language
         credits = ""
         if self.spec.translator or self.spec.editor:
             parts: list[str] = []
@@ -1211,50 +1296,73 @@ class MonographCompiler:
             if self.spec.editor:
                 parts.append(f"Edited by {self.spec.editor}")
             joined_credits = "\\ ".join(parts)
-            credits = f'#v(1.6em)\n  #text(10pt, style: "italic", font: "New Computer Modern")[{joined_credits}]'
+            credits = f'#v(1.6em)\n  #text(10pt, style: "italic", font: {font_expr})[{joined_credits}]'
         return f"""
 #align(center + horizon)[
-  #text(10pt, tracking: 0.14em, font: "New Computer Modern")[#smallcaps("{self.spec.series}")]
+  #text(10pt, tracking: 0.14em, font: {font_expr})[#smallcaps("{self.spec.series}")]
   #v(3em)
-  #text(26pt, weight: "bold", font: "New Computer Modern")[{self.spec.title.upper()}]
+  #text(26pt, weight: "bold", font: {font_expr})[{self.spec.title.upper()}]
   #v(2.2em)
-  #text(14pt, weight: "bold", font: "New Computer Modern")[#smallcaps("{self.spec.author}")]
+  #text(14pt, weight: "bold", font: {font_expr})[#smallcaps("{self.spec.author}")]
   {credits}
   #v(5em)
   #line(length: 35%, stroke: 0.4pt + luma(140))
   #v(1.2em)
-  #text(11pt, weight: "bold", tracking: 0.12em, font: "New Computer Modern")[{self.spec.publisher.upper()}]
+  #text(11pt, weight: "bold", tracking: 0.12em, font: {font_expr})[{self.spec.publisher.upper()}]
   #v(0.4em)
-  #text(8.5pt, fill: luma(90), font: "New Computer Modern")[Cambridge · New York · Melbourne · Madrid · Cape Town · Singapore]
+  #text(8.5pt, fill: luma(90), font: {font_expr})[{pub.cities_line}]
 ]
 
 #pagebreak()
 
-#outline(title: [Contents], indent: 1.4em, depth: 2)
+#outline(title: [{lang.contents_title}], indent: 1.4em, depth: 2)
 
 #pagebreak()
 """
 
     @staticmethod
+    def _resolve_figure_asset(fig_dir: Path, fig_id: str) -> Path | None:
+        for ext in ("svg", "png"):
+            candidate = fig_dir / f"fig_{fig_id}.{ext}"
+            if candidate.exists():
+                return candidate
+        return None
+
+    @classmethod
     def make_figure_typst(
-        fig_id: str, raw_caption: str, fig_dir: Path, paired: bool = False
+        cls, fig_id: str, raw_caption: str, fig_dir: Path, paired: bool = False
     ) -> str:
         clean_cap = raw_caption.strip().replace("**", "")
         clean_cap = clean_margin_and_inline_math(clean_cap)
-        img_path = fig_dir / f"fig_{fig_id}.png"
-        if not img_path.exists():
+        asset = cls._resolve_figure_asset(fig_dir, fig_id)
+        if asset is None:
             return f"\n\n#align(center)[#emph[{clean_cap}]]\n\n"
-        with Image.open(img_path) as im:
-            w_px, h_px = im.size
-        if paired:
-            width_pct = min(88, max(50, round(w_px / 650 * 100)))
+        if asset.suffix == ".svg":
+            svg_txt = asset.read_text(encoding="utf-8")
+            m_vb = re.search(r'viewBox="([^"]+)"', svg_txt)
+            vw, vh = 460.0, 280.0
+            if m_vb:
+                parts = [float(x) for x in m_vb.group(1).split()]
+                if len(parts) == 4:
+                    vw, vh = parts[2], parts[3]
+            if paired:
+                width_pct = 90
+            else:
+                width_pct = min(68, max(40, round(vw / 720 * 100)))
+                if vh * (width_pct / 100.0) / max(vw, 1.0) > 0.36:
+                    width_pct = max(32, round(0.36 * vw / max(vh, 1.0) * 100))
         else:
-            width_pct = min(78, max(26, round(w_px / 1350 * 100)))
-            if h_px * (width_pct / 100.0) / max(w_px, 1) > 0.38:
-                width_pct = max(24, round(0.38 * w_px / max(h_px, 1) * 100))
+            with Image.open(asset) as im:
+                w_px, h_px = im.size
+            if paired:
+                width_pct = min(88, max(50, round(w_px / 650 * 100)))
+            else:
+                width_pct = min(78, max(26, round(w_px / 1350 * 100)))
+                if h_px * (width_pct / 100.0) / max(w_px, 1) > 0.38:
+                    width_pct = max(24, round(0.38 * w_px / max(h_px, 1) * 100))
         return (
             f"#figure(\n"
-            f'  image("figures/fig_{fig_id}.png", width: {width_pct}%),\n'
+            f'  image("figures/{asset.name}", width: {width_pct}%),\n'
             f"  caption: [{clean_cap}],\n"
             f"  supplement: none\n"
             f")"
@@ -1265,7 +1373,9 @@ class MonographCompiler:
         if not figs:
             return ""
         valid_figs = [
-            (fid, cap) for fid, cap in figs if (fig_dir / f"fig_{fid}.png").exists()
+            (fid, cap)
+            for fid, cap in figs
+            if cls._resolve_figure_asset(fig_dir, fid) is not None
         ]
         if not valid_figs:
             return ""
@@ -1298,6 +1408,7 @@ class MonographCompiler:
         md_text: str,
         pno: int,
     ) -> tuple[str, list[tuple[str, str]], list[tuple[str, str]]]:
+        md_text = re.sub(r"<!--.*?-->", "", md_text, flags=re.DOTALL)
         raw_lines = md_text.splitlines()
         body_lines: list[str] = []
         top_figs: list[tuple[str, str]] = []
@@ -1348,6 +1459,18 @@ class MonographCompiler:
                 re.IGNORECASE,
             )
             if m_fig:
+                while body_lines and (
+                    not body_lines[-1].strip()
+                    or re.match(r"^\([1-9a-z]\)$", body_lines[-1].strip())
+                ):
+                    if (
+                        re.match(r"^\([1-9a-z]\)$", body_lines[-1].strip())
+                        or len(body_lines) >= 2
+                        and re.match(r"^\([1-9a-z]\)$", body_lines[-2].strip())
+                    ):
+                        _ = body_lines.pop()
+                    else:
+                        break
                 fid = f"{m_fig.group(1)}_{m_fig.group(2)}"
                 if fid not in seen_figs_on_page:
                     seen_figs_on_page.add(fid)
@@ -1358,27 +1481,52 @@ class MonographCompiler:
                         bot_figs.append((fid, cap))
                 continue
 
-            m_sec = re.match(r"^(?:#+\s*|\*\*)?(\d+\.\d+)\s+([^\*\n]+?)(?:\*\*)?$", lt)
+            m_sec = re.match(r"^(?:#+\s*|\*\*)?(\d+\.\d+)\s+([^\n]+?)(?:\*\*)?$", lt)
             if m_sec and m_sec.group(1) in self.spec.sections:
                 sec_id = m_sec.group(1)
                 start_p, canon_title = self.spec.sections[sec_id]
-                if pno == start_p:
+                if pno >= start_p and sec_id not in self._seen_sections:
+                    self._seen_sections.add(sec_id)
                     body_lines.append(f"## {sec_id} {canon_title}")
-                    continue
-                elif non_empty_so_far <= 3:
-                    continue
+                continue
 
             m_sub = re.match(
-                r"^(?:#+\s*|\*\*)?([a-e])\.\s+([A-Z][A-Za-z0-9\s\-,'\(\)]{2,60}?)(?:\*\*)?\.?$",
+                r"^(?:#+\s*|\*\*)?([a-e])\.?\s+([A-Z\$][A-Za-z0-9\s\-,'’\(\)–—\$\\]{2,65}?)(?:\*\*)?\.?$",
                 lt,
             )
-            if m_sub and len(lt) < 72:
+            if m_sub and len(lt) < 76:
                 body_lines.append(f"### {m_sub.group(1)}. {m_sub.group(2).strip()}")
+                continue
+
+            m_hash = re.match(r"^#+\s*(.+?)\s*$", lt)
+            if m_hash:
+                inner_h = m_hash.group(1).strip()
+                if hdr_pat and re.match(
+                    rf"^(?:{hdr_pat})(?:\s+\d{{1,3}})?$", inner_h, re.IGNORECASE
+                ):
+                    continue
+                if re.match(r"^Chapter\s+\d+$", inner_h, re.IGNORECASE):
+                    body_lines.append(f"## {inner_h}")
+                    continue
+                if re.match(r"^Proof\b", inner_h, re.IGNORECASE):
+                    body_lines.append(f"*{inner_h}*")
+                    continue
+                thm_heads = "|".join(
+                    (*self.composition.domain.theorem_heads, r"Weyl['’]s Lemma")
+                )
+                if thm_heads and re.match(rf"^(?:{thm_heads})\b", inner_h):
+                    if inner_h.endswith((".", ":")):
+                        body_lines.append(f"**{inner_h}**")
+                    else:
+                        body_lines.append(f"**{inner_h}.**")
+                    continue
+                body_lines.append(inner_h)
                 continue
 
             body_lines.append(l)
 
         s = "\n".join(body_lines).strip()
+        s = re.sub(r"\\\s+(begin|end)\b", r"\\\1", s)
 
         s = re.sub(
             r"\\tag\{\(?(\d+)\.(\d+[a-z']?)\)?\}",
@@ -1416,6 +1564,7 @@ class MonographCompiler:
             flags=re.DOTALL,
         )
         s = re.sub(r"\\tag\{[^{}]*\}", "", s)
+        s = re.sub(r"(<eq-[^>]+>)(?:\s*<eq-[^>]+>)+", r"\1", s)
         if len(re.findall(r"\$\$", s)) % 2 != 0:
             s = s.rstrip() + "$$"
 
@@ -1488,6 +1637,7 @@ class MonographCompiler:
         )
 
         s = s.replace('"', "''")
+        s = re.sub(r"^(\s*)=", r"\1\\=", s, flags=re.MULTILINE)
 
         s = re.sub(r"^#{4,6}\s+(.*?)$", r"==== \1", s, flags=re.MULTILINE)
         s = re.sub(r"^###\s+([a-e]\.\s+.*?)$", r"=== \1", s, flags=re.MULTILINE)
@@ -1689,11 +1839,13 @@ class MonographCompiler:
 
                 md_page = p_body
                 for fid, cap in top_f:
-                    if (fig_dir / f"fig_{fid}.png").exists():
-                        md_page = f"![{cap}](figures/fig_{fid}.png)\n\n" + md_page
+                    asset = self._resolve_figure_asset(fig_dir, fid)
+                    if asset is not None:
+                        md_page = f"![{cap}](figures/{asset.name})\n\n" + md_page
                 for fid, cap in bot_f:
-                    if (fig_dir / f"fig_{fid}.png").exists():
-                        md_page = md_page + f"\n\n![{cap}](figures/fig_{fid}.png)"
+                    asset = self._resolve_figure_asset(fig_dir, fid)
+                    if asset is not None:
+                        md_page = md_page + f"\n\n![{cap}](figures/{asset.name})"
                 ch_md_pages.append(md_page)
 
             md_sections.append("\n\n".join(ch_md_pages))
@@ -1777,7 +1929,7 @@ class MonographCompiler:
                 "-V",
                 "documentclass=book",
                 "-V",
-                "geometry:paperwidth=6.14in,paperheight=9.21in,margin=0.78in",
+                f"geometry:{self.composition.publisher.pandoc_geometry}",
                 "-o",
                 str(tex_out),
             ],

@@ -1,5 +1,6 @@
 """Batched high-throughput Dual-G4 Colab converter for Edouard Goursat's 568-page monograph."""
 
+import json
 import shutil
 from pathlib import Path
 
@@ -12,6 +13,7 @@ out_dir = Path("output/goursat_colab")
 renders_dir = out_dir / "page_renders"
 figs_dir = out_dir / "figures"
 md_dir = out_dir / "markdown_pages"
+manifest_path = out_dir / "figures_manifest.json"
 
 out_dir.mkdir(parents=True, exist_ok=True)
 md_dir.mkdir(parents=True, exist_ok=True)
@@ -67,14 +69,16 @@ print("\nAll 568 pages transcribed on Dual G4 Blackwell cluster!")
 
 # Load extracted figures
 extracted_figures: list[ExtractedFigure] = []
-for ff in sorted(figs_dir.glob("*.png")):
-    stem = ff.stem.replace("fig_", "")
-    extracted_figures.append(ExtractedFigure(
-        figure_id=stem,
-        caption=f"Figure {stem}",
-        image_rel_path=f"figures/{ff.name}",
-        source_page=1,
-    ))
+if manifest_path.exists():
+    for item in json.loads(manifest_path.read_text(encoding="utf-8")):
+        extracted_figures.append(ExtractedFigure(
+            figure_id=str(item["figure_id"]),
+            caption=str(item["caption"]),
+            image_rel_path=str(item["image_rel_path"]),
+            source_page=int(item["source_page"]),
+            width_px=int(item.get("width_px", 0)),
+            height_px=int(item.get("height_px", 0)),
+        ))
 
 print(f"Grounded {len(extracted_figures)} figures.")
 print("Stitching all 568 pages into master TeX-compatible Markdown: book.md...")
@@ -86,6 +90,8 @@ for f in all_md:
         pno = int(f.stem.split("_")[-1])
     except ValueError:
         pno = len(pages_md) + 1
+    if pno > 553:
+        continue
     pages_md.append((pno, f.read_text(encoding="utf-8")))
 
 cleaner = TeXMarkdownCleaner(running_headers=[

@@ -78,12 +78,16 @@ class DualColabG4Cluster:
         return None
 
     @staticmethod
-    def partition_pages(pages: list[Path], num_chunks: int, interleaved: bool = False) -> list[list[Path]]:
+    def partition_pages(
+        pages: list[Path], num_chunks: int, interleaved: bool = False
+    ) -> list[list[Path]]:
         """Split a list of page paths into balanced chunks."""
         if not pages or num_chunks <= 1:
             return [pages]
         if interleaved:
-            return [pages[i::num_chunks] for i in range(num_chunks) if pages[i::num_chunks]]
+            return [
+                pages[i::num_chunks] for i in range(num_chunks) if pages[i::num_chunks]
+            ]
         k, m = divmod(len(pages), num_chunks)
         chunks: list[list[Path]] = []
         for i in range(num_chunks):

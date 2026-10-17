@@ -58,12 +58,14 @@ class JevSemanticVerifier:
         self.check_spaced_words(report)
         self.check_unconverted_markdown_headings(report)
         self.check_raw_latex_macros(report)
+        self.check_unrendered_math_delimiters(report)
         self.check_mangled_math_tokens(report)
         self.check_isolated_display_letters(report)
         self.check_orphaned_equation_numbers(report)
         self.check_inverted_partial_derivatives(report)
         self.check_mangled_dots(report)
         self.check_visual_line_height_spikes(report)
+        self.check_figure_crops_with_jev(report)
         return report
 
     def check_spaced_words(self, report: JevReport) -> None:
@@ -261,7 +263,11 @@ class JevSemanticVerifier:
                 if re.match(r"^\(\d+\)$", t):
                     # Check if there is a display equation on the same vertical level
                     has_adjacent_formula = any(
-                        o != b and abs((o[1] + o[3]) / 2 - (b[1] + b[3]) / 2) < 14
+                        o != b
+                        and (
+                            abs((o[1] + o[3]) / 2 - (b[1] + b[3]) / 2) < 26
+                            or (o[1] - 8 <= (b[1] + b[3]) / 2 <= o[3] + 8)
+                        )
                         for o in blocks
                     )
                     if not has_adjacent_formula:
@@ -297,9 +303,20 @@ class JevSemanticVerifier:
                                 )
                             )
             for i, (b1, t1) in enumerate(spans):
-                if re.match(r"^\(\d+\)$", t1) and b1[0] > 358:
+                if (
+                    re.match(r"^\(\d+(?:\.\d+[a-z']?)?\)$", t1)
+                    and t1 != "(0)"
+                    and b1[2] > 382
+                ):
+                    cy1 = (b1[1] + b1[3]) / 2.0
                     for j, (b2, t2) in enumerate(spans):
-                        if i != j and abs(b1[1] - b2[1]) < 15 and b2[2] > b1[0] - 2:
+                        cy2 = (b2[1] + b2[3]) / 2.0
+                        if (
+                            i != j
+                            and abs(cy1 - cy2) < 6.0
+                            and b2[2] > b1[0] + 1.0
+                            and b2[0] < b1[2] - 1.0
+                        ):
                             report.violations.append(
                                 JevViolation(
                                     page_num=page_idx,
@@ -379,6 +396,47 @@ class JevSemanticVerifier:
                                 message=f"Paragraph line height ({avg_h:.1f}pt) severely distorted by crammed multiline formula",
                             )
                         )
+
+    def check_unrendered_math_delimiters(self, report: JevReport) -> None:
+        delim_re = re.compile(
+            r"\$\$|\$\s+[A-Za-z0-9\\\(]|[A-Za-z0-9\)]\s+\$|\$_[A-Za-z0-9\{]|\\neq\b"
+        )
+        for pno in range(len(self.doc)):
+            page_idx = pno + 1
+            text = self.doc[pno].get_text()
+            m = delim_re.search(text)
+            if m:
+                snippet = text[
+                    max(0, m.start() - 25) : min(len(text), m.end() + 25)
+                ].replace("\n", " ")
+                report.violations.append(
+                    JevViolation(
+                        page_num=page_idx,
+                        rule="UNRENDERED_MATH_DELIMITER",
+                        severity="ERROR",
+                        snippet=snippet,
+                        message=f"Literal math delimiter or macro '{m.group(0)}' leaked into rendered PDF",
+                    )
+                )
+
+    def check_figure_crops_with_jev(self, report: JevReport) -> None:
+        from polytypst.vision.typesafe_jev import TypeSafeJevVision
+
+        fig_dir = self.pdf_path.parent / "figures"
+        if not fig_dir.exists():
+            return
+        for png_path in sorted(fig_dir.glob("*.png")):
+            ok, reasons = TypeSafeJevVision.verify_cropped_diagram(png_path)
+            if not ok:
+                report.violations.append(
+                    JevViolation(
+                        page_num=1,
+                        rule="CORRUPTED_FIGURE_CROP",
+                        severity="ERROR",
+                        snippet=png_path.name,
+                        message=f"Figure '{png_path.name}' failed purity verification: {'; '.join(reasons)}",
+                    )
+                )
 
 
 def audit_jev(pdf_path: Path) -> JevReport:

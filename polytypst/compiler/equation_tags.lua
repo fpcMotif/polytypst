@@ -6,6 +6,22 @@ local function split_tag(text)
   return text:match("^(.-)%s*\\tag%s*{([^}]*)}%s*$")
 end
 
+local function normalize_typst_math(s)
+  s = s:gsub("upright%(d%)", "dif")
+  s = s:gsub('delim:%s*"||"', 'delim: "|"')
+  s = s:gsub("planck%.reduce", "planck")
+  s = s:gsub("angle%.l", "chevron.l")
+  s = s:gsub("angle%.r", "chevron.r")
+  s = s:gsub("([^a-zA-Z0-9_])sect([^a-zA-Z0-9_])", "%1section%2")
+  s = s:gsub("^sect([^a-zA-Z0-9_])", "section%1")
+  s = s:gsub("([^a-zA-Z0-9_])sect$", "%1section")
+  s = s:gsub('cases%(delim:%s*"{",([^\n]+)%)', function(inner)
+    local fixed = inner:gsub("([^\\]);", "%1\\;"):gsub("^;", "\\;")
+    return 'cases(delim: "{",' .. fixed .. ")"
+  end)
+  return s
+end
+
 local function tex_to_typst_math_inner(tex)
   local trimmed = trim(tex)
   if trimmed == "" then
@@ -15,7 +31,7 @@ local function tex_to_typst_math_inner(tex)
   out = trim(out)
   out = out:gsub("^%$%s*", ""):gsub("%s*%$$", "")
   out = out:gsub("([^\\]);", "%1\\;"):gsub("^;", "\\;")
-  return out
+  return normalize_typst_math(out)
 end
 
 local function split_align_rows(inner)
@@ -53,6 +69,13 @@ end
 
 function Math(el)
   if el.mathtype ~= "DisplayMath" then
+    if FORMAT:match("typst") then
+      local inline_eq = pandoc.write(pandoc.Pandoc({ pandoc.Plain({ el }) }), "typst"):gsub("%s+$", "")
+      local fixed_inline = normalize_typst_math(inline_eq)
+      if fixed_inline ~= inline_eq then
+        return pandoc.RawInline("typst", fixed_inline)
+      end
+    end
     return nil
   end
 
@@ -145,11 +168,18 @@ function Math(el)
 
   local body, tag = split_tag(el.text)
   if not tag then
+    if FORMAT:match("typst") then
+      local eq = pandoc.write(pandoc.Pandoc({ pandoc.Plain({ el }) }), "typst"):gsub("%s+$", "")
+      local fixed_eq = normalize_typst_math(eq)
+      if fixed_eq ~= eq then
+        return pandoc.RawInline("typst", fixed_eq)
+      end
+    end
     return nil
   end
   if FORMAT:match("typst") then
     local equation = pandoc.write(pandoc.Pandoc({ pandoc.Plain({ pandoc.Math("DisplayMath", body) }) }), "typst")
-    equation = equation:gsub("%s+$", "")
+    equation = normalize_typst_math(equation:gsub("%s+$", ""))
     return pandoc.RawInline("typst", "#[#set math.equation(numbering: _ => [(" .. tag .. ")]); " .. equation .. "]")
   end
   if FORMAT:match("html") or FORMAT:match("epub") then

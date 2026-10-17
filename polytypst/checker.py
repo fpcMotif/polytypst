@@ -66,6 +66,9 @@ class DocumentQualityChecker:
         self.check_cross_page_splits(report)
         self.check_isolated_math_blocks(report)
         self.check_unrendered_fractions(report)
+        self.check_unrendered_math_delimiters(report)
+        self.check_leaked_running_headers(report)
+        self.check_extracted_figures_purity(report)
         self.check_equation_margin_overflow(report)
         self.check_chapter_structural_integrity(report)
         return report
@@ -137,7 +140,7 @@ class DocumentQualityChecker:
                 k in text.lower()
                 for k in ["bibliography", "references", "参考文献", "bibliographie"]
             )
-            if not is_bib and page_idx < 200:
+            if not is_bib:
                 continue
             # Only flag if the page is an actual bibliography list
             lines = [l.strip() for l in text.splitlines() if l.strip()]
@@ -410,6 +413,65 @@ class DocumentQualityChecker:
                             context_snippet=first_line,
                         )
                     )
+
+    def check_unrendered_math_delimiters(self, report: CheckReport) -> None:
+        math_delim_re = re.compile(
+            r"\$\$|\$\s+[A-Za-z0-9\\\(]|[A-Za-z0-9\)]\s+\$|\$_[A-Za-z0-9\{]|\\neq\b"
+        )
+        for pno in range(len(self.doc)):
+            page_idx = pno + 1
+            text = self.doc[pno].get_text()
+            m = math_delim_re.search(text)
+            if m:
+                snippet = text[max(0, m.start() - 25) : min(len(text), m.end() + 25)].replace(
+                    "\n", " "
+                )
+                report.issues.append(
+                    QualityIssue(
+                        severity="ERROR",
+                        rule_name="UNRENDERED_MATH_DELIMITER",
+                        page_num=page_idx,
+                        message=f"Unrendered math delimiter or macro '{m.group(0)}' leaked into PDF",
+                        context_snippet=snippet,
+                    )
+                )
+
+    def check_leaked_running_headers(self, report: CheckReport) -> None:
+        header_re = re.compile(
+            r"(?:\[[IVXLCDM]+,\s*§\s*\d+[a-z]?|[IVXLCDM]+,\s*§\s*\d+[a-z]?\]\s+[A-Z]{4,})"
+        )
+        for pno in range(len(self.doc)):
+            page_idx = pno + 1
+            for l in self._extract_body_lines(self.doc[pno]):
+                if header_re.search(l):
+                    report.issues.append(
+                        QualityIssue(
+                            severity="ERROR",
+                            rule_name="LEAKED_RUNNING_HEADER",
+                            page_num=page_idx,
+                            message="Scanned running header with section bracket leaked into body text",
+                            context_snippet=l[:80],
+                        )
+                    )
+
+    def check_extracted_figures_purity(self, report: CheckReport) -> None:
+        from .vision.typesafe_jev import TypeSafeJevVision
+
+        fig_dir = self.pdf_path.parent / "figures"
+        if not fig_dir.exists():
+            return
+        for png_path in sorted(fig_dir.glob("*.png")):
+            ok, reasons = TypeSafeJevVision.verify_cropped_diagram(png_path)
+            if not ok:
+                report.issues.append(
+                    QualityIssue(
+                        severity="ERROR",
+                        rule_name="CORRUPTED_FIGURE_CROP",
+                        page_num=1,
+                        message=f"Figure '{png_path.name}' failed purity check: {'; '.join(reasons)}",
+                        context_snippet=png_path.name,
+                    )
+                )
 
 
 def audit_pdf(pdf_path: Path) -> CheckReport:

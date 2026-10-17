@@ -1461,6 +1461,18 @@ def assemble_illustrated_ahlfors_book(out_dir: Path) -> None:
                 "FIG. 5-1a. Laurent series annulus $r_1 < |z - a| < r_2$.",
             )
         ],
+        246: [
+            (
+                "bonus_6_riemann",
+                "FIG. 6-0a. Conformal bijection of the Riemann Mapping Theorem ($z_0 \\mapsto 0, f'(z_0) > 0$).",
+            )
+        ],
+        281: [
+            (
+                "bonus_7_torus",
+                "FIG. 7-1a. Quotient of the period parallelogram $(\\omega_1, \\omega_2)$ onto the complex torus $\\mathbb{C}\\text{/}\\Lambda$.",
+            )
+        ],
     }
 
     for ch_num, ch_title, start_p, end_p in chapters_def:

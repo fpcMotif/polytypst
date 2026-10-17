@@ -109,6 +109,27 @@ def main() -> None:
         default=True,
         help="Use TypeSafe Jev 1.14 Box primitive for diagram localization",
     )
+    parser.add_argument(
+        "--publisher",
+        type=str,
+        choices=["cambridge", "springer", "mit", "harvard", "ams"],
+        default="cambridge",
+        help="Publisher house preset",
+    )
+    parser.add_argument(
+        "--lang",
+        type=str,
+        choices=["en", "ja", "fr", "zh"],
+        default="en",
+        help="Primary document language profile",
+    )
+    parser.add_argument(
+        "--domain",
+        type=str,
+        choices=["math", "physics", "economics", "philosophy", "history", "novel"],
+        default="math",
+        help="Subject domain profile",
+    )
     args = parser.parse_args()
 
     if args.export_web:
@@ -138,6 +159,9 @@ def main() -> None:
             gpu_type=args.gpu_type,
             num_colab_workers=args.colab_workers,
             shards_per_gpu=args.shards,
+            publisher=args.publisher,
+            lang=args.lang,
+            domain=args.domain,
         )
         res = pipeline.process(
             mode=args.mode, double_check_with_mac=(not args.no_verify)

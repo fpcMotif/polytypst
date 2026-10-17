@@ -1,5 +1,6 @@
 """Complete final Batch 5, download markdown archives, release sessions, and stitch master book.md."""
 
+import json
 import subprocess
 import tarfile
 import time
@@ -12,6 +13,7 @@ out_dir = Path("output/goursat_colab")
 md_dir = out_dir / "markdown_pages"
 figs_dir = out_dir / "figures"
 renders_dir = out_dir / "page_renders"
+manifest_path = out_dir / "figures_manifest.json"
 
 sessions = ["g4-ocr-batch-1", "g4-ocr-batch-2"]
 target_w1 = 28
@@ -81,14 +83,16 @@ for s_name in sessions:
 # Stitching all 568 pages
 print("\nStitching complete 568 pages into master book.md...")
 extracted_figures: list[ExtractedFigure] = []
-for ff in sorted(figs_dir.glob("*.png")):
-    stem = ff.stem.replace("fig_", "")
-    extracted_figures.append(ExtractedFigure(
-        figure_id=stem,
-        caption=f"Figure {stem}",
-        image_rel_path=f"figures/{ff.name}",
-        source_page=1,
-    ))
+if manifest_path.exists():
+    for item in json.loads(manifest_path.read_text(encoding="utf-8")):
+        extracted_figures.append(ExtractedFigure(
+            figure_id=str(item["figure_id"]),
+            caption=str(item["caption"]),
+            image_rel_path=str(item["image_rel_path"]),
+            source_page=int(item["source_page"]),
+            width_px=int(item.get("width_px", 0)),
+            height_px=int(item.get("height_px", 0)),
+        ))
 
 all_md = sorted(md_dir.glob("p_*.md"))
 pages_md: list[tuple[int, str]] = []
@@ -97,6 +101,8 @@ for f in all_md:
         pno = int(f.stem.split("_")[-1])
     except ValueError:
         pno = len(pages_md) + 1
+    if pno > 553:
+        continue
     pages_md.append((pno, f.read_text(encoding="utf-8")))
 
 cleaner = TeXMarkdownCleaner(running_headers=[

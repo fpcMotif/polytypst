@@ -41,6 +41,9 @@ class UniversalPDFPipeline:
         shards_per_gpu: int = 3,
         render_dpi: int = 200,
         running_headers: list[str] | None = None,
+        publisher: str = "cambridge",
+        lang: str = "en",
+        domain: str = "math",
     ):
         self.pdf_path: Path = Path(pdf_path)
         self.output_dir: Path = Path(output_dir)
@@ -49,6 +52,9 @@ class UniversalPDFPipeline:
         self.shards_per_gpu: int = shards_per_gpu
         self.render_dpi: int = render_dpi
         self.running_headers: list[str] = running_headers or []
+        self.publisher: str = publisher
+        self.lang: str = lang
+        self.domain: str = domain
 
         self.renders_dir: Path = self.output_dir / "page_renders"
         self.figures_dir: Path = self.output_dir / "figures"
@@ -217,8 +223,19 @@ class UniversalPDFPipeline:
         print(
             "Cleaning math formulas, grounding figures, and stitching master document..."
         )
-        spec = resolve_monograph_spec(self.pdf_path, total_pages)
+        spec = resolve_monograph_spec(
+            self.pdf_path,
+            total_pages,
+            publisher_key=self.publisher,
+            lang=self.lang,
+            domain=self.domain,
+        )
         if spec.chapters:
+            if spec.slug == "kodaira_complex_analysis":
+                from ..kodaira import generate_all_kodaira_figures
+
+                web_idx = generate_all_kodaira_figures(self.output_dir)
+                print(f"Generated 116 vector SVGs and 2D web gallery: {web_idx}")
             monograph_compiler = MonographCompiler(spec)
             monograph_out = monograph_compiler.build_all(self.output_dir)
             master_path = monograph_out.markdown_path
