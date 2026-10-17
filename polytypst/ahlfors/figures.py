@@ -472,29 +472,40 @@ def generate_bonus_fig_5_laurent() -> str:
 
 def generate_all_ahlfors_figures(out_dir: Path) -> None:
     """Generate and write all Ahlfors figures to out_dir."""
+    from polytypst.ahlfors.figures_extra import EXTRA_SVG_GENERATORS
+
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    fig1 = out_dir / "fig_1_1_vector_addition.svg"
-    fig2 = out_dir / "fig_1_2_vector_multiplication.svg"
-    fig3 = out_dir / "fig_1_3_stereographic_projection.svg"
-
-    fig1.write_text(generate_fig_1_1(), encoding="utf-8")
-    fig2.write_text(generate_fig_1_2(), encoding="utf-8")
-    fig3.write_text(generate_fig_1_3(), encoding="utf-8")
-
-    print(f"Generated {fig1}")
-    print(f"Generated {fig2}")
-    print(f"Generated {fig3}")
+    core_generators = {
+        "fig_1_1_vector_addition.svg": generate_fig_1_1,
+        "fig_1_2_vector_multiplication.svg": generate_fig_1_2,
+        "fig_1_3_stereographic_projection.svg": generate_fig_1_3,
+        "fig_3_1.svg": generate_fig_3_1,
+        "fig_3_2.svg": generate_fig_3_2,
+        "fig_3_3.svg": generate_fig_3_3,
+        "fig_3_9.svg": generate_fig_3_9,
+        **EXTRA_SVG_GENERATORS,
+    }
+    for name, fn in core_generators.items():
+        (out_dir / name).write_text(fn(), encoding="utf-8")
 
 
 def generate_colorful_ahlfors_figures(src_fig_dir: Path, color_fig_dir: Path) -> None:
-    import numpy as np
-    from PIL import Image
+    import shutil
+
+    from polytypst.ahlfors.figures_extra import EXTRA_SVG_GENERATORS
 
     src_fig_dir = Path(src_fig_dir)
     color_fig_dir = Path(color_fig_dir)
     color_fig_dir.mkdir(parents=True, exist_ok=True)
+    raw_fig_dir = src_fig_dir.parent / "figures_raw"
+    if not raw_fig_dir.exists():
+        raw_fig_dir.mkdir(parents=True, exist_ok=True)
+        for png_path in sorted(src_fig_dir.glob("fig_*.png")):
+            shutil.copy2(png_path, raw_fig_dir / png_path.name)
+
+    generate_all_ahlfors_figures(src_fig_dir)
 
     svg_generators = {
         "fig_1_1_vector_addition.svg": generate_fig_1_1,
@@ -504,21 +515,10 @@ def generate_colorful_ahlfors_figures(src_fig_dir: Path, color_fig_dir: Path) ->
         "fig_3_2.svg": generate_fig_3_2,
         "fig_3_3.svg": generate_fig_3_3,
         "fig_3_9.svg": generate_fig_3_9,
-        "fig_7_4.svg": generate_fig_7_4,
+        **EXTRA_SVG_GENERATORS,
         "fig_bonus_2_1.svg": generate_bonus_fig_2_1,
         "fig_bonus_4_cauchy.svg": generate_bonus_fig_4_cauchy,
         "fig_bonus_5_laurent.svg": generate_bonus_fig_5_laurent,
     }
     for name, fn in svg_generators.items():
         (color_fig_dir / name).write_text(fn(), encoding="utf-8")
-
-    for png_path in sorted(src_fig_dir.glob("fig_*.png")):
-        gray = np.array(Image.open(png_path).convert("L"), dtype=np.float32)
-        t = np.clip((245.0 - gray) / 215.0, 0.0, 1.0)
-        mid = np.clip(1.0 - np.abs(t - 0.35) / 0.30, 0.0, 1.0) * (t > 0.06)
-        rgb = np.full((*gray.shape, 3), 255.0, dtype=np.float32)
-        rgb[..., 0] = 255.0 * (1.0 - t) + 24.0 * t + 35.0 * mid
-        rgb[..., 1] = 255.0 * (1.0 - t) + 54.0 * t + 65.0 * mid
-        rgb[..., 2] = 255.0 * (1.0 - t) + 138.0 * t + 90.0 * mid
-        out_img = Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8), mode="RGB")
-        out_img.save(color_fig_dir / png_path.name)

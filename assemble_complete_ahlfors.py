@@ -382,10 +382,10 @@ def convert_latex_sqrt(s: str) -> str:
 
 
 UNARY_MACROS: list[tuple[Pattern[str], str]] = [
-    (re.compile(r"\\(?:overline|bar)(?=\s*\{)"), " overline(({0})) "),
-    (re.compile(r"\\underline(?=\s*\{)"), " underline(({0})) "),
-    (re.compile(r"\\(?:widetilde|tilde)(?=\s*\{)"), " tilde(({0})) "),
-    (re.compile(r"\\(?:widehat|hat)(?=\s*\{)"), " hat(({0})) "),
+    (re.compile(r"\\(?:overline|bar)(?=\s*\{)"), " overline({0}) "),
+    (re.compile(r"\\underline(?=\s*\{)"), " underline({0}) "),
+    (re.compile(r"\\(?:widetilde|tilde)(?=\s*\{)"), " tilde({0}) "),
+    (re.compile(r"\\(?:widehat|hat)(?=\s*\{)"), " hat({0}) "),
     (re.compile(r"\\check(?=\s*\{)"), " caron({0}) "),
     (re.compile(r"\\vec(?=\s*\{)"), " arrow({0}) "),
     (re.compile(r"\\ddot(?=\s*\{)"), " dot.double({0}) "),
@@ -413,6 +413,8 @@ def convert_unary_macros(s: str) -> str:
                 break
             inner, end_pos = parse_braced(s, m.end())
             inner_conv = convert_unary_macros(inner)
+            if "," in inner_conv and not fmt.startswith(" (mod"):
+                inner_conv = f"({inner_conv})"
             s = s[: m.start()] + fmt.format(inner_conv) + s[end_pos:]
 
     while True:
@@ -640,7 +642,7 @@ def sanitize_math_code(code: str, is_display: bool = False) -> str:
         .replace(r"\langle", " chevron.l ")
         .replace(r"\rangle", " chevron.r ")
     )
-    code = re.sub(r"\\mid(?![a-zA-Z])", " | ", code)
+    code = re.sub(r"\\mid(?![a-zA-Z])", " bar.v ", code)
     code = re.sub(r"\\in(?![a-zA-Z])", " in ", code)
     code = re.sub(r"\\notin(?![a-zA-Z])", " notin ", code)
     code = re.sub(r"\\cap(?![a-zA-Z])", " inter ", code)
@@ -753,7 +755,7 @@ def sanitize_math_code(code: str, is_display: bool = False) -> str:
         "|" in unquoted_check
         and unquoted_check.count("|") % 2 == 0
         and "||" not in unquoted_check
-        and " | " not in unquoted_check
+        and "|->" not in unquoted_check
     ):
         code = re.sub(r"\|([^|\n]+?)\|", r" abs(\1) ", code)
 
@@ -884,7 +886,7 @@ def extract_page_parts(
                 f" {rest}" if rest else ""
             )
             non_empty_body = len([b for b in body_lines if b.strip()])
-            if non_empty_body <= 1:
+            if non_empty_body <= 1 or pno == 298:
                 top_figs.append((fid, cap))
             else:
                 bot_figs.append((fid, cap))
@@ -910,6 +912,8 @@ def extract_page_parts(
         s = s.replace("as $x$ tends to $a$,", "as $x$ tends to $a$,*")
     if pno == 177:
         s = s.replace("if $|\\zeta| < 1$, then*", "if $|\\zeta| < 1$, then")
+    if pno == 298:
+        s = s.replace("Fig. 7-0", "Fig. 7-2")
 
     # 1. Universal equation number extraction attached to $$, \[, or standalone $
     s = re.sub(r"\\tag\{(\d+)\}", rf"\\tag{{{ch_num}-{pno}-\1}}", s)
@@ -1313,8 +1317,16 @@ def assemble_ahlfors_book(out_dir: Path) -> None:
     out_dir = Path(out_dir)
     md_dir = out_dir / "markdown"
     fig_dir = out_dir / "figures"
+    raw_fig_dir = out_dir / "figures_raw"
+    if not raw_fig_dir.exists() and fig_dir.exists():
+        raw_fig_dir.mkdir(parents=True, exist_ok=True)
+        for png_path in sorted(fig_dir.glob("fig_*.png")):
+            shutil.copy2(png_path, raw_fig_dir / png_path.name)
 
     from polytypst.ahlfors.compiler import AhlforsCompiler
+    from polytypst.ahlfors.figures import generate_all_ahlfors_figures
+
+    generate_all_ahlfors_figures(fig_dir)
 
     master_lines = [
         AhlforsCompiler.TYPST_PREAMBLE,

@@ -13,7 +13,24 @@ async function main() {
   const client = new ConvexHttpClient(convexUrl);
   const catalogPath = resolve(import.meta.dirname, "../public/data/catalog.json");
   const catalog = JSON.parse(readFileSync(catalogPath, "utf-8")) as { books: BookData[] };
+  const remoteBooks = await client.query(api.books.listBooks);
+  const remoteBySlug: Record<string, (typeof remoteBooks)[number]> = Object.fromEntries(
+    remoteBooks.map((b) => [b.slug, b]),
+  );
 
+  async function retryMutation<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        return await fn();
+      } catch (err) {
+        if (attempt === retries - 1) throw err;
+        const { promise, resolve: res } = Promise.withResolvers<void>();
+        setTimeout(res, 1000 * (attempt + 1));
+        await promise;
+      }
+    }
+    throw new Error("Mutation failed after retries");
+  }
   for (let bIdx = 0; bIdx < catalog.books.length; bIdx++) {
     const book = catalog.books[bIdx];
     const summaries = book.chapters.map((ch) => ({
@@ -24,56 +41,68 @@ async function main() {
       blockCount: ch.blocks.length,
     }));
 
-    await client.mutation(api.books.upsertBookMetadata, {
-      slug: book.slug,
-      order: bIdx + 1,
-      title: book.title,
-      subtitle: book.subtitle,
-      author: book.author,
-      language: book.language,
-      domain: book.domain,
-      renderingMode: book.renderingMode,
-      renderingBadge: book.renderingBadge,
-      description: book.description,
-      stats: book.stats,
-      deliverables: book.deliverables,
-      chapterSummaries: summaries,
-    });
+    const existingPdf = remoteBySlug[book.slug]?.deliverables?.pdf;
+    const finalDeliverables = {
+      ...book.deliverables,
+      pdf: existingPdf && existingPdf.startsWith("https://") ? existingPdf : book.deliverables.pdf,
+    };
+
+    await retryMutation(() =>
+      client.mutation(api.books.upsertBookMetadata, {
+        slug: book.slug,
+        order: bIdx + 1,
+        title: book.title,
+        subtitle: book.subtitle,
+        author: book.author,
+        language: book.language,
+        domain: book.domain,
+        renderingMode: book.renderingMode,
+        renderingBadge: book.renderingBadge,
+        description: book.description,
+        stats: book.stats,
+        deliverables: finalDeliverables,
+        chapterSummaries: summaries,
+      }),
+    );
 
     for (let cIdx = 0; cIdx < book.chapters.length; cIdx++) {
       const ch = book.chapters[cIdx];
-      await client.mutation(api.books.upsertChapter, {
-        bookSlug: book.slug,
-        slug: ch.slug,
-        order: cIdx + 1,
-        number: ch.number,
-        title: ch.title,
-        tag: ch.tag,
-        blocksJson: JSON.stringify(ch.blocks),
-      });
+      await retryMutation(() =>
+        client.mutation(api.books.upsertChapter, {
+          bookSlug: book.slug,
+          slug: ch.slug,
+          order: cIdx + 1,
+          number: ch.number,
+          title: ch.title,
+          tag: ch.tag,
+          blocksJson: JSON.stringify(ch.blocks),
+        }),
+      );
     }
 
     const relPdf = book.deliverables.pdf.replace(/^\//, "");
     const localPdfPath = resolve(import.meta.dirname, "../public", relPdf);
-    if (existsSync(localPdfPath)) {
-      try {
-        const uploadUrl = await client.mutation(api.books.generateUploadUrl);
-        const pdfBytes = readFileSync(localPdfPath);
-        const res = await fetch(uploadUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/pdf" },
-          body: pdfBytes,
-        });
-        const { storageId } = await res.json();
-        if (storageId) {
-          const liveUrl = await client.mutation(api.books.updateBookDeliverablePdf, {
-            slug: book.slug,
-            storageId,
+    if (!existingPdf || !existingPdf.startsWith("https://")) {
+      if (existsSync(localPdfPath)) {
+        try {
+          const uploadUrl = await client.mutation(api.books.generateUploadUrl);
+          const pdfBytes = readFileSync(localPdfPath);
+          const res = await fetch(uploadUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/pdf" },
+            body: pdfBytes,
           });
-          console.log(`Uploaded ${book.slug} PDF to Convex Storage -> ${liveUrl}`);
+          const { storageId } = await res.json();
+          if (storageId) {
+            const liveUrl = await client.mutation(api.books.updateBookDeliverablePdf, {
+              slug: book.slug,
+              storageId,
+            });
+            console.log(`Uploaded ${book.slug} PDF to Convex Storage -> ${liveUrl}`);
+          }
+        } catch (err) {
+          console.warn(`Could not upload PDF for ${book.slug}:`, err);
         }
-      } catch (err) {
-        console.warn(`Could not upload PDF for ${book.slug}:`, err);
       }
     }
     console.log(`Seeded ${book.slug} (${book.chapters.length} chapters) into Convex at ${convexUrl}`);

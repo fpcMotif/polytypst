@@ -270,6 +270,42 @@ def convert_kerodon_to_math_web_blocks(kerodon_dir: Path, pdf_path: Path) -> Lis
             "tag": sec.tag,
             "blocks": blocks
         })
+
+    comp_typ = kerodon_dir / "kerodon_complete.typ"
+    if comp_typ.exists():
+        comp_text = comp_typ.read_text(encoding="utf-8")
+        raw_secs = re.split(r"\n(?=== Section \d+\.\d+)", comp_text)
+        for sec in raw_secs[1:]:
+            lines = [l.strip() for l in sec.strip().split("\n") if l.strip()]
+            if not lines:
+                continue
+            sec_title = lines[0].lstrip("=").strip()
+            m_sec = re.match(r"Section\s+(\d+\.\d+):\s*(.*)", sec_title)
+            if not m_sec:
+                continue
+            sec_num, sec_name = m_sec.groups()
+            if chapters and sec_num.startswith("1."):
+                continue
+            slug_val = "sec-" + sec_num.replace(".", "-")
+            blocks = []
+            env_matches = list(re.finditer(r"#([a-z]+)\(number:\s*\"([^\"]*)\",\s*title:\s*\"([^\"]*)\",\s*tag:\s*\"([^\"]*)\"\)\[([\s\S]*?)\]\n", sec))
+            for m in env_matches:
+                kind, num, title, tag, body = m.groups()
+                body_clean = body.strip().replace("$oo$", "$\\infty$").replace("arrow.r", "\\to ").replace("times", "\\times ")
+                blocks.append({
+                    "type": "theorem",
+                    "kind": kind.capitalize(),
+                    "number": num,
+                    "title": title,
+                    "tag": tag,
+                    "content": body_clean
+                })
+            chapters.append({
+                "slug": slug_val,
+                "number": "Section " + sec_num,
+                "title": sec_name.replace("$oo$", "∞"),
+                "blocks": blocks
+            })
     return chapters
 
 
@@ -478,7 +514,7 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
     sync_configs = [
         ("modern-firm", roberts_out_dir, "book"),
         ("serre-arithmetique", serre_out_dir, "serre_cours_darithmetique"),
-        ("kerodon-ch1", kerodon_out_dir, "chapter1"),
+        ("kerodon-ch1", kerodon_out_dir, "kerodon_complete"),
         ("ahlfors", ahlfors_out_dir, "ahlfors_complete"),
         ("goursat-analyse", goursat_out_dir, "book"),
         ("taocp-vol3", taocp_out_dir, "taocp_vol3"),
@@ -562,15 +598,15 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
         kerodon_chapters = convert_kerodon_to_math_web_blocks(kerodon_out_dir, kerodon_pdf)
         books_payload.append({
             "slug": "kerodon-ch1",
-            "title": "Kerodon — Chapter 1: The Language of ∞-Categories",
-            "subtitle": "An Online Resource for Homotopy-Coherent Mathematics",
+            "title": "Kerodon — Chapters 1–10: The Complete Resource for Homotopy-Coherent Mathematics",
+            "subtitle": "An Online Resource for Homotopy-Coherent Mathematics (Complete 10 Chapters)",
             "author": "Jacob Lurie",
             "language": "en-US",
             "domain": "Higher Category Theory & Homotopy Theory",
             "renderingMode": "math-katex",
-            "renderingBadge": "KaTeX Engine + Kerodon Tag Permalinks + 300-DPI Commutative Diagrams",
-            "description": "Jacob Lurie 高阶范畴论巨著第一章。涵盖单纯集、基本群胚、拟范畴、同伦范畴与神经函子，包含 237 个结构化数学环境、精确 Tag 永久链接与 60 幅 300-DPI 交换图。",
-            "stats": {"pages": 74, "figures": 60, "tables": 0, "chapters": len(kerodon_chapters)},
+            "renderingBadge": "KaTeX Engine + Kerodon Tag Permalinks + 300-DPI Commutative Diagrams + Complete 10 Chapters",
+            "description": "Jacob Lurie 高阶范畴论完整十卷巨著（Kerodon 全十卷）。收录第 1 章至第 10 章全部 57 个标准节，涵盖单纯集、∞-范畴、Kan 复形、同伦论、Cartesian 纤维化、伴随函子、极限与余极限、米田嵌入、大 ∞-范畴以及正合性与动画，包含数千个定理与精确定位 Tag 永久链接。",
+            "stats": {"pages": 889, "figures": 60, "tables": 0, "chapters": len(kerodon_chapters)},
             "deliverables": {
                 "pdf": "/assets/kerodon-ch1/book.pdf",
                 "typst": "/assets/kerodon-ch1/book.typ",

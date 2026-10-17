@@ -20,29 +20,100 @@ from .parser.stitcher import DocumentStitcher, FigureBlock
 from .vision.vector_figures import generate_all_vector_figures
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="polytypst: Universal tool to turn complex PDFs into beautiful Typst, LaTeX, and EPUB."
     )
-    parser.add_argument("pdf_path", type=Path, nargs="?", help="Path to input PDF document")
-    parser.add_argument("--book", type=str, choices=["modern-firm", "serre", "kerodon", "all"], help="Build canonical book deliverables")
-    parser.add_argument("--export-web", action="store_true", help="Export web catalog and static assets to polytypst/web/public")
-    parser.add_argument("-o", "--output", type=Path, default=Path("output"), help="Output directory")
-    parser.add_argument("--formats", type=str, default="typst,pdf,epub,latex", help="Comma-separated formats: typst,pdf,epub,latex")
-    parser.add_argument("--ocr-engine", type=str, choices=["apple_vision", "mistral", "jina", "tesseract"], default="jina")
-    parser.add_argument("--mode", type=str, choices=["dual-g4", "local", "apple-vision"], default="dual-g4", help="Execution engine mode: dual-g4 (Colab Blackwell GPU), local, or apple-vision")
-    parser.add_argument("--gpu-type", type=str, default="G4", help="Colab GPU accelerator: G4, L4, T4")
-    parser.add_argument("--colab-workers", type=int, default=2, help="Number of Colab GPU workers")
-    parser.add_argument("--no-verify", action="store_true", help="Disable Apple Vision cross-verification")
-    parser.add_argument("--languages", type=str, default="zh-Hans,en-US,fr-FR", help="Comma-separated OCR languages")
-    parser.add_argument("--font-style", type=str, choices=["songti", "pingfang"], default="songti", help="Primary CJK typography: songti (academic serif) or pingfang (modern sans)")
-    parser.add_argument("--columns", type=int, choices=[1, 2], default=1, help="Number of text columns (1 for standard book, 2 for academic math)")
-    parser.add_argument("--vector-graphics", action="store_true", default=True, help="Generate clean vector SVG graphics for diagrams")
-    parser.add_argument("--use-jev", action="store_true", default=True, help="Use TypeSafe Jev 1.14 Box primitive for diagram localization")
+    parser.add_argument(
+        "pdf_path", type=Path, nargs="?", help="Path to input PDF document"
+    )
+    parser.add_argument(
+        "--book",
+        type=str,
+        choices=["modern-firm", "serre", "kerodon", "all"],
+        help="Build canonical book deliverables",
+    )
+    parser.add_argument(
+        "--export-web",
+        action="store_true",
+        help="Export web catalog and static assets to polytypst/web/public",
+    )
+    parser.add_argument(
+        "-o", "--output", type=Path, default=Path("output"), help="Output directory"
+    )
+    parser.add_argument(
+        "--formats",
+        type=str,
+        default="typst,pdf,epub,latex",
+        help="Comma-separated formats: typst,pdf,epub,latex",
+    )
+    parser.add_argument(
+        "--ocr-engine",
+        type=str,
+        choices=["apple_vision", "mistral", "jina", "tesseract"],
+        default="jina",
+    )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["dual-g4", "local", "apple-vision"],
+        default="dual-g4",
+        help="Execution engine mode: dual-g4 (Colab Blackwell GPU), local, or apple-vision",
+    )
+    parser.add_argument(
+        "--gpu-type", type=str, default="G4", help="Colab GPU accelerator: G4, L4, T4"
+    )
+    parser.add_argument(
+        "--colab-workers", type=int, default=2, help="Number of Colab GPU workers"
+    )
+    parser.add_argument(
+        "--shards",
+        type=int,
+        default=3,
+        help="Number of parallel Jina OCR worker processes per GPU",
+    )
+    parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="Disable Apple Vision cross-verification",
+    )
+    parser.add_argument(
+        "--languages",
+        type=str,
+        default="zh-Hans,en-US,fr-FR",
+        help="Comma-separated OCR languages",
+    )
+    parser.add_argument(
+        "--font-style",
+        type=str,
+        choices=["songti", "pingfang"],
+        default="songti",
+        help="Primary CJK typography: songti (academic serif) or pingfang (modern sans)",
+    )
+    parser.add_argument(
+        "--columns",
+        type=int,
+        choices=[1, 2],
+        default=1,
+        help="Number of text columns (1 for standard book, 2 for academic math)",
+    )
+    parser.add_argument(
+        "--vector-graphics",
+        action="store_true",
+        default=True,
+        help="Generate clean vector SVG graphics for diagrams",
+    )
+    parser.add_argument(
+        "--use-jev",
+        action="store_true",
+        default=True,
+        help="Use TypeSafe Jev 1.14 Box primitive for diagram localization",
+    )
     args = parser.parse_args()
 
     if args.export_web:
         from .web_exporter import export_all_web_data
+
         root_dir = Path(__file__).resolve().parents[2]
         web_pub = Path(__file__).resolve().parents[1] / "web" / "public"
         export_all_web_data(root_dir, web_pub)
@@ -60,16 +131,19 @@ def main():
     figures_dir.mkdir(parents=True, exist_ok=True)
     if not args.book:
         from .core.pipeline import UniversalPDFPipeline
+
         pipeline = UniversalPDFPipeline(
             pdf_path=args.pdf_path,
             output_dir=out_dir,
             gpu_type=args.gpu_type,
             num_colab_workers=args.colab_workers,
+            shards_per_gpu=args.shards,
         )
-        res = pipeline.process(mode=args.mode, double_check_with_mac=(not args.no_verify))
+        res = pipeline.process(
+            mode=args.mode, double_check_with_mac=(not args.no_verify)
+        )
         print(f"\n🎉 polytypst build complete! Master file: {res.master_markdown_path}")
         return
-
 
     print(f"=== polytypst processing: {args.pdf_path.name} ===")
     print(f"Target formats: {args.formats}")
@@ -97,24 +171,36 @@ def main():
         for f in cached_jsons:
             with open(f) as fp:
                 data = json.load(fp)
-            lines = [OCRLine(l["text"], l["x"], l["y"], l["w"], l["h"]) for l in data.get("lines", [])]
-            ocr_pages.append(OCRPage(data["page"], data.get("width", 0), data.get("height", 0), lines))
+            lines = [
+                OCRLine(l["text"], l["x"], l["y"], l["w"], l["h"])
+                for l in data.get("lines", [])
+            ]
+            ocr_pages.append(
+                OCRPage(
+                    data["page"], data.get("width", 0), data.get("height", 0), lines
+                )
+            )
     else:
         print(f"Rendering {total_pages} pages to temporary directory...")
         temp_img_dir = out_dir / "temp_page_renders"
         splitter = TwoUpSplitter(args.pdf_path)
         if splitter.is_two_up():
-            print("Detected 2-up scanned book spreads. Splitting down spine into single portrait pages...")
+            print(
+                "Detected 2-up scanned book spreads. Splitting down spine into single portrait pages..."
+            )
             img_paths = splitter.split_and_render_all(temp_img_dir, dpi=150)
         else:
             img_paths = []
-            for i, page in enumerate(doc):
+            for i in range(total_pages):
+                page = doc[i]
                 pix = page.get_pixmap(dpi=150)
-                p_path = temp_img_dir / f"p_{i+1:03d}.png"
+                p_path = temp_img_dir / f"p_{i + 1:03d}.png"
                 pix.save(p_path)
                 img_paths.append(p_path)
 
-        print(f"Running OCR on {len(img_paths)} pages with engine '{args.ocr_engine}'...")
+        print(
+            f"Running OCR on {len(img_paths)} pages with engine '{args.ocr_engine}'..."
+        )
         if args.ocr_engine == "apple_vision":
             engine = AppleVisionOCREngine(languages=args.languages.split(","))
         elif args.ocr_engine == "mistral":
@@ -126,12 +212,18 @@ def main():
         ocr_pages = engine.recognize_document(img_paths)
         for p in ocr_pages:
             with open(cache_dir / f"page_{p.page_number:03d}.json", "w") as fp:
-                json.dump({
-                    "page": p.page_number,
-                    "width": p.width,
-                    "height": p.height,
-                    "lines": [{"text": l.text, "x": l.x, "y": l.y, "w": l.w, "h": l.h} for l in p.lines]
-                }, fp)
+                json.dump(
+                    {
+                        "page": p.page_number,
+                        "width": p.width,
+                        "height": p.height,
+                        "lines": [
+                            {"text": l.text, "x": l.x, "y": l.y, "w": l.w, "h": l.h}
+                            for l in p.lines
+                        ],
+                    },
+                    fp,
+                )
 
     # Figures map
     figures_map = {}
@@ -156,10 +248,7 @@ def main():
             img_rel = f"figures/fig_{fig_id}.png"
 
         figures_map[fig_id] = FigureBlock(
-            figure_id=fig_id,
-            caption=cap_text,
-            image_rel_path=img_rel,
-            source_page=pno
+            figure_id=fig_id, caption=cap_text, image_rel_path=img_rel, source_page=pno
         )
 
     print(f"Grounded {len(figures_map)} figures.")
@@ -184,7 +273,9 @@ def main():
         print(f"Compiling Typst to PDF: {pdf_path}...")
         try:
             typst_compiler.compile_pdf(typ_path, pdf_path)
-            print(f"SUCCESS: Typst PDF generated at {pdf_path} ({pdf_path.stat().st_size / (1024*1024):.2f} MB)")
+            print(
+                f"SUCCESS: Typst PDF generated at {pdf_path} ({pdf_path.stat().st_size / (1024 * 1024):.2f} MB)"
+            )
         except (subprocess.SubprocessError, OSError, RuntimeError) as e:
             print(f"Typst compilation warning: {e}")
 
@@ -201,7 +292,9 @@ def main():
         print(f"Compiling EPUB via Pandoc: {epub_path}...")
         try:
             pandoc_compiler.compile_epub(md_path, epub_path)
-            print(f"SUCCESS: EPUB generated at {epub_path} ({epub_path.stat().st_size / (1024*1024):.2f} MB)")
+            print(
+                f"SUCCESS: EPUB generated at {epub_path} ({epub_path.stat().st_size / (1024 * 1024):.2f} MB)"
+            )
         except (subprocess.SubprocessError, OSError, RuntimeError) as e:
             print(f"EPUB compilation warning: {e}")
 
@@ -210,7 +303,9 @@ def main():
         print(f"Compiling LaTeX via Pandoc: {tex_path}...")
         try:
             pandoc_compiler.compile_latex(md_path, tex_path)
-            print(f"SUCCESS: LaTeX generated at {tex_path} ({tex_path.stat().st_size / (1024*1024):.2f} MB)")
+            print(
+                f"SUCCESS: LaTeX generated at {tex_path} ({tex_path.stat().st_size / (1024 * 1024):.2f} MB)"
+            )
         except (subprocess.SubprocessError, OSError, RuntimeError) as e:
             print(f"LaTeX generation warning: {e}")
 

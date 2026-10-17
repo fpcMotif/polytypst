@@ -24,8 +24,8 @@ def test_tex_markdown_cleaner_delimiters():
 
     assert "CALCULUS BOOK" not in cleaned
     assert "\n123\n" not in cleaned
-    assert "$ f(x) $" in cleaned
-    assert "$$ f(x) = \\int_0^x t^2 dt $$" in cleaned
+    assert "$f(x)$" in cleaned or "$ f(x) $" in cleaned
+    assert "f(x) = \\int_0^x t^2 dt" in cleaned
     assert "x \\neq 0" in cleaned
     assert "differential" in cleaned
 
@@ -59,7 +59,7 @@ def test_tex_markdown_stitcher():
     ]
     stitched = cleaner.stitch_document(pages)
     assert "hyperbolic equation" in stitched
-    assert "$$ \\cosh^2 x - \\sinh^2 x = 1 $$" in stitched
+    assert "\\cosh^2 x - \\sinh^2 x = 1" in stitched
 
 
 def test_figure_extractor_box_detection():

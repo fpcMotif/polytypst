@@ -9,13 +9,16 @@ Features:
 """
 
 import argparse
+import importlib
 import logging
 import multiprocessing as mp
+import multiprocessing.process as mp_proc
 import tarfile
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 from PIL import Image, ImageOps
 
@@ -36,7 +39,9 @@ UNIVERSAL_TEX_PROMPT = (
 )
 
 
-def crop_and_measure_ink(img: Image.Image, padding: int = 24) -> tuple[Image.Image, int]:
+def crop_and_measure_ink(
+    img: Image.Image, padding: int = 24
+) -> tuple[Image.Image, int]:
     """Remove outer white margins and return (cropped_image, dark_pixel_bbox_area)."""
     gray = img.convert("L")
     bw = gray.point(lambda p: 255 if p < 200 else 0)
@@ -73,11 +78,10 @@ def _shard_worker(
     out_dir_str: str,
     prompt: str,
 ) -> int:
-    import torch  # pyright: ignore[reportMissingImports]
-    from transformers import (  # pyright: ignore[reportMissingImports]
-        AutoModelForCausalLM,
-        AutoProcessor,
-    )
+    torch: Any = importlib.import_module("torch")
+    transformers: Any = importlib.import_module("transformers")
+    AutoModelForCausalLM = transformers.AutoModelForCausalLM
+    AutoProcessor = transformers.AutoProcessor
 
     out_dir = Path(out_dir_str)
     device = (
@@ -164,27 +168,39 @@ def run_worker(
     prompt: str = UNIVERSAL_TEX_PROMPT,
     num_shards: int = 1,
 ) -> None:
-    import torch  # pyright: ignore[reportMissingImports]
-    from transformers import (  # pyright: ignore[reportMissingImports]
-        AutoModelForCausalLM,
-        AutoProcessor,
-    )
+    torch: Any = importlib.import_module("torch")
+    transformers: Any = importlib.import_module("transformers")
+    AutoModelForCausalLM = transformers.AutoModelForCausalLM
+    AutoProcessor = transformers.AutoProcessor
 
     pages_dir = Path(pages_dir)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    device = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
+    device = (
+        "cuda"
+        if torch.cuda.is_available()
+        else ("mps" if torch.backends.mps.is_available() else "cpu")
+    )
     gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else device
-    vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3) if torch.cuda.is_available() else 0
+    vram_gb = (
+        torch.cuda.get_device_properties(0).total_memory / (1024**3)
+        if torch.cuda.is_available()
+        else 0
+    )
     print("=== JINA OCR V1 ACCELERATED WORKER ===", flush=True)
-    print(f"Hardware: {gpu_name} ({vram_gb:.1f} GB VRAM) | Shards: {num_shards}", flush=True)
+    print(
+        f"Hardware: {gpu_name} ({vram_gb:.1f} GB VRAM) | Shards: {num_shards}",
+        flush=True,
+    )
 
     # Target pages
     if page_list:
         target_files: list[Path] = []
         for p in page_list:
-            cand = list(pages_dir.glob(f"*_{p:03d}.png")) or list(pages_dir.glob(f"*_{p}.png"))
+            cand = list(pages_dir.glob(f"*_{p:03d}.png")) or list(
+                pages_dir.glob(f"*_{p}.png")
+            )
             if cand:
                 target_files.append(cand[0])
             else:
@@ -221,7 +237,10 @@ def run_worker(
         completed = _shard_worker(1, pending, str(out_dir), prompt)
         elapsed = time.time() - t_all
         rate = completed / elapsed if elapsed > 0 else 0.0
-        print(f"\nWorker finished {completed} pages in {elapsed:.2f}s ({rate:.2f} pages/s)!", flush=True)
+        print(
+            f"\nWorker finished {completed} pages in {elapsed:.2f}s ({rate:.2f} pages/s)!",
+            flush=True,
+        )
         _archive_output(out_dir)
         return
 
@@ -229,7 +248,11 @@ def run_worker(
     t0 = time.time()
     print("Loading Jina OCR v1 model and tokenizer...", flush=True)
     _ = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
-    dtype = torch.bfloat16 if (torch.cuda.is_available() and torch.cuda.is_bf16_supported()) else torch.float16
+    dtype = (
+        torch.bfloat16
+        if (torch.cuda.is_available() and torch.cuda.is_bf16_supported())
+        else torch.float16
+    )
     _ = AutoModelForCausalLM.from_pretrained(
         model_id,
         torch_dtype=dtype,
@@ -242,7 +265,7 @@ def run_worker(
     ]
     t_all = time.time()
     ctx = mp.get_context("spawn")
-    procs: list[mp.Process] = []
+    procs: list[mp_proc.BaseProcess] = []
     for idx, s_items in enumerate(shards):
         proc = ctx.Process(
             target=_shard_worker,
@@ -257,7 +280,10 @@ def run_worker(
     elapsed = time.time() - t_all
     completed = len(list(out_dir.glob("p_*.md")))
     rate = completed / elapsed if elapsed > 0 else 0.0
-    print(f"\nWorker finished {completed} pages in {elapsed:.2f}s ({rate:.2f} pages/s)!", flush=True)
+    print(
+        f"\nWorker finished {completed} pages in {elapsed:.2f}s ({rate:.2f} pages/s)!",
+        flush=True,
+    )
     _archive_output(out_dir)
 
 
@@ -268,7 +294,10 @@ def _archive_output(out_dir: Path) -> None:
     with tarfile.open(tar_path, "w:gz") as tar:
         for f in md_files:
             tar.add(f, arcname=f.name)
-    print(f"Packaged {len(md_files)} markdown files into {tar_path} ({tar_path.stat().st_size / 1024:.1f} KB)", flush=True)
+    print(
+        f"Packaged {len(md_files)} markdown files into {tar_path} ({tar_path.stat().st_size / 1024:.1f} KB)",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":
@@ -279,5 +308,9 @@ if __name__ == "__main__":
     parser.add_argument("--shards", type=int, default=3)
     args, _ = parser.parse_known_args()
 
-    pages = [int(x.strip()) for x in args.page_list.split(",") if x.strip()] if args.page_list else None
+    pages = (
+        [int(x.strip()) for x in args.page_list.split(",") if x.strip()]
+        if args.page_list
+        else None
+    )
     run_worker(Path(args.pages), Path(args.out), pages, num_shards=args.shards)

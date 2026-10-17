@@ -78,11 +78,18 @@ class DualColabG4Cluster:
         return None
 
     @staticmethod
-    def partition_pages(pages: list[Path], num_chunks: int) -> list[list[Path]]:
+    def partition_pages(pages: list[Path], num_chunks: int, interleaved: bool = False) -> list[list[Path]]:
         """Split a list of page paths into balanced chunks."""
         if not pages or num_chunks <= 1:
             return [pages]
-        chunks = [pages[i::num_chunks] for i in range(num_chunks)]
+        if interleaved:
+            return [pages[i::num_chunks] for i in range(num_chunks) if pages[i::num_chunks]]
+        k, m = divmod(len(pages), num_chunks)
+        chunks: list[list[Path]] = []
+        for i in range(num_chunks):
+            start = i * k + min(i, m)
+            end = (i + 1) * k + min(i + 1, m)
+            chunks.append(pages[start:end])
         return [c for c in chunks if len(c) > 0]
 
     @staticmethod
@@ -100,7 +107,9 @@ class DualColabG4Cluster:
         print(f"[{session_name}] Launching Colab VM ({self.gpu_type})...")
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if res.returncode != 0:
-            print(f"[{session_name}] Warning: Session creation error: {res.stderr.strip() or res.stdout.strip()}")
+            print(
+                f"[{session_name}] Warning: Session creation error: {res.stderr.strip() or res.stdout.strip()}"
+            )
             return False
         _ = subprocess.run(
             [
@@ -126,7 +135,9 @@ class DualColabG4Cluster:
         """Release Colab session and stop compute billing."""
         cmd = ["colab", "stop", "--session", session_name]
         try:
-            _ = subprocess.run(cmd, capture_output=True, text=True, timeout=30, check=False)
+            _ = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=30, check=False
+            )
             print(f"[{session_name}] Session stopped successfully.")
         except (subprocess.SubprocessError, OSError) as e:
             print(f"[{session_name}] Failed to stop session: {e}")
@@ -144,7 +155,14 @@ class DualColabG4Cluster:
 
         if size <= chunk_size_bytes:
             res = subprocess.run(
-                ["colab", "upload", "--session", session_name, str(archive_path), remote_dest],
+                [
+                    "colab",
+                    "upload",
+                    "--session",
+                    session_name,
+                    str(archive_path),
+                    remote_dest,
+                ],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -152,7 +170,10 @@ class DualColabG4Cluster:
             return res.returncode == 0
 
         data = archive_path.read_bytes()
-        parts = [data[i:i + chunk_size_bytes] for i in range(0, len(data), chunk_size_bytes)]
+        parts = [
+            data[i : i + chunk_size_bytes]
+            for i in range(0, len(data), chunk_size_bytes)
+        ]
         temp_dir = archive_path.parent / f"_parts_{session_name}"
         temp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -161,7 +182,14 @@ class DualColabG4Cluster:
                 p_file = temp_dir / f"part_{idx:03d}.bin"
                 _ = p_file.write_bytes(pt)
                 res = subprocess.run(
-                    ["colab", "upload", "--session", session_name, str(p_file), f"/content/part_{idx:03d}.bin"],
+                    [
+                        "colab",
+                        "upload",
+                        "--session",
+                        session_name,
+                        str(p_file),
+                        f"/content/part_{idx:03d}.bin",
+                    ],
                     capture_output=True,
                     text=True,
                     check=False,
@@ -201,19 +229,32 @@ class DualColabG4Cluster:
     ) -> bool:
         """Upload assets, run Jina OCR v1, and retrieve generated markdown archive."""
         t0 = time.time()
-        print(f"[{session_name}] Uploading page archive ({archive_path.stat().st_size / 1024:.1f} KB)...")
-        if not self._upload_archive(session_name, archive_path, "/content/pages.tar.gz"):
+        print(
+            f"[{session_name}] Uploading page archive ({archive_path.stat().st_size / 1024:.1f} KB)..."
+        )
+        if not self._upload_archive(
+            session_name, archive_path, "/content/pages.tar.gz"
+        ):
             print(f"[{session_name}] Failed to upload page archive.")
             return False
 
         up_script = subprocess.run(
-            ["colab", "upload", "--session", session_name, str(worker_script_path), "/content/worker.py"],
+            [
+                "colab",
+                "upload",
+                "--session",
+                session_name,
+                str(worker_script_path),
+                "/content/worker.py",
+            ],
             capture_output=True,
             text=True,
             check=False,
         )
         if up_script.returncode != 0:
-            print(f"[{session_name}] Failed to upload worker script: {up_script.stderr}")
+            print(
+                f"[{session_name}] Failed to upload worker script: {up_script.stderr}"
+            )
             return False
 
         # Setup directories and extract pages
@@ -240,7 +281,9 @@ class DualColabG4Cluster:
             f"p = subprocess.Popen([sys.executable, '/content/worker.py', '--pages', '/content/pages', '--out', '/content/markdown', '--shards', '{self.shards_per_gpu}'], stdout=log_f, stderr=subprocess.STDOUT)\n"
             "print('Launched worker PID:', p.pid)\n"
         )
-        print(f"[{session_name}] Launching Jina OCR v1 worker on {self.gpu_type} ({self.shards_per_gpu} shards)...")
+        print(
+            f"[{session_name}] Launching Jina OCR v1 worker on {self.gpu_type} ({self.shards_per_gpu} shards)..."
+        )
         _ = subprocess.run(
             ["colab", "exec", "--session", session_name, "--timeout", "30"],
             input=launch_code,
@@ -274,8 +317,12 @@ class DualColabG4Cluster:
                     timeout=30,
                     check=False,
                 )
-                page_count = len([l for l in ls_md.stdout.splitlines() if l.strip().endswith(".md")])
-                print(f"[{session_name}] Progress: {page_count} pages transcribed ({time.time() - poll_start:.1f}s)")
+                page_count = len(
+                    [l for l in ls_md.stdout.splitlines() if l.strip().endswith(".md")]
+                )
+                print(
+                    f"[{session_name}] Progress: {page_count} pages transcribed ({time.time() - poll_start:.1f}s)"
+                )
             except (subprocess.SubprocessError, OSError) as e:
                 print(f"[{session_name}] Polling notice: {e}, retrying...")
         if not archive_ready:
@@ -285,7 +332,14 @@ class DualColabG4Cluster:
         # Download markdown archive
         print(f"[{session_name}] Downloading transcribed markdown archive...")
         dl_res = subprocess.run(
-            ["colab", "download", "--session", session_name, "/content/markdown.tar.gz", str(out_archive_path)],
+            [
+                "colab",
+                "download",
+                "--session",
+                session_name,
+                "/content/markdown.tar.gz",
+                str(out_archive_path),
+            ],
             capture_output=True,
             text=True,
             check=False,
@@ -333,7 +387,9 @@ class DualColabG4Cluster:
                 pending_pages.append(p)
 
         print("=== DUAL-G4 COLAB CLUSTER ===")
-        print(f"Total pages: {len(all_pages)} | Already done: {len(all_pages) - len(pending_pages)} | Pending: {len(pending_pages)}")
+        print(
+            f"Total pages: {len(all_pages)} | Already done: {len(all_pages) - len(pending_pages)} | Pending: {len(pending_pages)}"
+        )
 
         if not pending_pages:
             print("All pages already processed.")
@@ -343,7 +399,7 @@ class DualColabG4Cluster:
         chunks = self.partition_pages(pending_pages, num_nodes)
 
         t_cluster_start = time.time()
-        active_sessions = [f"{self.session_prefix}-{i+1}" for i in range(len(chunks))]
+        active_sessions = [f"{self.session_prefix}-{i + 1}" for i in range(len(chunks))]
         temp_dir = out_dir / "_cluster_tmp"
         temp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -369,7 +425,9 @@ class DualColabG4Cluster:
                 out_tar = temp_dir / f"markdown_node_{node_idx}.tar.gz"
 
                 _ = self.pack_archive(node_pages, tar_path)
-                ok = self._execute_worker_pipeline(s_name, tar_path, worker_script_path, out_tar)
+                ok = self._execute_worker_pipeline(
+                    s_name, tar_path, worker_script_path, out_tar
+                )
                 if ok and out_tar.exists():
                     # Unpack into out_dir
                     with tarfile.open(out_tar, "r:gz") as tar:
@@ -394,7 +452,9 @@ class DualColabG4Cluster:
 
         dur_all = time.time() - t_cluster_start
         rate = total_completed / dur_all if dur_all > 0 else 0
-        print(f"Cluster finished {total_completed} pages in {dur_all:.2f}s ({rate:.2f} pages/s)!")
+        print(
+            f"Cluster finished {total_completed} pages in {dur_all:.2f}s ({rate:.2f} pages/s)!"
+        )
         return ClusterStats(
             total_pages=len(all_pages),
             completed_pages=total_completed,

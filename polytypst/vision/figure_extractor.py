@@ -82,14 +82,10 @@ def find_whitespace_isolated_diagram(
         for x in range(x_margin, w - x_margin):
             val = pixels[x, y]
             if isinstance(val, (int, float)) and val < 190:
-                if x < min_x:
-                    min_x = x
-                if x > max_x:
-                    max_x = x
-                if y < min_y:
-                    min_y = y
-                if y > max_y:
-                    max_y = y
+                min_x = min(min_x, x)
+                max_x = max(max_x, x)
+                min_y = min(min_y, y)
+                max_y = max(max_y, y)
 
     if max_x <= min_x + 15 or max_y <= min_y + 15:
         return None
@@ -107,7 +103,7 @@ class FigureExtractor:
     """Detects, crops, and catalogues figures and diagrams from any PDF (scanned or digital)."""
 
     FIGURE_CAPTION_REGEX: re.Pattern[str] = re.compile(
-        r"\b(FIG|Fig|Figure|Abbildung|图)\.?\s*([0-9]+[A-Za-z0-9\-\.]*)",
+        r"^\s*(FIG|Fig|Figure|FIO|Fia|FIQ|F1G|F10|PIG|PI0|PIO|FG|FI|Abbildung|图)[\.,]?\s*([0-9]+(?:\s*,\s*[a-zA-Z]|\.[0-9]+[a-zA-Z]?|[A-Za-z0-9\-\.]*)?)\s*$",
         re.IGNORECASE,
     )
 
@@ -226,7 +222,9 @@ class FigureExtractor:
                 cached: list[ExtractedFigure] = []
                 for item in raw_items:
                     fid = str(item.get("figure_id") or item.get("fig_id") or "")
-                    cap = str(item.get("caption") or item.get("fig_label") or f"Fig. {fid}")
+                    cap = str(
+                        item.get("caption") or item.get("fig_label") or f"Fig. {fid}"
+                    )
                     rel = str(item.get("image_rel_path") or f"figures/fig_{fid}.png")
                     pno = int(item.get("source_page") or item.get("pdf_page") or 0)
                     w_px = int(item.get("width_px") or 0)
@@ -249,7 +247,9 @@ class FigureExtractor:
 
         doc = pymupdf.open(self.pdf_path)
         vision_engine = AppleVisionOCREngine(languages=["en-US"])
-        cap_re = re.compile(r"^(?:FIG|Fig|Figure)\.?\s*(\d+[\.\-]\d+[a-z]?)\.?\s*$", re.IGNORECASE)
+        cap_re = re.compile(
+            r"^(?:FIG|Fig|Figure)\.?\s*(\d+[\.\-]\d+[a-z]?)\.?\s*$", re.IGNORECASE
+        )
 
         extracted: list[ExtractedFigure] = []
         seen_ids: set[str] = set()
@@ -280,9 +280,16 @@ class FigureExtractor:
                 if b.get("type") != 0:
                     continue
                 for line_dict in b.get("lines", []):
-                    txt = "".join(str(s.get("text", "")) for s in line_dict.get("spans", [])).strip()
+                    txt = "".join(
+                        str(s.get("text", "")) for s in line_dict.get("spans", [])
+                    ).strip()
                     bbox = line_dict.get("bbox", (0.0, 0.0, 0.0, 0.0))
-                    x0, y0, x1, y1 = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
+                    x0, y0, x1, y1 = (
+                        float(bbox[0]),
+                        float(bbox[1]),
+                        float(bbox[2]),
+                        float(bbox[3]),
+                    )
                     m = cap_re.match(txt)
                     if m:
                         page_caps.append((m.group(1), y0 / ph))
@@ -375,30 +382,40 @@ class FigureExtractor:
         for page in ocr_pages:
             pno = page.page_number
             for line in page.lines:
-                m = self.FIGURE_CAPTION_REGEX.search(line.text)
+                if line.w > 0.35:
+                    continue
+                m = self.FIGURE_CAPTION_REGEX.match(line.text.strip())
                 if not m:
                     continue
 
                 raw_label = m.group(2).strip().rstrip(".:;,")
-                fig_id = re.sub(r"[^0-9A-Za-z_-]", "_", raw_label)
+                raw_label_clean = re.sub(r"\s*,\s*", ", ", raw_label)
+                fig_id = re.sub(r"[^0-9A-Za-z_-]", "_", raw_label_clean).strip("_")
+                fig_id = re.sub(r"_+", "_", fig_id)
                 if not fig_id or fig_id in seen_ids:
-                    fig_id = f"p{pno}_{len(seen_ids) + 1}"
+                    continue
                 seen_ids.add(fig_id)
 
                 box = self.detect_figure_box(page.lines, line)
                 fig_filename = f"fig_{fig_id}.png"
                 dest_path = out_dir / fig_filename
 
-                page_png = out_dir.parent / "pages" / f"p_{pno:03d}.png"
+                page_png: Path | None = None
+                for sub in ("page_renders", "pages", "renders"):
+                    cand = out_dir.parent / sub / f"p_{pno:03d}.png"
+                    if cand.exists():
+                        page_png = cand
+                        break
+
                 try:
-                    if page_png.exists() and jev.api_key:
+                    if page_png is not None and jev.api_key:
                         det = jev.detect_diagram(
-                            page_png, fig_label=f"FIG. {raw_label}"
+                            page_png, fig_label=f"FIG. {raw_label_clean}"
                         )
                         if det.has_diagram and det.box:
                             box = det.box
                             _ = TypeSafeJevVision.crop_pure_diagram(
-                                page_png, det, dest_path
+                                page_png, det, dest_path, ocr_lines=list(page.lines)
                             )
                         else:
                             _ = self.cropper.crop_figure(
@@ -416,18 +433,35 @@ class FigureExtractor:
                             dpi=dpi,
                             pad_px=20,
                         )
+                    w_px, h_px = 0, 0
+                    if dest_path.exists():
+                        with Image.open(dest_path) as cim:
+                            w_px, h_px = cim.size
+                        ok, reasons = TypeSafeJevVision.verify_cropped_diagram(dest_path)
+                        if not ok:
+                            print(
+                                f"Warning: Figure {fig_id} on page {pno} verification warnings: {reasons}"
+                            )
                     figures.append(
                         ExtractedFigure(
                             figure_id=fig_id,
-                            caption=line.text.strip(),
+                            caption=f"FIG. {raw_label_clean}",
                             image_rel_path=f"figures/{fig_filename}",
                             source_page=pno,
                             box=box,
+                            width_px=w_px,
+                            height_px=h_px,
                         )
                     )
                 except (OSError, ValueError, RuntimeError) as e:
                     print(f"Warning: Failed to crop figure {fig_id} on page {pno}: {e}")
 
+        if figures:
+            manifest_path = out_dir.parent / "figures_manifest.json"
+            _ = manifest_path.write_text(
+                json.dumps([asdict(f) for f in figures], indent=2),
+                encoding="utf-8",
+            )
         return figures
 
     def extract_all(
