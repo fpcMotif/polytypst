@@ -3,8 +3,7 @@
 import subprocess
 import re
 from pathlib import Path
-from typing import Optional
-from ..parser.stitcher import ParsedBook, FigureBlock
+from ..parser.stitcher import ParsedBook
 
 
 class TypstCompiler:
@@ -12,7 +11,7 @@ class TypstCompiler:
         self.book = book
         self.font_style = font_style
 
-    def generate_typst_source(self, figures_rel_dir: str = "figures") -> str:
+    def generate_typst_source(self) -> str:
         b = self.book
 
         lines = [
@@ -124,7 +123,7 @@ class TypstCompiler:
                         fig = figures_by_id.get(fig_id)
                         if fig:
                             clean_caption = re.sub(r"^(图\s*\d+\s*|Figure\s*\d+\s*[:\.\s]*)", "", fig.caption).strip()
-                            lines.append(f"#figure(")
+                            lines.append("#figure(")
                             lines.append(f'  image("{fig.image_rel_path}", width: 72%),')
                             lines.append(f'  caption: [图 {fig.figure_id}  {clean_caption}]')
                             lines.append(f") <fig-{fig.figure_id}>\n")

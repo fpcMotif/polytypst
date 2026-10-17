@@ -5,8 +5,6 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, List
 
-from .compiler.roberts_jina_typst import RobertsJinaTypstCompiler
-from .compiler.french_math_typst import FrenchMathTypstCompiler
 from .kerodon.compiler import KerodonCompiler
 from .kerodon.extractor import KerodonExtractor
 from .kerodon.diagrams import KerodonDiagramCropper

@@ -1,7 +1,7 @@
 import math
 from collections.abc import Callable
 
-from .svg_primitives import (
+from ..vision.diagram_engine import (
     arc_path,
     arrow_line,
     axes_xy,
@@ -9,7 +9,7 @@ from .svg_primitives import (
     math_label,
     point_dot,
     smooth_curve,
-    svg_figure,
+    svg_document,
     tangent_arrow,
 )
 
@@ -100,12 +100,12 @@ def fig_1_1() -> str:
             ),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 295",
-        axes=axes,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_1",
         title=CHAPTER_FIG_TITLES["1_1"],
     )
@@ -140,11 +140,11 @@ def fig_1_2() -> str:
             '    <line x1="266.5" y1="196.2" x2="274.8" y2="196.2" stroke="#dc2626" stroke-width="1.35" />',
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 280",
-        axes=axes,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        curve=curves,
+        label=labels,
         fig_id="1_2",
         title=CHAPTER_FIG_TITLES["1_2"],
     )
@@ -192,11 +192,11 @@ def fig_1_3() -> str:
             math_label(346.0, 136.0, "\u03c1"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 250",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_3",
         title=CHAPTER_FIG_TITLES["1_3"],
         show_grid=False,
@@ -218,12 +218,12 @@ def fig_1_4() -> str:
             math_label(ox + 68.0, oy - 74.0, "C", sub="r", color="#1e3a8a"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 308",
-        axes=axes,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_4",
         title=CHAPTER_FIG_TITLES["1_4"],
     )
@@ -262,12 +262,12 @@ def fig_1_5() -> str:
             math_label(zx + 5.0, zy + 2.0, "z"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 300",
-        axes=axes,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_5",
         title=CHAPTER_FIG_TITLES["1_5"],
     )
@@ -312,11 +312,11 @@ def fig_1_6() -> str:
             math_label(x_int + 56.0, oy - 4.0, "\u03b1", color="#dc2626"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 300",
-        axes=axes,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        curve=curves,
+        label=labels,
         fig_id="1_6",
         title=CHAPTER_FIG_TITLES["1_6"],
     )
@@ -362,11 +362,11 @@ def fig_1_7() -> str:
             math_label(392.0, 46.0, "\u03b3(b)"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 280",
-        axes=axes,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        curve=curves,
+        label=labels,
         fig_id="1_7",
         title=CHAPTER_FIG_TITLES["1_7"],
     )
@@ -430,12 +430,12 @@ def fig_1_8() -> str:
             math_label(296.0, 264.0, "\u03b3", sub="2", color="#b45309"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 520 292",
-        axes=f"{axes1}\n{axes2}",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=f"{axes1}\n{axes2}",
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_8",
         title=CHAPTER_FIG_TITLES["1_8"],
     )
@@ -482,11 +482,11 @@ def fig_1_9() -> str:
             '    <text x="215.0" y="274.0" class="lbl" text-anchor="middle">Jordan curve</text>',
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 288",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_9",
         title=CHAPTER_FIG_TITLES["1_9"],
         show_grid=False,
@@ -511,11 +511,11 @@ def fig_1_10() -> str:
             math_label(384.0, 215.0, "\u03b3(b)"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 236",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_10",
         title=CHAPTER_FIG_TITLES["1_10"],
         show_grid=False,
@@ -578,11 +578,11 @@ def fig_1_11() -> str:
             math_label(ox + 52.0, oy - 6.0, "\u03b8", color="#dc2626"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 300",
-        axes=axes,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        curve=curves,
+        label=labels,
         fig_id="1_11",
         title=CHAPTER_FIG_TITLES["1_11"],
     )
@@ -617,11 +617,11 @@ def fig_1_12() -> str:
             math_label(x1 - 4.0, oy - 10.0, "1", italic=False),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 420 290",
-        axes=axes,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        curve=curves,
+        label=labels,
         fig_id="1_12",
         title=CHAPTER_FIG_TITLES["1_12"],
     )
@@ -656,11 +656,11 @@ def fig_1_13() -> str:
             math_label(x1 - 4.0, y1 + 21.0, "1", italic=False),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 280",
-        axes=axes,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        curve=curves,
+        label=labels,
         fig_id="1_13",
         title=CHAPTER_FIG_TITLES["1_13"],
     )
@@ -744,11 +744,11 @@ def fig_1_14() -> str:
             ),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 338",
-        axes=axes,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        curve=curves,
+        label=labels,
         fig_id="1_14",
         title=CHAPTER_FIG_TITLES["1_14"],
     )
@@ -806,11 +806,11 @@ def fig_1_15() -> str:
             math_label(298.0, 210.0, "D", size=18.0),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 278",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_15",
         title=CHAPTER_FIG_TITLES["1_15"],
         show_grid=False,
@@ -912,10 +912,10 @@ def fig_1_16() -> str:
             math_label(384.0, 54.0, "z", sub="m", tail=" = \u03b3(b)"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 480 256",
-        curves=curves,
-        labels=labels,
+        curve=curves,
+        label=labels,
         fig_id="1_16",
         title=CHAPTER_FIG_TITLES["1_16"],
         show_grid=False,
@@ -959,11 +959,11 @@ def fig_1_17() -> str:
             math_label(cx + 36.0, cy - 72.0, "\u03b3", color="#1e3a8a"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 252",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_17",
         title=CHAPTER_FIG_TITLES["1_17"],
         show_grid=False,
@@ -1071,11 +1071,11 @@ def fig_1_18() -> str:
             math_label(168.0, 256.0, "D", size=18.0),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 298",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_18",
         title=CHAPTER_FIG_TITLES["1_18"],
         show_grid=False,
@@ -1119,12 +1119,12 @@ def fig_1_19() -> str:
             math_label(0.5 * (xa + xb) - 6.0, 0.5 * (y1 + oy) + 6.0, "K", size=17.0),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 436 256",
-        axes=axes,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_19",
         title=CHAPTER_FIG_TITLES["1_19"],
     )
@@ -1178,11 +1178,11 @@ def fig_1_20() -> str:
             ),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 420 306",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_20",
         title=CHAPTER_FIG_TITLES["1_20"],
         show_grid=False,
@@ -1237,11 +1237,11 @@ def fig_1_21() -> str:
             ),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 440 280",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_21",
         title=CHAPTER_FIG_TITLES["1_21"],
         show_grid=False,
@@ -1288,11 +1288,11 @@ def fig_1_22() -> str:
             math_label(cx + 16.0, cy - 10.0, "r(c)"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 250",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_22",
         title=CHAPTER_FIG_TITLES["1_22"],
         show_grid=False,
@@ -1319,11 +1319,11 @@ def fig_1_23() -> str:
             ),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 420 260",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="1_23",
         title=CHAPTER_FIG_TITLES["1_23"],
         show_grid=False,

@@ -1,7 +1,6 @@
 """Academic Bibliography Parser and Formatter matching highest university press standards."""
 
 import re
-from dataclasses import dataclass
 from typing import List, Tuple
 from ..ocr.base import OCRPage
 
@@ -157,14 +156,4 @@ class BibliographyParser:
         out.append("  ]")
         out.append("]\n")
 
-        return "\n".join(out)
-
-    def format_markdown(self) -> str:
-        citations, ack = self.parse()
-        out = ["\n# 参考文献\n"]
-        for c in citations:
-            fmt_c = self.format_author_date_entry(c)
-            # Remove Typst formatting for markdown
-            out.append(f"\n{fmt_c}\n")
-        out.append(f"\n> **特别鸣谢**：{ack}\n")
         return "\n".join(out)

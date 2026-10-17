@@ -4,6 +4,12 @@
     {
       "name": "web",
       "url": "https://polytypst.localhost"
+    },
+    {
+      "name": "web-dev",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd web && bunx varlock run -- bun run dev"],
+      "port": 5188
     }
   ]
 }

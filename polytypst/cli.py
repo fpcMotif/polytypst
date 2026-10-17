@@ -12,8 +12,10 @@ from .compiler.epub import PandocCompilers
 from .compiler.typst import TypstCompiler
 from .ocr.apple_vision import AppleVisionOCREngine
 from .ocr.base import OCRLine, OCRPage
-from .ocr.jina import JinaOCREngine
+from .ocr.colab import COLAB_GPUS
+from .ocr.jina import JinaCloudOCREngine
 from .ocr.mistral import MistralOCREngine
+from .ocr.ocr_models import DEFAULT_OCR_MODEL, OCR_MODELS
 from .ocr.splitter import TwoUpSplitter
 from .ocr.tesseract import TesseractOCREngine
 from .parser.stitcher import DocumentStitcher, FigureBlock
@@ -56,12 +58,21 @@ def main() -> None:
     parser.add_argument(
         "--mode",
         type=str,
-        choices=["dual-g4", "local", "apple-vision"],
-        default="dual-g4",
-        help="Execution engine mode: dual-g4 (Colab Blackwell GPU), local, or apple-vision",
+        choices=["colab", "jina-cloud", "local", "apple-vision"],
+        default="colab",
+        help="Execution engine mode: colab (self-hosted model on Colab GPUs), jina-cloud, local, or apple-vision",
     )
     parser.add_argument(
-        "--gpu-type", type=str, default="G4", help="Colab GPU accelerator: G4, L4, T4"
+        "--ocr-model",
+        choices=sorted(OCR_MODELS),
+        default=DEFAULT_OCR_MODEL,
+        help="Self-hosted OCR model for the colab and local modes",
+    )
+    parser.add_argument(
+        "--gpu-type",
+        choices=sorted(COLAB_GPUS),
+        default="G4",
+        help="Colab GPU accelerator; see `polytypst-colab gpus`",
     )
     parser.add_argument(
         "--colab-workers", type=int, default=2, help="Number of Colab GPU workers"
@@ -70,7 +81,7 @@ def main() -> None:
         "--shards",
         type=int,
         default=3,
-        help="Number of parallel Jina OCR worker processes per GPU",
+        help="Most model copies per GPU; the worker lowers it to fit the VRAM",
     )
     parser.add_argument(
         "--no-verify",
@@ -159,6 +170,7 @@ def main() -> None:
             gpu_type=args.gpu_type,
             num_colab_workers=args.colab_workers,
             shards_per_gpu=args.shards,
+            ocr_model=args.ocr_model,
             publisher=args.publisher,
             lang=args.lang,
             domain=args.domain,
@@ -230,7 +242,7 @@ def main() -> None:
         elif args.ocr_engine == "mistral":
             engine = MistralOCREngine()
         elif args.ocr_engine == "jina":
-            engine = JinaOCREngine()
+            engine = JinaCloudOCREngine()
         else:
             engine = TesseractOCREngine(languages=args.languages)
         ocr_pages = engine.recognize_document(img_paths)

@@ -1,23 +1,11 @@
 """Kerodon Commutative Diagram Locator and High-Resolution PDF Cropper."""
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+
 import pymupdf
 from PIL import Image, ImageChops
 
-from .extractor import KerodonChapter, KerodonDiagram, KerodonEnvironment
-
-
-@dataclass
-class CommutativeDiagram:
-    tag: str
-    index: int
-    latex_source: str
-    pdf_page: int
-    image_path: Optional[str] = None
-    width_px: int = 0
-    height_px: int = 0
+from .extractor import KerodonChapter, KerodonEnvironment
 
 
 class KerodonDiagramCropper:
@@ -43,7 +31,7 @@ class KerodonDiagramCropper:
         cropped_count = 0
 
         # Collect all environments
-        all_envs: List[KerodonEnvironment] = []
+        all_envs: list[KerodonEnvironment] = []
         for s in chapter.sections:
             all_envs.extend(s.intro_environments)
             for sub in s.subsections:

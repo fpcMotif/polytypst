@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional
 
 
 @dataclass
@@ -55,50 +55,6 @@ class KerodonChapter:
 class KerodonExtractor:
     """Extracts structured mathematical content from Kerodon cached HTML."""
 
-    SECTION_MAP = {
-        "0004": ("1.1", "Simplicial Sets", [
-            ("04ZB", "1.1.1", "Face Operators"),
-            ("04ZJ", "1.1.2", "Degeneracy Operators"),
-            ("04ZS", "1.1.3", "Dimensions of Simplicial Sets"),
-            ("0010", "1.1.4", "The Skeletal Filtration"),
-            ("00FQ", "1.1.5", "Discrete Simplicial Sets"),
-            ("001D", "1.1.6", "Directed Graphs as Simplicial Sets"),
-        ]),
-        "0508": ("1.2", "From Topological Spaces to Simplicial Sets", [
-            ("00G5", "1.2.1", "Connected Components of Simplicial Sets"),
-            ("001Q", "1.2.2", "The Singular Simplicial Set of a Topological Space"),
-            ("001X", "1.2.3", "The Geometric Realization of a Simplicial Set"),
-            ("000K", "1.2.4", "Horns"),
-            ("002G", "1.2.5", "Kan Complexes"),
-        ]),
-        "002L": ("1.3", "From Categories to Simplicial Sets", [
-            ("002M", "1.3.1", "The Nerve of a Category"),
-            ("04FY", "1.3.2", "Example: Monoids as Simplicial Sets"),
-            ("002Y", "1.3.3", "Recovering a Category from its Nerve"),
-            ("0030", "1.3.4", "Characterization of Nerves"),
-            ("0035", "1.3.5", "The Nerve of a Groupoid"),
-            ("00HE", "1.3.6", "The Homotopy Category of a Simplicial Set"),
-            ("00HJ", "1.3.7", "Example: The Path Category of a Directed Graph"),
-        ]),
-        "0039": ("1.4", r"$\infty$-Categories", [
-            ("003F", "1.4.1", "Objects and Morphisms"),
-            ("003L", "1.4.2", r"The Opposite of an $\infty$-Category"),
-            ("003U", "1.4.3", "Homotopies of Morphisms"),
-            ("0041", "1.4.4", "Composition of Morphisms"),
-            ("0049", "1.4.5", r"The Homotopy Category of an $\infty$-Category"),
-            ("004Q", "1.4.6", "Isomorphisms"),
-        ]),
-        "0055": ("1.5", r"Functors of $\infty$-Categories", [
-            ("0057", "1.5.1", "Examples of Functors"),
-            ("005H", "1.5.2", "Commutative Diagrams"),
-            ("005Z", "1.5.3", r"The $\infty$-Category of Functors"),
-            ("006B", "1.5.4", "Digression: Lifting Properties"),
-            ("006V", "1.5.5", "Trivial Kan Fibrations"),
-            ("0078", "1.5.6", "Uniqueness of Composition"),
-            ("00J3", "1.5.7", "Universality of Path Categories"),
-        ]),
-    }
-
     def __init__(self, cache_dir: Path):
         self.cache_dir = Path(cache_dir)
 
@@ -135,7 +91,7 @@ class KerodonExtractor:
             sec_links = re.findall(r"<a[^>]*href=\"/tag/([0-9A-Z]{4})\"[^>]*>(?:Section\s+)?([0-9]+\.[0-9]+.*?)</a>", ch_html)
 
         seen_sec_tags = set()
-        for sec_tag, sec_title_html in sec_links:
+        for sec_tag, _ in sec_links:
             if sec_tag in seen_sec_tags:
                 continue
             seen_sec_tags.add(sec_tag)

@@ -23,3 +23,4 @@ web/public/assets/
 web/public/data/
 web/tsconfig.tsbuildinfo
 web/env.d.ts
+*.log

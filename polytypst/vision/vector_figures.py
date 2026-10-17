@@ -5,7 +5,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Ellipse, FancyArrow, Rectangle
+from matplotlib.patches import Ellipse
 from matplotlib.axis import Axis
 from matplotlib.spines import Spine
 from matplotlib.text import Annotation, Text
@@ -77,15 +77,6 @@ def _arrow(ax, start, end, lw=0.7):
         xytext=start,
         arrowprops=dict(arrowstyle="-|>,head_length=0.5,head_width=0.22", lw=lw, color=INK, shrinkA=0, shrinkB=0),
         annotation_clip=False,
-    )
-
-
-def _hollow_arrow(ax, x, y, dx, dy):
-    ax.add_patch(
-        FancyArrow(
-            x, y, dx, dy, width=7, head_width=19, head_length=16,
-            length_includes_head=True, fc="white", ec=INK, lw=0.7, joinstyle="miter",
-        )
     )
 
 

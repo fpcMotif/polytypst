@@ -8,10 +8,11 @@ Run verification across three distinct tiers in sequence. Every tier must pass i
 
 ```mermaid
 graph TD
-    M[Raw OCR Markdown] --> T1[Tier 1: AST Structural Lint]
+    M[Raw OCR / Source Geometry] --> T1[Tier 1: AST Structural Lint]
     T1 -->|0 Syntax & Delimiter Errors| T2[Tier 2: Semantic Integrity & Jev]
     T2 -->|0 Isolated Math Blocks| T3[Tier 3: Vision & OpenCV Layout QA]
-    T3 -->|0 Margin & Overlap Collisions| P[Publication-Grade Deliverable]
+    T3 -->|0 Margin & Overlap Collisions| T4[Tier 4: AAA Pixel & Typography Parity]
+    T4 -->|0 Drift Blobs & Baseline Locked| P[Publication-Grade Deliverable]
 ```
 
 ---
@@ -74,6 +75,39 @@ Audit the rendered 2D canvas geometry using bounding-box analysis and computer v
 ### Completion Criterion
 Zero bounding box breaches beyond the printable text margin. Zero intersections between equation terms and equation number labels.
 
+
+---
+
+## Tier 4: AAA Pixel & Typography Parity (Sub-Pixel Ground Truth Gate)
+
+Audit pixel-level layout alignment, punctuation compression, and font outline parity against an authoritative target PDF. Required for critical facsimile reproductions, bilingual facing texts, and woodblock reprints.
+
+### Steps
+1. Render both the original ground truth PDF and the compiled reproduction PDF at 150 DPI and 300 DPI via `pdftoppm`.
+2. Binarize ink channels (`threshold=210` for ground truth, `threshold=230` for vector reproduction).
+3. Extract column boundaries and vertical text centroids via morphological projection kernels ($3 \times 35\,\text{px}$).
+4. Measure horizontal centroid deviation $\Delta x$ and vertical column extent $\Delta y$ for every text line.
+5. Compute 3-channel optical difference map:
+   - Gray/Black (`#404040`–`#505050`): Exact ink intersection ($\text{GroundTruth} \cap \text{Reproduction}$).
+   - Red (`#E60000`): Ground truth only (original font outlines, embedded background watermarks).
+   - Blue (`#0080E6`): Reproduction only (reproduction font outlines, unintended glyph shifts).
+6. Apply morphological opening ($4 \times 4\,\text{px}$) to filter 1–2px font serif outline variance and isolate genuine spatial drift blobs ($> 10\,\text{px}$).
+
+### Invariants & Reference
+- **Baseline-Anchored Coordinate Locking**: Place vertical glyphs by true text baseline origin (`origin_y`), never by naive bounding-box top-left or box-centered distribution (`align(center + horizon)`).
+  - In Typst: Anchor via `top-edge: "baseline"` with calibrated vertical ascender compensation: `dy = origin_y - 0.97 * sz`.
+  - In XeLaTeX: Anchor via zero-depth picture primitives: `\put(x, -y){\makebox(0,0)[lt]{...}}`.
+- **Punctuation Half-Width Compression**: Vertical closing punctuation (`。`, `，`, `」`, `〉`, `』`) and middle colons (`‥`) must retain half-width vertical advance ($6.98\,\text{pt}$ for $13.95\,\text{pt}$ body cells). Full-width advance adds $6.5\,\text{pt}$ per occurrence, producing catastrophic column overflow ($> 50\,\text{pt}$).
+- **Vertical Bracket Preservation**: Fullwidth vertical parentheses and brackets (`（`, `）`, `︵`, `︶`, `﹇`, `﹈`) must preserve their vertical presentation forms (`U+FE35`, `U+FE36`). Restrict NFKC normalization solely to CJK compatibility ideographs (`0xF900`–`0xFAFF`, `0x2F800`–`0x2FA1F`). Never allow Unicode normalization to degrade vertical brackets to ASCII `(` or `)`.
+- **Font Outline Tolerance Budget**: Two different CJK typefaces (e.g. Tsukushi Mincho vs. Songti TC) will display 1–2px anti-aliasing edge fringes in $A - B$ subtraction due to differing serif curves. An audit passes when the character center is solid dark gray/black and large drift blobs ($> 10\,\text{px}$) equal zero.
+- **Strict Column Tolerances**: Horizontal column pitch error $\Delta x \le 0.50\,\text{pt}$ ($0.16\,\text{mm}$). Column bottom line clearance error $\Delta y_{\text{bot}} \le 2.0\,\text{pt}$ ($0.70\,\text{mm}$).
+
+### Completion Criterion
+OpenCV automated audit reports:
+- Column spatial centroid drift $\Delta x \le 0.50\,\text{pt}$ on all body columns.
+- Zero column layout drift blobs ($> 10\,\text{px}$) outside font serif fringes.
+- Zero character overflow breaches beyond the page foot margin ($y \le 690.0\,\text{pt}$ on $728.5\,\text{pt}$ JIS B5 sheet).
+- Folio leaf brackets verify as horizontal capping arcs (`︵`, `︶`) with ink intersection overlap $\ge 65\%$.
 ---
 
 ## Automated Verification Command
@@ -90,4 +124,18 @@ A clean audit report reports:
 Total Issues: 0 (0 Errors, 0 Warnings)
 Result: PASSED
 ============================================================
+
+To run Tier 4 sub-pixel ground truth alignment and visual difference mapping:
+
+```bash
+uv run --with opencv-python --with numpy python3 shitouji/check_pixel_alignment.py
+```
+
+A clean Tier 4 audit reports:
+```
+Detected Vertical Columns: Orig = 19, Reproduction = 19
+Col 01: Δx = -0.24 pt | Δy_top = +1.44 pt | Δy_bot = +1.44 pt | [PASS]
+Ink Pixel Overlap (IoU): > 35%
+Layout Drift Blobs (>10px): 0
+```
 ```

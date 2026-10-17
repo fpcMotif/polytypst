@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pymupdf
 
+from ..books import render_book_figures
 from ..cleaner.tex_markdown import TeXMarkdownCleaner
 from ..compiler.monograph import (
     MonographCompiler,
@@ -12,10 +13,18 @@ from ..compiler.monograph import (
     resolve_monograph_spec,
 )
 from ..ocr.apple_vision import AppleVisionOCREngine
-from ..ocr.dual_colab import DualColabG4Cluster
+from ..ocr.base import OCREngine, page_number
+from ..ocr.engines import ocr_engine
+from ..ocr.ocr_models import DEFAULT_OCR_MODEL
 from ..ocr.splitter import TwoUpSplitter
 from ..ocr.verifier import OCRVerifier, VerificationReport
-from ..vision.figure_extractor import ExtractedFigure, FigureExtractor
+from ..vision.figure_extractor import (
+    FIGURES_MANIFEST_NAME,
+    ExtractedFigure,
+    FigureExtractor,
+    load_complete_figures_manifest,
+    write_figures_manifest,
+)
 
 
 @dataclass
@@ -44,7 +53,13 @@ class UniversalPDFPipeline:
         publisher: str = "cambridge",
         lang: str = "en",
         domain: str = "math",
+        ocr_prompt: str | None = None,
+        ocr_engine: OCREngine | None = None,
+        ocr_model: str = DEFAULT_OCR_MODEL,
     ):
+        self.ocr_model: str = ocr_model
+        self.ocr_prompt: str | None = ocr_prompt
+        self.ocr_engine: OCREngine | None = ocr_engine
         self.pdf_path: Path = Path(pdf_path)
         self.output_dir: Path = Path(output_dir)
         self.gpu_type: str = gpu_type
@@ -116,6 +131,10 @@ class UniversalPDFPipeline:
         """Automatically detect, crop, and catalogue all figures in the PDF."""
         _ = ocr_languages
         self.figures_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = self.output_dir / FIGURES_MANIFEST_NAME
+        cached = load_complete_figures_manifest(manifest_path)
+        if cached is not None:
+            return cached
         extractor = FigureExtractor(self.pdf_path)
 
         # First run fast local Apple Vision OCR for layout and figure caption detection
@@ -131,72 +150,48 @@ class UniversalPDFPipeline:
             figures = extractor.extract_all(
                 self.figures_dir, ocr_pages=ocr_pages, dpi=300
             )
+        write_figures_manifest(manifest_path, figures)
         print(f"Extracted {len(figures)} figures into {self.figures_dir}.")
         return figures
 
     def run_transcription(
         self,
-        mode: str = "dual-g4",
+        mode: str = "colab",
         page_subset: list[int] | None = None,
     ) -> list[tuple[int, str]]:
-        """Execute OCR transcription using Dual-G4 Colab or local engine."""
-        self.markdown_dir.mkdir(parents=True, exist_ok=True)
-
-        if mode == "dual-g4":
-            cluster = DualColabG4Cluster(
-                gpu_type=self.gpu_type,
-                num_workers=self.num_colab_workers,
-                shards_per_gpu=self.shards_per_gpu,
-            )
-            if cluster.is_colab_available():
-                print(
-                    f"Launching Dual-{self.gpu_type} Colab cluster for Jina OCR v1..."
-                )
-                _ = cluster.run_cluster(self.renders_dir, self.markdown_dir)
-            else:
-                print(
-                    "Warning: Colab CLI not available or no active credentials. Falling back to local/cached engine."
-                )
-                self._run_local_worker(page_subset)
-        elif mode == "apple-vision":
-            print("Running local Apple Vision OCR engine...")
-            engine = AppleVisionOCREngine()
-            img_files = sorted(self.renders_dir.glob("*.png"))
-            pages = engine.recognize_document(img_files)
-            for p in pages:
-                out_f = self.markdown_dir / f"p_{p.page_number:03d}.md"
-                md_content = "\n\n".join(l.text for l in p.lines)
-                _ = out_f.write_text(md_content, encoding="utf-8")
-        else:
-            self._run_local_worker(page_subset)
-
-        # Collect all markdown files
-        pages_md: list[tuple[int, str]] = []
-        md_files = sorted(self.markdown_dir.glob("p_*.md"))
-        for f in md_files:
-            try:
-                p_num = int(f.stem.split("_")[-1])
-            except ValueError:
-                p_num = len(pages_md) + 1
-            pages_md.append((p_num, f.read_text(encoding="utf-8")))
-
-        return pages_md
-
-    def _run_local_worker(self, page_subset: list[int] | None = None) -> None:
-        """Run Jina worker locally using available GPU/MPS/CPU."""
-        from ..ocr.jina_worker import run_worker
-
-        run_worker(self.renders_dir, self.markdown_dir, page_subset)
+        """Transcribe the rendered pages with the injected engine or the one `mode` names."""
+        engine = self.ocr_engine or ocr_engine(
+            mode,
+            prompt=self.ocr_prompt,
+            model=self.ocr_model,
+            gpu_type=self.gpu_type,
+            num_colab_workers=self.num_colab_workers,
+            shards_per_gpu=self.shards_per_gpu,
+        )
+        pages = sorted(self.renders_dir.glob("*.png"))
+        if page_subset:
+            wanted = set(page_subset)
+            pages = [p for p in pages if page_number(p) in wanted]
+        return engine.transcribe_pages(pages, self.markdown_dir)
 
     def process(
         self,
-        mode: str = "dual-g4",
+        mode: str = "colab",
         double_check_with_mac: bool = True,
     ) -> PipelineResult:
         """Run full end-to-end pipeline: render -> figures -> OCR -> verify -> clean/stitch."""
         self.output_dir.mkdir(parents=True, exist_ok=True)
         t_start = pymupdf.open(self.pdf_path)
         total_pages = len(t_start)
+        spec = resolve_monograph_spec(
+            self.pdf_path,
+            total_pages,
+            publisher_key=self.publisher,
+            lang=self.lang,
+            domain=self.domain,
+        )
+        if self.ocr_prompt is None:
+            self.ocr_prompt = spec.ocr_prompt
 
         # Step 1: Render pages
         rendered_pages = self.render_all_pages()
@@ -223,19 +218,9 @@ class UniversalPDFPipeline:
         print(
             "Cleaning math formulas, grounding figures, and stitching master document..."
         )
-        spec = resolve_monograph_spec(
-            self.pdf_path,
-            total_pages,
-            publisher_key=self.publisher,
-            lang=self.lang,
-            domain=self.domain,
-        )
         if spec.chapters:
-            if spec.slug == "kodaira_complex_analysis":
-                from ..kodaira import generate_all_kodaira_figures
-
-                web_idx = generate_all_kodaira_figures(self.output_dir)
-                print(f"Generated 116 vector SVGs and 2D web gallery: {web_idx}")
+            if render_book_figures(spec.slug, self.output_dir):
+                print(f"Generated vector SVG figures and web gallery for {spec.slug}")
             monograph_compiler = MonographCompiler(spec)
             monograph_out = monograph_compiler.build_all(self.output_dir)
             master_path = monograph_out.markdown_path

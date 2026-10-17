@@ -74,7 +74,7 @@ DispatchQueue.concurrentPerform(iterations: files.count) { idx in
 
 
 class AppleVisionOCREngine(OCREngine):
-    def __init__(self, languages: List[str] = None):
+    def __init__(self, languages: List[str] | None = None):
         self.languages = languages or ["zh-Hans", "en-US", "ja-JP", "fr-FR"]
         self._compiled_binary = None
 

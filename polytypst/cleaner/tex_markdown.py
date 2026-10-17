@@ -150,12 +150,46 @@ class TeXMarkdownCleaner:
             s,
         )
         s = re.sub(
-            r"(?<![\\a-zA-Z\^_])d\s+([xyztuvws])(?![a-zA-Z])",
-            r"\\mathrm{d} \1",
+            r"(?<![\\a-zA-Z0-9_\^])d\s*([xyztuvwsr])(?![a-zA-Z0-9])",
+            r"\\mathrm{d}\1",
             s,
         )
         s = re.sub(r"@@PROT_(\d+)@@", lambda m: protected[int(m.group(1))], s)
         return s
+
+    @staticmethod
+    def normalize_html_tables(text: str) -> str:
+        """Convert arbitrary HTML <table> markup into clean Markdown tables or lines."""
+        def repl_table(m: re.Match[str]) -> str:
+            table_html = m.group(0)
+            rows = re.findall(r"<tr[^>]*>(.*?)</tr>", table_html, re.DOTALL)
+            parsed_rows: list[list[str]] = []
+            for r in rows:
+                cells = [
+                    re.sub(r"<[^>]+>", "", c).strip()
+                    for c in re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", r, re.DOTALL)
+                ]
+                cells = [c for c in cells if c]
+                if cells:
+                    parsed_rows.append(cells)
+            if not parsed_rows:
+                return ""
+            max_cols = max(len(r) for r in parsed_rows)
+            if max_cols <= 3 and all(r[-1].isdigit() for r in parsed_rows if len(r) >= 2):
+                return "\n\n" + "\n\n".join(" ".join(r) for r in parsed_rows) + "\n\n"
+            header = parsed_rows[0]
+            col_count = len(header)
+            sep = ["---"] * col_count
+            lines = [
+                "| " + " | ".join(header) + " |",
+                "| " + " | ".join(sep) + " |",
+            ]
+            for row in parsed_rows[1:]:
+                padded = row + [""] * (col_count - len(row))
+                lines.append("| " + " | ".join(padded[:col_count]) + " |")
+            return "\n\n" + "\n".join(lines) + "\n\n"
+
+        return re.sub(r"<table>.*?</table>", repl_table, text, flags=re.DOTALL)
 
     @staticmethod
     def _sanitize_math_content(body: str, is_display: bool = False) -> str:
@@ -191,6 +225,7 @@ class TeXMarkdownCleaner:
             s,
             flags=re.DOTALL,
         )
+        s = re.sub(r"\\frac\{([^{}]+)\}\{\+([^{}]+)\}", r"(\1 + \2)", s)
         s = TeXMarkdownCleaner._normalize_differentials(s)
 
         if is_display:

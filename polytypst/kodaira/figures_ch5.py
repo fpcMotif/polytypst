@@ -1,7 +1,7 @@
 import math
 from collections.abc import Callable
 
-from .svg_primitives import (
+from ..vision.diagram_engine import (
     arc_path,
     arrow_line,
     circle_contour,
@@ -9,7 +9,7 @@ from .svg_primitives import (
     mid_arrow_path,
     point_dot,
     smooth_curve,
-    svg_figure,
+    svg_document,
     tangent_arrow,
 )
 
@@ -123,11 +123,11 @@ def fig_5_1() -> str:
             math_label(x2, y2 + 5.0, "F", sub="2", anchor="middle"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 380 340",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_1",
         title="Region D with holes F_1, F_2 and outer complement F_0",
     )
@@ -262,11 +262,11 @@ def fig_5_2() -> str:
             math_label(212.0, 286.0, "C"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 480 360",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_2",
         title="Grid covering K of cycle Gamma in region Omega with complement F",
     )
@@ -301,11 +301,11 @@ def fig_5_3() -> str:
             ),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 360 310",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_3",
         title="Oriented boundary sides of square Q_lambda",
     )
@@ -347,11 +347,11 @@ def fig_5_4() -> str:
             math_label(cx, cy + r + 22.0, "λ", sub="r", anchor="middle"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 440 280",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_4",
         title="Circle lambda_r centered at gamma(a) intersecting C_1 and C_2",
     )
@@ -411,11 +411,11 @@ def fig_5_5() -> str:
             math_label(374.0, 206.0, "C"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 440 310",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_5",
         title="Arc lambda of circle lambda_r inside region D at boundary point q",
     )
@@ -526,11 +526,11 @@ def fig_5_6() -> str:
             ),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 480 310",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_6",
         title="Disks U_rho(Q) and U_rho(P) on boundary Gamma of region Delta",
     )
@@ -671,11 +671,11 @@ def fig_5_7() -> str:
             ),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 440 360",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_7",
         title="Concentric circles lambda_varepsilon, lambda_r, lambda_delta centered at q in C",
     )
@@ -742,11 +742,11 @@ def fig_5_8() -> str:
             math_label(385.0, 156.0, "f̃", tail="(1)"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 440 320",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_8",
         title="Homologous curves Gamma and f(C_r) around f(0) with connecting path mu",
     )
@@ -792,11 +792,11 @@ def fig_5_9() -> str:
             _overline_label(220.0, 232.0, "D", color="#b45309", anchor="middle"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 420 320",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_9",
         title="Schwarz reflection of region D across real segment (a, b)",
     )
@@ -834,11 +834,11 @@ def fig_5_10() -> str:
             _overline_label(362.0, 198.0, "D", color="#b45309", anchor="middle"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 440 240",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_10",
         title="Disk U_varepsilon(c) divided into half-disks V and V-bar",
     )
@@ -881,10 +881,10 @@ def fig_5_11() -> str:
             math_label(384.0, 50.0, "l"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 420 270",
-        curves=curves,
-        labels=labels,
+        curve=curves,
+        label=labels,
         fig_id="5_11",
         title="Reflection z to z* across line l through c_0 and c_1",
     )
@@ -919,11 +919,11 @@ def fig_5_12() -> str:
             ),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 380 340",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_12",
         title="Inversion z to z* with respect to circle centered at c",
     )
@@ -980,11 +980,11 @@ def fig_5_13() -> str:
             math_label(318.0, 114.0, "D", sup="*", color="#b45309", anchor="middle"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 440 280",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_13",
         title="Reflection of region D into D* across arc gamma of circle C",
     )
@@ -1054,11 +1054,11 @@ def fig_5_14() -> str:
             math_label(178.0, 180.0, "D", sub="3", sup="*", color="#b45309"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 480 310",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_14",
         title="Ideal curvilinear triangle D orthogonal to circle C with reflection D_3*",
     )
@@ -1154,11 +1154,11 @@ def fig_5_15() -> str:
             math_label(344.0, 272.0, "γ", sub="112"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 440",
-        regions="\n".join(reg_parts),
-        curves="\n".join(curve_parts),
-        labels=labels,
+        region="\n".join(reg_parts),
+        curve="\n".join(curve_parts),
+        label=labels,
         fig_id="5_15",
         title="Modular tessellation of the unit disk by reflections of ideal triangle D",
     )
@@ -1181,11 +1181,11 @@ def fig_5_16() -> str:
         ]
     )
     labels = math_label(cx, cy + 6.0, "S", sup="(1)", color="#1e3a8a", anchor="middle")
-    return svg_figure(
+    return svg_document(
         "0 0 380 360",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_16",
         title="Ideal hexagon S^(1) = D union D_1 union D_2 union D_3 in unit disk",
     )
@@ -1221,11 +1221,11 @@ def fig_5_17() -> str:
         ]
     )
     labels = math_label(cx, cy + 6.0, "S", sup="(2)", color="#1e3a8a", anchor="middle")
-    return svg_figure(
+    return svg_document(
         "0 0 380 360",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_17",
         title="Reflected ideal polygon S^(2) in the unit disk",
     )
@@ -1312,11 +1312,11 @@ def fig_5_18() -> str:
             math_label(220.0, 304.0, "n = 9", italic=False, anchor="middle"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 500 320",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_18",
         title="Polygonal region D (n = 9) with exterior angle theta_lambda at c_lambda",
     )
@@ -1430,11 +1430,11 @@ def fig_5_19() -> str:
             math_label(ux + ru, uy + 20.0, "ρ", anchor="middle"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 500 330",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="5_19",
         title="Schwarz-Christoffel corner mapping from W_lambda to S_lambda and U_rho^+(0)",
     )

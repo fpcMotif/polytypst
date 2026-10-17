@@ -1,13 +1,13 @@
 import math
 from collections.abc import Callable
 
-from .svg_primitives import (
+from ..vision.diagram_engine import (
     arrow_line,
     circle_contour,
     math_label,
     point_dot,
     smooth_curve,
-    svg_figure,
+    svg_document,
     tangent_arrow,
 )
 
@@ -126,12 +126,12 @@ def fig_4_1() -> str:
         math_label(222.0, 226.0, "D", sub="n−1", anchor="middle"),
         math_label(286.0, 206.0, "D", sub="n", anchor="middle"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 460 290",
-        axes=axes_el,
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        grid=axes_el,
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_1",
         title=CHAPTER_FIG_TITLES["4_1"],
     )
@@ -229,12 +229,12 @@ def fig_4_2() -> str:
         math_label(wx + 44.0, 196.0, "W", sub="−1", anchor="middle", size=13.5),
         math_label(wx, 262.0, "w", tail="-plane", anchor="middle"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 530 284",
-        axes="\n".join(ax_parts),
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        grid="\n".join(ax_parts),
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_2",
         title=CHAPTER_FIG_TITLES["4_2"],
     )
@@ -286,12 +286,12 @@ def fig_4_3() -> str:
         math_label(c1x + 56.0, c1y - 4.0, "r", sub="1"),
         math_label(c1x + 4.0, c1y + 24.0, "ρ"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 430 286",
-        axes=axes_el,
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        grid=axes_el,
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_3",
         title=CHAPTER_FIG_TITLES["4_3"],
     )
@@ -322,11 +322,11 @@ def fig_4_4() -> str:
         math_label(130.0, 128.0, "γ", sub="1"),
         math_label(318.0, 124.0, "γ", sub="2"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 460 216",
-        axes=axes_el,
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        grid=axes_el,
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_4",
         title=CHAPTER_FIG_TITLES["4_4"],
     )
@@ -397,11 +397,11 @@ def fig_4_5() -> str:
         math_label(224.0, 98.0, "γ", sub="3"),
         math_label(408.0, 126.0, "γ", sub="n"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 510 210",
-        axes=axes_el,
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        grid=axes_el,
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_5",
         title=CHAPTER_FIG_TITLES["4_5"],
     )
@@ -453,11 +453,11 @@ def fig_4_6() -> str:
         math_label(gt[0] + 34.0, gt[1] - 8.0, "r(t)"),
         math_label(364.0, 178.0, "γ"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 460 264",
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_6",
         title=CHAPTER_FIG_TITLES["4_6"],
     )
@@ -542,11 +542,11 @@ def fig_4_7() -> str:
         math_label(228.0, 222.0, "U", sub="2"),
         math_label(426.0, 152.0, "U", sub="n"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 500 260",
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_7",
         title=CHAPTER_FIG_TITLES["4_7"],
     )
@@ -595,11 +595,11 @@ def fig_4_8() -> str:
         math_label(220.0, 226.0, "γ", sub="0"),
         math_label(250.0, 248.0, "Ω"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 460 286",
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_8",
         title=CHAPTER_FIG_TITLES["4_8"],
     )
@@ -649,11 +649,11 @@ def fig_4_9() -> str:
         math_label(308.0, 102.0, "γ"),
         math_label(346.0, 148.0, "Ω"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 460 296",
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_9",
         title=CHAPTER_FIG_TITLES["4_9"],
     )
@@ -693,11 +693,11 @@ def fig_4_10() -> str:
         math_label(260.0, 114.0, "γ"),
         math_label(306.0, 82.0, "Ω"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 460 288",
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_10",
         title=CHAPTER_FIG_TITLES["4_10"],
     )
@@ -730,12 +730,12 @@ def fig_4_11() -> str:
         math_label(x0 - 14.0, y0 + 8.0, "i", anchor="end"),
         math_label(x0 + 0.52 * side, y0 + 0.66 * side, "Ω", anchor="middle"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 440 296",
-        axes="\n".join(ax_parts),
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        grid="\n".join(ax_parts),
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_11",
         title=CHAPTER_FIG_TITLES["4_11"],
     )
@@ -778,11 +778,11 @@ def fig_4_12() -> str:
             math_label(248.0, 122.0, "L(σ)"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 510 246",
-        axes=axes_el,
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        grid=axes_el,
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_12",
         title=CHAPTER_FIG_TITLES["4_12"],
     )
@@ -858,11 +858,11 @@ def fig_4_13() -> str:
             math_label(c_end[0] - 6.0, c_end[1] + 18.0, "c"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 516 278",
-        axes=axes_el,
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        grid=axes_el,
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_13",
         title=CHAPTER_FIG_TITLES["4_13"],
     )
@@ -916,11 +916,11 @@ def fig_4_14() -> str:
             math_label(252.0, 102.0, "Ω"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 288",
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_14",
         title=CHAPTER_FIG_TITLES["4_14"],
     )
@@ -967,12 +967,12 @@ def fig_4_15() -> str:
         math_label(gt[0] - 10.0, gt[1] + 24.0, "γ(t)"),
         math_label(z_pt[0] - 6.0, z_pt[1] - 10.0, "z"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 460 284",
-        axes=axes_el,
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        grid=axes_el,
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_15",
         title=CHAPTER_FIG_TITLES["4_15"],
     )
@@ -1017,11 +1017,11 @@ def fig_4_16() -> str:
         math_label(gb[0] - 38.0, gb[1] + 46.0, "U(γ(b))"),
         math_label(184.0, 226.0, "Ω"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 430 286",
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_16",
         title=CHAPTER_FIG_TITLES["4_16"],
     )
@@ -1086,11 +1086,11 @@ def fig_4_17() -> str:
         math_label(lu[0] + 10.0, lu[1] + 6.0, "λ(u)"),
         math_label(ls[0] - 38.0, ls[1] + 76.0, "U(λ(s))"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 460 292",
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_17",
         title=CHAPTER_FIG_TITLES["4_17"],
     )
@@ -1141,12 +1141,12 @@ def fig_4_18() -> str:
         math_label(ox + 24.0, oy - 24.0, "C", sub="ε"),
         math_label(ox + 84.0, oy - 88.0, "C", sub="R"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 440 288",
-        axes=axes_el,
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        grid=axes_el,
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_18",
         title=CHAPTER_FIG_TITLES["4_18"],
     )
@@ -1177,11 +1177,11 @@ def fig_4_19() -> str:
         math_label(284.0, 182.0, "γ", sub="1"),
         math_label(54.0, 138.0, "γ", sub="2"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 450 266",
-        axes=axes_el,
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        grid=axes_el,
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_19",
         title=CHAPTER_FIG_TITLES["4_19"],
     )
@@ -1220,12 +1220,12 @@ def fig_4_20() -> str:
         math_label(x0 + 54.0, oy - 78.0, "β"),
         math_label(x2 + 56.0, oy - 74.0, "α"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 516 280",
-        axes=axes_el,
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        grid=axes_el,
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_20",
         title=CHAPTER_FIG_TITLES["4_20"],
     )
@@ -1265,12 +1265,12 @@ def fig_4_21() -> str:
         math_label(0.5 * (eps_x + one_x) - 4.0, oy - 10.0, "λ"),
         math_label(ox + 84.0, oy - 86.0, "β"),
     ]
-    return svg_figure(
+    return svg_document(
         "0 0 432 288",
-        axes=axes_el,
-        regions="\n".join(reg_parts),
-        curves="\n".join(cur_parts),
-        labels="\n".join(lbl_parts),
+        grid=axes_el,
+        region="\n".join(reg_parts),
+        curve="\n".join(cur_parts),
+        label="\n".join(lbl_parts),
         fig_id="4_21",
         title=CHAPTER_FIG_TITLES["4_21"],
     )

@@ -17,6 +17,16 @@ dependencies = [
 
 [project.scripts]
 polytypst = "polytypst.cli:main"
+polytypst-colab = "polytypst.ocr.colab_cli:main"
+
+[tool.pytest.ini_options]
+filterwarnings = ["ignore:builtin type .* has no __module__ attribute:DeprecationWarning"]
+
+[tool.ruff.lint]
+extend-select = ["TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"fitz".msg = "The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead."
 
 [build-system]
 requires = ["hatchling"]

@@ -11,7 +11,7 @@ from polytypst.goursat.figures import (
     normalize_goursat_markdown,
 )
 from polytypst.ocr.base import OCRLine
-from polytypst.ocr.dual_colab import DualColabG4Cluster
+from polytypst.ocr.colab_cluster import ColabOCRCluster
 from polytypst.vision.figure_extractor import ExtractedFigure, FigureExtractor
 
 
@@ -116,14 +116,14 @@ def test_figure_extractor_box_detection():
 
 def test_dual_colab_partitioning(tmp_path: Path):
     dummy_pages = [tmp_path / f"p_{i:03d}.png" for i in range(1, 11)]
-    chunks = DualColabG4Cluster.partition_pages(dummy_pages, 2)
+    chunks = ColabOCRCluster.partition_pages(dummy_pages, 2)
 
     assert len(chunks) == 2
     assert len(chunks[0]) == 5
     assert len(chunks[1]) == 5
     assert chunks[0] + chunks[1] == dummy_pages
 
-    chunks3 = DualColabG4Cluster.partition_pages(dummy_pages, 3)
+    chunks3 = ColabOCRCluster.partition_pages(dummy_pages, 3)
     assert len(chunks3) == 3
     assert len(chunks3[0]) == 4
     assert len(chunks3[1]) == 3
@@ -139,7 +139,7 @@ def test_dual_colab_archive_packing(tmp_path: Path):
     Image.new("RGB", (50, 50), color="white").save(p2)
 
     archive = tmp_path / "batch.tar.gz"
-    packed = DualColabG4Cluster.pack_archive([p1, p2], archive)
+    packed = ColabOCRCluster.pack_archive([p1, p2], archive)
     assert packed.exists()
     assert packed.stat().st_size > 0
 
@@ -158,7 +158,9 @@ def test_goursat_svg_generators_complete():
 
 def test_goursat_cover_and_frontmatter_normalization():
     cover = generate_goursat_cover_svg()
-    assert cover.startswith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 648"')
+    assert cover.startswith(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 648"'
+    )
     assert "A COURSE IN MATHEMATICAL ANALYSIS" in cover
     assert "VOLUME I" in cover
     assert cover.endswith("</svg>")
@@ -175,6 +177,11 @@ def test_goursat_cover_and_frontmatter_normalization():
     assert "## I. FUNCTIONS OF A SINGLE VARIABLE" in norm_md
     assert "**1. Limits.** Let $y = f(x)$." in norm_md
 
+    linked = normalize_goursat_markdown(
+        "## CHAPTER I\n\n![FIG. 1](figures/fig_1.png){#fig:1}\n\n![FIG. 99](figures/fig_99.png){#fig:99}\n"
+    )
+    assert "(figures/fig_1.svg)" in linked
+    assert "(figures/fig_99.png)" in linked
 
 
 def test_kodaira_svg_generators_complete():

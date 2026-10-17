@@ -4,14 +4,17 @@ import json
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import final
+from typing import Any, final
 
+import numpy as np
 import pymupdf
 from PIL import Image
 
 from ..ocr.apple_vision import AppleVisionOCREngine
 from ..ocr.base import OCRLine, OCRPage
 from .cropper import HighDPICropper
+
+FIGURES_MANIFEST_NAME = "figures_manifest.json"
 
 
 @dataclass
@@ -25,33 +28,104 @@ class ExtractedFigure:
     height_px: int = 0
 
 
+def write_figures_manifest(path: Path, figures: list[ExtractedFigure]) -> None:
+    _ = path.write_text(
+        json.dumps([asdict(f) for f in figures], indent=2),
+        encoding="utf-8",
+    )
+
+
+def load_figures_manifest(path: Path) -> list[ExtractedFigure]:
+    figures: list[ExtractedFigure] = []
+    for item in json.loads(path.read_text(encoding="utf-8")):
+        box = item.get("box")
+        figures.append(
+            ExtractedFigure(
+                figure_id=str(item["figure_id"]),
+                caption=str(item["caption"]),
+                image_rel_path=str(item["image_rel_path"]),
+                source_page=int(item["source_page"]),
+                box=(float(box[0]), float(box[1]), float(box[2]), float(box[3]))
+                if box
+                else None,
+                width_px=int(item.get("width_px", 0)),
+                height_px=int(item.get("height_px", 0)),
+            )
+        )
+    return figures
+
+
+def load_complete_figures_manifest(path: Path) -> list[ExtractedFigure] | None:
+    if not path.exists():
+        return None
+    figures = load_figures_manifest(path)
+    if figures and all((path.parent / f.image_rel_path).exists() for f in figures):
+        return figures
+    return None
+
+
+def _text_layer_rows(
+    page_dict: dict[str, Any],
+) -> list[tuple[str, tuple[float, float, float, float]]]:
+    """Text-layer lines, with pieces on one baseline and close together joined."""
+    pieces: list[tuple[str, tuple[float, float, float, float]]] = []
+    for b in page_dict.get("blocks", []):
+        if b.get("type") != 0:
+            continue
+        for line in b.get("lines", []):
+            txt = "".join(str(s.get("text", "")) for s in line.get("spans", []))
+            x0, y0, x1, y1 = (float(v) for v in line.get("bbox", (0, 0, 0, 0)))
+            if txt.strip():
+                pieces.append((txt.strip(), (x0, y0, x1, y1)))
+    pieces.sort(key=lambda p: (round(p[1][1] / 3), p[1][0]))
+    rows: list[tuple[str, tuple[float, float, float, float]]] = []
+    for txt, box in pieces:
+        if rows:
+            prev_txt, prev = rows[-1]
+            if abs(prev[1] - box[1]) < 3 and 0 <= box[0] - prev[2] < 30:
+                rows[-1] = (
+                    f"{prev_txt} {txt}",
+                    (prev[0], min(prev[1], box[1]), box[2], max(prev[3], box[3])),
+                )
+                continue
+        rows.append((txt, box))
+    return rows
+
+
+def _caption_column(
+    page_caps: list[tuple[str, float, float]], idx: int, w_px: int
+) -> tuple[int, int] | None:
+    """Pixel x-range of a caption's figure when another caption shares its row."""
+    _, top, cx = page_caps[idx]
+    peers = sorted(c for _, t, c in page_caps if abs(t - top) < 0.02)
+    if len(peers) < 2:
+        return None
+    pos = peers.index(cx)
+    lo = 0.06 if pos == 0 else (peers[pos - 1] + cx) / 2
+    hi = 0.94 if pos == len(peers) - 1 else (cx + peers[pos + 1]) / 2
+    return int(lo * w_px), int(hi * w_px)
+
+
 def find_whitespace_isolated_diagram(
     img: Image.Image,
     cap_top_px: int,
     upper_bound_px: int,
     pad_px: int = 18,
+    x_range_px: tuple[int, int] | None = None,
 ) -> tuple[int, int, int, int] | None:
     """Find tight (left, top, right, bottom) ink box of diagram above cap_top_px."""
-    gray = img.convert("L")
-    w, h = gray.size
-    pixels = gray.load()
-    if pixels is None:
-        return None
+    gray = np.asarray(img.convert("L"))
+    h, w = gray.shape
 
     x_margin = int(w * 0.06)
+    x_lo, x_hi = x_range_px or (x_margin, w - x_margin)
     scan_bot = max(upper_bound_px + 10, min(h - 1, cap_top_px - 4))
     scan_top = max(int(h * 0.065), upper_bound_px + 4)
     if scan_bot <= scan_top + 20:
         return None
 
-    row_dark: list[int] = []
-    for y in range(scan_top, scan_bot):
-        cnt = 0
-        for x in range(x_margin, w - x_margin, 2):
-            val = pixels[x, y]
-            if isinstance(val, (int, float)) and val < 190:
-                cnt += 1
-        row_dark.append(cnt)
+    band_ink = gray[scan_top:scan_bot, x_lo:x_hi] < 190
+    row_dark: list[int] = band_ink[:, ::2].sum(axis=1).tolist()
 
     rel_bot = len(row_dark) - 1
     while rel_bot >= 0 and row_dark[rel_bot] <= 1:
@@ -71,21 +145,13 @@ def find_whitespace_isolated_diagram(
             empty_run = 0
             best_top = r
 
-    y0 = scan_top + best_top
-    y1 = scan_top + rel_bot + 1
-
-    min_x = w
-    max_x = 0
-    min_y = y1
-    max_y = y0
-    for y in range(y0, y1):
-        for x in range(x_margin, w - x_margin):
-            val = pixels[x, y]
-            if isinstance(val, (int, float)) and val < 190:
-                min_x = min(min_x, x)
-                max_x = max(max_x, x)
-                min_y = min(min_y, y)
-                max_y = max(max_y, y)
+    ys, xs = np.nonzero(band_ink[best_top : rel_bot + 1])
+    if ys.size == 0:
+        return None
+    min_x = x_lo + int(xs.min())
+    max_x = x_lo + int(xs.max())
+    min_y = scan_top + best_top + int(ys.min())
+    max_y = scan_top + best_top + int(ys.max())
 
     if max_x <= min_x + 15 or max_y <= min_y + 15:
         return None
@@ -211,51 +277,26 @@ class FigureExtractor:
         self,
         renders_dir: Path,
         out_dir: Path,
+        pages: range | None = None,
     ) -> list[ExtractedFigure]:
-        """Extract diagrams above standalone Fig. X.Y captions using whitespace band isolation and manifest caching."""
+        """Extract diagrams above standalone Fig. X.Y captions using whitespace band isolation."""
         out_dir = Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
-        manifest_path = out_dir.parent / "figures_manifest.json"
-        if manifest_path.exists():
-            try:
-                raw_items = json.loads(manifest_path.read_text(encoding="utf-8"))
-                cached: list[ExtractedFigure] = []
-                for item in raw_items:
-                    fid = str(item.get("figure_id") or item.get("fig_id") or "")
-                    cap = str(
-                        item.get("caption") or item.get("fig_label") or f"Fig. {fid}"
-                    )
-                    rel = str(item.get("image_rel_path") or f"figures/fig_{fid}.png")
-                    pno = int(item.get("source_page") or item.get("pdf_page") or 0)
-                    w_px = int(item.get("width_px") or 0)
-                    h_px = int(item.get("height_px") or 0)
-                    if fid and (out_dir.parent / rel).exists():
-                        cached.append(
-                            ExtractedFigure(
-                                figure_id=fid,
-                                caption=cap,
-                                image_rel_path=rel,
-                                source_page=pno,
-                                width_px=w_px,
-                                height_px=h_px,
-                            )
-                        )
-                if cached:
-                    return cached
-            except (OSError, ValueError, KeyError, TypeError):
-                pass
 
         doc = pymupdf.open(self.pdf_path)
+        if pages is None:
+            pages = range(1, len(doc) + 1)
         vision_engine = AppleVisionOCREngine(languages=["en-US"])
         cap_re = re.compile(
-            r"^(?:FIG|Fig|Figure)\.?\s*(\d+[\.\-]\d+[a-z]?)\.?\s*$", re.IGNORECASE
+            r"^(?:FIG|Fig|Figure)\.?\s*(\d+[\.\-]\d+[a-z]?)(?:\.?\s*$|\.\s+\S)",
+            re.IGNORECASE,
         )
 
         extracted: list[ExtractedFigure] = []
         seen_ids: set[str] = set()
         pages_to_scan: set[int] = set()
         md_pages_dir = out_dir.parent / "markdown_pages"
-        for pno in range(1, len(doc) + 1):
+        for pno in pages:
             t = doc[pno - 1].get_text()
             md_path = md_pages_dir / f"p_{pno:03d}.md"
             md_txt = md_path.read_text(encoding="utf-8") if md_path.exists() else ""
@@ -266,9 +307,7 @@ class FigureExtractor:
                 or "Fig" in md_txt
                 or "FIG" in md_txt
             ):
-                pages_to_scan.add(pno)
-                pages_to_scan.add(max(1, pno - 1))
-                pages_to_scan.add(min(len(doc), pno + 1))
+                pages_to_scan.update(p for p in (pno - 1, pno, pno + 1) if p in pages)
 
         for pno in sorted(pages_to_scan):
             png_path = renders_dir / f"p_{pno:03d}.png"
@@ -278,32 +317,19 @@ class FigureExtractor:
             with Image.open(png_path) as im:
                 w_px, h_px = im.size
 
-            page_caps: list[tuple[str, float]] = []
+            page_caps: list[tuple[str, float, float]] = []
             prose_bottoms: list[float] = [0.072]
 
             d = doc[pno - 1].get_text("dict")
             pw = float(doc[pno - 1].rect.width)
             ph = float(doc[pno - 1].rect.height)
 
-            for b in d.get("blocks", []):
-                if b.get("type") != 0:
-                    continue
-                for line_dict in b.get("lines", []):
-                    txt = "".join(
-                        str(s.get("text", "")) for s in line_dict.get("spans", [])
-                    ).strip()
-                    bbox = line_dict.get("bbox", (0.0, 0.0, 0.0, 0.0))
-                    x0, y0, x1, y1 = (
-                        float(bbox[0]),
-                        float(bbox[1]),
-                        float(bbox[2]),
-                        float(bbox[3]),
-                    )
-                    m = cap_re.match(txt)
-                    if m:
-                        page_caps.append((m.group(1), y0 / ph))
-                    elif (x1 - x0) > 0.48 * pw and len(txt) > 28 and y0 > 0.07 * ph:
-                        prose_bottoms.append(y1 / ph)
+            for txt, (x0, y0, x1, y1) in _text_layer_rows(d):
+                m = cap_re.match(txt)
+                if m and (x1 - x0) < 0.7 * pw:
+                    page_caps.append((m.group(1), y0 / ph, (x0 + x1) / 2 / pw))
+                elif (x1 - x0) > 0.48 * pw and len(txt) > 28 and y0 > 0.07 * ph:
+                    prose_bottoms.append(y1 / ph)
 
             ocr_page = vision_engine.recognize_page(png_path, pno)
             for ol in ocr_page.lines:
@@ -311,10 +337,10 @@ class FigureExtractor:
                 m = cap_re.match(txt)
                 top_frac = 1.0 - (ol.y + ol.h)
                 bot_frac = 1.0 - ol.y
-                if m:
+                if m and ol.w < 0.7:
                     fnum = m.group(1)
                     if not any(existing[0] == fnum for existing in page_caps):
-                        page_caps.append((fnum, top_frac))
+                        page_caps.append((fnum, top_frac, ol.x + ol.w / 2))
                 elif ol.w > 0.48 and len(txt) > 28 and top_frac > 0.07:
                     prose_bottoms.append(bot_frac)
 
@@ -325,8 +351,8 @@ class FigureExtractor:
             prose_bottoms.sort()
 
             with Image.open(png_path) as im:
-                for idx, (fnum, cap_top_frac) in enumerate(page_caps):
-                    fid = re.sub(r"[^0-9A-Za-z_-]", "_", fnum)
+                for idx, (fnum, cap_top_frac, _) in enumerate(page_caps):
+                    fid = re.sub(r"[^0-9A-Za-z_]", "_", fnum)
                     if fid in seen_ids:
                         continue
 
@@ -334,20 +360,23 @@ class FigureExtractor:
                     for pb in prose_bottoms:
                         if pb < cap_top_frac - 0.04:
                             upper_frac = max(upper_frac, pb)
-                    if idx > 0:
-                        prev_cap_bot = page_caps[idx - 1][1] + 0.022
-                        if prev_cap_bot < cap_top_frac - 0.04:
-                            upper_frac = max(upper_frac, prev_cap_bot)
+                    for _, other_top, _ in page_caps[:idx]:
+                        if other_top + 0.022 < cap_top_frac - 0.04:
+                            upper_frac = max(upper_frac, other_top + 0.022)
 
                     cap_top_px = int(cap_top_frac * h_px)
                     upper_px = int(upper_frac * h_px)
+                    x_range = _caption_column(page_caps, idx, w_px)
 
-                    box_px = find_whitespace_isolated_diagram(im, cap_top_px, upper_px)
+                    box_px = find_whitespace_isolated_diagram(
+                        im, cap_top_px, upper_px, x_range_px=x_range
+                    )
                     if box_px is None:
+                        lo, hi = x_range or (int(w_px * 0.12), int(w_px * 0.88))
                         box_px = (
-                            int(w_px * 0.12),
+                            lo,
                             max(int(h_px * 0.075), upper_px + 8),
-                            int(w_px * 0.88),
+                            hi,
                             max(upper_px + 40, cap_top_px - 6),
                         )
 
@@ -367,10 +396,6 @@ class FigureExtractor:
                         )
                     )
 
-        _ = manifest_path.write_text(
-            json.dumps([asdict(f) for f in extracted], indent=2),
-            encoding="utf-8",
-        )
         return extracted
 
     def extract_figures_from_ocr_pages(
@@ -467,12 +492,6 @@ class FigureExtractor:
                 except (OSError, ValueError, RuntimeError) as e:
                     print(f"Warning: Failed to crop figure {fig_id} on page {pno}: {e}")
 
-        if figures:
-            manifest_path = out_dir.parent / "figures_manifest.json"
-            _ = manifest_path.write_text(
-                json.dumps([asdict(f) for f in figures], indent=2),
-                encoding="utf-8",
-            )
         return figures
 
     def extract_all(

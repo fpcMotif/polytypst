@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "traits": {
+      "type": "stdio",
+      "command": "mise",
+      "args": ["exec", "--", "bunx", "traits"]
+    }
+  }
+}

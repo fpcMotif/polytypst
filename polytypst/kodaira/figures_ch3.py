@@ -1,7 +1,7 @@
 import math
 from collections.abc import Callable
 
-from .svg_primitives import (
+from ..vision.diagram_engine import (
     arc_path,
     arrow_line,
     axes_xy,
@@ -10,7 +10,7 @@ from .svg_primitives import (
     mid_arrow_path,
     point_dot,
     smooth_curve,
-    svg_figure,
+    svg_document,
     tangent_arrow,
 )
 
@@ -111,11 +111,11 @@ def fig_3_1() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 420 325",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="3_1",
         title=CHAPTER_FIG_TITLES["3_1"],
     )
@@ -205,10 +205,10 @@ def fig_3_2() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 560 278",
-        curves=curves,
-        labels=labels,
+        curve=curves,
+        label=labels,
         fig_id="3_2",
         title=CHAPTER_FIG_TITLES["3_2"],
     )
@@ -266,12 +266,12 @@ def fig_3_3() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 560 282",
-        axes=f"{ax_z}\n{ax_w}",
-        regions=regions,
-        curves="\n".join(curve_parts),
-        labels=labels,
+        grid=f"{ax_z}\n{ax_w}",
+        region=regions,
+        curve="\n".join(curve_parts),
+        label=labels,
         fig_id="3_3",
         title=CHAPTER_FIG_TITLES["3_3"],
     )
@@ -328,11 +328,11 @@ def fig_3_4() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 560 296",
-        axes=f"{ax_z}\n{ax_w}",
-        curves="\n".join(curve_parts),
-        labels=labels,
+        grid=f"{ax_z}\n{ax_w}",
+        curve="\n".join(curve_parts),
+        label=labels,
         fig_id="3_4",
         title=CHAPTER_FIG_TITLES["3_4"],
     )
@@ -408,11 +408,11 @@ def fig_3_5() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 560 296",
-        axes=f"{ax_z}\n{ax_w}",
-        curves="\n".join(curve_parts),
-        labels=labels,
+        grid=f"{ax_z}\n{ax_w}",
+        curve="\n".join(curve_parts),
+        label=labels,
         fig_id="3_5",
         title=CHAPTER_FIG_TITLES["3_5"],
     )
@@ -462,12 +462,12 @@ def fig_3_6() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 430 296",
-        axes=ax_str,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=ax_str,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="3_6",
         title=CHAPTER_FIG_TITLES["3_6"],
     )
@@ -524,12 +524,12 @@ def fig_3_7() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 450 332",
-        axes=axes,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="3_7",
         title=CHAPTER_FIG_TITLES["3_7"],
     )
@@ -617,11 +617,11 @@ def fig_3_8() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 550 278",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="3_8",
         title=CHAPTER_FIG_TITLES["3_8"],
     )
@@ -695,11 +695,11 @@ def fig_3_9() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 550 280",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="3_9",
         title=CHAPTER_FIG_TITLES["3_9"],
     )
@@ -784,11 +784,11 @@ def fig_3_10() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 430 284",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="3_10",
         title=CHAPTER_FIG_TITLES["3_10"],
     )
@@ -844,11 +844,11 @@ def fig_3_11() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 420 280",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="3_11",
         title=CHAPTER_FIG_TITLES["3_11"],
     )
@@ -955,11 +955,11 @@ def fig_3_12() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 480 258",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="3_12",
         title=CHAPTER_FIG_TITLES["3_12"],
     )
@@ -1078,11 +1078,11 @@ def fig_3_13() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 430 278",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="3_13",
         title=CHAPTER_FIG_TITLES["3_13"],
     )
@@ -1146,12 +1146,12 @@ def fig_3_14() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 420 312",
-        axes=axes,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="3_14",
         title=CHAPTER_FIG_TITLES["3_14"],
     )
@@ -1208,12 +1208,12 @@ def fig_3_15() -> str:
         ]
     )
 
-    return svg_figure(
+    return svg_document(
         "0 0 460 268",
-        axes=axes,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=axes,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="3_15",
         title=CHAPTER_FIG_TITLES["3_15"],
     )

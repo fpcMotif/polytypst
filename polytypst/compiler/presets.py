@@ -66,16 +66,16 @@ PUBLISHER_PRESETS: dict[str, PublisherPreset] = {
         imprint_name="Springer",
         default_series="Graduate Texts in Mathematics",
         cities_line="Berlin · Heidelberg · New York · Tokyo",
-        width_pt=440,
-        height_pt=666,
-        margin_inside_pt=54,
-        margin_outside_pt=58,
-        margin_top_pt=54,
-        margin_bottom_pt=60,
+        width_pt=454,
+        height_pt=686,
+        margin_inside_pt=56,
+        margin_outside_pt=60,
+        margin_top_pt=58,
+        margin_bottom_pt=64,
         body_size_pt=10.0,
         heading_style="numbered-block",
-        header_rule_pt=0.4,
-        pandoc_geometry="paperwidth=6.11in,paperheight=9.25in,margin=0.76in",
+        header_rule_pt=0.45,
+        pandoc_geometry="paperwidth=6.3in,paperheight=9.53in,margin=0.8in",
     ),
     "mit": PublisherPreset(
         key="mit",
@@ -125,6 +125,38 @@ PUBLISHER_PRESETS: dict[str, PublisherPreset] = {
         header_rule_pt=0.35,
         pandoc_geometry="paperwidth=6.5in,paperheight=10.0in,margin=0.86in",
     ),
+    "bourbaki_1970": PublisherPreset(
+        key="bourbaki_1970",
+        imprint_name="Springer-Verlag",
+        default_series="Elements of Mathematics",
+        cities_line="Berlin · Heidelberg · New York · London · Paris · Tokyo",
+        width_pt=388,
+        height_pt=609,
+        margin_inside_pt=32,
+        margin_outside_pt=32,
+        margin_top_pt=74,
+        margin_bottom_pt=66,
+        body_size_pt=9.6,
+        heading_style="bourbaki",
+        header_rule_pt=0.0,
+        pandoc_geometry="paperwidth=5.39in,paperheight=8.46in,margin=0.45in",
+    ),
+    "princeton": PublisherPreset(
+        key="princeton",
+        imprint_name="Princeton University Press",
+        default_series="Princeton Mathematical Series",
+        cities_line="Princeton, New Jersey",
+        width_pt=441,
+        height_pt=666,
+        margin_inside_pt=54,
+        margin_outside_pt=54,
+        margin_top_pt=56,
+        margin_bottom_pt=58,
+        body_size_pt=10.0,
+        heading_style="ams-sc",
+        header_rule_pt=0.35,
+        pandoc_geometry="paperwidth=6.13in,paperheight=9.25in,margin=0.75in",
+    ),
 }
 
 
@@ -135,8 +167,21 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         font_stack=("New Computer Modern",),
         math_font="New Computer Modern Math",
         first_line_indent="1.5em",
-        leading="0.65em",
-        par_spacing="0.85em",
+        leading="0.78em",
+        par_spacing="1.05em",
+        hyphenate=True,
+        cjk_punctuation_compress=False,
+        contents_title="Contents",
+        ocr_instruction="Transcribe English text and LaTeX math faithfully.",
+    ),
+    "en_baskerville": LanguageProfile(
+        code="en_baskerville",
+        typst_lang="en",
+        font_stack=("Baskervville", "STIX Two Text"),
+        math_font="STIX Two Math",
+        first_line_indent="1.1em",
+        leading="4.3pt",
+        par_spacing="4.3pt",
         hyphenate=True,
         cjk_punctuation_compress=False,
         contents_title="Contents",
@@ -165,8 +210,8 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         font_stack=("New Computer Modern",),
         math_font="New Computer Modern Math",
         first_line_indent="1.2em",
-        leading="0.66em",
-        par_spacing="0.85em",
+        leading="0.76em",
+        par_spacing="1.0em",
         hyphenate=True,
         cjk_punctuation_compress=False,
         contents_title="Table des matières",
@@ -299,6 +344,13 @@ class CompositionConfig:
         elif style == "ams-sc":
             h1 = f"""#show heading.where(level: 1): it => {{
   v(2.4em)
+  context {{
+    let label = chapter-label.get()
+    if label != none {{
+      align(center, text(11pt, tracking: 0.12em, font: {font_expr})[#smallcaps(label)])
+      v(0.9em)
+    }}
+  }}
   align(center)[
     #text(14pt, weight: "bold", tracking: 0.06em, font: {font_expr})[#smallcaps(it.body)]
   ]
@@ -316,6 +368,23 @@ class CompositionConfig:
   ]
   v(1.4em)
 }}"""
+        elif style == "numbered-block":
+            h1 = f"""#show heading.where(level: 1): it => {{
+  v(2.6em)
+  context {{
+    let label = chapter-label.get()
+    if label != none {{
+      align(left, text(11pt, weight: "bold", tracking: 0.08em, fill: luma(70), font: {font_expr})[#smallcaps(label)])
+      v(0.55em)
+    }}
+  }}
+  align(left)[
+    #text(18pt, weight: "bold", font: {font_expr})[#it.body]
+  ]
+  v(0.65em)
+  line(length: 100%, stroke: 0.75pt + luma(35))
+  v(1.8em)
+}}"""
         else:
             h1 = f"""#show heading.where(level: 1): it => {{
   v(2.4em)
@@ -329,21 +398,21 @@ class CompositionConfig:
         return f"""{h1}
 
 #show heading.where(level: 2): it => {{
-  v(1.4em)
-  text(12pt, weight: "bold", font: {font_expr})[#it.body]
-  v(0.55em)
+  v(1.75em, weak: true)
+  text(12.5pt, weight: "bold", font: {font_expr})[#it.body]
+  v(0.75em, weak: true)
 }}
 
 #show heading.where(level: 3): it => {{
-  v(1.1em)
+  v(1.3em, weak: true)
   text(10.5pt, weight: "bold", style: "italic", font: {font_expr})[#it.body]
-  v(0.35em)
+  v(0.5em, weak: true)
 }}
 
 #show heading.where(level: 4): it => {{
-  v(0.95em)
+  v(1.1em, weak: true)
   text(10pt, weight: "bold", font: {font_expr})[#smallcaps(it.body)]
-  v(0.4em)
+  v(0.45em, weak: true)
 }}"""
 
 

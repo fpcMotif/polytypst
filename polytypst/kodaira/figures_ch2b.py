@@ -1,7 +1,7 @@
 import math
 from collections.abc import Callable
 
-from .svg_primitives import (
+from ..vision.diagram_engine import (
     arc_path,
     arrow_line,
     axes_xy,
@@ -10,7 +10,7 @@ from .svg_primitives import (
     mid_arrow_path,
     point_dot,
     smooth_curve,
-    svg_figure,
+    svg_document,
     tangent_arrow,
 )
 
@@ -117,12 +117,12 @@ def fig_2_20() -> str:
             w_lbl,
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 460 305",
-        axes=ax,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=ax,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_20",
         title=CHAPTER_FIG_TITLES["2_20"],
     )
@@ -168,12 +168,12 @@ def fig_2_21() -> str:
             '    <text x="170.0" y="176.0" class="it" fill="#047857" transform="rotate(7.7 170.0 176.0)">y = δ + (φ\'(ξ) − ε)(x − ξ)</text>',
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 470 300",
-        axes=ax,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=ax,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_21",
         title=CHAPTER_FIG_TITLES["2_21"],
     )
@@ -216,12 +216,12 @@ def fig_2_22() -> str:
             math_label(287.0, 176.0, "C", color="#1e3a8a"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 390 305",
-        axes=ax,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=ax,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_22",
         title=CHAPTER_FIG_TITLES["2_22"],
     )
@@ -270,12 +270,12 @@ def fig_2_23() -> str:
             '    <text x="115.0" y="205.0" class="it" fill="#1e3a8a" transform="rotate(-22.0 115.0 205.0)">y = φ(x)</text>',
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 410 295",
-        axes=ax,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=ax,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_23",
         title=CHAPTER_FIG_TITLES["2_23"],
     )
@@ -346,12 +346,12 @@ def fig_2_24() -> str:
             math_label(396.0, 270.0, "ρ'(τ) &lt; 0", anchor="middle"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 530 285",
-        axes=f"{ax_l}\n{ax_r}",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=f"{ax_l}\n{ax_r}",
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_24",
         title=CHAPTER_FIG_TITLES["2_24"],
     )
@@ -450,11 +450,11 @@ def fig_2_25() -> str:
             d_lbl,
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 440 390",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_25",
         title=CHAPTER_FIG_TITLES["2_25"],
         show_grid=False,
@@ -531,11 +531,11 @@ def fig_2_26() -> str:
             math_label(368.0, 186.0, "(6)", italic=False, anchor="middle"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 500 210",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_26",
         title=CHAPTER_FIG_TITLES["2_26"],
     )
@@ -611,12 +611,12 @@ def fig_2_27() -> str:
             lbl_r,
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 465 312",
-        axes=ax,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=ax,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_27",
         title=CHAPTER_FIG_TITLES["2_27"],
     )
@@ -662,12 +662,12 @@ def fig_2_28() -> str:
             math_label(164.0, 185.0, "ζ", sub="1"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 440 305",
-        axes=ax,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=ax,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_28",
         title=CHAPTER_FIG_TITLES["2_28"],
     )
@@ -766,12 +766,12 @@ def fig_2_29() -> str:
             math_label(528.0, 195.0, "C", sub="1", color="#1e3a8a"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 565 285",
-        axes=f"{ax_l}\n{ax_r}",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=f"{ax_l}\n{ax_r}",
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_29",
         title=CHAPTER_FIG_TITLES["2_29"],
     )
@@ -839,12 +839,12 @@ def fig_2_30() -> str:
             '    <text x="304.0" y="185.0" class="it" fill="#1e3a8a" transform="rotate(-22.0 304.0 185.0)">y = φ<tspan font-size="10.5px" dy="3.2">1</tspan><tspan dy="-3.2">(x)</tspan></text>',
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 430 312",
-        axes=ax,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=ax,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_30",
         title=CHAPTER_FIG_TITLES["2_30"],
     )
@@ -939,11 +939,11 @@ def fig_2_31() -> str:
             math_label(224.0, 258.0, "C", sub="48", size=13.0),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 380 330",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_31",
         title=CHAPTER_FIG_TITLES["2_31"],
     )
@@ -1004,11 +1004,11 @@ def fig_2_32() -> str:
             math_label(236.0, 198.0, "[D]", italic=False),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 390 275",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_32",
         title=CHAPTER_FIG_TITLES["2_32"],
     )
@@ -1071,11 +1071,11 @@ def fig_2_33() -> str:
             math_label(218.0, 144.0, "Γ(K", sup="ε", tail=")", anchor="middle"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 440 275",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_33",
         title=CHAPTER_FIG_TITLES["2_33"],
     )
@@ -1120,11 +1120,11 @@ def fig_2_34() -> str:
             math_label(182.0, 198.0, "[D] − U", sub="ε", tail="(w)", italic=False),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 390 275",
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_34",
         title=CHAPTER_FIG_TITLES["2_34"],
     )
@@ -1183,12 +1183,12 @@ def fig_2_35() -> str:
             math_label(ox + 8.0, 118.0, "[D]", italic=False),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 455 240",
-        axes=ax,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=ax,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_35",
         title=CHAPTER_FIG_TITLES["2_35"],
     )
@@ -1256,12 +1256,12 @@ def fig_2_36() -> str:
             math_label(148.0, 216.0, "4", italic=False, anchor="middle"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 420 260",
-        axes=ax,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=ax,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_36",
         title=CHAPTER_FIG_TITLES["2_36"],
     )
@@ -1307,12 +1307,12 @@ def fig_2_37() -> str:
             math_label(ox + 52.0, 54.0, "C", sub="R", color="#1e3a8a"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 445 245",
-        axes=ax,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=ax,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_37",
         title=CHAPTER_FIG_TITLES["2_37"],
     )
@@ -1389,12 +1389,12 @@ def fig_2_38() -> str:
             math_label(x0 + 1.5 * hw, y0 + 1.5 * hh + 5.0, "K''", anchor="middle"),
         ]
     )
-    return svg_figure(
+    return svg_document(
         "0 0 430 285",
-        axes=ax,
-        regions=regions,
-        curves=curves,
-        labels=labels,
+        grid=ax,
+        region=regions,
+        curve=curves,
+        label=labels,
         fig_id="2_38",
         title=CHAPTER_FIG_TITLES["2_38"],
     )
