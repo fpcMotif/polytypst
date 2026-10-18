@@ -4,14 +4,19 @@ import { api } from "../convex/_generated/api";
 import { ChapterData, ContentBlock } from "./types";
 import { escapeHtml, renderMathProseToHtml } from "./mathRenderer";
 import { Download, ExternalLink, Search } from "lucide-react";
+import { SubmissionPrototype } from "./prototype/SubmissionPrototype";
 
-type ViewSurface = "reader" | "split-pdfcn" | "deliverables";
+type ViewSurface = "reader" | "split-pdfcn" | "deliverables" | "submit";
 
 const VIEWS: { id: ViewSurface; label: string }[] = [
   { id: "reader", label: "Read" },
   { id: "split-pdfcn", label: "Read + PDF" },
   { id: "deliverables", label: "Files" },
+  { id: "submit", label: "New edition" },
 ];
+
+const initialSurface = (): ViewSurface =>
+  new URLSearchParams(window.location.search).get("view") === "submit" ? "submit" : "reader";
 
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900";
@@ -60,7 +65,7 @@ function RichText({ text, math }: { text: string; math: boolean }) {
 export function App() {
   const [selectedBookSlug, setSelectedBookSlug] = useState<string>("modern-firm");
   const [selectedChapterSlug, setSelectedChapterSlug] = useState<string>("");
-  const [surface, setSurface] = useState<ViewSurface>("reader");
+  const [surface, setSurface] = useState<ViewSurface>(initialSurface);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [readerName, setReaderName] = useState<string>("");
   const [quoteText, setQuoteText] = useState<string>("");
@@ -383,7 +388,9 @@ export function App() {
           </details>
         </aside>
 
-        {surface === "deliverables" ? (
+        {surface === "submit" ? (
+          <SubmissionPrototype />
+        ) : surface === "deliverables" ? (
           <section className="space-y-8">
             <div>
               <h2 className="font-serif text-2xl font-semibold">Files</h2>
