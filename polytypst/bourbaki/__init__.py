@@ -1,7 +1,10 @@
 import shutil
 from pathlib import Path
 
+from ..parity.diagrams import DiagramText
+
 DIAGRAM_DIR = Path(__file__).parent / "diagrams"
+DIAGRAM_TEXT = DiagramText(font="Baskervville", size=9.6, weight=500)
 OUT_DIR = Path("output/bourbaki")
 
 

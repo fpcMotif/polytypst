@@ -779,8 +779,8 @@ def audit_pdf(
 if __name__ == "__main__":
     import sys
 
-    from .books import BOOK_SPECS
+    from .books import book_specs
 
     target = Path(sys.argv[1])
-    book = BOOK_SPECS.get(sys.argv[2]) if len(sys.argv) > 2 else None
+    book = book_specs().get(sys.argv[2]) if len(sys.argv) > 2 else None
     _ = audit_pdf(target, book)

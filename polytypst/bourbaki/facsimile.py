@@ -13,10 +13,10 @@ from pathlib import Path
 import numpy as np
 import pymupdf
 from fontTools.ttLib import TTFont
-from PIL import Image, ImageFont
+from PIL import ImageFont
 
 from ..compiler.monograph import REPO_FONTS_DIR as FONTS
-from ..parity.diagrams import find_diagram
+from ..parity.diagrams import diagram_ink, find_diagram
 from ..parity.source import (
     SCAN_DPI,
     OcrLine,
@@ -24,14 +24,12 @@ from ..parity.source import (
     read_source_page,
     source_ocr_dir,
 )
-from . import DIAGRAM_DIR, install_bourbaki_diagrams
+from ..parity.words import PT_PER_PX, align_words, line_baseline, page_ink, segments
+from . import DIAGRAM_DIR, DIAGRAM_TEXT, install_bourbaki_diagrams
 
 SLUG = "bourbaki_1970_facsimile"
-PT_PER_PX = 72 / SCAN_DPI
-INK_LEVEL = 140
 SIZE = 10.0
 WEIGHT = 600
-SEG_GAP_PT = 0.9
 FONT_FILE = FONTS / "Baskervville-wght.ttf"
 FONT_STACK = '("Baskervville", "STIX Two Text", "STIX Two Math")'
 
@@ -46,71 +44,6 @@ class Placement:
     top: float
     bottom: float
     baseline: float
-
-
-def scan_ink(page: pymupdf.Page) -> np.ndarray:
-    pix = page.get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csGRAY)
-    return np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width) < INK_LEVEL
-
-
-def segments(ink: np.ndarray, x0: int, x1: int, y0: int, y1: int) -> list[tuple[int, int]]:
-    """Column runs of ink in a line band, split at gaps of at least SEG_GAP_PT."""
-    gap = round(SEG_GAP_PT / PT_PER_PX)
-    cols = np.concatenate([ink[y0:y1, x0:x1].any(axis=0), np.zeros(gap + 1, bool)])
-    segs, start, run, end = [], None, 0, 0
-    for i, v in enumerate(cols):
-        if v:
-            if start is None:
-                start = i
-            run, end = 0, i
-        elif start is not None:
-            run += 1
-            if run >= gap:
-                segs.append((x0 + start, x0 + end + 1))
-                start = None
-    return segs
-
-
-def align_words(widths: list[float], space: float, segs: list[tuple[int, int]]) -> list[tuple[int, int]] | None:
-    """Monotone match of each word to a run of ink segments, by predicted width and position."""
-    n, m = len(widths), len(segs)
-    if n == 0 or m < n:
-        return None
-    nat = np.array(widths)
-    scale = (segs[-1][1] - segs[0][0]) / (nat.sum() + space * (n - 1))
-    pred_start = segs[0][0] + np.concatenate([[0.0], np.cumsum(nat + space)[:-1]]) * scale
-    pred_w = nat * scale
-    cost = np.full((n + 1, m + 1), np.inf)
-    back = np.zeros((n + 1, m + 1), int)
-    cost[0, 0] = 0.0
-    for i in range(1, n + 1):
-        for j in range(i, m - (n - i) + 1):
-            for k in range(i - 1, j):
-                if cost[i - 1, k] == np.inf:
-                    continue
-                a, b = segs[k][0], segs[j - 1][1]
-                c = cost[i - 1, k] + abs((b - a) - pred_w[i - 1]) + 0.5 * abs(a - pred_start[i - 1])
-                if c < cost[i, j]:
-                    cost[i, j], back[i, j] = c, k
-    if cost[n, m] == np.inf:
-        return None
-    out, j = [], m
-    for i in range(n, 0, -1):
-        k = back[i, j]
-        out.append((segs[k][0], segs[j - 1][1]))
-        j = k
-    return out[::-1]
-
-
-def line_baseline(ink: np.ndarray, x0: int, x1: int, y0: int, y1: int) -> int | None:
-    """Bottom row (px) of the densest ink band of a line, which is its baseline."""
-    rows = ink[y0:y1, x0:x1].sum(axis=1)
-    if rows.size == 0 or rows.max() == 0:
-        return None
-    j = peak = int(np.argmax(rows))
-    while j + 1 < len(rows) and rows[j + 1] > 0.3 * rows[peak]:
-        j += 1
-    return y0 + j + 1
 
 
 class Measure:
@@ -194,26 +127,7 @@ class Diagram:
     width: float
     height: float
     ink_inset: tuple[float, float, float, float]
-
-
-def diagram_ink(fig: str, work: Path) -> tuple[np.ndarray, tuple[float, float, float, float]]:
-    """Ink mask of a fletcher snippet at SCAN_DPI and its ink insets (pt) inside the snippet box."""
-    harness = work / "diagram_harness.typ"
-    harness.write_text(
-        '#set page(width: auto, height: auto, margin: 0pt)\n'
-        f'#set text(font: {FONT_STACK}, size: 9.6pt, weight: 500, number-type: "lining")\n'
-        '#include "/polytypst/bourbaki/diagrams/fig_" + sys.inputs.at("id") + ".typ"\n',
-        encoding="utf-8",
-    )
-    png = work / f"diagram_{fig}.png"
-    subprocess.run(
-        ["typst", "compile", "--root", ".", "--font-path", str(FONTS), "--input", f"id={fig}", str(harness), str(png), "--ppi", str(SCAN_DPI)],
-        check=True, capture_output=True,
-    )
-    img = np.asarray(Image.open(png).convert("L")) < INK_LEVEL
-    ys, xs = np.where(img)
-    inset = (xs.min() * PT_PER_PX, ys.min() * PT_PER_PX, (img.shape[1] - xs.max() - 1) * PT_PER_PX, (img.shape[0] - ys.max() - 1) * PT_PER_PX)
-    return img[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1], inset
+    ink_size: tuple[float, float]
 
 
 def locate_diagrams(doc: pymupdf.Document, work: Path) -> dict[int, list[Diagram]]:
@@ -222,16 +136,17 @@ def locate_diagrams(doc: pymupdf.Document, work: Path) -> dict[int, list[Diagram
     for src in sorted(DIAGRAM_DIR.glob("fig_*.typ")):
         fig = src.stem.removeprefix("fig_")
         page = int(fig.split("_")[0])
-        tmpl, inset = diagram_ink(fig, work)
-        y, x, th, tw, _ = find_diagram(scan_ink(doc[page - 1]), tmpl, scales=(0.9, 0.95, 1.0, 1.05, 1.1, 1.15))
-        found.setdefault(page, []).append(Diagram(fig, x * PT_PER_PX, y * PT_PER_PX, tw * PT_PER_PX, th * PT_PER_PX, inset))
+        tmpl, inset = diagram_ink(src, work, SCAN_DPI, DIAGRAM_TEXT)
+        y, x, th, tw, _ = find_diagram(page_ink(doc[page - 1]), tmpl, scales=(0.9, 0.95, 1.0, 1.05, 1.1, 1.15))
+        ink_size = (tmpl.shape[1] * PT_PER_PX, tmpl.shape[0] * PT_PER_PX)
+        found.setdefault(page, []).append(Diagram(fig, x * PT_PER_PX, y * PT_PER_PX, tw * PT_PER_PX, th * PT_PER_PX, inset, ink_size))
     return found
 
 
-def diagram_typst(d: Diagram, natural: tuple[float, float]) -> str:
+def diagram_typst(d: Diagram) -> str:
     """The snippet scaled so its ink box covers the diagram's ink box on the scan."""
-    l, t, r, b = d.ink_inset
-    ink_w, ink_h = natural[0] - l - r, natural[1] - t - b
+    l, t, _, _ = d.ink_inset
+    ink_w, ink_h = d.ink_size
     sx, sy = d.width / ink_w, d.height / ink_h
     return (
         f"#place(top + left, dx: {d.left - l * sx:.2f}pt, dy: {d.top - t * sy:.2f}pt, "
@@ -258,18 +173,13 @@ def build_facsimile(source: Path, out_dir: Path) -> Path:
     ensure_source_ocr(source, cache)
     diagrams = locate_diagrams(doc, work)
     measure = Measure()
-    natural = {}
-    for page_diagrams in diagrams.values():
-        for d in page_diagrams:
-            png = Image.open(work / f"diagram_{d.fig}.png")
-            natural[d.fig] = (png.width * PT_PER_PX, png.height * PT_PER_PX)
     pages = []
     for p in range(1, doc.page_count + 1):
         rect = doc[p - 1].rect
         page_diagrams = diagrams.get(p, [])
         skip = [(d.left - 2, d.top - 2, d.left + d.width + 2, d.top + d.height + 2) for d in page_diagrams]
-        body = [placement_typst(pl, measure) for pl in page_placements(scan_ink(doc[p - 1]), read_source_page(cache, p).lines, skip, measure)]
-        body += [diagram_typst(d, natural[d.fig]) for d in page_diagrams]
+        body = [placement_typst(pl, measure) for pl in page_placements(page_ink(doc[p - 1]), read_source_page(cache, p).lines, skip, measure)]
+        body += [diagram_typst(d) for d in page_diagrams]
         pages.append(f"#page(width: {rect.width:.2f}pt, height: {rect.height:.2f}pt, margin: 0pt)[\n" + "\n".join(body) + "\n]")
         if p % 50 == 0:
             print(f"placed page {p}/{doc.page_count}", flush=True)

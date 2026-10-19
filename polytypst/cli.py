@@ -23,6 +23,10 @@ from .vision.vector_figures import generate_all_vector_figures
 
 
 def main() -> None:
+    if sys.argv[1:2] in (["books"], ["build"], ["parity"]):
+        from .books_cli import main as books_main
+
+        sys.exit(books_main(sys.argv[1], sys.argv[2:]))
     parser = argparse.ArgumentParser(
         description="polytypst: Universal tool to turn complex PDFs into beautiful Typst, LaTeX, and EPUB."
     )

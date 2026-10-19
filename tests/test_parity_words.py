@@ -1,6 +1,6 @@
 import numpy as np
 
-from polytypst.bourbaki.facsimile import PT_PER_PX, align_words, line_baseline, segments
+from polytypst.parity.words import PT_PER_PX, align_words, line_baseline, segments
 
 
 def test_align_words_merges_a_word_split_by_a_wide_letter_gap():

@@ -1,5 +1,53 @@
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
 import numpy as np
 from PIL import Image
+
+from ..compiler.monograph import REPO_FONTS_DIR
+
+HARNESS = Path(__file__).parent / "diagram_harness.typ"
+INK_LEVEL = 140
+
+
+@dataclass(frozen=True)
+class DiagramText:
+    """Text settings a book's diagram snippets are set in (font family, size in pt, weight)."""
+
+    font: str
+    size: float
+    weight: int
+
+
+def diagram_ink(snippet: Path, work: Path, dpi: int, text: DiagramText) -> tuple[np.ndarray, tuple[float, float, float, float]]:
+    """Ink mask of a Typst diagram snippet at `dpi`, trimmed to its ink, and its ink insets (pt) inside the snippet box."""
+    work.mkdir(parents=True, exist_ok=True)
+    png = work / f"{snippet.stem}@{dpi}.png"
+    if not png.exists():
+        inputs = {"snippet": str(snippet.resolve()), "font": text.font, "size": str(text.size), "weight": str(text.weight)}
+        flags = [arg for k, v in inputs.items() for arg in ("--input", f"{k}={v}")]
+        subprocess.run(
+            ["typst", "compile", "--root", "/", "--font-path", str(REPO_FONTS_DIR), *flags, str(HARNESS), str(png), "--ppi", str(dpi)],
+            check=True, capture_output=True,
+        )
+    img = np.asarray(Image.open(png).convert("L")) < INK_LEVEL
+    ys, xs = np.where(img)
+    k = 72 / dpi
+    inset = (xs.min() * k, ys.min() * k, (img.shape[1] - xs.max() - 1) * k, (img.shape[0] - ys.max() - 1) * k)
+    return img[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1], inset
+
+
+def diagram_box(page: np.ndarray, tmpl: np.ndarray, scales: tuple[float, ...] = (0.9, 0.95, 1.0, 1.05, 1.1, 1.15)) -> tuple[int, int, int, int, float]:
+    """The ink box (left, top, right, bottom px) of the best template match on a page, and its score."""
+    y, x, th, tw, score = find_diagram(page, tmpl, scales)
+    pad = max(2, round(0.04 * max(th, tw)))
+    region = page[max(0, y - pad) : y + th + pad, max(0, x - pad) : x + tw + pad]
+    ys, xs = np.where(region)
+    if ys.size == 0:
+        return x, y, x + tw, y + th, score
+    ox, oy = max(0, x - pad), max(0, y - pad)
+    return ox + int(xs.min()), oy + int(ys.min()), ox + int(xs.max()) + 1, oy + int(ys.max()) + 1, score
 
 
 def _blur(img: np.ndarray, r: int) -> np.ndarray:

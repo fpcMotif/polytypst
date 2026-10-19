@@ -82,7 +82,13 @@ Zero bounding box breaches beyond the printable text margin. Zero intersections 
 
 Audit pixel-level layout alignment, punctuation compression, and font outline parity against an authoritative target PDF. Required for critical facsimile reproductions, bilingual facing texts, and woodblock reprints.
 
-### Steps
+Horizontal books use scan parity (`polytypst.parity`). Vertical CJK books use the column audit in `shitouji/check_pixel_alignment.py`.
+
+### Scan parity for horizontal books
+
+Run `uv run polytypst parity BOOK --edition EDITION`. It measures how far each word, line and diagram of the rebuilt PDF sits from the same ink on the source scan, in points, with no shift. `docs/scanned-books.md` gives the procedure, the tolerances, and how to read the report.
+
+### CJK column audit steps
 1. Render both the original ground truth PDF and the compiled reproduction PDF at 150 DPI and 300 DPI via `pdftoppm`.
 2. Binarize ink channels (`threshold=210` for ground truth, `threshold=230` for vector reproduction).
 3. Extract column boundaries and vertical text centroids via morphological projection kernels ($3 \times 35\,\text{px}$).
@@ -93,7 +99,7 @@ Audit pixel-level layout alignment, punctuation compression, and font outline pa
    - Blue (`#0080E6`): Reproduction only (reproduction font outlines, unintended glyph shifts).
 6. Apply morphological opening ($4 \times 4\,\text{px}$) to filter 1–2px font serif outline variance and isolate genuine spatial drift blobs ($> 10\,\text{px}$).
 
-### Invariants & Reference
+### CJK invariants & reference
 - **Baseline-Anchored Coordinate Locking**: Place vertical glyphs by true text baseline origin (`origin_y`), never by naive bounding-box top-left or box-centered distribution (`align(center + horizon)`).
   - In Typst: Anchor via `top-edge: "baseline"` with calibrated vertical ascender compensation: `dy = origin_y - 0.97 * sz`.
   - In XeLaTeX: Anchor via zero-depth picture primitives: `\put(x, -y){\makebox(0,0)[lt]{...}}`.
@@ -103,7 +109,9 @@ Audit pixel-level layout alignment, punctuation compression, and font outline pa
 - **Strict Column Tolerances**: Horizontal column pitch error $\Delta x \le 0.50\,\text{pt}$ ($0.16\,\text{mm}$). Column bottom line clearance error $\Delta y_{\text{bot}} \le 2.0\,\text{pt}$ ($0.70\,\text{mm}$).
 
 ### Completion Criterion
-OpenCV automated audit reports:
+Scan parity: `polytypst parity` exits with status 0 for the edition.
+
+CJK column audit: the OpenCV automated audit reports:
 - Column spatial centroid drift $\Delta x \le 0.50\,\text{pt}$ on all body columns.
 - Zero column layout drift blobs ($> 10\,\text{px}$) outside font serif fringes.
 - Zero character overflow breaches beyond the page foot margin ($y \le 690.0\,\text{pt}$ on $728.5\,\text{pt}$ JIS B5 sheet).

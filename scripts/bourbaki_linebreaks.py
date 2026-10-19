@@ -4,8 +4,8 @@ Usage: uv run python scripts/bourbaki_linebreaks.py [NAME=k=v,k=v ...]
 
 Each candidate is a set of Typst inputs read by the vintage preamble (font,
 size-scale, weight, tracking, word-spacing, linebreaks). For every source page it
-compares the last word of each body line in the scan (Vision OCR cache from the
-facsimile build) with the last words of our lines on the matching output pages.
+compares the last word of each body line in the scan (the source OCR cache in
+output/bourbaki/source_ocr) with the last words of our lines on the matching output pages.
 Agreement is the share of scan line endings that also end a line in ours.
 Writes output/bourbaki/linebreaks.json.
 """
