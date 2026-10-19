@@ -18,9 +18,13 @@ import sys
 import numpy as np
 import pymupdf
 
-from polytypst.bourbaki.pagefit import ORIGINAL, OUT_DIR, query_marks
-from polytypst.bourbaki.spec import CHAPTERS
+from polytypst.bourbaki import OUT_DIR
+from polytypst.bourbaki.marks import query_marks as query_typ_marks
+from polytypst.bourbaki.spec import BOURBAKI_1970_SPEC, CHAPTERS
+from polytypst.parity.source import source_pdf
 
+ORIGINAL = source_pdf(BOURBAKI_1970_SPEC)
+TYP = OUT_DIR / f"{BOURBAKI_1970_SPEC.slug}.typ"
 FIT = OUT_DIR / "page_fit.json"
 TARGETS = OUT_DIR / "page_targets.json"
 
@@ -48,6 +52,10 @@ def text_rows(page: pymupdf.Page) -> list[tuple[float, float, float, float]]:
             start = None
     k = 72 / DPI
     return [(a * k, b * k, c * k, d * k) for a, b, c, d in rows]
+
+
+def query_marks() -> list[dict]:
+    return query_typ_marks(TYP)
 
 
 def measure_targets(pages: list[int]) -> dict[str, dict[str, float]]:

@@ -17,7 +17,12 @@ import pymupdf
 from PIL import Image
 
 from polytypst.bourbaki import DIAGRAM_DIR
-from polytypst.bourbaki.pagefit import FONTS, ORIGINAL, find_diagram
+from polytypst.bourbaki.spec import BOURBAKI_SPEC
+from polytypst.compiler.monograph import REPO_FONTS_DIR as FONTS
+from polytypst.parity.diagrams import find_diagram
+from polytypst.parity.source import source_pdf
+
+ORIGINAL = source_pdf(BOURBAKI_SPEC)
 
 OUT = Path("output/bourbaki/diagram_review")
 DPI = 200

@@ -22,7 +22,10 @@ import pymupdf
 from PIL import Image
 
 from polytypst.bourbaki.facsimile import SLUG
-from polytypst.bourbaki.pagefit import ORIGINAL
+from polytypst.bourbaki.spec import BOURBAKI_SPEC
+from polytypst.parity.source import source_pdf
+
+ORIGINAL = source_pdf(BOURBAKI_SPEC)
 
 FACSIMILE = Path("output/bourbaki") / f"{SLUG}.pdf"
 OUT = Path("output/bourbaki/odiff_report")

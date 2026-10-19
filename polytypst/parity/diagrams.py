@@ -1,25 +1,5 @@
-import json
-import subprocess
-from pathlib import Path
-
 import numpy as np
 from PIL import Image
-
-ORIGINAL = Path.home() / "Downloads" / "Elements of Mathematics Commutative Algebra Chapters 1-7 (Nicolas Bourbaki) .pdf"
-OUT_DIR = Path("output/bourbaki")
-TYP = OUT_DIR / "bourbaki_1970_vintage.typ"
-REBUILT = OUT_DIR / "bourbaki_1970_vintage.pdf"
-FONTS = Path("fonts")
-
-
-def query_marks(inputs: dict[str, str] | None = None) -> list[dict]:
-    """Source-page position markers (kind, key, page, y) from the compiled vintage Typst source."""
-    flags = [arg for k, v in (inputs or {}).items() for arg in ("--input", f"{k}={v}")]
-    res = subprocess.run(
-        ["typst", "query", "--font-path", str(FONTS), *flags, str(TYP), "<src-mark>", "--field", "value"],
-        capture_output=True, text=True, check=True,
-    )
-    return json.loads(res.stdout)
 
 
 def _blur(img: np.ndarray, r: int) -> np.ndarray:

@@ -97,7 +97,7 @@ class MonographSpec:
     heading_rewrites: tuple[Rewrite, ...] = ()
     heading_hook: Callable[[str, int], str | None] | None = None
     paginate_like_source: bool = False
-    source_line_breaks: Callable[[int, str], str] | None = None
+    source_line_breaks: Callable[[int, str, Path], str] | None = None
     justify_page_end: Callable[[str], bool] | None = None
     pre_math_rewrites: tuple[Rewrite, ...] = ()
     stray_dollar_symbol: str = ""
@@ -110,6 +110,7 @@ class MonographSpec:
     book_aliases: bool = True
     pdf_name_markers: tuple[str, ...] = ()
     pdf_page_count: int | None = None
+    source_pdf: str = ""
     ocr_prompt: str | None = None
 
 
@@ -651,6 +652,7 @@ class MonographCompiler:
             domain=spec.domain,
         )
         self._seen_sections: set[str] = set()
+        self._out_dir: Path = Path()
         self._caption_re: re.Pattern[str] = re.compile(
             spec.figures.caption_pattern,
             re.IGNORECASE if spec.figures.caption_ignore_case else 0,
@@ -1402,7 +1404,7 @@ class MonographCompiler:
             if not body and not top_figs and not bot_figs:
                 continue
             if self.spec.source_line_breaks is not None:
-                body = self.spec.source_line_breaks(pno, body)
+                body = self.spec.source_line_breaks(pno, body, self._out_dir)
             continues = bool(pages) and bool(body) and (
                 body[0].islower()
                 or (not ends_complete_paragraph(pages[-1][1]) and not starts_new_block(body))
@@ -1495,6 +1497,7 @@ class MonographCompiler:
         out_dir = Path(out_dir)
         md_dir = out_dir / spec.markdown_dir
         fig_dir = out_dir / spec.figure_dir
+        self._out_dir = out_dir
         self._seen_sections = set()
 
         md_sections: list[str] = [

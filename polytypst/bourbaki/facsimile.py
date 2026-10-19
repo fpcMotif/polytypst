@@ -6,7 +6,6 @@ Baskervville and scaled so its glyph ink fills the scan word's ink box. Fletcher
 diagrams replace the OCR text inside the scan box where each diagram is found.
 """
 
-import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,11 +15,18 @@ import pymupdf
 from fontTools.ttLib import TTFont
 from PIL import Image, ImageFont
 
+from ..compiler.monograph import REPO_FONTS_DIR as FONTS
+from ..parity.diagrams import find_diagram
+from ..parity.source import (
+    SCAN_DPI,
+    OcrLine,
+    ensure_source_ocr,
+    read_source_page,
+    source_ocr_dir,
+)
 from . import DIAGRAM_DIR, install_bourbaki_diagrams
-from .pagefit import FONTS, ORIGINAL, find_diagram
 
 SLUG = "bourbaki_1970_facsimile"
-SCAN_DPI = 300
 PT_PER_PX = 72 / SCAN_DPI
 INK_LEVEL = 140
 SIZE = 10.0
@@ -45,31 +51,6 @@ class Placement:
 def scan_ink(page: pymupdf.Page) -> np.ndarray:
     pix = page.get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csGRAY)
     return np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width) < INK_LEVEL
-
-
-def ocr_pages(doc: pymupdf.Document, cache: Path, batch: int = 40) -> dict[int, list[dict]]:
-    """Vision OCR lines per 1-based page, cached as one JSON file per page."""
-    from polytypst.ocr.apple_vision import AppleVisionOCREngine
-
-    cache.mkdir(parents=True, exist_ok=True)
-    todo = [p for p in range(1, doc.page_count + 1) if not (cache / f"p{p:03d}.json").exists()]
-    engine = AppleVisionOCREngine(["en-US", "fr-FR"])
-    scans = cache / "scans"
-    scans.mkdir(exist_ok=True)
-    for start in range(0, len(todo), batch):
-        pages = todo[start : start + batch]
-        paths = []
-        for p in pages:
-            png = scans / f"p{p:03d}.png"
-            doc[p - 1].get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csGRAY).save(png)
-            paths.append(png)
-        for p, result in zip(pages, engine.recognize_document(paths)):
-            lines = [dict(text=l.text, x=l.x, y=l.y, w=l.w, h=l.h) for l in result.lines]
-            (cache / f"p{p:03d}.json").write_text(json.dumps(lines, ensure_ascii=False), encoding="utf-8")
-        for png in paths:
-            png.unlink()
-        print(f"OCR {pages[-1]}/{doc.page_count}", flush=True)
-    return {p: json.loads((cache / f"p{p:03d}.json").read_text()) for p in range(1, doc.page_count + 1)}
 
 
 def segments(ink: np.ndarray, x0: int, x1: int, y0: int, y1: int) -> list[tuple[int, int]]:
@@ -158,15 +139,15 @@ class Measure:
 MIN_SCALE, MAX_SCALE = 0.8, 1.25
 
 
-def page_placements(ink: np.ndarray, lines: list[dict], skip: list[tuple[float, float, float, float]], measure: Measure) -> list[Placement]:
+def page_placements(ink: np.ndarray, lines: tuple[OcrLine, ...], skip: list[tuple[float, float, float, float]], measure: Measure) -> list[Placement]:
     """Word placements for one page, leaving out OCR lines inside the `skip` boxes (pt)."""
     h, w = ink.shape
     out: list[Placement] = []
     for line in lines:
-        x0 = max(0, int(line["x"] * w) - 4)
-        x1 = min(w, int((line["x"] + line["w"]) * w) + 4)
-        y0 = max(0, int((1 - line["y"] - line["h"]) * h))
-        y1 = min(h, int((1 - line["y"]) * h))
+        x0 = max(0, int(line.x * w) - 4)
+        x1 = min(w, int((line.x + line.w) * w) + 4)
+        y0 = max(0, int((1 - line.y - line.h) * h))
+        y1 = min(h, int((1 - line.y) * h))
         cx, cy = (x0 + x1) / 2 * PT_PER_PX, (y0 + y1) / 2 * PT_PER_PX
         if any(l <= cx <= r and t <= cy <= b for l, t, r, b in skip):
             continue
@@ -174,11 +155,11 @@ def page_placements(ink: np.ndarray, lines: list[dict], skip: list[tuple[float, 
         segs = segments(ink, x0, x1, y0, y1)
         if base is None or not segs:
             continue
-        words = line["text"].split()
+        words = line.text.split()
         boxes = align_words([measure.width(wd) for wd in words], measure.space, segs) or [(segs[0][0], segs[-1][1])]
         scales = [measure.ink_scale(wd, (b - a) * PT_PER_PX) for wd, (a, b) in zip(words, boxes)]
         if len(boxes) != len(words) or any(s is not None and not MIN_SCALE <= s <= MAX_SCALE for s in scales):
-            words, boxes = [line["text"]], [(segs[0][0], segs[-1][1])]
+            words, boxes = [line.text], [(segs[0][0], segs[-1][1])]
         for word, (a, b) in zip(words, boxes):
             rows = np.where(ink[y0:y1, a:b].any(axis=1))[0]
             if rows.size == 0:
@@ -266,14 +247,15 @@ PREAMBLE = f"""#set document(title: "Commutative Algebra (1970 facsimile)")
 """
 
 
-def build_facsimile(out_dir: Path) -> Path:
-    """Write and compile the facsimile edition; returns the PDF path."""
+def build_facsimile(source: Path, out_dir: Path) -> Path:
+    """Write and compile the facsimile edition of the `source` scan; returns the PDF path."""
     out_dir.mkdir(parents=True, exist_ok=True)
     work = out_dir / "facsimile"
     work.mkdir(exist_ok=True)
     install_bourbaki_diagrams(out_dir)
-    doc = pymupdf.open(ORIGINAL)
-    ocr = ocr_pages(doc, work / "ocr")
+    doc = pymupdf.open(source)
+    cache = source_ocr_dir(out_dir)
+    ensure_source_ocr(source, cache)
     diagrams = locate_diagrams(doc, work)
     measure = Measure()
     natural = {}
@@ -286,7 +268,7 @@ def build_facsimile(out_dir: Path) -> Path:
         rect = doc[p - 1].rect
         page_diagrams = diagrams.get(p, [])
         skip = [(d.left - 2, d.top - 2, d.left + d.width + 2, d.top + d.height + 2) for d in page_diagrams]
-        body = [placement_typst(pl, measure) for pl in page_placements(scan_ink(doc[p - 1]), ocr[p], skip, measure)]
+        body = [placement_typst(pl, measure) for pl in page_placements(scan_ink(doc[p - 1]), read_source_page(cache, p).lines, skip, measure)]
         body += [diagram_typst(d, natural[d.fig]) for d in page_diagrams]
         pages.append(f"#page(width: {rect.width:.2f}pt, height: {rect.height:.2f}pt, margin: 0pt)[\n" + "\n".join(body) + "\n]")
         if p % 50 == 0:

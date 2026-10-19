@@ -19,9 +19,15 @@ from collections import Counter
 import numpy as np
 import pymupdf
 
-from polytypst.bourbaki.pagefit import FONTS, ORIGINAL, OUT_DIR, TYP, query_marks
+from polytypst.bourbaki import OUT_DIR
+from polytypst.bourbaki.marks import query_marks as query_typ_marks
+from polytypst.bourbaki.spec import BOURBAKI_1970_SPEC
+from polytypst.compiler.monograph import REPO_FONTS_DIR as FONTS
+from polytypst.parity.source import read_source_page, source_ocr_dir, source_pdf
 
-OCR = OUT_DIR / "facsimile" / "ocr"
+ORIGINAL = source_pdf(BOURBAKI_1970_SPEC)
+TYP = OUT_DIR / f"{BOURBAKI_1970_SPEC.slug}.typ"
+OCR = source_ocr_dir(OUT_DIR)
 WORK = OUT_DIR / "linebreak_search"
 RESULTS = OUT_DIR / "linebreaks.json"
 BODY_TOP, BODY_BOTTOM = 60.0, 58.0
@@ -34,12 +40,16 @@ def ending(text: str) -> str | None:
     return words[-1].lower() if words and len(words[-1]) >= 3 else None
 
 
-def scan_endings(doc: pymupdf.Document, page: int) -> Counter:
-    height = doc[page - 1].rect.height
+def query_marks(inputs: dict[str, str] | None = None) -> list[dict]:
+    return query_typ_marks(TYP, inputs)
+
+
+def scan_endings(page: int) -> Counter:
+    src = read_source_page(OCR, page)
     out: Counter = Counter()
-    for line in json.loads((OCR / f"p{page:03d}.json").read_text()):
-        top = (1 - line["y"] - line["h"]) * height
-        if BODY_TOP < top < height - BODY_BOTTOM and (e := ending(line["text"])):
+    for line in src.lines:
+        top = src.top_pt(line)
+        if BODY_TOP < top < src.height - BODY_BOTTOM and (e := ending(line.text)):
             out[e] += 1
     return out
 
@@ -124,7 +134,7 @@ DEFAULT_GRID = [
 
 def main(args: list[str]) -> None:
     orig = pymupdf.open(ORIGINAL)
-    scan = {p: scan_endings(orig, p) for p in range(31, orig.page_count + 1) if (OCR / f"p{p:03d}.json").exists()}
+    scan = {p: scan_endings(p) for p in range(31, orig.page_count + 1) if (OCR / f"p{p:03d}.json").exists()}
     results = json.loads(RESULTS.read_text()) if RESULTS.exists() else []
     for arg in args or DEFAULT_GRID:
         name, inputs = parse(arg)

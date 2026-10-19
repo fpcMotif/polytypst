@@ -1,44 +1,32 @@
 """Line endings of the 1970 Bourbaki scan, inserted as forced breaks into the source text.
 
-The Vision OCR cache of the facsimile build gives each scan page's body lines.
+The source OCR cache (`polytypst.parity.source`) gives each scan page's body lines.
 For every line that ends outside math, the word that ends it is found in the
 page's Markdown, and a justified break marker goes after it (`@@BR@@`), or
 inside it at the scan's hyphenation point (`@@HY@@`).
 """
 
-import json
 import re
 from dataclasses import dataclass
 from functools import cache
+from pathlib import Path
 
-import pymupdf
+from ..compiler.monograph import REPO_FONTS_DIR as FONTS
+from ..parity.source import SourcePage, read_source_page, source_ocr_dir
 
-from .pagefit import FONTS, ORIGINAL, OUT_DIR
-
-OCR = OUT_DIR / "facsimile" / "ocr"
 BODY_TOP, BODY_BOTTOM = 60.0, 58.0
 WINDOW = 60
 WORD_RE = re.compile(r"[A-Za-z]+")
 MATH_RE = re.compile(r"\$\$.*?\$\$|\$[^$\n]*\$", re.S)
 
 
-@cache
-def _page_heights() -> dict[int, float]:
-    doc = pymupdf.open(ORIGINAL)
-    return {p + 1: doc[p].rect.height for p in range(doc.page_count)}
-
-
-def scan_body_lines(pno: int) -> list[str]:
+def scan_body_lines(page: SourcePage) -> list[str]:
     """OCR text of the body lines of a scan page, top to bottom, without running head and folio."""
-    path = OCR / f"p{pno:03d}.json"
-    if not path.exists():
-        return []
-    height = _page_heights()[pno]
     lines = []
-    for line in json.loads(path.read_text()):
-        top = (1 - line["y"] - line["h"]) * height
-        if BODY_TOP < top < height - BODY_BOTTOM:
-            lines.append((top, line["text"].strip()))
+    for line in page.lines:
+        top = page.top_pt(line)
+        if BODY_TOP < top < page.height - BODY_BOTTOM:
+            lines.append((top, line.text.strip()))
     return [text for _, text in sorted(lines)]
 
 
@@ -214,6 +202,7 @@ def run_fills_lines(width: float) -> bool:
     return MEASURE_PT - rest <= (lines + 1) * LINE_STRETCH_PT or rest <= lines * LINE_SHRINK_PT
 
 
-def scan_line_breaks(pno: int, body: str) -> str:
+def scan_line_breaks(pno: int, body: str, out_dir: Path) -> str:
     """The page body with the scan's line endings forced where they match and the lines fit."""
-    return keep_fitting_breaks(insert_breaks(body, line_endings(scan_body_lines(pno))))
+    page = read_source_page(source_ocr_dir(out_dir), pno)
+    return keep_fitting_breaks(insert_breaks(body, line_endings(scan_body_lines(page))))

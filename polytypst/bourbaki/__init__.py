@@ -2,6 +2,7 @@ import shutil
 from pathlib import Path
 
 DIAGRAM_DIR = Path(__file__).parent / "diagrams"
+OUT_DIR = Path("output/bourbaki")
 
 
 def install_bourbaki_diagrams(out_dir: Path) -> list[Path]:

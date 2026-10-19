@@ -137,6 +137,7 @@ BOURBAKI_SPEC = MonographSpec(
     domain="math",
     pdf_page_count=660,
     pdf_name_markers=("bourbaki", "commutative algebra"),
+    source_pdf="Elements of Mathematics Commutative Algebra Chapters 1-7 (Nicolas Bourbaki) .pdf",
     preface_page=11,
     ocr_prompt=BOURBAKI_OCR_PROMPT,
     chapters=CHAPTERS,

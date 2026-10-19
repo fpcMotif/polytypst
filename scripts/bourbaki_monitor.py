@@ -19,7 +19,16 @@ import numpy as np
 import pymupdf
 from PIL import Image
 
-from polytypst.bourbaki.pagefit import FONTS, ORIGINAL, REBUILT, find_diagram, query_marks
+from polytypst.bourbaki import OUT_DIR
+from polytypst.bourbaki.marks import query_marks
+from polytypst.bourbaki.spec import BOURBAKI_1970_SPEC
+from polytypst.compiler.monograph import REPO_FONTS_DIR as FONTS
+from polytypst.parity.diagrams import find_diagram
+from polytypst.parity.source import source_pdf
+
+ORIGINAL = source_pdf(BOURBAKI_1970_SPEC)
+REBUILT = OUT_DIR / f"{BOURBAKI_1970_SPEC.slug}.pdf"
+TYP = OUT_DIR / f"{BOURBAKI_1970_SPEC.slug}.typ"
 
 OUT = Path("output/bourbaki/monitor")
 DPI = 100
@@ -99,7 +108,7 @@ def main(n_overlays: int) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     cache = OUT / "diagram_templates"
     cache.mkdir(exist_ok=True)
-    marks = query_marks()
+    marks = query_marks(TYP)
     tops = {int(m["key"]): m["page"] for m in marks if m["kind"] == "top"}
     ends = {int(m["key"]): m["page"] for m in marks if m["kind"] == "end"}
     figs: dict[int, list[str]] = {}

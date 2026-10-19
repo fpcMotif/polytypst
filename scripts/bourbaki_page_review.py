@@ -14,7 +14,12 @@ from pathlib import Path
 
 import pymupdf
 
-from polytypst.bourbaki.pagefit import ORIGINAL, REBUILT
+from polytypst.bourbaki import OUT_DIR
+from polytypst.bourbaki.spec import BOURBAKI_1970_SPEC
+from polytypst.parity.source import source_pdf
+
+ORIGINAL = source_pdf(BOURBAKI_1970_SPEC)
+REBUILT = OUT_DIR / f"{BOURBAKI_1970_SPEC.slug}.pdf"
 
 MONITOR = Path("output/bourbaki/monitor")
 OUT = Path("output/bourbaki/page_review")
