@@ -8,6 +8,7 @@ Typst preamble, and the Pandoc and Typst subprocess runs.
 import re
 import shutil
 import subprocess
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -84,6 +85,7 @@ class MonographSpec:
     figure_dir: str = "figures"
     figures: FigureLayout = field(default_factory=FigureLayout)
     extra_figures: dict[int, tuple[Figure, ...]] = field(default_factory=dict)
+    figure_pages: frozenset[int] = frozenset()
     min_page_chars: int = 20
     skip_page_markers: tuple[str, ...] = ("1.1.1.1.1", "musical compositions")
     folio_pattern: str = r"^(?:\d{1,3}|[ivxlcdm]+)$"
@@ -1295,7 +1297,7 @@ class MonographCompiler:
         def repl_img(m: re.Match[str]) -> str:
             path = m.group(2).replace(r"\_", "_")
             width_str = "width: 45%"
-            for candidate_dir in (Path("output/bourbaki"), Path("output/klein"), Path("output/fermat"), Path("output/kashiwara"), Path(".")):
+            for candidate_dir in (Path("output/bourbaki"), Path("output/klein"), Path("output/fermat"), Path("output/kashiwara"), Path("output/kenji-alg"), Path(".")):
                 local_f = candidate_dir / path
                 if local_f.with_suffix(".typ").exists():
                     typ_path = Path(path).with_suffix(".typ").as_posix()
@@ -1316,6 +1318,9 @@ class MonographCompiler:
                             break
                     except Exception:
                         pass
+            else:
+                print(f"warning: image {path!r} not found, omitted", file=sys.stderr)
+                return "\n\n"
             return f"\n\n#align(center)[#image(\"{path}\", {width_str})]\n\n"
         s = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", repl_img, s)
         s = s.replace(r"\cdots", "...").replace(r"\ldots", "...")
@@ -1658,6 +1663,8 @@ class MonographCompiler:
                 "documentclass=book",
                 "-V",
                 f"geometry:{self.composition.publisher.pandoc_geometry}",
+                "-V",
+                r"header-includes=\usepackage[all,cmtip]{xy}\usepackage{amscd}\usepackage{amsthm}",
                 "-o",
                 str(tex_out),
             ],

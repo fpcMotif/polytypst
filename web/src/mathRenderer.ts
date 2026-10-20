@@ -43,6 +43,25 @@ function renderTeXSegment(tex: string, displayMode: boolean): string {
   }
 }
 
+function unescapeHtml(raw: string): string {
+  return raw
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+export function renderHtmlWithMath(html: string): string {
+  return html.replace(
+    /<span class="math (inline|display)">([\s\S]*?)<\/span>/g,
+    (_, mode: string, tex: string) => {
+      const rendered = renderTeXSegment(unescapeHtml(tex), mode === "display");
+      return mode === "display" ? `<div class="math-display">${rendered}</div>` : rendered;
+    },
+  );
+}
+
 export function renderMathProseToHtml(input: string): string {
   if (!input) {
     return "";

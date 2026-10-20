@@ -1,4 +1,25 @@
-export type RenderingMode = "editorial-business" | "math-katex";
+export type RenderingMode = "editorial-business" | "math-katex" | "vertical-classic";
+
+export interface VerticalSegment {
+  k: "t" | "j" | "c" | "m";
+  s: string;
+  c?: string;
+  n?: string;
+}
+
+export interface EditionFiles {
+  name: string;
+  label: string;
+  pdf: string;
+  typst?: string;
+  latex?: string;
+  epub?: string;
+}
+
+export interface LegendEntry {
+  color: string;
+  label: string;
+}
 
 export interface DiagramItem {
   tag: string;
@@ -7,7 +28,20 @@ export interface DiagramItem {
 }
 
 export interface ContentBlock {
-  type: "paragraph" | "math-paragraph" | "heading" | "figure" | "table" | "theorem";
+  type:
+    | "paragraph"
+    | "math-paragraph"
+    | "heading"
+    | "figure"
+    | "table"
+    | "theorem"
+    | "html"
+    | "vertical";
+  role?: "title" | "body" | "verse" | "note";
+  indent?: number;
+  segments?: VerticalSegment[];
+  juan?: string;
+  variants?: string[];
   html?: string;
   text?: string;
   content?: string;
@@ -65,6 +99,8 @@ export interface BookData {
     latex: string;
     epub: string;
   };
+  editions?: EditionFiles[];
+  legend?: LegendEntry[];
   chapters: ChapterData[];
   chapterSummaries?: ChapterSummary[];
 }

@@ -30,9 +30,10 @@ def parse_pages(text: str) -> set[int]:
 
 def _pick(parser: argparse.ArgumentParser, key: str, edition: str | None) -> tuple[Book, str, Edition]:
     known = books()
-    if key not in known:
+    normalized = {**known, **{k.replace("_", "-"): v for k, v in known.items()}}
+    if key not in normalized:
         parser.error(f"unknown book {key!r}; known: {', '.join(known)}")
-    book = known[key]
+    book = normalized[key]
     name = edition or next(iter(book.editions))
     if name not in book.editions:
         parser.error(f"{key} has no edition {name!r}; editions: {', '.join(book.editions)}")

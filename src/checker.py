@@ -57,6 +57,10 @@ class CheckReport:
             )
             if issue.context_snippet:
                 print(f"    Snippet: {issue.context_snippet!r}")
+        if len(self.issues) == 0:
+            print("Result: PASSED")
+        else:
+            print("Result: FAILED")
         print("============================================================\n")
 
 
@@ -80,6 +84,7 @@ class AuditSpec:
         return cls(
             chapter_heading_regex=rf"^{heading}$",
             chapter_titles={ch.number: ch.title for ch in spec.chapters},
+            figure_pages=spec.figure_pages,
         )
 
 
@@ -597,7 +602,9 @@ class DocumentQualityChecker:
         for pno, text in enumerate(self._texts):
             for line in text.splitlines():
                 l = line.strip()
-                if l.startswith(("#", "\\#")):
+                if re.match(
+                    r"^(?:\\#|#){1,6}\s+(?:\d+(?:\.\d+)*\.?\s+)?[^\W\d_]{2,}", l
+                ):
                     self._issue(
                         report,
                         "ERROR",
@@ -747,7 +754,7 @@ class DocumentQualityChecker:
 
     def check_visual_line_height_spikes(self, report: CheckReport) -> None:
         """Taste Rule 9: Body text lines must not exceed 2.2x font leading (detects crammed inline multiline formulas)."""
-        for pno in range(len(self.doc)):
+        for pno in range(self.spec.front_matter_pages, len(self.doc)):
             page = self.doc[pno]
             for b in page.get_text("blocks"):
                 lines = b[4].splitlines()
@@ -769,6 +776,12 @@ def audit_pdf(
     spec: AuditSpec | MonographSpec | None = None,
     tiers: frozenset[int] = ALL_TIERS,
 ) -> CheckReport:
+    if spec is None:
+        import pymupdf
+        from .books import find_known_book
+
+        with pymupdf.open(str(pdf_path)) as doc:
+            spec = find_known_book(pdf_path, len(doc))
     if isinstance(spec, MonographSpec):
         spec = AuditSpec.from_monograph(spec)
     report = DocumentQualityChecker(pdf_path, spec).run_all_checks(tiers)

@@ -68,7 +68,11 @@ export const upsertBookMetadata = mutation({
     author: v.string(),
     language: v.string(),
     domain: v.string(),
-    renderingMode: v.union(v.literal("editorial-business"), v.literal("math-katex")),
+    renderingMode: v.union(
+      v.literal("editorial-business"),
+      v.literal("math-katex"),
+      v.literal("vertical-classic"),
+    ),
     renderingBadge: v.string(),
     description: v.string(),
     stats: v.object({
@@ -83,6 +87,19 @@ export const upsertBookMetadata = mutation({
       latex: v.string(),
       epub: v.string(),
     }),
+    editions: v.optional(
+      v.array(
+        v.object({
+          name: v.string(),
+          label: v.string(),
+          pdf: v.string(),
+          typst: v.optional(v.string()),
+          latex: v.optional(v.string()),
+          epub: v.optional(v.string()),
+        }),
+      ),
+    ),
+    legend: v.optional(v.array(v.object({ color: v.string(), label: v.string() }))),
     chapterSummaries: v.array(
       v.object({
         slug: v.string(),

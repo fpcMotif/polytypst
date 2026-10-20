@@ -13,8 +13,10 @@ PACKAGE = Path(__file__).parent
 @cache
 def books() -> dict[str, Book]:
     """Every book by key. The key is its package name and its folder under output/."""
-    keys = sorted(p.parent.name for p in PACKAGE.glob("*/book.py"))
-    return {key: importlib.import_module(f".{key}.book", __package__).BOOK for key in keys}
+    return {
+        p.parent.name: importlib.import_module(f".{p.parent.name}.book", __package__).BOOK
+        for p in sorted(PACKAGE.glob("*/book.py"))
+    }
 
 
 def book_specs() -> dict[str, MonographSpec]:

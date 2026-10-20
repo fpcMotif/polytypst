@@ -1,6 +1,6 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { BookData } from "../src/types";
 
@@ -8,7 +8,8 @@ async function main() {
   const envPath = resolve(import.meta.dirname, "../.env.local");
   const envText = readFileSync(envPath, "utf-8");
   const urlMatch = envText.match(/VITE_CONVEX_URL=([^\s\n]+)/);
-  const convexUrl = process.env.VITE_CONVEX_URL || (urlMatch ? urlMatch[1] : "http://127.0.0.1:3210");
+  const convexUrl =
+    process.env.VITE_CONVEX_URL || (urlMatch ? urlMatch[1] : "http://127.0.0.1:3210");
 
   const client = new ConvexHttpClient(convexUrl);
   const catalogPath = resolve(import.meta.dirname, "../public/data/catalog.json");
@@ -41,10 +42,19 @@ async function main() {
       blockCount: ch.blocks.length,
     }));
 
-    const existingPdf = remoteBySlug[book.slug]?.deliverables?.pdf;
+    const relPdf = book.deliverables.pdf.replace(/^\//, "");
+    const localPdfPath = resolve(import.meta.dirname, "../public", relPdf);
+    const remotePdf = remoteBySlug[book.slug]?.deliverables?.pdf;
+    let existingPdf: string | undefined;
+    if (remotePdf?.startsWith("https://") && existsSync(localPdfPath)) {
+      const head = await fetch(remotePdf, { method: "HEAD" });
+      if (Number(head.headers.get("content-length")) === statSync(localPdfPath).size) {
+        existingPdf = remotePdf;
+      }
+    }
     const finalDeliverables = {
       ...book.deliverables,
-      pdf: existingPdf && existingPdf.startsWith("https://") ? existingPdf : book.deliverables.pdf,
+      pdf: existingPdf ?? book.deliverables.pdf,
     };
 
     await retryMutation(() =>
@@ -61,6 +71,8 @@ async function main() {
         description: book.description,
         stats: book.stats,
         deliverables: finalDeliverables,
+        editions: book.editions,
+        legend: book.legend,
         chapterSummaries: summaries,
       }),
     );
@@ -80,9 +92,7 @@ async function main() {
       );
     }
 
-    const relPdf = book.deliverables.pdf.replace(/^\//, "");
-    const localPdfPath = resolve(import.meta.dirname, "../public", relPdf);
-    if (!existingPdf || !existingPdf.startsWith("https://")) {
+    if (!existingPdf) {
       if (existsSync(localPdfPath)) {
         try {
           const uploadUrl = await client.mutation(api.books.generateUploadUrl);
@@ -105,7 +115,9 @@ async function main() {
         }
       }
     }
-    console.log(`Seeded ${book.slug} (${book.chapters.length} chapters) into Convex at ${convexUrl}`);
+    console.log(
+      `Seeded ${book.slug} (${book.chapters.length} chapters) into Convex at ${convexUrl}`,
+    );
   }
 
   await client.mutation(api.books.addAnnotation, {

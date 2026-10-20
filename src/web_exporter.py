@@ -2,20 +2,21 @@ import html
 import json
 import re
 import shutil
+import subprocess
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from .kerodon.compiler import KerodonCompiler
-from .kerodon.extractor import KerodonExtractor
 from .kerodon.diagrams import KerodonDiagramCropper
+from .kerodon.extractor import KerodonExtractor
 
 HASH = chr(35)
 
 
-def convert_roberts_to_business_web_blocks(book_md_path: Path) -> List[Dict[str, Any]]:
+def convert_roberts_to_business_web_blocks(book_md_path: Path) -> list[dict[str, Any]]:
     md_text = book_md_path.read_text(encoding="utf-8")
-    chapters: List[Dict[str, Any]] = []
-    current_chapter: Dict[str, Any] = {
+    chapters: list[dict[str, Any]] = []
+    current_chapter: dict[str, Any] = {
         "slug": "frontmatter",
         "number": "导言",
         "title": "前言与致谢",
@@ -163,10 +164,10 @@ def format_business_prose_html(text: str) -> str:
     return escaped
 
 
-def convert_serre_to_math_web_blocks(serre_md_path: Path) -> List[Dict[str, Any]]:
+def convert_serre_to_math_web_blocks(serre_md_path: Path) -> list[dict[str, Any]]:
     md_text = serre_md_path.read_text(encoding="utf-8")
-    chapters: List[Dict[str, Any]] = []
-    current_chapter: Dict[str, Any] = {
+    chapters: list[dict[str, Any]] = []
+    current_chapter: dict[str, Any] = {
         "slug": "intro",
         "number": "Avant-propos",
         "title": "Avant-propos & Première Partie",
@@ -241,73 +242,39 @@ def convert_serre_to_math_web_blocks(serre_md_path: Path) -> List[Dict[str, Any]
     return [c for c in chapters if c["blocks"]]
 
 
-def convert_kerodon_to_math_web_blocks(kerodon_dir: Path, pdf_path: Path) -> List[Dict[str, Any]]:
+def convert_kerodon_to_math_web_blocks(kerodon_dir: Path, pdf_path: Path) -> list[dict[str, Any]]:
+    from .kerodon.runner import CHAPTER_METADATA
+
     extractor = KerodonExtractor(kerodon_dir / "cache_web")
-    chapter = extractor.extract_chapter_1()
     cropper = KerodonDiagramCropper(pdf_path, kerodon_dir / "figures")
-    cropper.crop_chapter_diagrams(chapter, start_page=18, end_page=145)
-
-    chapters: List[Dict[str, Any]] = []
-    for sec in chapter.sections:
-        blocks: List[Dict[str, Any]] = []
-        for env in sec.intro_environments:
-            blocks.extend(_kerodon_env_to_blocks(env))
-        for sub in sec.subsections:
-            blocks.append({
-                "type": "heading",
-                "level": 3,
-                "text": f"§ {sub.number} {sub.title}",
-                "tag": sub.tag
-            })
-            for env in sub.environments:
+    chapters: list[dict[str, Any]] = []
+    for ch_num, (ch_tag, start_page, end_page) in CHAPTER_METADATA.items():
+        chapter = extractor.extract_chapter(ch_num, ch_tag)
+        cropper.crop_chapter_diagrams(chapter, start_page=start_page, end_page=end_page)
+        for sec in chapter.sections:
+            blocks: list[dict[str, Any]] = []
+            for env in sec.intro_environments:
                 blocks.extend(_kerodon_env_to_blocks(env))
-        chapters.append({
-            "slug": f"sec-{sec.number.replace('.', '-')}",
-            "number": f"Section {sec.number}",
-            "title": sec.title,
-            "tag": sec.tag,
-            "blocks": blocks
-        })
-
-    comp_typ = kerodon_dir / "kerodon_complete.typ"
-    if comp_typ.exists():
-        comp_text = comp_typ.read_text(encoding="utf-8")
-        raw_secs = re.split(r"\n(?=== Section \d+\.\d+)", comp_text)
-        for sec in raw_secs[1:]:
-            lines = [l.strip() for l in sec.strip().split("\n") if l.strip()]
-            if not lines:
-                continue
-            sec_title = lines[0].lstrip("=").strip()
-            m_sec = re.match(r"Section\s+(\d+\.\d+):\s*(.*)", sec_title)
-            if not m_sec:
-                continue
-            sec_num, sec_name = m_sec.groups()
-            if chapters and sec_num.startswith("1."):
-                continue
-            slug_val = "sec-" + sec_num.replace(".", "-")
-            blocks = []
-            env_matches = list(re.finditer(r"#([a-z]+)\(number:\s*\"([^\"]*)\",\s*title:\s*\"([^\"]*)\",\s*tag:\s*\"([^\"]*)\"\)\[([\s\S]*?)\]\n", sec))
-            for m in env_matches:
-                kind, num, title, tag, body = m.groups()
-                body_clean = body.strip().replace("$oo$", "$\\infty$").replace("arrow.r", "\\to ").replace("times", "\\times ")
+            for sub in sec.subsections:
                 blocks.append({
-                    "type": "theorem",
-                    "kind": kind.capitalize(),
-                    "number": num,
-                    "title": title,
-                    "tag": tag,
-                    "content": body_clean
+                    "type": "heading",
+                    "level": 3,
+                    "text": f"§ {sub.number} {sub.title}",
+                    "tag": sub.tag
                 })
-            chapters.append({
-                "slug": slug_val,
-                "number": "Section " + sec_num,
-                "title": sec_name.replace("$oo$", "∞"),
+                for env in sub.environments:
+                    blocks.extend(_kerodon_env_to_blocks(env))
+            chapters.extend(_split_large_chapter({
+                "slug": f"sec-{sec.number.replace('.', '-')}",
+                "number": f"Chapter {ch_num} · Section {sec.number}",
+                "title": sec.title,
+                "tag": sec.tag,
                 "blocks": blocks
-            })
+            }))
     return chapters
 
 
-def _kerodon_env_to_blocks(env) -> List[Dict[str, Any]]:
+def _kerodon_env_to_blocks(env) -> list[dict[str, Any]]:
     diag_idx = 0
     diagrams_out = []
 
@@ -349,7 +316,7 @@ def _kerodon_env_to_blocks(env) -> List[Dict[str, Any]]:
     return out
 
 
-def convert_ahlfors_to_math_web_blocks(ahlfors_dir: Path) -> List[Dict[str, Any]]:
+def convert_ahlfors_to_math_web_blocks(ahlfors_dir: Path) -> list[dict[str, Any]]:
     md_dir = ahlfors_dir / "markdown"
     chapters_def = [
         (1, "Complex Numbers", 1, 36),
@@ -361,9 +328,9 @@ def convert_ahlfors_to_math_web_blocks(ahlfors_dir: Path) -> List[Dict[str, Any]
         (7, "Elliptic Functions", 279, 298),
         (8, "Global Analytic Functions", 299, 340),
     ]
-    chapters: List[Dict[str, Any]] = []
+    chapters: list[dict[str, Any]] = []
     for ch_num, ch_title, start_p, end_p in chapters_def:
-        blocks: List[Dict[str, Any]] = []
+        blocks: list[dict[str, Any]] = []
         for pno in range(start_p, end_p + 1):
             p_file = md_dir / f"p_{pno:03d}.md"
             if not p_file.exists():
@@ -405,12 +372,12 @@ def convert_ahlfors_to_math_web_blocks(ahlfors_dir: Path) -> List[Dict[str, Any]
     return chapters
 
 
-def convert_goursat_to_math_web_blocks(goursat_md_path: Path) -> List[Dict[str, Any]]:
+def convert_goursat_to_math_web_blocks(goursat_md_path: Path) -> list[dict[str, Any]]:
     if not goursat_md_path.exists():
         return []
     text = goursat_md_path.read_text(encoding="utf-8")
     raw_chaps = re.split(r"\n(?=#+ (?:CHAPTER|Chapitre))", text)
-    chapters: List[Dict[str, Any]] = []
+    chapters: list[dict[str, Any]] = []
     for idx, raw in enumerate(raw_chaps):
         lines = [l.strip() for l in raw.strip().split("\n") if l.strip()]
         if not lines:
@@ -418,7 +385,7 @@ def convert_goursat_to_math_web_blocks(goursat_md_path: Path) -> List[Dict[str, 
         title = lines[0].lstrip("#").strip()
         slug = f"ch-{idx}"
         number = "Preface & Introduction" if idx == 0 else f"Chapter {idx}"
-        blocks: List[Dict[str, Any]] = []
+        blocks: list[dict[str, Any]] = []
         paras = re.split(r"\n\s*\n", raw.strip())
         for p in paras:
             p = p.strip()
@@ -439,55 +406,386 @@ def convert_goursat_to_math_web_blocks(goursat_md_path: Path) -> List[Dict[str, 
     return chapters
 
 
-def convert_taocp_to_math_web_blocks(taocp_typ_path: Path) -> List[Dict[str, Any]]:
-    if not taocp_typ_path.exists():
-        return []
-    text = taocp_typ_path.read_text(encoding="utf-8")
-    raw_chaps = re.split(r"\n(?=={1,2}\s+(?:\*?5\.\d|\*?6\.\d|Chapter Five|Chapter Six|Preface|About|Notes|Answers|Appendix|Table|Index))", text)
-    chapters: List[Dict[str, Any]] = []
-    idx = 0
-    for raw in raw_chaps:
-        raw = raw.strip()
-        if not raw.startswith("="):
+HTML_NESTING_TAGS = ("div", "table", "blockquote", "figure", "ul", "ol", "dl")
+
+
+def _top_level_html_blocks(html_text: str) -> list[str]:
+    blocks: list[str] = []
+    current: list[str] = []
+    depth = 0
+    for line in html_text.splitlines():
+        if not line.strip() and depth == 0:
             continue
-        lines = [l.strip() for l in raw.split("\n") if l.strip()]
-        title = lines[0].lstrip("=").strip()
-        blocks: List[Dict[str, Any]] = []
-        paras = re.split(r"\n\s*\n", raw)
-        for p in paras:
-            p = p.strip()
-            if not p:
+        current.append(line)
+        for tag in HTML_NESTING_TAGS:
+            depth += len(re.findall(rf"<{tag}[\s>]", line)) - len(re.findall(rf"</{tag}>", line))
+        if depth <= 0:
+            depth = 0
+            blocks.append("\n".join(current))
+            current = []
+    if current:
+        blocks.append("\n".join(current))
+    return blocks
+
+
+def convert_taocp_to_math_web_blocks(taocp_tex_path: Path) -> list[dict[str, Any]]:
+    if not taocp_tex_path.exists():
+        return []
+    html_text = subprocess.run(
+        ["pandoc", str(taocp_tex_path), "-f", "latex", "-t", "html5", "--katex", "--wrap=none"],
+        check=True, capture_output=True, text=True,
+    ).stdout
+    html_text = html_text.replace('src="figures/', 'src="/assets/taocp-vol3/figures/')
+    chapters: list[dict[str, Any]] = []
+    part = ""
+    current: dict[str, Any] | None = None
+    for blk in _top_level_html_blocks(html_text):
+        h = re.fullmatch(r'<h([12])[^>]*>(.*?)</h\1>', blk.strip(), re.DOTALL)
+        if h:
+            level, title = h.groups()
+            title = html.unescape(re.sub(r"<[^>]+>", "", title)).strip()
+            if level == "1":
+                part = title
+            current = {"slug": f"sec-{len(chapters) + 1}", "number": part if level == "2" else "",
+                       "title": title, "blocks": []}
+            chapters.append(current)
+            continue
+        if current is None or re.fullmatch(r'<div id="[^"]*">\s*</div>', blk.strip()):
+            continue
+        h3 = re.fullmatch(r'<h([3-6])[^>]*>(.*?)</h\1>', blk.strip(), re.DOTALL)
+        if h3:
+            current["blocks"].append({"type": "heading", "level": 3,
+                                      "text": html.unescape(re.sub(r"<[^>]+>", "", h3.group(2))).strip()})
+            continue
+        current["blocks"].append({"type": "html", "html": blk})
+    chapters = [c for c in chapters if c["blocks"]]
+    return [p for c in chapters for p in _split_large_chapter(c)]
+
+THEOREM_KINDS = (
+    "Theorem", "Proposition", "Lemma", "Corollary", "Definition", "Remark", "Remarks", "Example",
+    "Examples", "Exercise", "Question", "Conjecture", "Claim", "Notation", "Problem", "Scholium",
+    "定理", "命题", "引理", "推论", "定义", "注",
+)
+THEOREM_RE = re.compile(
+    rf"^\*\*({'|'.join(THEOREM_KINDS)})\s*([0-9IVX][0-9IVX.\-']*)?\.?\*\*\s*(?:\(([^)]{{1,80}})\)\s*)?(?:\*\*\s*)?(.*)$",
+    re.DOTALL,
+)
+CHAPTER_HEADING_RE = re.compile(r"^Chapter\s+(\d+):\s*(.*)$")
+ZH_CHAPTER_RE = re.compile(r"^(第[一二三四五六七八九十百]+章|附录\s*[IVX]+)\s*(.*)$")
+EQ_LABEL_RE = re.compile(r"\$\$\s*<eq-([0-9a-z]+)-([0-9a-z]+)>")
+IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)\)(?:\{[^}]*\})?")
+MAX_CHAPTER_JSON = 450_000
+
+
+def _md_paragraph_block(p: str, asset_base: str, images: list[str]) -> dict[str, Any]:
+    img = IMAGE_RE.fullmatch(p.strip())
+    if img:
+        caption, path = img.groups()
+        images.append(path)
+        label, _, rest = caption.partition(" ") if re.match(r"^(Fig|Figure|图)\.?\s*\S+", caption) else ("", "", caption)
+        if label and rest and re.match(r"^[0-9.]+$", rest.split(" ")[0]):
+            label, rest = f"{label} {rest.split(' ')[0]}", " ".join(rest.split(" ")[1:])
+        return {"type": "figure", "label": label, "caption": rest.strip(), "src": f"{asset_base}/{path}"}
+    for _, path in IMAGE_RE.findall(p):
+        images.append(path)
+    p = IMAGE_RE.sub(lambda m: f"(figure: {m.group(1)})", p)
+    thm = THEOREM_RE.match(p)
+    if thm:
+        kind, number, note, body = thm.groups()
+        return {"type": "theorem", "kind": kind, "number": (number or "").rstrip("."),
+                "title": note or "", "content": body.strip()}
+    return {"type": "math-paragraph", "content": p}
+
+
+def _paragraphs_keeping_display_math(text: str) -> list[str]:
+    paras: list[str] = []
+    pending = ""
+    for chunk in re.split(r"\n\s*\n", text):
+        pending = f"{pending}\n{chunk}" if pending else chunk
+        if pending.count("$$") % 2 == 0:
+            if pending.strip():
+                paras.append(pending.strip())
+            pending = ""
+    if pending.strip():
+        paras.append(pending.strip())
+    return paras
+
+
+def _split_large_chapter(chapter: dict[str, Any]) -> list[dict[str, Any]]:
+    if len(json.dumps(chapter["blocks"], ensure_ascii=False)) <= MAX_CHAPTER_JSON:
+        return [chapter]
+    parts: list[list[dict[str, Any]]] = [[]]
+    size = 0
+    for blk in chapter["blocks"]:
+        blk_size = len(json.dumps(blk, ensure_ascii=False))
+        if parts[-1] and size + blk_size > MAX_CHAPTER_JSON * 0.8 and (
+            blk["type"] == "heading" or size + blk_size > MAX_CHAPTER_JSON
+        ):
+            parts.append([])
+            size = 0
+        parts[-1].append(blk)
+        size += blk_size
+    return [
+        {**chapter, "slug": f"{chapter['slug']}-{i + 1}", "title": f"{chapter['title']} ({i + 1}/{len(parts)})",
+         "blocks": blocks}
+        for i, blocks in enumerate(parts)
+    ]
+
+
+def convert_monograph_md_to_math_web_blocks(md_path: Path, asset_base: str) -> tuple[list[dict[str, Any]], list[str]]:
+    text = md_path.read_text(encoding="utf-8")
+    text = re.sub(r"\A---\n.*?\n---\n", "", text, flags=re.DOTALL)
+    text = EQ_LABEL_RE.sub(lambda m: f"\\tag{{{m.group(1)}.{m.group(2)}}}$$", text)
+    images: list[str] = []
+    chapters: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    in_title_block = True
+    for p in _paragraphs_keeping_display_math(text):
+        if not p:
+            continue
+        h = re.match(r"^(#{1,4})\s+(.+)$", p)
+        if h and "\n" not in p:
+            hashes, title = h.groups()
+            title = title.strip()
+            ch = CHAPTER_HEADING_RE.match(title)
+            if len(hashes) == 1 and ch:
+                in_title_block = False
+                num, rest = ch.groups()
+                zh = ZH_CHAPTER_RE.match(rest)
+                if zh:
+                    number, title = zh.group(1), zh.group(2) or rest
+                else:
+                    number, title = ("" if re.search(r"[一-鿿]", rest) else f"Chapter {num}"), rest
+                current = {"slug": f"ch-{num}", "number": number, "title": title, "blocks": []}
+                chapters.append(current)
                 continue
-            h_m = re.match(r"^(=+)\s+(.+)$", p)
-            if h_m and "\n" not in p:
-                eqs, t = h_m.groups()
-                blocks.append({"type": "heading", "level": min(len(eqs), 3), "text": t.strip()})
-            else:
-                blocks.append({"type": "math-paragraph", "content": p})
+            if len(hashes) == 1:
+                continue
+            if current is None:
+                in_title_block = False
+                current = {"slug": "front", "number": "Front matter", "title": title, "blocks": []}
+                chapters.append(current)
+                continue
+            current["blocks"].append({"type": "heading", "level": min(len(hashes), 3), "text": title})
+            continue
+        if current is None or in_title_block:
+            continue
+        current["blocks"].append(_md_paragraph_block(p, asset_base, images))
+    chapters = [c for c in chapters if c["blocks"]]
+    return [part for c in chapters for part in _split_large_chapter(c)], images
 
-        max_chunk = 600
-        if len(blocks) <= max_chunk:
-            idx += 1
-            chapters.append({
-                "slug": f"sec-{idx}",
-                "number": f"Section {idx}",
-                "title": title,
-                "blocks": blocks
-            })
-        else:
-            for part_i in range(0, len(blocks), max_chunk):
-                idx += 1
-                sub_blocks = blocks[part_i:part_i + max_chunk]
-                part_num = (part_i // max_chunk) + 1
-                chapters.append({
-                    "slug": f"sec-{idx}",
-                    "number": f"Section {idx}",
-                    "title": f"{title} (Part {part_num})",
-                    "blocks": sub_blocks
+
+def _pdf_page_count(pdf: Path) -> int:
+    import pymupdf
+
+    with pymupdf.open(pdf) as doc:
+        return doc.page_count
+
+
+def _copy_edition_files(rebuilt_pdf: Path, dest: Path, name: str, web_base: str) -> dict[str, str]:
+    files: dict[str, str] = {}
+    for ext, key in (("pdf", "pdf"), ("typ", "typst"), ("tex", "latex"), ("epub", "epub")):
+        src = rebuilt_pdf.with_suffix(f".{ext}")
+        if src.exists():
+            shutil.copy2(src, dest / f"{name}.{ext}")
+            files[key] = f"{web_base}/{name}.{ext}"
+    return files
+
+
+REGISTRY_WEB_BOOKS: tuple[tuple[str, str, tuple[str, ...], str, str], ...] = (
+    ("bourbaki", "bourbaki-commutative-algebra", ("modern", "vintage", "facsimile"), "Commutative Algebra & Homological Methods",
+     "Bourbaki's Commutative Algebra, Chapters 1–7: flat modules, localization, filtrations and completions, primary decomposition, integers, valuations and divisors. Three print editions: a reflowed modern monograph, the 1970 vintage edition broken line for line like the scan, and a word-placed facsimile."),
+    ("bourbaki_lie", "bourbaki-lie", ("monograph",), "Lie Theory",
+     "Bourbaki's Lie Groups and Lie Algebras, Chapters 1–3: Lie algebras, free Lie algebras and the Campbell–Hausdorff formula, and Lie groups."),
+    ("fermat", "fermat-dream", ("vol1",), "Number Theory",
+     "Number Theory 1: Fermat's Dream. Elementary number theory, rational points on elliptic curves, conics and p-adic numbers, the zeta function, and algebraic number theory."),
+    ("fermat", "class-field-theory", ("vol2",), "Number Theory",
+     "Number Theory 2: Introduction to Class Field Theory. Zeta functions, the local and global class field theory, and their applications."),
+    ("kashiwara", "kashiwara-algebraic-analysis", ("monograph",), "Algebraic Analysis & Microlocal Theory",
+     "Foundations of Algebraic Analysis: hyperfunctions, microfunctions, and the theory of pseudo-differential operators and holonomic systems."),
+    ("klein", "klein-19th-century", ("en",), "History of Mathematics",
+     "Felix Klein's lectures on the development of mathematics in the 19th century."),
+    ("klein", "klein-19th-century-zh", ("zh",), "数学史",
+     "克莱因《数学在19世纪的发展》第二卷中文版：线性不变量理论、狭义相对论、二次微分形式与解析点变换群，以及埃尔朗根纲领与黎曼的三篇附录。"),
+    ("kodaira", "kodaira-complex-analysis", ("monograph",), "Complex Function Theory & Riemann Surfaces",
+     "Kodaira's Complex Analysis: holomorphic functions, Cauchy's theorem, conformal mappings, analytic continuation, Riemann's mapping theorem, and Riemann surfaces up to Riemann–Roch and Abel's theorem."),
+)
+
+
+def export_registry_books(root_dir: Path, assets_dir: Path) -> list[dict[str, Any]]:
+    from .books import books
+
+    registry = books()
+    out: list[dict[str, Any]] = []
+    for key, slug, edition_names, domain, description in REGISTRY_WEB_BOOKS:
+        book = registry[key]
+        primary = book.editions[edition_names[0]]
+        spec = primary.spec
+        assert spec is not None
+        md_path = root_dir / primary.rebuilt.with_suffix(".md")
+        if not md_path.exists():
+            continue
+        dest = assets_dir / slug
+        dest.mkdir(parents=True, exist_ok=True)
+        web_base = f"/assets/{slug}"
+        chapters, images = convert_monograph_md_to_math_web_blocks(md_path, web_base)
+        for rel in set(images):
+            src = md_path.parent / rel
+            if src.exists():
+                (dest / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dest / rel)
+        editions = []
+        for name in edition_names:
+            ed = book.editions[name]
+            files = _copy_edition_files(root_dir / ed.rebuilt, dest, name, web_base)
+            if "pdf" in files:
+                editions.append({"name": name, "label": ed.summary or name, **files})
+        first = editions[0]
+        pdf_pages = _pdf_page_count(root_dir / primary.rebuilt)
+        out.append({
+            "slug": slug,
+            "title": spec.title,
+            "subtitle": spec.subtitle or f"{spec.publisher}, {spec.year}",
+            "author": spec.author,
+            "language": "zh-CN" if spec.lang == "zh" else "en-US",
+            "domain": domain,
+            "renderingMode": "math-katex",
+            "renderingBadge": "KaTeX",
+            "description": description,
+            "stats": {"pages": pdf_pages, "figures": len(set(images)), "tables": 0, "chapters": len(chapters)},
+            "deliverables": {
+                "pdf": first["pdf"],
+                "typst": first.get("typst", ""),
+                "latex": first.get("latex", ""),
+                "epub": first.get("epub", ""),
+            },
+            "editions": editions,
+            "chapters": chapters,
+        })
+    return out
+
+
+SHITOUJI_LEGEND: tuple[tuple[str, str], ...] = (
+    ("E73E29", "甲戌本硃批"),
+    ("A70236", "庚辰本硃批"),
+    ("0E56A7", "庚辰本墨批 · 己卯本墨夾批"),
+    ("EC008C", "蒙府本之批"),
+    ("A46C35", "戚序本之批 · 有正補文"),
+    ("008080", "甲戌本墨眉批 · 列藏本"),
+    ("800080", "甲辰本"),
+    ("581600", "楊藏本"),
+    ("FAA624", "舒序本補文"),
+)
+
+
+def export_shitouji(root_dir: Path, assets_dir: Path) -> list[dict[str, Any]]:
+    from .shitouji_vertical import extract_chapters
+
+    src_dir = root_dir / "shitouji"
+    volumes = sorted((src_dir / "typst").glob("volume_0*.pdf"))
+    if not volumes:
+        return []
+    slug = "shitouji"
+    dest = assets_dir / slug
+    dest.mkdir(parents=True, exist_ok=True)
+    web_base = f"/assets/{slug}"
+    editions = []
+    pages = 0
+    for n, pdf in enumerate(volumes, start=1):
+        name = pdf.stem
+        files: dict[str, str] = {}
+        for src, key in ((pdf, "pdf"), (pdf.with_suffix(".typ"), "typst"), (src_dir / "latex" / f"{name}.tex", "latex")):
+            if src.exists():
+                shutil.copy2(src, dest / src.name)
+                files[key] = f"{web_base}/{src.name}"
+        pages += _pdf_page_count(pdf)
+        editions.append({"name": name, "label": f"第{'一二三四五六七八'[n - 1]}冊", **files})
+    chapters = extract_chapters()
+    first = editions[0]
+    return [{
+        "slug": slug,
+        "title": "脂硯齋重評石頭記",
+        "subtitle": "四校訖自用本 · 直排彙校",
+        "author": "曹雪芹 著 · 脂硯齋 評",
+        "language": "zh-Hant",
+        "domain": "中國古典小說",
+        "renderingMode": "vertical-classic",
+        "renderingBadge": "直排",
+        "description": "《石頭記》八十回彙校本。正文直排，夾批雙行小字，側批與眉批依原色區分各本批語。",
+        "stats": {"pages": pages, "figures": 0, "tables": 0, "chapters": len(chapters)},
+        "deliverables": {
+            "pdf": first["pdf"],
+            "typst": first.get("typst", ""),
+            "latex": first.get("latex", ""),
+            "epub": "",
+        },
+        "editions": editions,
+        "legend": [{"color": c, "label": label} for c, label in SHITOUJI_LEGEND],
+        "chapters": chapters,
+    }]
+
+
+def _first_existing(*paths: Path) -> Path:
+    return next((p for p in paths if p.exists()), paths[0])
+
+
+def convert_london_treasury_to_business_web_blocks(book_md_path: Path) -> list[dict[str, Any]]:
+    md_text = book_md_path.read_text(encoding="utf-8")
+    md_text = re.sub(r"\A---\n.*?\n---\n", "", md_text, flags=re.DOTALL)
+    chapters: list[dict[str, Any]] = []
+    current_chapter: dict[str, Any] | None = None
+
+    for p in re.split(r"\n\s*\n", md_text):
+        p = p.strip()
+        if not p:
+            continue
+        h_m = re.match(rf"^({HASH}{{1,4}})\s+(.+)$", p)
+        if h_m and "\n" not in p:
+            hashes, title = h_m.groups()
+            title = title.strip().replace("\\$", "$")
+            if len(hashes) == 1:
+                m_ch = re.match(r"^(第[一二三四五六七八九十]+章)\s*(.*)$", title)
+                if m_ch:
+                    ch_num, ch_title = m_ch.groups()
+                else:
+                    ch_num, ch_title = "导言", title
+                current_chapter = {
+                    "slug": f"ch-{len(chapters) + 1}",
+                    "number": ch_num,
+                    "title": ch_title or title,
+                    "blocks": [],
+                }
+                chapters.append(current_chapter)
+            elif current_chapter is not None:
+                current_chapter["blocks"].append({
+                    "type": "heading",
+                    "level": min(len(hashes), 3),
+                    "text": title,
                 })
-    return chapters
+            continue
+        if current_chapter is None:
+            continue
+        clean_p = p.replace("\\$", "$")
+        escaped = html.escape(clean_p)
+        escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
+        escaped = re.sub(r"\*([^*\n]+)\*", r"<em>\1</em>", escaped)
+        escaped = re.sub(
+            r"\[([^\]]+)\]\((https?://[^)]+)\)",
+            r'<a href="\2" target="_blank" rel="noopener noreferrer" class="editorial-ref">\1</a>',
+            escaped,
+        )
+        escaped = escaped.replace("\n", "<br/>")
+        current_chapter["blocks"].append({
+            "type": "paragraph",
+            "html": escaped,
+            "text": clean_p,
+        })
 
-def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
+    chapters = [c for c in chapters if c["blocks"]]
+    return [part for c in chapters for part in _split_large_chapter(c)]
+
+
+def export_all_web_data(root_dir: Path, web_public_dir: Path) -> dict[str, Any]:
     assets_dir = web_public_dir / "assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
 
@@ -501,12 +799,15 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
         except Exception:
             pass
 
-    roberts_out_dir = root_dir / "output" / "modern_firm"
-    serre_out_dir = root_dir / "output" / "serre_arithmetique"
+    roberts_out_dir = _first_existing(root_dir / "output" / "modern_firm", root_dir.parent / "output" / "modern_firm")
+    serre_out_dir = _first_existing(
+        root_dir / "output" / "serre_arithmetique", root_dir.parent / "output" / "serre_arithmetique"
+    )
     kerodon_out_dir = root_dir / "output" / "kerodon"
     ahlfors_out_dir = root_dir / "output" / "ahlfors"
     goursat_out_dir = root_dir / "output" / "goursat_colab"
     taocp_out_dir = root_dir / "output" / "taocp"
+    london_treasury_out_dir = root_dir / "output" / "london_treasury"
     kerodon_pdf = root_dir / "kerodon.pdf"
 
     sync_configs = [
@@ -516,6 +817,7 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
         ("ahlfors", ahlfors_out_dir, "ahlfors_complete"),
         ("goursat-analyse", goursat_out_dir, "book"),
         ("taocp-vol3", taocp_out_dir, "taocp_vol3"),
+        ("london-treasury", london_treasury_out_dir, "london_branch_treasury_and_trading_reader"),
     ]
 
     for slug, src_dir, base_prefix in sync_configs:
@@ -540,7 +842,7 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
                     if fig_f.suffix.lower() in (".svg", ".png"):
                         shutil.copy2(fig_f, dest_figs / fig_f.name)
 
-    books_payload: List[Dict[str, Any]] = []
+    books_payload: list[dict[str, Any]] = []
 
     if "modern-firm" in existing_books_map and not (roberts_out_dir / "book.md").exists():
         books_payload.append(existing_books_map["modern-firm"])
@@ -660,8 +962,8 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
                 "chapters": goursat_chapters
             })
 
-    if (taocp_out_dir / "taocp_vol3.typ").exists():
-        taocp_chapters = convert_taocp_to_math_web_blocks(taocp_out_dir / "taocp_vol3.typ")
+    if (taocp_out_dir / "taocp_vol3.tex").exists():
+        taocp_chapters = convert_taocp_to_math_web_blocks(taocp_out_dir / "taocp_vol3.tex")
         if taocp_chapters:
             books_payload.append({
                 "slug": "taocp-vol3",
@@ -682,6 +984,37 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> Dict[str, Any]:
                 },
                 "chapters": taocp_chapters
             })
+
+    if (london_treasury_out_dir / "book.md").exists():
+        lt_chapters = convert_london_treasury_to_business_web_blocks(london_treasury_out_dir / "book.md")
+        lt_pages = (
+            _pdf_page_count(london_treasury_out_dir / "book.pdf")
+            if (london_treasury_out_dir / "book.pdf").exists()
+            else 430
+        )
+        if lt_chapters:
+            books_payload.append({
+                "slug": "london-treasury",
+                "title": "伦敦分行资金与交易业务阅读册",
+                "subtitle": "从业者经验导读与轮岗问题（含 53 篇英文原始文献与监管规则全文）",
+                "author": "伦敦分行资金与交易业务编写组",
+                "language": "zh-CN",
+                "domain": "Treasury, ALM, Foreign Exchange, Fixed Income & Precious Metals",
+                "renderingMode": "editorial-business",
+                "renderingBadge": "Editorial Bilingual Reader + 53 Extracted Primary Sources (r.jina.ai)",
+                "description": "面向银行伦敦分行交易与资金条线（外币货币市场、现券、外汇远期与掉期、贵金属、资产负债管理 ALM）的赴任导读与轮岗核实手册。完整提取并精排原书全部 53 条外部链接（35 篇从业者深度材料、4 部现行市场准则与监管规则、3 档核心播客及 11 项核验资料）的英文原文。",
+                "stats": {"pages": lt_pages, "figures": 0, "tables": 1, "chapters": len(lt_chapters)},
+                "deliverables": {
+                    "pdf": "/assets/london-treasury/book.pdf",
+                    "typst": "/assets/london-treasury/book.typ",
+                    "latex": "/assets/london-treasury/book.tex",
+                    "epub": "/assets/london-treasury/book.epub",
+                },
+                "chapters": lt_chapters,
+            })
+
+    books_payload.extend(export_registry_books(root_dir, assets_dir))
+    books_payload.extend(export_shitouji(root_dir, assets_dir))
 
     catalog_data = {"books": books_payload}
     data_dir = web_public_dir / "data"

@@ -1,7 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import { TypeSafeClient, TypeSafeDecisionModel } from "@effect/ai-typesafe";
 import { Effect, Layer, Stream } from "effect";
 import { AiError, LanguageModel, Tool } from "effect/ai";
 import type { Prompt } from "effect/ai";
@@ -109,8 +108,5 @@ const layerClaudeLanguageModel = Layer.effect(
 
 export default {
   excludes: ["node_modules/**", "**/node_modules/**", "**/dist/**", ".venv/**"],
-  layerDecisionModel: TypeSafeDecisionModel.layer({ model: "jev-latest" }).pipe(
-    Layer.provide(TypeSafeClient.layerConfig()),
-  ),
   layerLanguageModel: layerClaudeLanguageModel,
 } satisfies TraitsConfig;

@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { BookPicker } from "./BookPicker";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { ChapterData, ContentBlock } from "./types";
-import { escapeHtml, renderMathProseToHtml } from "./mathRenderer";
+import { escapeHtml, renderHtmlWithMath, renderMathProseToHtml } from "./mathRenderer";
+import { VerticalReader } from "./VerticalReader";
 import { Download, ExternalLink, Search } from "lucide-react";
 
 type ViewSurface = "reader" | "split-pdfcn" | "deliverables";
@@ -58,8 +60,12 @@ function RichText({ text, math }: { text: string; math: boolean }) {
 }
 
 export function App() {
-  const [selectedBookSlug, setSelectedBookSlug] = useState<string>("modern-firm");
-  const [selectedChapterSlug, setSelectedChapterSlug] = useState<string>("");
+  const [selectedBookSlug, setSelectedBookSlug] = useState<string>(
+    () => new URLSearchParams(location.search).get("book") ?? "modern-firm",
+  );
+  const [selectedChapterSlug, setSelectedChapterSlug] = useState<string>(
+    () => new URLSearchParams(location.search).get("ch") ?? "",
+  );
   const [surface, setSurface] = useState<ViewSurface>("reader");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [readerName, setReaderName] = useState<string>("");
@@ -80,6 +86,12 @@ export function App() {
     const found = activeBook.chapterSummaries.find((c) => c.slug === selectedChapterSlug);
     return found ? found.slug : (activeBook.chapterSummaries[0]?.slug ?? "");
   }, [activeBook, selectedChapterSlug]);
+
+  useEffect(() => {
+    if (!activeBook || !effectiveChapterSlug) return;
+    const params = new URLSearchParams({ book: activeBook.slug, ch: effectiveChapterSlug });
+    history.replaceState(null, "", `?${params}`);
+  }, [activeBook, effectiveChapterSlug]);
 
   const convexChapter = useQuery(
     api.books.getChapter,
@@ -126,15 +138,10 @@ export function App() {
     });
   }, [activeChapter, searchQuery]);
 
-  async function handleInspectSource(format: "typst" | "latex") {
-    if (!activeBook) return;
-    const url = activeBook.deliverables[format];
+  async function handleInspectSource(url: string, format: string) {
     const resp = await fetch(url);
     const text = await resp.text();
-    setSourcePreview({
-      format: format === "typst" ? "Typst source" : "LaTeX source",
-      content: text.slice(0, 18000),
-    });
+    setSourcePreview({ format, content: text.slice(0, 18000) });
     setSurface("deliverables");
   }
 
@@ -160,13 +167,25 @@ export function App() {
     );
   }
 
-  const isMath = activeBook.renderingMode !== "editorial-business";
-  const files = [
-    { label: "PDF", note: "Print edition", href: activeBook.deliverables.pdf },
-    { label: "EPUB", note: "Reflowable e-book", href: activeBook.deliverables.epub },
-    { label: "Typst", note: ".typ source", href: activeBook.deliverables.typst },
-    { label: "LaTeX", note: ".tex source", href: activeBook.deliverables.latex },
-  ];
+  const isVertical = activeBook.renderingMode === "vertical-classic";
+  const isMath = activeBook.renderingMode === "math-katex";
+  const editions = activeBook.editions?.length
+    ? activeBook.editions
+    : [{ name: "main", label: "", ...activeBook.deliverables }];
+  const files = editions.flatMap((ed) =>
+    [
+      { label: "PDF", note: "Print edition", href: ed.pdf, source: false },
+      { label: "EPUB", note: "Reflowable e-book", href: ed.epub, source: false },
+      { label: "Typst", note: ".typ source", href: ed.typst, source: true },
+      { label: "LaTeX", note: ".tex source", href: ed.latex, source: true },
+    ]
+      .filter((file): file is typeof file & { href: string } => Boolean(file.href))
+      .map((file) => ({
+        ...file,
+        key: `${ed.name}-${file.label}`,
+        label: ed.label ? `${ed.label} · ${file.label}` : file.label,
+      })),
+  );
 
   return (
     <div className="min-h-screen bg-[#f6f5f2] text-stone-900">
@@ -176,32 +195,16 @@ export function App() {
             Polytypst
           </span>
 
-          <nav
-            aria-label="Books"
-            className="flex-1 min-w-0 flex gap-1 overflow-x-auto [scrollbar-width:none]"
-          >
-            {convexBooks.map((book) => {
-              const selected = book.slug === activeBook.slug;
-              return (
-                <button
-                  key={book.slug}
-                  aria-current={selected ? "page" : undefined}
-                  onClick={() => {
-                    setSelectedBookSlug(book.slug);
-                    setSelectedChapterSlug(book.chapterSummaries[0]?.slug ?? "");
-                    setSourcePreview(null);
-                  }}
-                  className={`shrink-0 px-3 py-1.5 rounded-md text-sm transition-colors ${focusRing} ${
-                    selected
-                      ? "bg-white text-stone-900 font-medium shadow-[0_0_0_1px_rgb(0_0_0/0.08),0_1px_2px_rgb(0_0_0/0.06)]"
-                      : "text-stone-500 hover:text-stone-900"
-                  }`}
-                >
-                  {shortBookTitle(book.title)}
-                </button>
-              );
-            })}
-          </nav>
+          <BookPicker
+            books={convexBooks}
+            activeSlug={activeBook.slug}
+            label={shortBookTitle(activeBook.title)}
+            onSelect={(slug) => {
+              setSelectedBookSlug(slug);
+              setSelectedChapterSlug("");
+              setSourcePreview(null);
+            }}
+          />
 
           <div
             role="tablist"
@@ -244,13 +247,15 @@ export function App() {
                 <Download className="w-4 h-4" strokeWidth={1.75} />
                 PDF
               </a>
-              <a
-                href={activeBook.deliverables.epub}
-                download
-                className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm text-stone-700 hover:bg-stone-200/60 transition-colors ${focusRing}`}
-              >
-                EPUB
-              </a>
+              {activeBook.deliverables.epub && (
+                <a
+                  href={activeBook.deliverables.epub}
+                  download
+                  className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm text-stone-700 hover:bg-stone-200/60 transition-colors ${focusRing}`}
+                >
+                  EPUB
+                </a>
+              )}
             </div>
           </div>
 
@@ -394,17 +399,15 @@ export function App() {
 
             <ul className="divide-y divide-stone-200 border-y border-stone-200">
               {files.map((file) => (
-                <li key={file.label} className="flex items-center justify-between gap-4 py-3">
+                <li key={file.key} className="flex items-center justify-between gap-4 py-3">
                   <div>
                     <div className="text-sm font-medium">{file.label}</div>
                     <div className="text-xs text-stone-500">{file.note}</div>
                   </div>
                   <div className="flex items-center gap-1">
-                    {(file.label === "Typst" || file.label === "LaTeX") && (
+                    {file.source && (
                       <button
-                        onClick={() =>
-                          handleInspectSource(file.label === "Typst" ? "typst" : "latex")
-                        }
+                        onClick={() => handleInspectSource(file.href, file.label)}
                         className={`px-3 py-1.5 rounded-md text-sm text-stone-700 hover:bg-stone-200/60 transition-colors ${focusRing}`}
                       >
                         Preview
@@ -473,158 +476,186 @@ export function App() {
                     </h2>
                   </header>
 
-                  {filteredBlocks.length === 0 && (
-                    <p className="text-center text-sm text-stone-400">
-                      Nothing in this chapter matches “{searchQuery}”.
-                    </p>
-                  )}
+                  {isVertical ? (
+                    <VerticalReader
+                      chapter={activeChapter}
+                      bookTitle={shortBookTitle(activeBook.title)}
+                      legend={activeBook.legend}
+                    />
+                  ) : (
+                    <>
+                      {filteredBlocks.length === 0 && (
+                        <p className="text-center text-sm text-stone-400">
+                          Nothing in this chapter matches “{searchQuery}”.
+                        </p>
+                      )}
 
-                  <div
-                    lang={activeBook.language}
-                    className={`math-column ${isMath ? "math-prose" : "editorial-prose space-y-5"}`}
-                  >
-                    {filteredBlocks.map((blk, idx) => {
-                      if (blk.type === "heading") {
-                        const Tag = blk.level === 2 ? "h3" : "h4";
-                        return (
-                          <Tag
-                            key={idx}
-                            className={
-                              isMath
-                                ? `math-heading ${blk.level === 2 ? "math-heading-2" : "math-heading-3"}`
-                                : `font-serif font-bold text-stone-900 pt-4 ${
-                                    blk.level === 2 ? "text-xl" : "text-lg"
-                                  }`
-                            }
-                          >
-                            <RichText text={blk.text ?? ""} math={isMath} />
-                          </Tag>
-                        );
-                      }
-
-                      if (blk.type === "figure") {
-                        return (
-                          <figure key={idx} id={blk.id} className="my-10 scroll-mt-24">
-                            <div className="flex justify-center">
-                              <img
-                                src={blk.src}
-                                alt={blk.caption ?? blk.label}
-                                className="math-figure-img max-h-[420px] w-auto object-contain"
-                              />
-                            </div>
-                            {(blk.label || blk.caption) && (
-                              <figcaption className="mt-3 text-center text-sm text-stone-600">
-                                {blk.label && (
-                                  <span className="font-semibold text-stone-900">{blk.label} </span>
-                                )}
-                                {blk.caption && <RichText text={blk.caption} math={isMath} />}
-                              </figcaption>
-                            )}
-                          </figure>
-                        );
-                      }
-
-                      if (blk.type === "table" && blk.headers && blk.rows) {
-                        return (
-                          <figure key={idx} id={blk.id} className="my-10 scroll-mt-24">
-                            <figcaption className="mb-3 text-sm text-stone-600">
-                              <span className="font-semibold text-stone-900">{blk.label} </span>
-                              {blk.caption}
-                            </figcaption>
-                            <div className="overflow-x-auto">
-                              <table className="w-full border-collapse text-sm">
-                                <thead>
-                                  <tr className="border-y border-stone-900">
-                                    {blk.headers.map((h, hIdx) => (
-                                      <th
-                                        key={hIdx}
-                                        className={`py-2 px-3 font-semibold ${
-                                          hIdx > 0 ? "text-right" : "text-left"
-                                        }`}
-                                      >
-                                        {h}
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody className="border-b border-stone-900">
-                                  {blk.rows.map((row, rIdx) => (
-                                    <tr key={rIdx}>
-                                      {row.map((cell, cIdx) => (
-                                        <td
-                                          key={cIdx}
-                                          className={`py-1.5 px-3 ${
-                                            cIdx > 0 ? "text-right tabular-nums" : "text-left"
-                                          }`}
-                                        >
-                                          {cell}
-                                        </td>
-                                      ))}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                            {blk.note && <p className="mt-2 text-xs text-stone-500">{blk.note}</p>}
-                          </figure>
-                        );
-                      }
-
-                      if (blk.type === "theorem") {
-                        const style = getTheoremStyle(blk.kind);
-                        return (
-                          <section
-                            key={idx}
-                            id={blk.tag ? `tag-${blk.tag}` : undefined}
-                            className={`thm scroll-mt-24 ${style.rule ? "thm-rule" : ""}`}
-                          >
-                            <div
-                              className={style.italicBody ? "thm-italic" : undefined}
-                              dangerouslySetInnerHTML={{ __html: renderTheoremHtml(blk) }}
-                            />
-
-                            {blk.diagrams && blk.diagrams.length > 0 && (
-                              <div className="mt-4 space-y-4">
-                                {blk.diagrams.map((d, dIdx) => (
-                                  <figure key={dIdx} className="flex flex-col items-center">
-                                    <img
-                                      src={d.src}
-                                      alt={d.caption}
-                                      className="max-h-60 w-auto object-contain"
-                                    />
-                                    <figcaption className="thm-tag !float-none mt-1">
-                                      {d.caption}
-                                    </figcaption>
-                                  </figure>
-                                ))}
-                              </div>
-                            )}
-                          </section>
-                        );
-                      }
-
-                      if (blk.type === "math-paragraph") {
-                        return (
-                          <div
-                            key={idx}
-                            dangerouslySetInnerHTML={{
-                              __html: renderMathProseToHtml(blk.content ?? ""),
-                            }}
-                          />
-                        );
-                      }
-
-                      return (
-                        <p
-                          key={idx}
-                          className={
-                            isMath ? undefined : "text-[17px] leading-[1.9] text-stone-800 indent-8"
+                      <div
+                        lang={activeBook.language}
+                        className={`math-column ${isMath ? "math-prose" : "editorial-prose space-y-5"}`}
+                      >
+                        {filteredBlocks.map((blk, idx) => {
+                          if (blk.type === "heading") {
+                            const Tag = blk.level === 2 ? "h3" : "h4";
+                            return (
+                              <Tag
+                                key={idx}
+                                className={
+                                  isMath
+                                    ? `math-heading ${blk.level === 2 ? "math-heading-2" : "math-heading-3"}`
+                                    : `font-serif font-bold text-stone-900 pt-4 ${
+                                        blk.level === 2 ? "text-xl" : "text-lg"
+                                      }`
+                                }
+                              >
+                                <RichText text={blk.text ?? ""} math={isMath} />
+                              </Tag>
+                            );
                           }
-                          dangerouslySetInnerHTML={{ __html: blk.html ?? blk.text ?? "" }}
-                        />
-                      );
-                    })}
-                  </div>
+
+                          if (blk.type === "figure") {
+                            return (
+                              <figure key={idx} id={blk.id} className="my-10 scroll-mt-24">
+                                <div className="flex justify-center">
+                                  <img
+                                    src={blk.src}
+                                    alt={blk.caption ?? blk.label}
+                                    className="math-figure-img max-h-[420px] w-auto object-contain"
+                                  />
+                                </div>
+                                {(blk.label || blk.caption) && (
+                                  <figcaption className="mt-3 text-center text-sm text-stone-600">
+                                    {blk.label && (
+                                      <span className="font-semibold text-stone-900">
+                                        {blk.label}{" "}
+                                      </span>
+                                    )}
+                                    {blk.caption && <RichText text={blk.caption} math={isMath} />}
+                                  </figcaption>
+                                )}
+                              </figure>
+                            );
+                          }
+
+                          if (blk.type === "table" && blk.headers && blk.rows) {
+                            return (
+                              <figure key={idx} id={blk.id} className="my-10 scroll-mt-24">
+                                <figcaption className="mb-3 text-sm text-stone-600">
+                                  <span className="font-semibold text-stone-900">{blk.label} </span>
+                                  {blk.caption}
+                                </figcaption>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full border-collapse text-sm">
+                                    <thead>
+                                      <tr className="border-y border-stone-900">
+                                        {blk.headers.map((h, hIdx) => (
+                                          <th
+                                            key={hIdx}
+                                            className={`py-2 px-3 font-semibold ${
+                                              hIdx > 0 ? "text-right" : "text-left"
+                                            }`}
+                                          >
+                                            {h}
+                                          </th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody className="border-b border-stone-900">
+                                      {blk.rows.map((row, rIdx) => (
+                                        <tr key={rIdx}>
+                                          {row.map((cell, cIdx) => (
+                                            <td
+                                              key={cIdx}
+                                              className={`py-1.5 px-3 ${
+                                                cIdx > 0 ? "text-right tabular-nums" : "text-left"
+                                              }`}
+                                            >
+                                              {cell}
+                                            </td>
+                                          ))}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                                {blk.note && (
+                                  <p className="mt-2 text-xs text-stone-500">{blk.note}</p>
+                                )}
+                              </figure>
+                            );
+                          }
+
+                          if (blk.type === "theorem") {
+                            const style = getTheoremStyle(blk.kind);
+                            return (
+                              <section
+                                key={idx}
+                                id={blk.tag ? `tag-${blk.tag}` : undefined}
+                                className={`thm scroll-mt-24 ${style.rule ? "thm-rule" : ""}`}
+                              >
+                                <div
+                                  className={style.italicBody ? "thm-italic" : undefined}
+                                  dangerouslySetInnerHTML={{ __html: renderTheoremHtml(blk) }}
+                                />
+
+                                {blk.diagrams && blk.diagrams.length > 0 && (
+                                  <div className="mt-4 space-y-4">
+                                    {blk.diagrams.map((d, dIdx) => (
+                                      <figure key={dIdx} className="flex flex-col items-center">
+                                        <img
+                                          src={d.src}
+                                          alt={d.caption}
+                                          className="max-h-60 w-auto object-contain"
+                                        />
+                                        <figcaption className="thm-tag !float-none mt-1">
+                                          {d.caption}
+                                        </figcaption>
+                                      </figure>
+                                    ))}
+                                  </div>
+                                )}
+                              </section>
+                            );
+                          }
+
+                          if (blk.type === "html") {
+                            return (
+                              <div
+                                key={idx}
+                                className="html-block"
+                                dangerouslySetInnerHTML={{
+                                  __html: renderHtmlWithMath(blk.html ?? ""),
+                                }}
+                              />
+                            );
+                          }
+
+                          if (blk.type === "math-paragraph") {
+                            return (
+                              <div
+                                key={idx}
+                                dangerouslySetInnerHTML={{
+                                  __html: renderMathProseToHtml(blk.content ?? ""),
+                                }}
+                              />
+                            );
+                          }
+
+                          return (
+                            <p
+                              key={idx}
+                              className={
+                                isMath
+                                  ? undefined
+                                  : "text-[17px] leading-[1.9] text-stone-800 indent-8"
+                              }
+                              dangerouslySetInnerHTML={{ __html: blk.html ?? blk.text ?? "" }}
+                            />
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </article>

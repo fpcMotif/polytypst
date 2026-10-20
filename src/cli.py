@@ -150,7 +150,7 @@ def main() -> None:
     if args.export_web:
         from .web_exporter import export_all_web_data
 
-        root_dir = Path(__file__).resolve().parents[2]
+        root_dir = Path(__file__).resolve().parents[1]
         web_pub = Path(__file__).resolve().parents[1] / "web" / "public"
         export_all_web_data(root_dir, web_pub)
         print(f"Exported web catalog and assets to {web_pub}")

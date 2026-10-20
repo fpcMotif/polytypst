@@ -498,6 +498,11 @@ ENV_ARRAY_RE = re.compile(r"\\begin\{array\}\{[^{}]*\}(.*?)\\end\{array\}", re.D
 ENV_ALIGNED_RE = re.compile(
     r"\\(?:begin|end)\{(?:aligned|align|split|gather| multline)\*?\}"
 )
+MAT_CELL_LABEL_RE = re.compile(r"(^|[;,]\s*)(\\?[a-zA-Z_][a-zA-Z0-9_]*)\s*:")
+
+
+def _guard_mat_cell_labels(body: str) -> str:
+    return MAT_CELL_LABEL_RE.sub(r"\1(\2):", body)
 
 
 def convert_environments(code: str) -> str:
@@ -527,7 +532,8 @@ def convert_environments(code: str) -> str:
             cells = [c.strip() for c in r_clean.split("&")]
             safe_cells = [re.sub(r",\s*", ' "," ', c) for c in cells]
             out_rows.append(", ".join(safe_cells))
-        return f"mat(delim: {delim}, " + "; ".join(out_rows) + ")"
+        cells = _guard_mat_cell_labels("; ".join(out_rows))
+        return f"mat(delim: {delim}, {cells})"
 
     code = ENV_MATRIX_RE.sub(repl_matrix, code)
 
@@ -553,7 +559,7 @@ def convert_environments(code: str) -> str:
             cells = [c.strip() for c in rows[0].split("&")]
             return " quad ".join(cells)
         out_rows = [", ".join(c.strip() for c in r.split("&")) for r in rows]
-        return "mat(" + "; ".join(out_rows) + ")"
+        return "mat(" + _guard_mat_cell_labels("; ".join(out_rows)) + ")"
 
     code = ENV_ARRAY_RE.sub(repl_array, code)
     code = ENV_ALIGNED_RE.sub("", code)
@@ -646,7 +652,7 @@ def _abs_call(m: re.Match[str]) -> str:
 def sanitize_math_code(code: str, is_display: bool = False) -> str:
     code = re.sub(r"\\tag\{[^{}]*\}", "", code)
     code = re.sub(r"\\[\u4e00-\u9fff]", "", code)
-    code = re.sub(r"\(\s*\\\s*", "(", code)
+    code = re.sub(r"\(\s*\\(?=[\s\)\]])\s*", "(", code)
     code = re.sub(r"\s*\\\s*\)", ")", code)
     code = convert_environments(code)
     if is_display:
@@ -927,9 +933,7 @@ TOP_LEVEL_ENV_RE = re.compile(
 )
 OPERATOR_STRING_RE = re.compile(r'(?<![\w(])"([A-Za-z]{2,})"')
 UPRIGHT_LETTERS_RE = re.compile(r"upright\(((?:[A-Za-z] )+[A-Za-z])\)")
-ESCAPED_BAR_PAIR_RE = re.compile(
-    r"\\\|(?![_^])\s*((?:(?!\\\|)[^\n]){1,60}?)\s*\\\|(?![_^])"
-)
+ESCAPED_BAR_RE = re.compile(r"\\\|")
 ESCAPED_DELIM_RE = re.compile(r"\\([()\[\]])")
 LATEX_MACRO_REWRITES: tuple[tuple[Pattern[str], str], ...] = (
     (re.compile(r"\\tag\*?\{[^{}]*\}"), ""),
@@ -1030,6 +1034,47 @@ def prepare_latex_math(code: str, is_display: bool) -> str:
     return rf"\begin{{{env}}}" + r" \\ ".join(rows) + rf"\end{{{env}}}"
 
 
+def _is_balanced(text: str) -> bool:
+    depth = {"{": 0, "(": 0}
+    closer = {"}": "{", ")": "("}
+    for ch in text:
+        if ch in depth:
+            depth[ch] += 1
+        elif ch in closer:
+            depth[closer[ch]] -= 1
+            if depth[closer[ch]] < 0:
+                return False
+    return all(d == 0 for d in depth.values())
+
+
+def _pair_escaped_bars(body: str) -> str:
+    bars = [m.start() for m in ESCAPED_BAR_RE.finditer(body)]
+    out: list[str] = []
+    cursor = 0
+    k = 0
+    while k + 1 < len(bars):
+        a, b = bars[k], bars[k + 1]
+        inner = body[a + 2 : b]
+        closes_ok = body[b + 2 : b + 3] not in ("_", "^")
+        opens_ok = body[a + 2 : a + 3] not in ("_", "^")
+        if (
+            opens_ok
+            and closes_ok
+            and inner.strip()
+            and len(inner) <= 62
+            and "\n" not in inner
+            and _is_balanced(inner)
+        ):
+            out.append(body[cursor:a])
+            out.append(f"abs({inner.strip()})")
+            cursor = b + 2
+            k += 2
+        else:
+            k += 1
+    out.append(body[cursor:])
+    return "".join(out)
+
+
 def polish_pandoc_math(body: str) -> str:
     """Prefer Typst operator and symbol spellings over Pandoc's literal choices."""
     body = re.sub(r"#hide\[\s*=", r"#hide[\\=", body)
@@ -1043,14 +1088,13 @@ def polish_pandoc_math(body: str) -> str:
     body = re.sub(r"(?<!\\);(?=\s*\))", r"\\;", body)
     unsubscripted_bars = len(re.findall(r"\\\|(?![_^])", body))
     if unsubscripted_bars % 2 == 0 and unsubscripted_bars > 0:
-        body = ESCAPED_BAR_PAIR_RE.sub(
-            lambda m: f"abs({m.group(1).strip() or 'med'})", body
-        )
+        body = _pair_escaped_bars(body)
+    body = re.sub(r"\bsqrt\(\s*\)", "sqrt(med)", body)
     body = re.sub(r"\bangle\.([lr])\b", r"chevron.\1", body)
-    body = re.sub(r"\bsect\b", "inter", body)
-    body = re.sub(r"\bdiff\b", "partial", body)
-    body = re.sub(r"\bxor\.big\b", "plus.o.big", body)
-    body = re.sub(r"\bxor\b", "plus.o", body)
+    body = re.sub(r"\bsect(?![A-Za-z0-9])", "inter", body)
+    body = re.sub(r"\bdiff(?![A-Za-z0-9])", "partial", body)
+    body = re.sub(r"\bxor\.big(?![A-Za-z0-9])", "plus.o.big", body)
+    body = re.sub(r"\bxor(?![A-Za-z0-9.])", "plus.o", body)
     body = re.sub(r"\b(plus|minus|times|dot|div)\.circle\b", r"\1.o", body)
     body = re.sub(
         r"\b(arrow\.(?:r|l|l\.r)(?:\.double)?)(?:\.long)?([\^_])",

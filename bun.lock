@@ -8,7 +8,7 @@
         "@effect/ai-typesafe": "4.0.5",
         "@effect/platform-node": "4.0.5",
         "effect": "4.0.5",
-        "traits": "0.5.8",
+        "traits": "0.5.9",
       },
     },
   },
@@ -37,7 +37,7 @@
 
     "redis": ["redis@6.3.0", "", { "dependencies": { "@redis/bloom": "6.3.0", "@redis/client": "6.3.0", "@redis/json": "6.3.0", "@redis/search": "6.3.0", "@redis/time-series": "6.3.0" } }, "sha512-XFQbPie1lGpKeUZ8ySYY43yLnQy/iIQtHNvIr/1XdaABpb96rUSdm3Mfl+98FEVbv9ZJIzINMno5s0Nh8E5LEw=="],
 
-    "traits": ["traits@0.5.8", "", { "dependencies": { "yaml": "^2.9.1" }, "peerDependencies": { "@effect/platform-node": "^4.0.0", "effect": "^4.0.0" }, "bin": { "traits": "./dist/bin.js" } }, "sha512-v4szYnW7D2I498iVyMM1/SOc17TD4Hmc7RaevhUr0x94fkBfhQtKQbt03HaLeigwJv3e0likPGjMalY2WOjmuA=="],
+    "traits": ["traits@0.5.9", "", { "dependencies": { "yaml": "^2.9.1" }, "peerDependencies": { "@effect/platform-node": "^4.0.0", "effect": "^4.0.0" }, "bin": { "traits": "./dist/bin.js" } }, "sha512-qXK4Kd6LAWcIFjf4PlsyUP4c2cIHm3KamJKGo6PxImCf/1Gal591XEt5UAapEFrcmbAArXIMQz2tNo2F8Ny/Jw=="],
 
     "undici": ["undici@8.12.2", "", {}, "sha512-XtuDWVdqTLr3NAxm2ly9/hU6kUsJOgGh1RASzMBbsw6aWCOaQzHdW+QQDfdERjfJ2V5vL5pRPa4RetO9UfivDg=="],
 

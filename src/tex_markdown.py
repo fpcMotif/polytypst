@@ -227,6 +227,20 @@ def repair_ocr_math(body: str, is_display: bool = False) -> str:
     )
     s = re.sub(r"\\frac\{([^{}]+)\}\{\+([^{}]+)\}", r"(\1 + \2)", s)
     s = _normalize_differentials(s)
+    s = re.sub(
+        r"([_~^])(\\(?:mathbb|mathfrak|mathcal|mathscr|mathbf|mathsf|mathit|mathrm|boldsymbol|text|operatorname)\{[^}]+\})",
+        r"\1{\2}",
+        s,
+    )
+    s = re.sub(
+        r"(\\(?:sum|prod|coprod|bigcup|bigcap|bigoplus|bigotimes)"
+        r"(?:\s*[_^](?:\{(?:[^{}]|\{[^{}]*\})*\}|\\[a-zA-Z]+|\w))+)'",
+        r"{\1}'",
+        s,
+    )
+    s = s.replace("□", r"\square")
+    s = s.replace("⧵", r"\setminus")
+    s = s.replace("⫋", r"\subsetneq")
 
     if is_display:
         tag_str = ""

@@ -36,6 +36,20 @@ def test_text_tier_catches_leaked_markup(tmp_path: Path) -> None:
     assert not report.is_clean
 
 
+def test_heading_rule_flags_headings_but_not_cardinality(tmp_path: Path) -> None:
+    def headings(line: str) -> list[str]:
+        pdf = _pdf(tmp_path, [[BODY, line]])
+        report = DocumentQualityChecker(pdf).run_all_checks(frozenset({TEXT_TIER}))
+        return [
+            i.rule_name for i in report.issues if i.rule_name == "RAW_MARKDOWN_HEADING"
+        ]
+
+    assert headings("## 1.2 Schemes") == ["RAW_MARKDOWN_HEADING"]
+    assert headings("# Introduction") == ["RAW_MARKDOWN_HEADING"]
+    assert headings("# A K n = 3") == []
+    assert headings("\\# A_{K_n} is finite") == []
+
+
 def test_monograph_heading_drives_chapter_regression(tmp_path: Path) -> None:
     filler = [[BODY, BODY, BODY]] * 4
     pdf = _pdf(

@@ -67,6 +67,10 @@ class AhlforsCompiler:
 
 #show math.equation: set text(font: "New Computer Modern Math")
 #set math.equation(numbering: "(1)")
+#let thm-break = block(above: 1.65em, below: 0pt, sticky: true)[]
+#let sub-break = block(above: 1.35em, below: 0pt, sticky: true)[]
+#let item-break = block(above: 1.0em, below: 0pt)[]
+#let qed = { h(0.6em); box(width: 1fr, align(right)[$square.stroked$]) }
 #let dd = math.dif
 #let dv(f, x, deg: none) = if deg == none { $(dif f)/(dif x)$ } else { $(dif^deg f)/(dif x^deg)$ }
 #let pdv(f, x, deg: none) = if deg == none { $(partial f)/(partial x)$ } else { $(partial^deg f)/(partial x^deg)$ }
