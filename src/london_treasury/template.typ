@@ -15,10 +15,16 @@
 #let accent = rgb("#8c2f39")
 #let wash = rgb("#f6f3ee")
 
+#let page-w = 468pt
+#let page-h = 702pt
+#let page-margin = (inside: 50pt, outside: 42pt, top: 50pt, bottom: 44pt)
+#let body-w = page-w - page-margin.inside - page-margin.outside
+#let body-h = page-h - page-margin.top - page-margin.bottom
+
 #set page(
-  width: 468pt,
-  height: 702pt,
-  margin: (inside: 50pt, outside: 42pt, top: 50pt, bottom: 44pt),
+  width: page-w,
+  height: page-h,
+  margin: page-margin,
   header: context {
     let p = here().page()
     let opens = query(heading.where(level: 1)).any(h => h.location().page() == p)
@@ -77,14 +83,29 @@
   text(12.6pt, weight: "bold", it.body)
 })
 
-#show heading.where(level: 3): it => block(above: 11pt, below: 4.5pt, sticky: true, {
-  text(8.2pt, weight: "bold", fill: accent, tracking: 0.06em, it.body)
-})
+#let en-start-or-heading = heading.where(level: 3).or(<en-start>)
+
+#show heading.where(level: 3): it => context {
+  let next = query(en-start-or-heading.after(here(), inclusive: false))
+  if next != () and next.first().func() == metadata and next.first().value.long {
+    pagebreak(weak: true)
+  }
+  block(above: 11pt, below: 4.5pt, sticky: true, {
+    text(8.2pt, weight: "bold", fill: accent, tracking: 0.06em, it.body)
+  })
+}
 
 #let entry-num(n) = box(text(font: sans, weight: "bold", fill: accent, n)) + h(0.45em)
 #let entry-sub(s) = text(weight: "regular", fill: muted, s)
 
 #let meta-label(s) = text(6.9pt, font: sans, weight: "bold", fill: muted, tracking: 0.05em, s)
+
+#let reddit-orange = rgb("#ff4500")
+#let reddit-logo(fill, size) = image(
+  bytes("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path fill=\"" + fill.to-hex() + "\" d=\"" + reddit-path + "\"/></svg>"),
+  format: "svg",
+  height: size,
+)
 
 // One article's provenance. The English title links to the original page.
 #let meta-card(en-title, url, author, date-line, priority, bg-line, access-line) = block(
@@ -99,7 +120,7 @@
   #grid(
     columns: (1fr, auto),
     column-gutter: 8pt,
-    link(url, text(10.4pt, style: "italic", font: symbols, fill: ink)[#en-title #text(7.5pt, fill: accent, style: "normal", sym.arrow.tr)]),
+    link(url, text(10.4pt, style: "italic", font: symbols, fill: ink)[#if url.contains("reddit.com") [#box(baseline: 1.8pt, reddit-logo(reddit-orange, 10pt)) ]#en-title #text(7.5pt, fill: accent, style: "normal", sym.arrow.tr)]),
     if priority != none {
       box(inset: (x: 4pt, y: 2.5pt), radius: 1.5pt, fill: accent, text(6.8pt, font: sans, weight: "bold", fill: white, priority))
     },
@@ -123,24 +144,34 @@
 })
 #let en-caps(s) = block(above: 9pt, below: 4pt, sticky: true, text(7.4pt, font: sans, weight: "bold", tracking: 0.08em, fill: accent, s))
 #let en-label(s) = block(above: 6pt, below: 2pt, sticky: true, s)
-#let en-quote(s) = block(inset: (left: 8pt), stroke: (left: 1.2pt + rule-c), above: 6pt, below: 6pt, text(style: "italic", s))
-
-#let reddit-palette = (
-  rgb("#ff4500"), rgb("#0079d3"), rgb("#46a758"), rgb("#d9a400"),
-  rgb("#7193ff"), rgb("#e0569e"), rgb("#00a6a5"), rgb("#9a6bd6"),
-)
+#let en-toc(entry, page) = block(above: 1.5pt, below: 1.5pt, {
+  set par(justify: false)
+  entry
+  box(width: 1fr, inset: (x: 3pt), repeat(gap: 2.2pt, text(fill: rule-c, ".")))
+  text(number-type: "lining", page)
+})
+#let en-quote(s) =block(inset: (left: 8pt), stroke: (left: 1.2pt + rule-c), above: 6pt, below: 6pt, text(style: "italic", s))
 
 // A Reddit comment card: avatar disc, handle, then the body under a thread line.
-#let reddit-comment(name, body) = {
+#let reddit-comment(name, body, prefix: "u/", tag: none, icon: none) = {
   let deleted = name.starts-with("[")
   let hash = name.clusters().fold(7, (a, c) => calc.rem(a * 31 + str.to-unicode(c), 9973))
   let col = if deleted { luma(170) } else { reddit-palette.at(calc.rem(hash, reddit-palette.len())) }
-  let initial = if deleted { "?" } else { upper(name.clusters().at(0)) }
   block(above: 9pt, below: 2pt, sticky: true, {
-    box(baseline: 2.4pt, circle(radius: 6pt, fill: col, stroke: none,
-      align(center + horizon, text(6.6pt, font: sans, weight: "bold", fill: white, initial))))
+    if icon == none {
+      box(baseline: 2.4pt, reddit-logo(col, 12pt))
+    } else {
+      box(baseline: 2.4pt, width: 12pt, height: 12pt, {
+        circle(radius: 6pt, fill: col.lighten(78%), stroke: 0.4pt + col.lighten(40%))
+        place(center + horizon, image(bytes(icon), format: "svg", width: 9pt, height: 9pt))
+      })
+    }
     h(4pt)
-    text(7.6pt, font: sans, weight: "bold", fill: ink, if deleted { name } else { "u/" + name })
+    text(7.6pt, font: sans, weight: "bold", fill: ink, if deleted { name } else { prefix + name })
+    if tag not in (none, "") {
+      h(5pt)
+      text(6.8pt, font: sans, fill: muted, tag)
+    }
   })
   block(above: 2pt, below: 6pt, inset: (left: 5.6pt), breakable: true,
     block(stroke: (left: 0.7pt + rule-c), inset: (left: 9.4pt, top: 0pt, bottom: 1pt), breakable: true, {
@@ -150,19 +181,94 @@
 }
 
 // The English original, set two-up. Its heading is the title, linked to the source.
-#let source-text(title, url, body) = block(
-  width: 100%,
-  above: 10pt,
-  below: 14pt,
-)[
-  #line(length: 100%, stroke: 0.6pt + ink)
-  #block(above: 7pt, below: 7pt, sticky: true, link(url, text(10.2pt, weight: "bold", font: symbols, fill: ink, lang: "en")[#title #text(8pt, fill: accent, weight: "regular", sym.arrow.tr)]))
-  #set text(font: en-serif, size: 8.3pt, lang: "en", hyphenate: true)
-  #set par(first-line-indent: 0pt, leading: 0.52em, spacing: 0.6em, justify: true)
-  #set list(spacing: 0.35em)
-  #set enum(spacing: 0.35em)
-  #columns(2, gutter: 14pt, body)
-]
+#let en-gutter = 14pt
+#let en-col-w = (body-w - en-gutter) / 2
+#let source-text-count = counter("source-text")
+
+#let en-style(body) = {
+  set text(font: en-serif, size: 8.3pt, lang: "en", hyphenate: true)
+  show link: it => underline(stroke: 0.35pt + rule-c, offset: 1.8pt, text(fill: ink, it.body))
+  set par(first-line-indent: 0pt, leading: 0.52em, spacing: 0.6em, justify: true)
+  set list(spacing: 0.35em)
+  set enum(spacing: 0.35em)
+  body
+}
+
+#let en-col-height(body) = measure(block(width: en-col-w, en-style(body))).height
+
+#let en-starts-paragraph(children, i) = {
+  let f = children.at(i).func()
+  f not in (parbreak, [ ].func(), list.item, enum.item, terms.item) and (
+    i == 0 or children.at(i - 1).func() == parbreak or f in (block, [].func())
+  )
+}
+
+#let en-marked-body(id, children, cut) = {
+  [#metadata((id: id, at: "top")) <en-mark>]
+  for (i, child) in children.enumerate() {
+    if en-starts-paragraph(children, i) { [#metadata((id: id, at: i)) <en-mark>] }
+    if cut != none and i == cut.at {
+      if cut.reserve > 0pt {
+        place(bottom, float: true, scope: "column", clearance: 0pt, block(height: cut.reserve))
+      } else {
+        colbreak()
+      }
+    }
+    child
+  }
+  [#metadata((id: id, at: "end")) <en-mark>]
+}
+
+#let en-last-page-cut(id, children, pitch) = {
+  let marks = query(<en-mark>).filter(m => m.value.id == id)
+  let end = marks.find(m => m.value.at == "end")
+  if end == none { return none }
+  let last-page = end.location().page()
+  let top = marks.first().location()
+  let col-top = if top.page() == last-page { top.position().y } else { page-margin.top }
+  let first = marks.find(m => type(m.value.at) == int and m.location().page() == last-page)
+  if first == none { return none }
+  let pos = first.location().position()
+  if pos.x > page-w / 2 { return none }
+  let spill = pos.y - col-top
+  let target = (spill + en-col-height(children.slice(first.value.at).join()) + pitch) / 2
+  let reserve = page-h - page-margin.bottom - col-top - target
+  if target < spill + pitch { (at: first.value.at, reserve: 0pt) }
+  else if reserve > 0pt { (at: first.value.at, reserve: reserve) }
+}
+
+// The English original, set two-up. Its heading is the title, linked to the source.
+#let source-text(title, url, body) = {
+  source-text-count.step()
+  context {
+    let id = source-text-count.get().first()
+    let children = if body.has("children") { body.children } else { (body,) }
+    let head = {
+      line(length: 100%, stroke: 0.6pt + ink)
+      block(above: 7pt, below: 7pt, sticky: true, link(url, text(10.2pt, weight: "bold", font: symbols, fill: ink, lang: "en")[#if url.contains("reddit.com") [#box(baseline: 1.8pt, reddit-logo(reddit-orange, 10pt)) ]#title #text(8pt, fill: accent, weight: "regular", sym.arrow.tr)]))
+    }
+    let pitch = en-col-height[x \ x] - en-col-height[x]
+    let short-h = (en-col-height(body) + pitch) / 2
+    let slack = 2 * pitch
+    let long = measure(block(width: body-w, head)).height + 7pt + short-h + slack > body-h
+    if long {
+      let prev = query(en-start-or-heading.before(here(), inclusive: false))
+      if prev == () or prev.last().func() != heading { pagebreak(weak: true) }
+    }
+    [#metadata((long: long)) <en-start>]
+    block(width: 100%, above: 10pt, below: 14pt, breakable: long, {
+      head
+      en-style(if long {
+        columns(2, gutter: en-gutter, en-marked-body(id, children, en-last-page-cut(id, children, pitch)))
+      } else {
+        block(height: short-h + slack, columns(2, gutter: en-gutter, {
+          place(bottom, float: true, scope: "column", clearance: 0pt, block(height: slack))
+          body
+        }))
+      })
+    })
+  }
+}
 
 #show outline.entry: set text(9pt)
 #show outline.entry.where(level: 1): it => {

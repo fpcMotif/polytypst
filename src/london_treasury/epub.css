@@ -1,0 +1,129 @@
+@font-face { font-family: "Source Serif 4"; font-weight: normal; font-style: normal; src: url("../fonts/SourceSerif4-Regular.otf"); }
+@font-face { font-family: "Source Serif 4"; font-weight: normal; font-style: italic; src: url("../fonts/SourceSerif4-It.otf"); }
+@font-face { font-family: "Source Serif 4"; font-weight: bold; font-style: normal; src: url("../fonts/SourceSerif4-Bold.otf"); }
+@font-face { font-family: "Source Serif 4"; font-weight: bold; font-style: italic; src: url("../fonts/SourceSerif4-BoldIt.otf"); }
+@font-face { font-family: "Source Sans 3"; font-weight: normal; font-style: normal; src: url("../fonts/SourceSans3-Regular.otf"); }
+@font-face { font-family: "Source Sans 3"; font-weight: bold; font-style: normal; src: url("../fonts/SourceSans3-Bold.otf"); }
+
+body {
+  font-family: "Source Serif 4", "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+  line-height: 1.75;
+  text-align: justify;
+  widows: 2;
+  orphans: 2;
+}
+
+p { margin: 0 0 0.5em; text-indent: 2em; }
+div p, li p, blockquote p, nav p { text-indent: 0; }
+
+h1, h2, h3, h4 {
+  font-family: "Source Sans 3", "Source Han Sans SC", "PingFang SC", sans-serif;
+  text-align: left;
+  line-height: 1.35;
+  page-break-after: avoid;
+  break-after: avoid;
+  -webkit-hyphens: none;
+  hyphens: none;
+}
+h1 { font-size: 1.6em; margin: 1.4em 0 1em; }
+h1::after { content: ""; display: block; width: 2.2em; margin-top: 0.35em; border-bottom: 2px solid #8c2f39; }
+h2 { font-size: 1.3em; margin: 1.8em 0 0.6em; }
+h3 { font-size: 0.85em; color: #8c2f39; letter-spacing: 0.06em; margin: 1.4em 0 0.4em; }
+
+a { color: #8c2f39; text-decoration: none; }
+
+.kicker { font-family: "Source Sans 3", sans-serif; font-size: 0.8em; font-weight: bold; letter-spacing: 0.18em; color: #8c2f39; }
+.entry-num { font-family: "Source Sans 3", sans-serif; font-weight: bold; color: #8c2f39; margin-right: 0.25em; }
+.entry-sub { font-weight: normal; color: #6e6e6e; }
+
+.meta-card {
+  background: rgba(140, 110, 70, 0.09);
+  border-radius: 3px;
+  padding: 0.8em 1em;
+  margin: 0.2em 0 1.4em;
+  text-align: left;
+}
+.meta-card p { font-size: 0.82em; line-height: 1.5; margin: 0.3em 0; }
+.meta-card p:first-child { font-size: 1.05em; margin-bottom: 0.7em; }
+.meta-title { font-style: italic; }
+.meta-title a { color: inherit; }
+.meta-label {
+  font-family: "Source Sans 3", sans-serif;
+  font-size: 0.85em;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  color: #6e6e6e;
+  margin-right: 0.9em;
+}
+.priority {
+  font-family: "Source Sans 3", sans-serif;
+  font-style: normal;
+  font-size: 0.68em;
+  font-weight: bold;
+  color: #ffffff;
+  background: #8c2f39;
+  border-radius: 2px;
+  padding: 0.15em 0.5em;
+  margin-left: 0.5em;
+  white-space: nowrap;
+}
+img.logo { height: 1em; width: auto; vertical-align: -0.15em; margin-right: 0.3em; }
+
+.source-text {
+  font-size: 0.9em;
+  line-height: 1.6;
+  border-top: 1px solid currentColor;
+  padding-top: 0.6em;
+  margin: 0.6em 0 2em;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+}
+.source-text p { margin: 0 0 0.6em; }
+.source-title p { font-size: 1.15em; font-weight: bold; text-align: left; margin-bottom: 0.9em; }
+.source-title a { color: inherit; }
+.source-text a { color: inherit; text-decoration: underline; text-decoration-color: #c8c8c8; }
+.source-title a { text-decoration: none; }
+.source-text h4 { font-family: "Source Serif 4", serif; font-size: 1em; margin: 1.1em 0 0.3em; }
+.en-caps { font-family: "Source Sans 3", sans-serif; font-size: 0.8em; font-weight: bold; letter-spacing: 0.08em; color: #8c2f39; }
+.toc-page { float: right; font-variant-numeric: lining-nums; }
+sup { font-size: 0.7em; line-height: 0; }
+
+blockquote { margin: 0.6em 0; padding-left: 0.8em; border-left: 2px solid #c8c8c8; font-style: italic; }
+ul, ol { margin: 0.3em 0 0.7em; padding-left: 1.4em; }
+li { margin: 0.15em 0; }
+li p { margin: 0; }
+li::marker { color: #8c2f39; }
+
+.comment { margin: 1em 0 0.4em; }
+.comment-head p {
+  font-family: "Source Sans 3", sans-serif;
+  font-size: 0.85em;
+  text-align: left;
+  margin: 0 0 0.25em;
+}
+.comment > :not(.comment-head) {
+  margin: 0 0 0 0.62em;
+  padding: 0 0 0.5em 1em;
+  border-left: 1px solid #c8c8c8;
+}
+img.avatar { height: 1.35em; width: 1.35em; vertical-align: -0.4em; margin-right: 0.35em; }
+img.wso {
+  box-sizing: border-box;
+  padding: 0.16em;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 50%;
+}
+.tint-0 { background: #ffd6c7; border-color: #ff8f66; }
+.tint-1 { background: #c7e2f5; border-color: #66afe5; }
+.tint-2 { background: #d6ecda; border-color: #90ca9b; }
+.tint-3 { background: #f7ebc7; border-color: #e8c866; }
+.tint-4 { background: #e0e7ff; border-color: #aabeff; }
+.tint-5 { background: #f8daea; border-color: #ec9ac5; }
+.tint-6 { background: #c7ebeb; border-color: #66cac9; }
+.tint-7 { background: #e9def6; border-color: #c2a6e6; }
+.handle { font-weight: bold; }
+.role { color: #6e6e6e; font-size: 0.92em; margin-left: 0.45em; }
+
+.record p { border-bottom: 1px solid #c8c8c8; padding: 0.45em 0; margin: 0; }
+.record-key { font-weight: bold; display: inline-block; min-width: 8.6em; }

@@ -13,10 +13,18 @@ import httpx
 import pymupdf
 from bs4 import BeautifulSoup
 
-from ..compiler.monograph import MonographOutputs, compile_typst
+from ..compiler.monograph import REPO_FONTS_DIR, MonographOutputs, compile_typst
 from .spec import LONDON_TREASURY_SPEC
 
 TEMPLATE_TYP = Path(__file__).with_name("template.typ")
+TRIMS_JSON = Path(__file__).with_name("trims.json")
+EPUB_CSS = Path(__file__).with_name("epub.css")
+ICONS_DIR = Path(__file__).with_name("icons")
+EPUB_FONTS = ("SourceSerif4-Regular", "SourceSerif4-It", "SourceSerif4-Bold", "SourceSerif4-BoldIt", "SourceSans3-Regular", "SourceSans3-Bold")
+SIMPLE_ICONS_REDDIT_PATH = "M12 0C5.373 0 0 5.373 0 12c0 3.314 1.343 6.314 3.515 8.485l-2.286 2.286C.775 23.225 1.097 24 1.738 24H12c6.627 0 12-5.373 12-12S18.627 0 12 0Zm4.388 3.199c1.104 0 1.999.895 1.999 1.999 0 1.105-.895 2-1.999 2-.946 0-1.739-.657-1.947-1.539v.002c-1.147.162-2.032 1.15-2.032 2.341v.007c1.776.067 3.4.567 4.686 1.363.473-.363 1.064-.58 1.707-.58 1.547 0 2.802 1.254 2.802 2.802 0 1.117-.655 2.081-1.601 2.531-.088 3.256-3.637 5.876-7.997 5.876-4.361 0-7.905-2.617-7.998-5.87-.954-.447-1.614-1.415-1.614-2.538 0-1.548 1.255-2.802 2.803-2.802.645 0 1.239.218 1.712.585 1.275-.79 2.881-1.291 4.64-1.365v-.01c0-1.663 1.263-3.034 2.88-3.207.188-.911.993-1.595 1.959-1.595Zm-8.085 8.376c-.784 0-1.459.78-1.506 1.797-.047 1.016.64 1.429 1.426 1.429.786 0 1.371-.369 1.418-1.385.047-1.017-.553-1.841-1.338-1.841Zm7.406 0c-.786 0-1.385.824-1.338 1.841.047 1.017.634 1.385 1.418 1.385.785 0 1.473-.413 1.426-1.429-.046-1.017-.721-1.797-1.506-1.797Zm-3.703 4.013c-.974 0-1.907.048-2.77.135-.147.015-.241.168-.183.305.483 1.154 1.622 1.964 2.953 1.964 1.33 0 2.47-.81 2.953-1.964.057-.137-.037-.29-.184-.305-.863-.087-1.795-.135-2.769-.135Z"
+REDDIT_ORANGE = "#ff4500"
+REDDIT_DELETED = "#aaaaaa"
+REDDIT_PALETTE = ("#ff4500", "#0079d3", "#46a758", "#d9a400", "#7193ff", "#e0569e", "#00a6a5", "#9a6bd6")
 DEFAULT_SOURCE_PDF = Path("/Users/martinfan/Downloads/伦敦分行资金与交易业务阅读册.pdf")
 
 LATIN_OBFUSCATION_WORDS = frozenset(
@@ -207,11 +215,139 @@ def _parse_reddit_rss(xml_text: str) -> str:
     return "\n\n".join(out).strip()
 
 
+_RESOLVED_LINKS = {
+    "https://apple.news/AJTR4Hew8QSama-mtyy2Xpw": "https://www.politico.com/news/2026/03/19/trump-powell-fed-chair-doj-probe-warsh-00836447",
+}
+_LINK_TITLES = {
+    "https://www.wallstreetoasis.com/resources/skills/strategy/shareholder-value": "Shareholder Value",
+    "https://www.wallstreetoasis.com/forums/why-choose-sales-and-trading-over-investment-banking": "Why choose Sales and Trading over Investment Banking?",
+    "https://www.wallstreetoasis.com/faq/what-are-the-best-qa-threads-and-interviews-with-top-finance-professionals-on-wso": "What are the best Q&A threads and interviews with top finance professionals on WSO?",
+    "http://www.traders-library.com": "Traders’ Library",
+    "http://govttrader.blogspot.com": "Govt Trader",
+}
+_URL_TEXT = re.compile(r"(?:https?://|www\.)\S+")
+_BARE_URL = re.compile(r"(?<![(\[<\"/\w])https?://[^\s)\]>]*[^\s)\]>.,;:!?]")
+
+
+def _link_title(url: str) -> str | None:
+    return _LINK_TITLES.get(url.split("#")[0].rstrip("/"))
+
+
+def _title_bare_url(m: re.Match[str]) -> str:
+    title = _link_title(m.group(0))
+    return f"[{title}]({m.group(0)})" if title else m.group(0)
+
+
+def _unwrap_links(text: str, url: str, keep_web: bool = False) -> str:
+    def label(m: re.Match[str]) -> str:
+        before = text[m.start() - 1] if m.start() else ""
+        after = text[m.end()] if m.end() < len(text) else ""
+        lead = " " if before.isalnum() and m.group(1)[0].isalnum() else ""
+        trail = " " if after.isalnum() and m.group(1)[-1].isalnum() else ""
+        target = (m.group(2).split() or [""])[0]
+        if keep_web and target.startswith("http"):
+            target = _RESOLVED_LINKS.get(target, re.sub(r"[?&](?:cid|utm_\w+)=[^&]*$", "", target))
+            return f"{lead}[{m.group(1)}]({target}){trail}"
+        if _URL_TEXT.fullmatch(m.group(1)) and target.startswith("http"):
+            return lead + target + trail
+        return lead + m.group(1) + trail
+
+    return re.sub(rf"\[([^\]]+)\]\(({url})\)", label, text)
+
+
+def _join_drop_caps(lines: list[str]) -> list[str]:
+    text = "\n".join(lines)
+
+    def join(m: re.Match[str]) -> str:
+        rest = m.group(2)
+        fragment = len(rest) == 1 or len(re.findall(rf"\b{rest}\b", text)) == 1
+        return m.group(1) + rest if fragment else m.group(0)
+
+    return [re.sub(r"^([A-Z]) ([a-z]+)\b", join, l) for l in lines]
+
+
+_WSO_AUTHOR = re.compile(r"^\[([^\]]+)\]\(https://www\.wallstreetoasis\.com/user/\d+\)(.*)$", re.MULTILINE)
+_WSO_ROLE = re.compile(r'user-industry-and-status-key\s+"([^"]*)"')
+_WSO_BADGE = re.compile(r"ranking-badges/([a-z-]+)-small\.svg")
+_WSO_BOT_COMMENT = re.compile(r"^\*\*@\w+/WSO Monkey Bot\b.*?(?=^\*\*@|\Z)", re.MULTILINE | re.DOTALL)
+_WSO_PROMO = re.compile(
+    r"^(?:\[[^\]]*\]\(https://www\.wallstreetoasis\.com/resources/[^)]*\)\s*|\[See my WSO Blog\].*)$",
+    re.MULTILINE,
+)
+_WSO_ANON = re.compile(
+    r'^\[[A-Z&]{1,4}\]\(https://www\.wallstreetoasis\.com/page/user-industry-status "[^"]*"\)\s*\n\s*\n(.+?)\s*$',
+    re.MULTILINE,
+)
+_WSO_ANON_MONKEY = re.compile(r"^\s*Anonymous Monkey\b.*$", re.MULTILINE)
+_WSO_TAGS = re.compile(r"^(?:Keywords|Region)\n.*?^\d+ Comments$", re.MULTILINE | re.DOTALL)
+_WSO_ACADEMY = re.compile(r"^(?:#+ )?\d+ WSO Academy .*?^\d+ Comments$", re.MULTILINE | re.DOTALL)
+_WSO_PLAIN_TOP = re.compile(
+    r"^ Forums\n .+\n[A-Z][a-z]{2} \d{1,2}, \d{4}\n(.+)\n(.+)\n[A-Za-z&]{1,4}\nSubscribe\nShare\n", re.MULTILINE
+)
+_WSO_PLAIN_TAIL = re.compile(r"^Reply\nQuote\nReport\nOther\n.*?(?=^\xa0$|\Z)", re.MULTILINE | re.DOTALL)
+_WSO_PLAIN_HEAD = re.compile(r"^\xa0\n(.+)\n[A-Za-z&]{1,4}\n\d+[a-z]{1,2}\n(?:Best Response\n)?", re.MULTILINE)
+WSO_ICONS = ("monkey", "orangutan", "gorilla", "human", "anon")
+_WSO_RANK_ICON = {
+    "orangutan": "orangutan",
+    "neanderthal": "orangutan",
+    "senior-neanderthal": "orangutan",
+    "gorilla": "gorilla",
+    "senior-gorilla": "gorilla",
+    "king-kong": "gorilla",
+    "almost-human": "human",
+    "human": "human",
+    "the-pro": "human",
+    "the-addict": "human",
+}
+
+
+def _wso_icon_svg(name: str) -> str:
+    return " ".join((ICONS_DIR / f"wso-{name}.svg").read_text(encoding="utf-8").split())
+
+
+def _wso_author(m: re.Match[str]) -> str:
+    role = _WSO_ROLE.search(m.group(2))
+    badge = _WSO_BADGE.search(m.group(2))
+    icon = _WSO_RANK_ICON.get(badge.group(1), "monkey") if badge else "monkey"
+    parts = [p for p in role.group(1).split(" - ") if p not in ("Other", "N/A", "0")] if role else []
+    if any(p.startswith("No ") for p in parts):
+        parts = []
+    return f"**@{icon}/{m.group(1)} ({' · '.join(parts)}):**" if parts else f"**@{icon}/{m.group(1)}:**"
+
+
+def _wso_plain_comments(text: str) -> str:
+    parts = _WSO_PLAIN_HEAD.split(_WSO_PLAIN_TAIL.sub("", text))
+    split_paras = lambda s: [p.strip() for p in re.split(r"\n\s*\n", s) if p.strip()]
+    seen = set(split_paras(parts[0]))
+    out = [parts[0]]
+    for name, body in zip(parts[1::2], parts[2::2]):
+        paras = split_paras(body)
+        quote: list[str] = []
+        if paras and not body.startswith("\n"):
+            first = paras.pop(0)
+            k = next((k for k in range(1, len(first)) if first[k:].strip() in seen), 0)
+            if k:
+                quote.append(first[k:].strip())
+                while paras and paras[0] in seen:
+                    quote.append(paras.pop(0))
+            elif re.match(r"PM[A-Z]", first):
+                paras.insert(0, f"*PM:* {first[2:]}")
+            elif "][quote=" not in first:
+                paras.insert(0, first)
+        seen.update(paras)
+        out.append(f"\n**@monkey/{name}:**\n\n" + "".join(f"> {q}\n\n" for q in quote) + "\n\n".join(paras) + "\n")
+    return "".join(out)
+
+
 def clean_wso_thread(raw_text: str, en_title: str) -> str:
     h1_pat = "^" + chr(35) + r"\s+(?!WSO)(.+)$"
     m = re.search(h1_pat, raw_text, flags=re.MULTILINE)
     start = m.start() if m else 0
-    if not m and en_title:
+    top = _WSO_PLAIN_TOP.search(raw_text)
+    if top and not m:
+        raw_text = raw_text[: top.start()] + f"# {top[1]}\n\n**@monkey/{top[2]}:**\n\n" + raw_text[top.end() :]
+        start = top.start()
+    elif not m and en_title:
         pos = raw_text.lower().find(en_title[:24].lower())
         if pos != -1:
             start = pos
@@ -230,11 +366,15 @@ def clean_wso_thread(raw_text: str, en_title: str) -> str:
         if p != -1 and p < end:
             end = p
 
-    slice_txt = raw_text[start:end]
+    slice_txt = _WSO_ACADEMY.sub("", _WSO_TAGS.sub("", raw_text[start:end]))
+    slice_txt = _WSO_ANON.sub(r"**@anon/\1:**", _wso_plain_comments(slice_txt))
+    slice_txt = _WSO_ANON_MONKEY.sub("**@anon/Anonymous Monkey:**", slice_txt)
+    slice_txt = _WSO_PROMO.sub("", _WSO_AUTHOR.sub(_wso_author, slice_txt))
+    slice_txt = _WSO_BOT_COMMENT.sub("", slice_txt)
     slice_txt = re.sub(r"\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)", "", slice_txt)
     slice_txt = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", slice_txt)
     slice_txt = re.sub(r"\[\]\([^)]*\)", "", slice_txt)
-    slice_txt = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", slice_txt)
+    slice_txt = _unwrap_links(slice_txt, r"(?:[^()]|\([^()]*\))*")
 
     noise_lines = {
         "*   Copy Link",
@@ -297,6 +437,41 @@ def clean_rotberg_transcript(raw_text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", txt).strip()
 
 
+_BROCHURE_FOOTER = re.compile(r"[ \t]*(?:The BTRM Faculty\s+)?(?:\b\d{1,2}[ \t]*www\. ?|www\. )btrm\.org[ \t]*")
+_BROCHURE_CREDIT = re.compile(r"\s*Brochure design:.*$", re.MULTILINE)
+_BROCHURE_BIO = re.compile(r"([A-Z][^\s]*(?: [^\s]+){1,7}?)  (\S+ \S+.*)", re.DOTALL)
+
+
+def _brochure_bio_head(p: str) -> str:
+    m = _BROCHURE_BIO.match(p)
+    if m and set(m[2].split()[:2]) & set(m[1].split()):
+        return f"#### {m[1]}\n\n{m[2]}"
+    return p
+
+
+def _join_brochure_lines(lines: list[str]) -> list[str]:
+    text = _BROCHURE_CREDIT.sub("", _BROCHURE_FOOTER.sub("\n\n", "\n".join(lines)))
+    words = set(re.findall(r"[a-z]+", text))
+    text = re.sub(
+        r"\b([A-Za-z][a-z]*)-([a-z]+)\b",
+        lambda m: m[1] + m[2] if (m[1] + m[2]).lower() in words else m[0],
+        text,
+    )
+    out: list[str] = []
+    paras = (_brochure_bio_head(p.strip()) for p in re.split(r"\n\s*\n", text) if p.strip())
+    for p in (q for p in paras for q in p.split("\n\n")):
+        prev = out[-1] if out else ""
+        plain = prev and not prev.startswith(("#", "*", "-")) and not p.startswith(("#", "*", "-", "•"))
+        runs_on = plain and (
+            p[0].islower() or (len(prev.split()) >= 8 and not re.search(r"[.!?:;\"”’)\]]$", prev))
+        )
+        if runs_on:
+            out[-1] = prev + p if re.search(r"[a-z]-$", prev) else f"{prev} {p}"
+        else:
+            out.append(p)
+    return "\n\n".join(out).splitlines()
+
+
 def clean_single_link(uri: str, raw: str, en_title: str = "") -> str:
     h_prefix = chr(35) + " "
     domain = urlparse(uri).netloc.lower()
@@ -311,9 +486,7 @@ def clean_single_link(uri: str, raw: str, en_title: str = "") -> str:
     text = re.sub(r"\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)", "", text)
     text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)
     text = re.sub(r"\[\]\([^)]*\)", "", text)
-    text = re.sub(
-        r"\[([^\]]+)\]\((?:https?://|mailto:|tel:|javascript:|/|#)[^)]*\)", r"\1", text
-    )
+    text = _unwrap_links(text, r"(?:https?://|mailto:|tel:|javascript:|/|#)(?:[^()]|\([^()]*\))*", keep_web=True)
 
     lines = [l.rstrip() for l in text.splitlines()]
 
@@ -333,6 +506,8 @@ def clean_single_link(uri: str, raw: str, en_title: str = "") -> str:
                 end_idx = i
                 break
         lines = lines[start_idx:end_idx]
+        if uri.endswith(".pdf"):
+            lines = _join_brochure_lines(lines)
 
     elif "treasurytoday.com" in domain:
         start_idx = 0
@@ -369,7 +544,6 @@ def clean_single_link(uri: str, raw: str, en_title: str = "") -> str:
             if any(
                 k in lines[i]
                 for k in (
-                    "The Bank Treasury Newsletter is an independent",
                     "Download Chart Deck PDF",
                     "Previous Previous",
                 )
@@ -418,7 +592,7 @@ def clean_single_link(uri: str, raw: str, en_title: str = "") -> str:
             ):
                 end_idx = i
                 break
-        lines = lines[start_idx:end_idx]
+        lines = _join_drop_caps(lines[start_idx:end_idx])
 
     elif "lbma.org.uk" in domain:
         start_idx = 0
@@ -649,6 +823,84 @@ def clean_single_link(uri: str, raw: str, en_title: str = "") -> str:
     return out
 
 
+_TRIMS = json.loads(TRIMS_JSON.read_text(encoding="utf-8"))
+_NESTED_LINK = re.compile(r"\[((?:[^\[\]\n]|\[[^\[\]\n]*\])*)\]\(((?:[^()\s]|\([^()\s]*\))*)(?:\s+\"[^\"]*\")?\)")
+
+
+def _relink(m: re.Match[str]) -> str:
+    label, target = m.group(1), m.group(2)
+    if not label.strip("[]- "):
+        return ""
+    if target.startswith("http") and "[" not in label:
+        if _URL_TEXT.fullmatch(label):
+            label = _link_title(target) or label
+        return f"[{label}]({target})"
+    return label
+_CHECKBOX = re.compile(r"(?:^|[-*+])\s*\[[ xX]\]")
+_CHROME_LINE = re.compile(
+    r"[*\-+•>]+(?:\s+\S)?|(?:[*\-_]\s*){3,}|[*\-+]\s+\d+|#+|\d+:\d\d"
+    r"|Subscribe|Share|Tweet|Bump|Best Response|Add Comment|Read Full Bot Response|Show more|TOP OF PAGE"
+    r"|Authored by: Certified .*|Previous article.*|Next article.*|More about this author|\d+ Footnotes?"
+)
+_SOCIAL_LINE = re.compile(
+    r"(?i)join our .{0,40} on|@\w+|stay connected|video \d+"
+    r"|(?:[*\-+]\s+)?(?:linkedin|youtube|twitter|facebook|instagram|ig)"
+    r"|.{0,160}\bfollow us\b.{0,80}"
+)
+_CLICK_VIDEO = re.compile(r"\s*click\s+\[Video \d+\]\([^)]*\)\s*VIDEO")
+_LOREM = frozenset(
+    "lorem ipsum dolor dolore dolorum dolores et ut id eos qui quia quae quis quo est sit amet aut"
+    " perferendis aliquam expedita perspiciatis minus omnis quasi corporis explicabo rerum molestiae"
+    " saepe exercitationem nulla optio pariatur totam sapiente sint nihil magni ratione nemo neque"
+    " enim fugiat fugit velit vel iure illum alias ea eum eius esse animi atque culpa officia natus"
+    " nobis odio porro quam quas ipsa iste itaque minima modi nam numquam vero voluptate tempora".split()
+) | LATIN_OBFUSCATION_WORDS
+
+
+def _is_lorem(line: str) -> bool:
+    words = [w.lower().strip(".,?!:;\"'()") for w in line.split()]
+    return len(words) >= 5 and sum(w in _LOREM for w in words) >= 0.6 * len(words)
+
+
+def _find_line(lines: list[str], anchor: list, after: int, uri: str) -> int:
+    text, nth = anchor
+    hits = [i for i, l in enumerate(lines) if l.strip() == text]
+    if len(hits) <= nth or hits[nth] < after:
+        raise ValueError(f"trim anchor {anchor!r} not found in {uri}")
+    return hits[nth]
+
+
+def trim_article(uri: str, text: str) -> str:
+    trim = _TRIMS.get(uri)
+    if not trim:
+        return text
+    lines = text.splitlines()
+    start = _find_line(lines, trim["start"], 0, uri)
+    end = _find_line(lines, trim["end"], start, uri)
+    keep = [True] * len(lines)
+    for first, last in trim.get("drop", []):
+        a = _find_line(lines, first, start, uri)
+        b = _find_line(lines, last, a, uri)
+        keep[a : b + 1] = [False] * (b + 1 - a)
+    return "\n".join(l for i, l in enumerate(lines[: end + 1]) if i >= start and keep[i])
+
+
+def polish_article(text: str) -> str:
+    out: list[str] = []
+    for line in text.splitlines():
+        line = _BARE_URL.sub(_title_bare_url, _CLICK_VIDEO.sub("", _NESTED_LINK.sub(_relink, line)))
+        s = _plain_links(line).strip()
+        if (
+            (_CHECKBOX.search(s) and len(s.split()) <= 12)
+            or _CHROME_LINE.fullmatch(s)
+            or _SOCIAL_LINE.fullmatch(s.strip("*_ "))
+            or _is_lorem(s)
+        ):
+            continue
+        out.append(line.rstrip())
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+
+
 def fetch_or_load_link(
     idx: int, src_page: int, label: str, en_title: str, uri: str, cache_dir: Path
 ) -> ExtractedLink:
@@ -709,7 +961,7 @@ def fetch_or_load_link(
             encoding="utf-8",
         )
 
-    cleaned = clean_single_link(uri, raw_text, en_title)
+    cleaned = polish_article(trim_article(uri, clean_single_link(uri, raw_text, en_title)))
     return ExtractedLink(
         index=idx,
         src_page=src_page,
@@ -904,8 +1156,12 @@ def _escape_typst(text: str) -> str:
     return s
 
 
+def _escape_typst_str(text: str) -> str:
+    return text.replace("\\", "\\\\").replace('"', '\\"')
+
+
 _EN_INLINE = re.compile(
-    r"\[(?P<ltext>[^\]\n]+)\]\((?P<lurl>[^)\s]+)\)"
+    r"\[(?P<ltext>[^\]\n]+)\]\((?P<lurl>(?:[^()\s]|\([^()\s]*\))+)\)"
     r"|\*\*(?P<bold>[^*\n]+?)\*\*"
     r"|(?<![\w*])\*(?P<istar>[^*\s][^*\n]*?)\*(?![\w*])"
     r"|(?<![\w\\])_(?P<iund>[^_\n]+?)_(?![\w])"
@@ -916,7 +1172,10 @@ _EN_HEADING = re.compile(r"^#{1,6}\s+(.*)$")
 _EN_IMAGE = re.compile(r"^\**\s*!?\[?\s*image\b.*$", re.IGNORECASE)
 _EN_READ_TIME = re.compile(r"^\d+\s+min(ute)?s?\s+read$", re.IGNORECASE)
 _EN_SENTENCE_END = re.compile(r"[.!?:;\"”’)\]]$")
+_EN_DANGLING = re.compile(r"(?:,|\b(?:the|of|and|with|a|an|to|in|for|on|by|or|from|that))$")
+_EN_TOC_ROW = re.compile(r"(.{3,60}?)\s+(\d{1,3})")
 _EN_REDDIT_USER = re.compile(r"^\*{0,2}(?:/u/([\w-]+))?:\*{0,2}$")
+_EN_WSO_USER = re.compile(r"^\*\*@(\w+)/(.+?)(?: \((.+)\))?:\*\*$")
 _EN_REDACTED = "This post was mass deleted and anonymized with"
 
 
@@ -925,9 +1184,11 @@ def _en_inline(text: str) -> str:
     pos = 0
     for m in _EN_INLINE.finditer(text):
         out.append(_escape_typst(text[pos : m.start()]))
-        if m.group("ltext"):
+        if m.group("ltext") and re.fullmatch(r"\d{1,2}", m.group("ltext")):
+            out.append(f"#super[{m.group('ltext')}]")
+        elif m.group("ltext"):
             label = _en_inline(m.group("ltext"))
-            url = m.group("lurl")
+            url = _escape_typst_str(m.group("lurl"))
             out.append(f'#link("{url}")[{label}];' if url.startswith("http") else label)
         elif m.group("bold"):
             out.append(f"#strong[{_en_inline(m.group('bold'))}];")
@@ -938,8 +1199,12 @@ def _en_inline(text: str) -> str:
     return "".join(out)
 
 
+def _plain_links(text: str) -> str:
+    return re.sub(r"\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)", r"\1", text)
+
+
 def _plain(text: str) -> str:
-    return re.sub(r"[*_#>\[\]]", "", text).strip()
+    return re.sub(r"[*_#>\[\]]", "", _plain_links(text)).strip()
 
 
 def _norm_title(text: str) -> str:
@@ -956,6 +1221,8 @@ class _EnBlock:
     kind: str  # para | head | caps | user | label | bullet | numbered | quote
     text: str
     number: int = 0
+    role: str | None = None
+    icon: str = ""
 
 
 def _en_blocks(raw_en: str, title: str) -> list[_EnBlock]:
@@ -985,7 +1252,11 @@ def _en_blocks(raw_en: str, title: str) -> list[_EnBlock]:
                 blocks.append(_EnBlock("quote", body))
         elif m := _EN_BULLET.match(line):
             flush()
-            blocks.append(_EnBlock("bullet", m.group(1).strip()))
+            item = m.group(1).strip()
+            if h := _EN_HEADING.match(item):
+                blocks.append(_EnBlock("term", _plain(h.group(1))))
+            else:
+                blocks.append(_EnBlock("bullet", item))
         elif m := _EN_NUMBERED.match(line):
             flush()
             blocks.append(_EnBlock("numbered", m.group(2).strip(), int(m.group(1))))
@@ -994,6 +1265,9 @@ def _en_blocks(raw_en: str, title: str) -> list[_EnBlock]:
         elif m := _EN_REDDIT_USER.match(line):
             flush()
             blocks.append(_EnBlock("user", m.group(1) or "[deleted]"))
+        elif m := _EN_WSO_USER.match(line):
+            flush()
+            blocks.append(_EnBlock("user", m.group(2), role=m.group(3) or "", icon=m.group(1)))
         elif re.fullmatch(r"\*\*[^*]+\*\*:?", line) and len(line.split()) <= 12:
             flush()
             blocks.append(_EnBlock("label", line))
@@ -1005,7 +1279,26 @@ def _en_blocks(raw_en: str, title: str) -> list[_EnBlock]:
     merged: list[_EnBlock] = []
     for b in blocks:
         prev = merged[-1] if merged else None
-        if (
+        if prev and prev.kind == "term" and b.kind == "para":
+            prev.kind, prev.text = "bullet", f"**{prev.text}** {b.text}"
+        elif prev and prev.kind == "head" and b.kind == "para" and re.fullmatch(r"\d+(?:\.\d+)+", prev.text):
+            prev.kind, prev.text = "para", f"**{prev.text}** {b.text}"
+        elif (
+            prev
+            and prev.kind in ("bullet", "numbered")
+            and b.kind == "para"
+            and not _EN_SENTENCE_END.search(prev.text)
+            and re.match(r"[a-z]", b.text)
+        ):
+            prev.text = f"{prev.text} {b.text}"
+        elif (
+            prev
+            and prev.kind == b.kind == "head"
+            and not _EN_SENTENCE_END.search(prev.text)
+            and re.match(r"[a-z]", b.text)
+        ) or (prev and prev.kind == b.kind == "para" and _EN_DANGLING.search(prev.text)):
+            prev.text = f"{prev.text} {b.text}"
+        elif (
             (
                 prev
                 and prev.kind == b.kind == "para"
@@ -1018,6 +1311,16 @@ def _en_blocks(raw_en: str, title: str) -> list[_EnBlock]:
             prev.text = f"{prev.text} {b.text}"
         else:
             merged.append(b)
+
+    i = 0
+    while i < len(merged):
+        j = i
+        while j < len(merged) and merged[j].kind == "para" and _EN_TOC_ROW.fullmatch(merged[j].text):
+            j += 1
+        if j - i >= 4:
+            for b in merged[i:j]:
+                b.kind = "toc"
+        i = max(j, i + 1)
 
     # Site chrome sits before the first real paragraph: menus, share buttons, counters.
     first_prose = next(
@@ -1073,6 +1376,11 @@ def _en_block_markup(blocks: list[_EnBlock]) -> str:
             out.append(f"#en-quote[{_en_inline(b.text)}]")
         elif b.kind == "bullet":
             out.append(f"- {_en_inline(b.text)}")
+        elif b.kind == "term":
+            out.append(f"- #strong[{_escape_typst(b.text)}]")
+        elif b.kind == "toc":
+            entry, page = _EN_TOC_ROW.fullmatch(b.text).groups()
+            out.append(f"#en-toc[{_en_inline(entry)}][{page}]")
         elif b.kind == "numbered":
             out.append(f"{b.number}. {_en_inline(b.text)}")
         else:
@@ -1081,42 +1389,54 @@ def _en_block_markup(blocks: list[_EnBlock]) -> str:
     return "\n".join(out).strip()
 
 
+def _english_groups(raw_en: str, title: str) -> list[tuple[_EnBlock | None, list[_EnBlock]]]:
+    groups: list[tuple[_EnBlock | None, list[_EnBlock]]] = [(None, [])]
+    for b in _en_blocks(raw_en, title):
+        if b.kind == "user":
+            groups.append((b, []))
+            continue
+        if b.kind in ("head", "caps") and groups[-1][0]:
+            groups.append((None, []))
+        groups[-1][1].append(b)
+    return [
+        (user, blocks)
+        for user, blocks in groups
+        if blocks and not (user and any(_EN_REDACTED in b.text for b in blocks))
+    ]
+
+
 def _format_english_original_typst(raw_en: str, title: str = "") -> str:
     """Render blocks; each Reddit `/u/name:` line opens a comment card until the next one."""
     out: list[str] = []
-    loose: list[_EnBlock] = []
-    user = ""
-    comment: list[_EnBlock] = []
-
-    def close_comment() -> None:
-        if user and comment and not any(_EN_REDACTED in b.text for b in comment):
-            out.append(f'#reddit-comment("{user}")[\n{_en_block_markup(comment)}\n]')
-        comment.clear()
-
-    for b in _en_blocks(raw_en, title):
-        if b.kind == "user":
-            if loose:
-                out.append(_en_block_markup(loose))
-                loose.clear()
-            close_comment()
-            user = b.text
-        elif b.kind in ("head", "caps"):
-            close_comment()
-            user = ""
-            loose.append(b)
-        elif user:
-            comment.append(b)
-        else:
-            loose.append(b)
-    close_comment()
-    if loose:
-        out.append(_en_block_markup(loose))
+    for user, blocks in _english_groups(raw_en, title):
+        if user is None:
+            out.append(_en_block_markup(blocks))
+            continue
+        args = f'"{_escape_typst_str(user.text)}"'
+        if user.role is not None:
+            args += f', prefix: "", tag: "{_escape_typst_str(user.role)}", icon: wso-icons.at("{user.icon}")'
+        out.append(f"#reddit-comment({args})[\n{_en_block_markup(blocks)}\n]")
     return "\n\n".join(out)
 
 
 def _sanitize_markdown_for_pandoc(text: str) -> str:
     s = text.replace("$", "\\$")
     return s
+
+
+def _md_reading_sections(ent: ArticleEntry) -> list[str]:
+    lines: list[str] = []
+    for heading, paras in (("原文讲了什么", ent.summary_paragraphs), ("带着这个角度读", ent.angle_paragraphs)):
+        lines.append(f"\n### {heading}\n")
+        lines.extend(f"{_sanitize_markdown_for_pandoc(p)}\n" for p in paras)
+    lines.append("\n### 轮岗时核实\n")
+    for idx_q, q in enumerate(ent.questions, start=1):
+        q_body = re.sub(r"^\d+\s+", "", q.strip())
+        lines.append(f"{idx_q}. {_sanitize_markdown_for_pandoc(q_body)}")
+    lines.append("")
+    lines.append("\n### 材料边界\n")
+    lines.extend(f"{_sanitize_markdown_for_pandoc(p)}\n" for p in ent.boundary_paragraphs)
+    return lines
 
 
 def render_markdown(book: ParsedReaderBook) -> str:
@@ -1167,29 +1487,17 @@ def render_markdown(book: ParsedReaderBook) -> str:
             lines.append(
                 f"**Verification:** {_sanitize_markdown_for_pandoc(ent.access_line)}  "
             )
-            lines.append(f"**Source Link:** [{ent.uri}]({ent.uri})\n")
-
-            lines.append(f"\n{h3} 原文讲了什么\n")
-            for p in ent.summary_paragraphs:
-                lines.append(f"{_sanitize_markdown_for_pandoc(p)}\n")
-
-            lines.append(f"\n{h3} 带着这个角度读\n")
-            for p in ent.angle_paragraphs:
-                lines.append(f"{_sanitize_markdown_for_pandoc(p)}\n")
-
-            lines.append(f"\n{h3} 轮岗时核实\n")
-            for idx_q, q in enumerate(ent.questions, start=1):
-                q_body = re.sub(r"^\d+\s+", "", q.strip())
-                lines.append(f"{idx_q}. {_sanitize_markdown_for_pandoc(q_body)}")
-            lines.append("")
-
-            lines.append(f"\n{h3} 材料边界\n")
-            for p in ent.boundary_paragraphs:
-                lines.append(f"{_sanitize_markdown_for_pandoc(p)}\n")
-
+            lines.append(f"**Source Link:** [{ent.en_title}]({ent.uri})\n")
+            lines.extend(_md_reading_sections(ent))
             lines.append(f"\n{h3} 英文原文 (Original English Text)\n")
-            lines.append(f"> **Source URL:** [{ent.uri}]({ent.uri})\n")
+            lines.append(f"> **Source:** [{ent.en_title}]({ent.uri})\n")
             clean_en_md = _sanitize_markdown_for_pandoc(ent.original_text)
+            clean_en_md = re.sub(
+                _EN_WSO_USER.pattern,
+                lambda m: f"**{m[2]}**" + (f" · *{m[3]}*" if m[3] else ""),
+                clean_en_md,
+                flags=re.MULTILINE,
+            )
             clean_en_md = re.sub(
                 rf"^{h1}{{1,6}}\s+", f"{h4} ", clean_en_md, flags=re.MULTILINE
             )
@@ -1206,13 +1514,170 @@ def render_markdown(book: ParsedReaderBook) -> str:
                 lines.append(
                     f"\n{h4} [{rlk.index:02d}] {_sanitize_markdown_for_pandoc(rlk.label)}\n"
                 )
-                lines.append(f"**Link:** [{rlk.uri}]({rlk.uri})\n")
+                lines.append(f"**Link:** [{rlk.en_title or rlk.label}]({rlk.uri})\n")
                 clean_ref = _sanitize_markdown_for_pandoc(rlk.clean_text)
                 clean_ref = re.sub(
                     rf"^{h1}{{1,6}}\s+(.+)$", r"**\1**", clean_ref, flags=re.MULTILINE
                 )
                 lines.append(f"{clean_ref}\n")
 
+    return "\n".join(lines)
+
+
+_EN_FOOTREF = re.compile(r"\[(\d{1,2})\]\((https?://[^)\s]+)\)")
+
+
+def _md_literal(text: str) -> str:
+    return re.sub(r"([\\\[\]*_`])", r"\\\1", text)
+
+
+def _avatar_hue(name: str) -> int:
+    h = 7
+    for c in name:
+        h = (h * 31 + ord(c)) % 9973
+    return h % len(REDDIT_PALETTE)
+
+
+def _reddit_svg(fill: str) -> str:
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="{fill}" d="{SIMPLE_ICONS_REDDIT_PATH}"/></svg>'
+
+
+def _write_epub_assets(asset_dir: Path) -> None:
+    asset_dir.mkdir(parents=True, exist_ok=True)
+    (asset_dir / "reddit-logo.svg").write_text(_reddit_svg(REDDIT_ORANGE), encoding="utf-8")
+    (asset_dir / "reddit-grey.svg").write_text(_reddit_svg(REDDIT_DELETED), encoding="utf-8")
+    for i, color in enumerate(REDDIT_PALETTE):
+        (asset_dir / f"reddit-{i}.svg").write_text(_reddit_svg(color), encoding="utf-8")
+    for name in WSO_ICONS:
+        shutil.copy2(ICONS_DIR / f"wso-{name}.svg", asset_dir)
+
+
+def _en_blocks_md(blocks: list[_EnBlock]) -> str:
+    out: list[str] = []
+    list_kinds = {"bullet", "term"}
+    prev = ""
+    for b in blocks:
+        text = _EN_FOOTREF.sub(r"^[\1](\2)^", b.text)
+        if b.kind == "head":
+            line = f"#### {text}"
+        elif b.kind == "caps":
+            line = f"[{text}]{{.en-caps}}"
+        elif b.kind == "quote":
+            line = f"> {text}"
+        elif b.kind == "bullet":
+            line = f"- {text}"
+        elif b.kind == "term":
+            line = f"- **{text}**"
+        elif b.kind == "toc":
+            entry, page = _EN_TOC_ROW.fullmatch(b.text).groups()
+            line = f"[{entry}]{{.toc-entry}} [{page}]{{.toc-page}}"
+        elif b.kind == "numbered":
+            line = f"{b.number}. {text}"
+        else:
+            line = text
+        tight = {b.kind, prev} <= list_kinds or b.kind == prev == "numbered"
+        out.append(("\n" if tight else "\n\n") + line)
+        prev = b.kind
+    return "".join(out).strip()
+
+
+def _epub_comment(user: _EnBlock, blocks: list[_EnBlock]) -> str:
+    deleted = user.text.startswith("[")
+    hue = "grey" if deleted else str(_avatar_hue(user.text))
+    if user.role is None:
+        avatar = f"![](reddit-{hue}.svg){{.avatar}}"
+        name = user.text if deleted else f"u/{user.text}"
+    else:
+        avatar = f"![](wso-{user.icon}.svg){{.avatar .wso .tint-{hue}}}"
+        name = user.text
+    role = f" [{_md_literal(user.role)}]{{.role}}" if user.role else ""
+    head = f"{avatar} [{_md_literal(name)}]{{.handle}}{role}"
+    return f":::: comment\n::: comment-head\n{head}\n:::\n\n{_en_blocks_md(blocks)}\n::::"
+
+
+def _reddit_logo_md(uri: str) -> str:
+    return "![](reddit-logo.svg){.logo} " if "reddit.com" in uri else ""
+
+
+def _epub_source_text(title: str, uri: str, raw_en: str, num: str = "") -> str:
+    prefix = f"[{num}]{{.entry-num}} " if num else ""
+    parts = [f"::: source-title\n{prefix}{_reddit_logo_md(uri)}[{_md_literal(title)}]({uri})\n:::"]
+    for user, blocks in _english_groups(raw_en, title):
+        parts.append(_en_blocks_md(blocks) if user is None else _epub_comment(user, blocks))
+    return '::::: {.source-text lang="en"}\n' + "\n\n".join(parts) + "\n:::::\n"
+
+
+def _epub_meta_card(ent: ArticleEntry) -> str:
+    date_line, _, priority = ent.date_priority_line.partition("|")
+    badge = f" [{priority.strip()}]{{.priority}}" if priority.strip() else ""
+    title = f"[{_reddit_logo_md(ent.uri)}[{_md_literal(ent.en_title)}]({ent.uri})]{{.meta-title}}{badge}"
+    rows = (
+        ("作者", ent.author_line),
+        ("日期", date_line.strip()),
+        ("出处", ent.background_line),
+        ("获取", ent.access_line),
+    )
+    body = "\n\n".join(f"[{k}]{{.meta-label}} {_sanitize_markdown_for_pandoc(v)}" for k, v in rows)
+    return f"::: meta-card\n{title}\n\n{body}\n:::\n"
+
+
+def _epub_entry_heading(zh_title: str) -> str:
+    m = re.match(r"(\d+)\s+(\S+)(?:\s+(.+))?$", zh_title.strip())
+    if not m:
+        return zh_title
+    num, main, sub = m.groups()
+    return f"[{num}]{{.entry-num}} {main}" + (f" [{sub}]{{.entry-sub}}" if sub else "")
+
+
+def render_epub_markdown(book: ParsedReaderBook) -> str:
+    lines: list[str] = [
+        "---",
+        f'title: "{book.title}"',
+        f'subtitle: "{book.subtitle}"',
+        f'author: "{LONDON_TREASURY_SPEC.author}"',
+        f'publisher: "{LONDON_TREASURY_SPEC.publisher}"',
+        "lang: zh-CN",
+        "---",
+        "",
+        "# 导读与全书框架",
+        "",
+        f"[{book.kicker}]{{.kicker}}",
+        "",
+        f"**{book.subtitle}** · {book.edition_line}",
+        "",
+    ]
+    for sec_title, paras in book.intro_sections:
+        lines.append(f"\n## {sec_title}\n")
+        lines.extend(f"{_sanitize_markdown_for_pandoc(p)}\n" for p in paras)
+
+    for ch in book.chapters:
+        lines.append(f"\n# {ch.title}\n")
+        lines.extend(f"{_sanitize_markdown_for_pandoc(p)}\n" for p in ch.intro_paragraphs)
+        for ent in ch.entries:
+            lines.append(f"\n## {_epub_entry_heading(ent.zh_title)}\n")
+            lines.append(_epub_meta_card(ent))
+            lines.extend(_md_reading_sections(ent))
+            lines.append("\n### 英文原文\n")
+            lines.append(_epub_source_text(ent.en_title, ent.uri, ent.original_text))
+
+    lines.append("\n# 第七章 轮岗核实、词汇、现行规则与核验资料\n")
+    for sec_title, paras, ref_links in book.back_sections:
+        lines.append(f"\n## {sec_title}\n")
+        if sec_title == "一次业务复原的记录页":
+            lines.append(f"{_sanitize_markdown_for_pandoc(paras[0])}\n")
+            rows = []
+            for row_p in paras[1:]:
+                key, _, val = re.sub(r"_+", "", row_p).strip().partition(" ")
+                rows.append(f"[{_md_literal(key)}]{{.record-key}} {_sanitize_markdown_for_pandoc(val)}")
+            lines.append("::: record\n" + "\n\n".join(rows) + "\n:::\n")
+        else:
+            lines.extend(f"{_sanitize_markdown_for_pandoc(p)}\n" for p in paras)
+        if ref_links:
+            lines.append(f"\n### 提取链接与原文资料（共 {len(ref_links)} 项）\n")
+            for rlk in ref_links:
+                lines.append(
+                    _epub_source_text(rlk.en_title or rlk.label, rlk.uri, rlk.clean_text, f"{rlk.index:02d}")
+                )
     return "\n".join(lines)
 
 
@@ -1229,6 +1694,11 @@ def _entry_heading(zh_title: str) -> str:
 def render_typst(book: ParsedReaderBook) -> str:
     out: list[str] = [
         f'#set document(title: "{book.title} — {book.subtitle}", author: "{LONDON_TREASURY_SPEC.author}")',
+        f'#let reddit-path = "{SIMPLE_ICONS_REDDIT_PATH}"',
+        "#let reddit-palette = (" + ", ".join(f'rgb("{c}")' for c in REDDIT_PALETTE) + ")",
+        "#let wso-icons = ("
+        + ", ".join(f'{name}: "{_escape_typst_str(_wso_icon_svg(name))}"' for name in WSO_ICONS)
+        + ")",
         TEMPLATE_TYP.read_text(encoding="utf-8"),
         f"""
 #page(header: none, footer: none, margin: (x: 54pt, top: 96pt, bottom: 64pt))[
@@ -1388,18 +1858,11 @@ def build_london_treasury(
         check=True,
     )
 
-    css_path = target_dir / "epub.css"
-    css_path.write_text(
-        """body { font-family: "Songti SC", "PingFang SC", "Baskervville", serif; line-height: 1.68; margin: 5%; }
-h1, h2, h3, h4 { font-family: "PingFang SC", "Heiti SC", sans-serif; color: #111827; margin-top: 1.4em; }
-blockquote { border-left: 3px solid #64748b; padding-left: 1em; color: #334155; }
-""",
-        encoding="utf-8",
-    )
+    asset_dir = target_dir / "epub_assets"
+    _write_epub_assets(asset_dir)
     subprocess.run(
         [
             "pandoc",
-            str(md_path),
             "-f",
             "markdown-tex_math_dollars-raw_tex-raw_html",
             "-t",
@@ -1407,7 +1870,10 @@ blockquote { border-left: 3px solid #64748b; padding-left: 1em; color: #334155; 
             "--toc",
             "--toc-depth=2",
             "--css",
-            str(css_path),
+            str(EPUB_CSS),
+            "--resource-path",
+            str(asset_dir),
+            *(f"--epub-embed-font={REPO_FONTS_DIR / f'{name}.otf'}" for name in EPUB_FONTS),
             "--metadata",
             f"title={parsed.title}",
             "--metadata",
@@ -1417,6 +1883,8 @@ blockquote { border-left: 3px solid #64748b; padding-left: 1em; color: #334155; 
             "-o",
             str(epub_path),
         ],
+        input=render_epub_markdown(parsed),
+        text=True,
         check=True,
     )
 

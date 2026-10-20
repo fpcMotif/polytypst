@@ -51,3 +51,6 @@ shitouji*.typ
 shitouji*.tex
 shitouji*.pdf
 *.egg-info/
+
+# Large fonts: fetch with scripts/fetch_fonts.sh
+fonts/NotoSerifSC-*.otf
