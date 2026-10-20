@@ -29,5 +29,29 @@ extend-select = ["TID251"]
 "fitz".msg = "The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead."
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "polytypst" = "src" }
+packages = [
+    "polytypst",
+    "polytypst.ahlfors",
+    "polytypst.bourbaki",
+    "polytypst.bourbaki_lie",
+    "polytypst.compiler",
+    "polytypst.fermat",
+    "polytypst.goursat",
+    "polytypst.kashiwara",
+    "polytypst.kerodon",
+    "polytypst.klein",
+    "polytypst.kodaira",
+    "polytypst.ocr",
+    "polytypst.parity",
+    "polytypst.parser",
+    "polytypst.taocp",
+    "polytypst.vision",
+]
+
+[tool.setuptools.package-data]
+"*" = ["*.typ", "**/*.typ"]

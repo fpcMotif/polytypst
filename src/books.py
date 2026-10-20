@@ -1,4 +1,4 @@
-"""Finds every book: a package `polytypst/<key>/` with a `book.py` that defines `BOOK`."""
+"""Finds every book: a folder `src/<key>/` with a `book.py` that defines `BOOK`."""
 
 import importlib
 from functools import cache

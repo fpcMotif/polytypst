@@ -35,7 +35,7 @@ class Edition:
 
 @dataclass(frozen=True)
 class Book:
-    """A book lives in `polytypst/<key>/book.py` as `BOOK`. The first edition is the default."""
+    """A book lives in `src/<key>/book.py` as `BOOK`. The first edition is the default."""
 
     spec: MonographSpec
     out_dir: Path

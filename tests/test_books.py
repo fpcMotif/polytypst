@@ -3,7 +3,7 @@ from pathlib import Path
 from polytypst.books import book_specs, books, find_known_book
 from polytypst.books_cli import parse_pages
 
-PACKAGE = Path(__file__).parents[1] / "polytypst"
+PACKAGE = Path(__file__).parents[1] / "src"
 
 
 def test_every_book_py_is_a_book():

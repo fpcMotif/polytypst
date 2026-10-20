@@ -36,15 +36,16 @@ Scan parity compares ink with ink, in points, with no shift between the pages. O
 | `FACSIMILE` | facsimile | every word within 0.5pt; at most 1% of words over | 0.3pt | not checked | 1pt, 2% scale |
 | `SOURCE_PAGINATED` | vintage | 1.5pt, only on lines that break where the scan breaks | 1pt | every baseline within 1.5pt; same line count; no overflow | 1pt, 2% scale |
 
-A page also fails when fewer than half of its scan words match a rebuilt word. A low match share points to OCR errors or missing text, not to drift. The tolerances live in `polytypst/parity/report.py`.
+A page also fails when fewer than half of its scan words match a rebuilt word. A low match share points to OCR errors or missing text, not to drift. The tolerances live in `src/parity/report.py`.
 
-Diagrams are the Typst snippets `fig_PPP_NNN.typ`, where `PPP` is the source page. Parity renders each snippet through `polytypst/parity/diagram_harness.typ` in the book's `DiagramText`, finds it on both pages, and reports dx, dy and the scale.
+Diagrams are the Typst snippets `fig_PPP_NNN.typ`, where `PPP` is the source page. Parity renders each snippet through `src/parity/diagram_harness.typ` in the book's `DiagramText`, finds it on both pages, and reports dx, dy and the scale.
 
 ## Add another book
 
-A book is a package `polytypst/<key>/` with a `book.py` that defines `BOOK`. `polytypst/books.py` finds every such file, so no shared file names a book. The key is the package name and the folder under `output/`.
+A book is a folder `src/<key>/` with a `book.py` that defines `BOOK`. The folder installs as the package `polytypst.<key>`. `src/books.py` finds every such file, so no shared file names a book. The key is the folder name and the folder under `output/`.
 
-1. Write `polytypst/<key>/book.py`. Set `BOOK = Book(spec, OUTPUT / "<key>", {name: edition, ...}, figures)`. `monograph_edition(spec, out_dir, summary)` makes an edition that compiles the OCR pages. `figures` is optional and draws code-reproduced figures before each build. `polytypst/kodaira/book.py` is the smallest model.
-2. Run `uv run polytypst books` and confirm that the book and its editions appear.
-3. To check an edition against its scan, set `source_pdf` on the book's `MonographSpec` to the scan's file name. Then pass `parity=Parity(page_map, tolerance, diagrams, diagram_text)` to the edition. `diagrams` and `diagram_text` are needed only when the book has diagram snippets. `polytypst/bourbaki/book.py` is the model to follow.
-4. Run `uv run polytypst parity <key> --edition <edition> --pages <a few pages>`, and read the overlays before you run the whole book.
+1. Write `src/<key>/book.py`. Set `BOOK = Book(spec, OUTPUT / "<key>", {name: edition, ...}, figures)`. `monograph_edition(spec, out_dir, summary)` makes an edition that compiles the OCR pages. `figures` is optional and draws code-reproduced figures before each build. `src/kodaira/book.py` is the smallest model.
+2. Add `"polytypst.<key>"` to `packages` in `pyproject.toml`. If the entry is missing, `tests/test_packaging.py` fails.
+3. Run `uv run polytypst books` and confirm that the book and its editions appear.
+4. To check an edition against its scan, set `source_pdf` on the book's `MonographSpec` to the scan's file name. Then pass `parity=Parity(page_map, tolerance, diagrams, diagram_text)` to the edition. The edition needs `diagrams` and `diagram_text` only when the book has diagram snippets. `src/bourbaki/book.py` is the model to follow.
+5. Run `uv run polytypst parity <key> --edition <edition> --pages <a few pages>`, and read the overlays before you run the whole book.

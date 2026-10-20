@@ -34,19 +34,20 @@ web/env.d.ts
 *.bmp
 *.tiff
 *.svg
-!polytypst/**/*.svg
+!src/**/*.svg
 
 # Generated Typst and TeX documents (data/deliverables outside polytypst package)
 *.typ
 *.typst
-!polytypst/**/*.typ
-!polytypst/**/*.typst
+!src/**/*.typ
+!src/**/*.typst
 *.tex
 *.aux
-!polytypst/**/*.tex
+!src/**/*.tex
 
 # Large book data and local experiments
 shitouji/
 shitouji*.typ
 shitouji*.tex
 shitouji*.pdf
+*.egg-info/
