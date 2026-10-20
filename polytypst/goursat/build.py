@@ -3,12 +3,12 @@
 import argparse
 from pathlib import Path
 
-from ..cleaner.tex_markdown import TeXMarkdownCleaner
 from ..ocr.apple_vision import AppleVisionOCREngine
 from ..ocr.base import OCREngine, page_number
 from ..ocr.colab import COLAB_GPUS
 from ..ocr.engines import OCR_MODES, ocr_engine
 from ..ocr.ocr_models import DEFAULT_OCR_MODEL, OCR_MODELS
+from ..tex_markdown import stitch_document
 from ..vision.figure_extractor import (
     FIGURES_MANIFEST_NAME,
     ExtractedFigure,
@@ -60,9 +60,10 @@ def build_goursat(pdf_path: Path, out_dir: Path, engine: OCREngine) -> Path:
     pages_md = engine.transcribe_pages(text_pages, out_dir / "markdown_pages")
     print(f"{len(pages_md)}/{len(text_pages)} pages transcribed.")
 
-    cleaner = TeXMarkdownCleaner(running_headers=list(GOURSAT_RUNNING_HEADERS))
     master_md = normalize_goursat_markdown(
-        cleaner.stitch_document(pages_md, figures=figures)
+        stitch_document(
+            pages_md, figures=figures, running_headers=list(GOURSAT_RUNNING_HEADERS)
+        )
     )
     master_path = out_dir / "book.md"
     _ = master_path.write_text(master_md, encoding="utf-8")

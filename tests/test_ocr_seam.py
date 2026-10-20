@@ -4,7 +4,6 @@ from pathlib import Path
 import httpx
 import pytest
 
-from polytypst.core.pipeline import UniversalPDFPipeline
 from polytypst.ocr import jina
 from polytypst.ocr.base import (
     OCREngine,
@@ -20,6 +19,7 @@ from polytypst.ocr.colab_cluster import (
 )
 from polytypst.ocr.engines import CachedMarkdownEngine, ocr_engine
 from polytypst.ocr.jina import JinaCloudOCREngine, JinaCloudUnavailable
+from polytypst.pipeline import UniversalPDFPipeline
 
 
 def _renders(tmp_path: Path, count: int) -> list[Path]:

@@ -16,6 +16,7 @@ from typing import Literal
 import pymupdf
 from PIL import Image
 
+from ..tex_markdown import normalize_html_tables
 from .presets import CompositionConfig, resolve_composition
 from .typst_math import clean_margin_and_inline_math, convert_math_batch
 
@@ -1051,8 +1052,7 @@ class MonographCompiler:
         spec = self.spec
         layout = spec.figures
         md_text = re.sub(r"<!--.*?-->", "", md_text, flags=re.DOTALL)
-        from ..cleaner.tex_markdown import TeXMarkdownCleaner
-        md_text = TeXMarkdownCleaner.normalize_html_tables(md_text)
+        md_text = normalize_html_tables(md_text)
         body_lines: list[str] = []
         footnotes: list[str] = []
         top_figs: list[Figure] = []

@@ -5,20 +5,20 @@ from pathlib import Path
 
 import pymupdf
 
-from ..books import render_book_figures
-from ..cleaner.tex_markdown import TeXMarkdownCleaner
-from ..compiler.monograph import (
+from .books import render_book_figures
+from .compiler.monograph import (
     MonographCompiler,
     MonographOutputs,
     resolve_monograph_spec,
 )
-from ..ocr.apple_vision import AppleVisionOCREngine
-from ..ocr.base import OCREngine, page_number
-from ..ocr.engines import ocr_engine
-from ..ocr.ocr_models import DEFAULT_OCR_MODEL
-from ..ocr.splitter import TwoUpSplitter
-from ..ocr.verifier import OCRVerifier, VerificationReport
-from ..vision.figure_extractor import (
+from .ocr.apple_vision import AppleVisionOCREngine
+from .ocr.base import OCREngine, page_number
+from .ocr.engines import ocr_engine
+from .ocr.ocr_models import DEFAULT_OCR_MODEL
+from .ocr.splitter import TwoUpSplitter
+from .ocr.verifier import OCRVerifier, VerificationReport
+from .tex_markdown import stitch_document
+from .vision.figure_extractor import (
     FIGURES_MANIFEST_NAME,
     ExtractedFigure,
     FigureExtractor,
@@ -241,8 +241,9 @@ class UniversalPDFPipeline:
                 monograph=monograph_out,
             )
 
-        cleaner = TeXMarkdownCleaner(running_headers=self.running_headers)
-        master_markdown = cleaner.stitch_document(pages_md, figures=figures)
+        master_markdown = stitch_document(
+            pages_md, figures=figures, running_headers=self.running_headers
+        )
 
         master_path = self.output_dir / "book.md"
         _ = master_path.write_text(master_markdown, encoding="utf-8")

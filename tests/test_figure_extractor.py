@@ -7,8 +7,8 @@ import pymupdf
 import pytest
 from PIL import Image, ImageDraw
 
-from polytypst.core.pipeline import UniversalPDFPipeline
 from polytypst.ocr.base import OCRLine, OCRPage
+from polytypst.pipeline import UniversalPDFPipeline
 from polytypst.vision import figure_extractor
 from polytypst.vision.figure_extractor import (
     FIGURES_MANIFEST_NAME,

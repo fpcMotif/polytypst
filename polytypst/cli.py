@@ -166,7 +166,7 @@ def main() -> None:
     figures_dir = out_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
     if not args.book:
-        from .core.pipeline import UniversalPDFPipeline
+        from .pipeline import UniversalPDFPipeline
 
         pipeline = UniversalPDFPipeline(
             pdf_path=args.pdf_path,

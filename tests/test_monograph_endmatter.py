@@ -1,8 +1,9 @@
 """Tests for monograph end-matter preservation, HTML table normalization, and index formatting."""
 
 from pathlib import Path
-from polytypst.cleaner.tex_markdown import TeXMarkdownCleaner
+
 from polytypst.compiler.monograph import ChapterSpec, MonographCompiler, MonographSpec
+from polytypst.tex_markdown import normalize_html_tables
 
 
 def test_normalize_html_tables_index_style():
@@ -23,7 +24,7 @@ def test_normalize_html_tables_index_style():
         "</thead>\n"
         "</table>"
     )
-    cleaned = TeXMarkdownCleaner.normalize_html_tables(raw_html)
+    cleaned = normalize_html_tables(raw_html)
     assert "<table" not in cleaned
     assert "ebene Koordinat 平面坐标 10" in cleaned
     assert "Ebenenpaar 平面偶 18" in cleaned
@@ -46,7 +47,7 @@ def test_normalize_html_tables_grid_style():
         "</thead>\n"
         "</table>"
     )
-    cleaned = TeXMarkdownCleaner.normalize_html_tables(raw_html)
+    cleaned = normalize_html_tables(raw_html)
     assert "<table" not in cleaned
     assert "| x | y | z |" in cleaned
     assert "| -x | y | -z |" in cleaned

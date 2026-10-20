@@ -4,7 +4,6 @@ from pathlib import Path
 
 from PIL import Image
 
-from polytypst.cleaner.tex_markdown import TeXMarkdownCleaner
 from polytypst.goursat.figures import (
     GOURSAT_SVG_GENERATORS,
     generate_goursat_cover_svg,
@@ -12,13 +11,12 @@ from polytypst.goursat.figures import (
 )
 from polytypst.ocr.base import OCRLine
 from polytypst.ocr.colab_cluster import ColabOCRCluster
+from polytypst.tex_markdown import stitch_document
 from polytypst.vision.figure_extractor import ExtractedFigure, FigureExtractor
 
 
 def test_tex_markdown_cleaner_delimiters():
-    cleaner = TeXMarkdownCleaner(
-        running_headers=["CALCULUS BOOK", "IMPLICIT FUNCTIONS"]
-    )
+    running_headers = ["CALCULUS BOOK", "IMPLICIT FUNCTIONS"]
     raw = (
         "CALCULUS BOOK\n"
         "II, § 20] IMPLICIT FUNCTIONS 87\n"
@@ -28,7 +26,7 @@ def test_tex_markdown_cleaner_delimiters():
         "with x # 0, where differ-\n"
         "ential elements apply."
     )
-    cleaned = cleaner.clean_page(raw, page_num=1)
+    cleaned = stitch_document([(1, raw)], running_headers=running_headers)
 
     assert "CALCULUS BOOK" not in cleaned
     assert "IMPLICIT FUNCTIONS 87" not in cleaned
@@ -42,8 +40,9 @@ def test_tex_markdown_cleaner_delimiters():
     assert "f(x) = \\int_0^x t^2 \\mathrm{d} t" in cleaned
     assert "x \\neq 0" in cleaned
     assert "differential" in cleaned
-    diff_page = cleaner.clean_page(
-        "$\\frac{dy}{dx} + \\frac{d^2 y}{dx^2} + d\\alpha$", page_num=2
+    diff_page = stitch_document(
+        [(2, "$\\frac{dy}{dx} + \\frac{d^2 y}{dx^2} + d\\alpha$")],
+        running_headers=running_headers,
     )
     assert (
         diff_page
@@ -64,7 +63,6 @@ def test_figure_caption_regex_standalone_only():
 
 
 def test_tex_markdown_cleaner_figure_injection():
-    cleaner = TeXMarkdownCleaner()
     raw = (
         "We show the tangent line construction below.\n\n"
         "FIG. 1. The geometric derivative.\n\n"
@@ -76,7 +74,7 @@ def test_tex_markdown_cleaner_figure_injection():
         image_rel_path="figures/fig_1.png",
         source_page=1,
     )
-    cleaned = cleaner.clean_page(raw, page_num=1, page_figures=[fig])
+    cleaned = stitch_document([(1, raw)], figures=[fig])
 
     assert "![FIG. 1. The geometric derivative.](figures/fig_1.png)" in cleaned
     caption_idx = cleaned.find("FIG. 1. The geometric derivative.")
@@ -85,12 +83,11 @@ def test_tex_markdown_cleaner_figure_injection():
 
 
 def test_tex_markdown_stitcher():
-    cleaner = TeXMarkdownCleaner()
     pages = [
         (1, "First page content with a hyper-\n"),
         (2, "bolic equation $$ \\cosh^2 x - \\sinh^2 x = 1 $$ continuing here."),
     ]
-    stitched = cleaner.stitch_document(pages)
+    stitched = stitch_document(pages)
     assert "hyperbolic equation" in stitched
     assert "\\cosh^2 x - \\sinh^2 x = 1" in stitched
 
