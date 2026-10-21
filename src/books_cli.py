@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .books import books
 from .edition import Book, Edition
+from .new_book import scaffold_book
 from .parity import compare, verdict, write_report
 from .parity.source import SOURCES_ENV, ensure_source_ocr, source_pdf
 
@@ -88,8 +89,25 @@ def main(command: str, argv: list[str]) -> int:
             "books": "List every book and its editions; [parity] marks editions you can check against the scan.",
             "build": "Build one edition of a book. The default edition is the first one `polytypst books` lists.",
             "parity": "Check a rebuilt edition against its source scan. Writes a report and exits 1 when a page fails.",
+            "new-book": "Write src/KEY/{__init__,spec,book}.py for a new book and add polytypst.KEY to pyproject.toml.",
         }[command],
     )
+    if command == "new-book":
+        parser.add_argument("key", help="package and output folder name, a Python identifier")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--author", required=True)
+        parser.add_argument("--source", required=True, help=f"scan file name inside ${SOURCES_ENV}")
+        parser.add_argument("--pages", type=int, required=True, help="page count of the scan")
+        args = parser.parse_args(argv)
+        try:
+            written = scaffold_book(Path.cwd(), args.key, args.title, args.author, args.source, args.pages)
+        except ValueError as error:
+            parser.error(str(error))
+        for path in written:
+            print(path)
+        print(f"next: fill in the chapters in src/{args.key}/spec.py, then run `polytypst books`")
+        print("then: add the spec to test_specs_come_from_the_editions in tests/test_books.py")
+        return 0
     if command != "books":
         parser.add_argument("book", help="book key from `polytypst books`")
         parser.add_argument("--edition", help="edition name (default: the book's first)")

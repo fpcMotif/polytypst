@@ -8,6 +8,6 @@ def test_top_level_help_lists_the_book_commands(monkeypatch, capsys):
     with pytest.raises(SystemExit):
         cli.main()
     out = capsys.readouterr().out
-    for command in ("books", "build", "parity"):
+    for command in ("books", "build", "parity", "new-book"):
         assert f"polytypst {command}" in out
     assert "modern-firm" not in out
