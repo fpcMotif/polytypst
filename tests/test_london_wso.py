@@ -1,4 +1,4 @@
-from polytypst.london_treasury.extractor import clean_wso_thread
+from polytypst.london_treasury.wso import clean_wso_thread
 
 ANON_THREAD = """# What do you do?
 

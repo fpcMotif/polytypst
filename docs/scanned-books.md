@@ -14,7 +14,8 @@ Each command's `--help` gives its flags. This guide gives the order, the hidden 
 ## Before you start
 
 - Set `POLYTYPST_SOURCES` to the folder that holds the source scan, in the environment or in `mise.local.toml`. The spec's `source_pdf` names the file. Every tool also accepts `--source PATH`.
-- `typst` must be on `PATH`. Fonts load from `fonts/`.
+- `typst` must be on `PATH`. `mise.toml` pins it, so `mise exec --` or `mise run` puts it there. Fonts load from `fonts/`.
+- To turn a PDF page into an image, use pymupdf: `doc[n].get_pixmap(dpi=300).save(path)`. ImageMagick, `mutool`, `pdftoppm` and `rsvg-convert` are not installed.
 - Run Python through `uv run`. Run commands from the repository root, because output paths are relative (`output/bourbaki`).
 
 ## Bourbaki procedure

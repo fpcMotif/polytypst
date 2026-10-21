@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from ..edition import OUTPUT, Book, Edition
-from .extractor import build_london_treasury
+from .build import build_london_treasury
 from .spec import LONDON_TREASURY_SPEC
 
 OUT_DIR = OUTPUT / "london_treasury"
