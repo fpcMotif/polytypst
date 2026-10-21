@@ -2,7 +2,7 @@
 
 import re
 
-from .urls import _unwrap_links
+from .urls import unwrap_links
 
 LATIN_OBFUSCATION_WORDS = frozenset(
     {
@@ -40,49 +40,25 @@ LATIN_OBFUSCATION_WORDS = frozenset(
 
 
 _WSO_AUTHOR = re.compile(r"^\[([^\]]+)\]\(https://www\.wallstreetoasis\.com/user/\d+\)(.*)$", re.MULTILINE)
-
-
 _WSO_ROLE = re.compile(r'user-industry-and-status-key\s+"([^"]*)"')
-
-
 _WSO_BADGE = re.compile(r"ranking-badges/([a-z-]+)-small\.svg")
-
-
 _WSO_BOT_COMMENT = re.compile(r"^\*\*@\w+/WSO Monkey Bot\b.*?(?=^\*\*@|\Z)", re.MULTILINE | re.DOTALL)
-
-
 _WSO_PROMO = re.compile(
     r"^(?:\[[^\]]*\]\(https://www\.wallstreetoasis\.com/resources/[^)]*\)\s*|\[See my WSO Blog\].*)$",
     re.MULTILINE,
 )
-
-
 _WSO_ANON = re.compile(
     r'^\[[A-Z&]{1,4}\]\(https://www\.wallstreetoasis\.com/page/user-industry-status "[^"]*"\)\s*\n\s*\n(.+?)\s*$',
     re.MULTILINE,
 )
-
-
 _WSO_ANON_MONKEY = re.compile(r"^\s*Anonymous Monkey\b.*$", re.MULTILINE)
-
-
 _WSO_TAGS = re.compile(r"^(?:Keywords|Region)\n.*?^\d+ Comments$", re.MULTILINE | re.DOTALL)
-
-
 _WSO_ACADEMY = re.compile(r"^(?:#+ )?\d+ WSO Academy .*?^\d+ Comments$", re.MULTILINE | re.DOTALL)
-
-
 _WSO_PLAIN_TOP = re.compile(
     r"^ Forums\n .+\n[A-Z][a-z]{2} \d{1,2}, \d{4}\n(.+)\n(.+)\n[A-Za-z&]{1,4}\nSubscribe\nShare\n", re.MULTILINE
 )
-
-
 _WSO_PLAIN_TAIL = re.compile(r"^Reply\nQuote\nReport\nOther\n.*?(?=^\xa0$|\Z)", re.MULTILINE | re.DOTALL)
-
-
 _WSO_PLAIN_HEAD = re.compile(r"^\xa0\n(.+)\n[A-Za-z&]{1,4}\n\d+[a-z]{1,2}\n(?:Best Response\n)?", re.MULTILINE)
-
-
 _WSO_RANK_ICON = {
     "orangutan": "orangutan",
     "neanderthal": "orangutan",
@@ -166,7 +142,7 @@ def clean_wso_thread(raw_text: str, en_title: str) -> str:
     slice_txt = re.sub(r"\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)", "", slice_txt)
     slice_txt = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", slice_txt)
     slice_txt = re.sub(r"\[\]\([^)]*\)", "", slice_txt)
-    slice_txt = _unwrap_links(slice_txt, r"(?:[^()]|\([^()]*\))*")
+    slice_txt = unwrap_links(slice_txt, r"(?:[^()]|\([^()]*\))*")
 
     noise_lines = {
         "*   Copy Link",

@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 
 from .models import ExtractedLink
 from .trims import polish_article, trim_article
-from .urls import _unwrap_links
+from .urls import unwrap_links
 from .wso import clean_wso_thread
 
 
@@ -71,11 +71,7 @@ def clean_rotberg_transcript(raw_text: str) -> str:
 
 
 _BROCHURE_FOOTER = re.compile(r"[ \t]*(?:The BTRM Faculty\s+)?(?:\b\d{1,2}[ \t]*www\. ?|www\. )btrm\.org[ \t]*")
-
-
 _BROCHURE_CREDIT = re.compile(r"\s*Brochure design:.*$", re.MULTILINE)
-
-
 _BROCHURE_BIO = re.compile(r"([A-Z][^\s]*(?: [^\s]+){1,7}?)  (\S+ \S+.*)", re.DOTALL)
 
 
@@ -123,7 +119,7 @@ def clean_single_link(uri: str, raw: str, en_title: str = "") -> str:
     text = re.sub(r"\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)", "", text)
     text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)
     text = re.sub(r"\[\]\([^)]*\)", "", text)
-    text = _unwrap_links(text, r"(?:https?://|mailto:|tel:|javascript:|/|#)(?:[^()]|\([^()]*\))*", keep_web=True)
+    text = unwrap_links(text, r"(?:https?://|mailto:|tel:|javascript:|/|#)(?:[^()]|\([^()]*\))*", keep_web=True)
 
     lines = [l.rstrip() for l in text.splitlines()]
 

@@ -4,15 +4,13 @@ import json
 import re
 from pathlib import Path
 
-from .urls import _BARE_URL, _URL_TEXT, _link_title, _plain_links, _title_bare_url
+from .urls import BARE_URL, URL_TEXT, link_title, plain_links, title_bare_url
 from .wso import LATIN_OBFUSCATION_WORDS
 
 TRIMS_JSON = Path(__file__).with_name("trims.json")
 
 
 _TRIMS = json.loads(TRIMS_JSON.read_text(encoding="utf-8"))
-
-
 _NESTED_LINK = re.compile(r"\[((?:[^\[\]\n]|\[[^\[\]\n]*\])*)\]\(((?:[^()\s]|\([^()\s]*\))*)(?:\s+\"[^\"]*\")?\)")
 
 
@@ -21,32 +19,22 @@ def _relink(m: re.Match[str]) -> str:
     if not label.strip("[]- "):
         return ""
     if target.startswith("http") and "[" not in label:
-        if _URL_TEXT.fullmatch(label):
-            label = _link_title(target) or label
+        if URL_TEXT.fullmatch(label):
+            label = link_title(target) or label
         return f"[{label}]({target})"
     return label
-
-
 _CHECKBOX = re.compile(r"(?:^|[-*+])\s*\[[ xX]\]")
-
-
 _CHROME_LINE = re.compile(
     r"[*\-+•>]+(?:\s+\S)?|(?:[*\-_]\s*){3,}|[*\-+]\s+\d+|#+|\d+:\d\d"
     r"|Subscribe|Share|Tweet|Bump|Best Response|Add Comment|Read Full Bot Response|Show more|TOP OF PAGE"
     r"|Authored by: Certified .*|Previous article.*|Next article.*|More about this author|\d+ Footnotes?"
 )
-
-
 _SOCIAL_LINE = re.compile(
     r"(?i)join our .{0,40} on|@\w+|stay connected|video \d+"
     r"|(?:[*\-+]\s+)?(?:linkedin|youtube|twitter|facebook|instagram|ig)"
     r"|.{0,160}\bfollow us\b.{0,80}"
 )
-
-
 _CLICK_VIDEO = re.compile(r"\s*click\s+\[Video \d+\]\([^)]*\)\s*VIDEO")
-
-
 _LOREM = frozenset(
     ["lorem", "ipsum", "dolor", "dolore", "dolorum", "dolores", "et", "ut", "id", "eos", "qui", "quia", "quae", "quis", "quo", "est", "sit", "amet", "aut", "perferendis", "aliquam", "expedita", "perspiciatis", "minus", "omnis", "quasi", "corporis", "explicabo", "rerum", "molestiae", "saepe", "exercitationem", "nulla", "optio", "pariatur", "totam", "sapiente", "sint", "nihil", "magni", "ratione", "nemo", "neque", "enim", "fugiat", "fugit", "velit", "vel", "iure", "illum", "alias", "ea", "eum", "eius", "esse", "animi", "atque", "culpa", "officia", "natus", "nobis", "odio", "porro", "quam", "quas", "ipsa", "iste", "itaque", "minima", "modi", "nam", "numquam", "vero", "voluptate", "tempora"]
 ) | LATIN_OBFUSCATION_WORDS
@@ -83,8 +71,8 @@ def trim_article(uri: str, text: str) -> str:
 def polish_article(text: str) -> str:
     out: list[str] = []
     for line in text.splitlines():
-        line = _BARE_URL.sub(_title_bare_url, _CLICK_VIDEO.sub("", _NESTED_LINK.sub(_relink, line)))
-        s = _plain_links(line).strip()
+        line = BARE_URL.sub(title_bare_url, _CLICK_VIDEO.sub("", _NESTED_LINK.sub(_relink, line)))
+        s = plain_links(line).strip()
         if (
             (_CHECKBOX.search(s) and len(s.split()) <= 12)
             or _CHROME_LINE.fullmatch(s)

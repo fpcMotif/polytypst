@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ..edition import OUTPUT, Book, Edition
+from ..edition import OUTPUT, Book, Edition, report_build
 from .build import LONDON_FORMATS, build_london_treasury
 from .spec import LONDON_TREASURY_SPEC
 
@@ -8,11 +8,7 @@ OUT_DIR = OUTPUT / "london_treasury"
 
 
 def _build(source: Path | None, formats: frozenset[str]) -> None:
-    outputs = build_london_treasury(source_pdf=source, out_dir=OUT_DIR, formats=formats)
-    if "pdf" in formats:
-        print(f"{outputs.pdf_path}: {outputs.total_pages} pages")
-    else:
-        print(outputs.typst_path)
+    report_build(build_london_treasury(source_pdf=source, out_dir=OUT_DIR, formats=formats))
 
 
 BOOK = Book(

@@ -57,11 +57,8 @@ def _build(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     formats = edition.formats
     if args.formats is not None:
         formats = frozenset(f for f in args.formats.split(",") if f)
-        if formats - edition.formats:
-            parser.error(
-                f"{args.book} cannot make {', '.join(sorted(formats - edition.formats))}; "
-                f"formats: {', '.join(sorted(edition.formats))}"
-            )
+        if unknown := formats - edition.formats:
+            parser.error(f"{args.book} cannot make {', '.join(sorted(unknown))}; formats: {', '.join(sorted(edition.formats))}")
     edition.build(args.source, formats)
     return 0
 

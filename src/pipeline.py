@@ -12,7 +12,7 @@ from .compiler.monograph import (
     resolve_monograph_spec,
 )
 from .ocr.apple_vision import AppleVisionOCREngine
-from .ocr.base import OCREngine, page_number
+from .ocr.base import OCREngine, mark_blank_pages, page_number
 from .ocr.engines import ocr_engine
 from .ocr.ocr_models import DEFAULT_OCR_MODEL
 from .ocr.splitter import TwoUpSplitter
@@ -174,6 +174,9 @@ class UniversalPDFPipeline:
         if page_subset:
             wanted = set(page_subset)
             pages = [p for p in pages if page_number(p) in wanted]
+        blank = mark_blank_pages(pages, self.markdown_dir)
+        if blank:
+            print(f"Marked {len(blank)} blank pages, which skip OCR: {blank}")
         return engine.transcribe_pages(pages, self.markdown_dir)
 
     def process(

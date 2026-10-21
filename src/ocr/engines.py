@@ -6,12 +6,12 @@ from pathlib import Path
 
 from .base import (
     OCREngine,
-    OCRLine,
     OCRPage,
     normalize_ocr_markdown,
     page_number,
     pending_pages,
     read_transcripts,
+    text_lines,
     transcript_path,
 )
 from .ocr_models import DEFAULT_OCR_MODEL
@@ -28,11 +28,7 @@ class CachedMarkdownEngine(OCREngine):
     def recognize_page(self, image_path: Path, page_number: int) -> OCRPage:
         cached = transcript_path(self.source_dir, page_number)
         text = cached.read_text(encoding="utf-8") if cached.exists() else ""
-        lines = [
-            OCRLine(text=l, x=0.1, y=0.5, w=0.8, h=0.03)
-            for l in text.splitlines()
-            if l.strip()
-        ]
+        lines = text_lines(text)
         return OCRPage(page_number, 0, 0, lines, raw_text=text)
 
     def recognize_document(self, image_paths: list[Path]) -> list[OCRPage]:

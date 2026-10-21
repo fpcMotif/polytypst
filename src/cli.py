@@ -6,20 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pymupdf
-
-from .compiler.epub import PandocCompilers
-from .compiler.typst import TypstCompiler
-from .ocr.apple_vision import AppleVisionOCREngine
-from .ocr.base import OCRLine, OCRPage
 from .ocr.colab import COLAB_GPUS
-from .ocr.jina import JinaCloudOCREngine
-from .ocr.mistral import MistralOCREngine
 from .ocr.ocr_models import DEFAULT_OCR_MODEL, OCR_MODELS
-from .ocr.splitter import TwoUpSplitter
-from .ocr.tesseract import TesseractOCREngine
-from .parser.stitcher import DocumentStitcher, FigureBlock
-from .vision.vector_figures import generate_all_vector_figures
 
 BOOK_COMMANDS = """\
 book commands (see `polytypst COMMAND --help`):
@@ -115,23 +103,10 @@ def main() -> None:
         help="Primary CJK typography: songti (academic serif) or pingfang (modern sans)",
     )
     parser.add_argument(
-        "--columns",
-        type=int,
-        choices=[1, 2],
-        default=1,
-        help="Number of text columns (1 for standard book, 2 for academic math)",
-    )
-    parser.add_argument(
         "--vector-graphics",
         action="store_true",
         default=True,
         help="Generate clean vector SVG graphics for diagrams",
-    )
-    parser.add_argument(
-        "--use-jev",
-        action="store_true",
-        default=True,
-        help="Use TypeSafe Jev 1.14 Box primitive for diagram localization",
     )
     parser.add_argument(
         "--publisher",
@@ -194,6 +169,19 @@ def main() -> None:
         )
         print(f"\n🎉 polytypst build complete! Master file: {res.master_markdown_path}")
         return
+
+    import pymupdf
+
+    from .compiler.epub import PandocCompilers
+    from .compiler.typst import TypstCompiler
+    from .ocr.apple_vision import AppleVisionOCREngine
+    from .ocr.base import OCRLine, OCRPage
+    from .ocr.jina import JinaCloudOCREngine
+    from .ocr.mistral import MistralOCREngine
+    from .ocr.splitter import TwoUpSplitter
+    from .ocr.tesseract import TesseractOCREngine
+    from .parser.stitcher import DocumentStitcher, FigureBlock
+    from .vision.vector_figures import generate_all_vector_figures
 
     print(f"=== polytypst processing: {args.pdf_path.name} ===")
     print(f"Target formats: {args.formats}")

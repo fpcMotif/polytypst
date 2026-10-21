@@ -8,6 +8,7 @@ explicit path. OCR lines are cached as one JSON file per page in the book's
 import json
 import os
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 
 import pymupdf
@@ -100,12 +101,17 @@ def ensure_source_ocr(source: Path, cache: Path, batch: int = 40) -> None:
         print(f"OCR {pages[-1]}/{doc.page_count}", flush=True)
 
 
+@cache
+def _page_sizes(sizes: Path) -> dict[str, list[float]]:
+    return json.loads(sizes.read_text())
+
+
 def read_source_page(cache: Path, number: int) -> SourcePage:
     """The cached OCR lines and size of a 1-based scan page; raises when `ensure_source_ocr` has not run."""
     path = cache / f"p{number:03d}.json"
     sizes = cache / "pages.json"
     if not path.exists() or not sizes.exists():
         raise SourceScanError(f"no source OCR for page {number} in {cache}; run ensure_source_ocr first")
-    width, height = json.loads(sizes.read_text())[str(number)]
+    width, height = _page_sizes(sizes)[str(number)]
     lines = tuple(OcrLine(**line) for line in json.loads(path.read_text(encoding="utf-8")))
     return SourcePage(number, width, height, lines)

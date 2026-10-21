@@ -1,9 +1,13 @@
 """TeX-compatible Markdown normalizer, figure grounder, and document stitcher."""
 
+from __future__ import annotations
+
 import re
 from re import Pattern
+from typing import TYPE_CHECKING
 
-from .vision.figure_extractor import ExtractedFigure
+if TYPE_CHECKING:
+    from .vision.figure_extractor import ExtractedFigure
 
 _OCR_NEQ_REGEX: Pattern[str] = re.compile(
     r"([a-zA-Z0-9\)])[ \t]+#[ \t]+([0-9Ooa-zA-Z])"

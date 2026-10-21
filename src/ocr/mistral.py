@@ -6,7 +6,7 @@ from pathlib import Path
 
 import httpx
 
-from .base import OCREngine, OCRLine, OCRPage
+from .base import OCREngine, OCRPage, text_lines
 
 
 class MistralOCREngine(OCREngine):
@@ -76,7 +76,7 @@ class MistralOCREngine(OCREngine):
         width = dims.get("width", 0)
         height = dims.get("height", 0)
 
-        lines = [OCRLine(text=l, x=0.1, y=0.5, w=0.8, h=0.03) for l in md_text.splitlines() if l.strip()]
+        lines = text_lines(md_text)
         return OCRPage(page_number, width, height, lines, raw_text=md_text)
 
     def recognize_document(self, image_paths: list[Path]) -> list[OCRPage]:

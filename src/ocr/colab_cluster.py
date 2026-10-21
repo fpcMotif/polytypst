@@ -16,12 +16,12 @@ from pathlib import Path
 
 from .base import (
     OCREngine,
-    OCRLine,
     OCRPage,
     normalize_ocr_markdown,
     page_number,
     pending_pages,
     read_transcripts,
+    text_lines,
     transcript_path,
 )
 from .colab import ColabSession, account_usage, colab_gpu, fit_problem
@@ -326,11 +326,7 @@ class ColabOCREngine(OCREngine):
         with tempfile.TemporaryDirectory() as tmp:
             transcripts = self.transcribe_pages([image_path], Path(tmp))
         text = transcripts[0][1] if transcripts else ""
-        lines = [
-            OCRLine(text=l, x=0.1, y=0.5, w=0.8, h=0.03)
-            for l in text.splitlines()
-            if l.strip()
-        ]
+        lines = text_lines(text)
         return OCRPage(page_number, 0, 0, lines, raw_text=text)
 
     def recognize_document(self, image_paths: list[Path]) -> list[OCRPage]:

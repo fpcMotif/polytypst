@@ -397,23 +397,17 @@ class CompositionConfig:
 }}"""
         return f"""{h1}
 
-#show heading.where(level: 2): it => {{
-  v(1.75em, weak: true)
-  text(12.5pt, weight: "bold", font: {font_expr})[#it.body]
-  v(0.75em, weak: true)
-}}
+#show heading.where(level: 2): it => block(above: 1.75em, below: 0.75em, sticky: true)[
+  #text(12.5pt, weight: "bold", font: {font_expr})[#it.body]
+]
 
-#show heading.where(level: 3): it => {{
-  v(1.3em, weak: true)
-  text(10.5pt, weight: "bold", style: "italic", font: {font_expr})[#it.body]
-  v(0.5em, weak: true)
-}}
+#show heading.where(level: 3): it => block(above: 1.3em, below: 0.5em, sticky: true)[
+  #text(10.5pt, weight: "bold", style: "italic", font: {font_expr})[#it.body]
+]
 
-#show heading.where(level: 4): it => {{
-  v(1.1em, weak: true)
-  text(10pt, weight: "bold", font: {font_expr})[#smallcaps(it.body)]
-  v(0.45em, weak: true)
-}}"""
+#show heading.where(level: 4): it => block(above: 1.1em, below: 0.45em, sticky: true)[
+  #text(10pt, weight: "bold", font: {font_expr})[#smallcaps(it.body)]
+]"""
 
 
 def resolve_composition(

@@ -5,8 +5,6 @@ import re
 _RESOLVED_LINKS = {
     "https://apple.news/AJTR4Hew8QSama-mtyy2Xpw": "https://www.politico.com/news/2026/03/19/trump-powell-fed-chair-doj-probe-warsh-00836447",
 }
-
-
 _LINK_TITLES = {
     "https://www.wallstreetoasis.com/resources/skills/strategy/shareholder-value": "Shareholder Value",
     "https://www.wallstreetoasis.com/forums/why-choose-sales-and-trading-over-investment-banking": "Why choose Sales and Trading over Investment Banking?",
@@ -14,24 +12,20 @@ _LINK_TITLES = {
     "http://www.traders-library.com": "Traders’ Library",
     "http://govttrader.blogspot.com": "Govt Trader",
 }
+URL_TEXT = re.compile(r"(?:https?://|www\.)\S+")
+BARE_URL = re.compile(r"(?<![(\[<\"/\w])https?://[^\s)\]>]*[^\s)\]>.,;:!?]")
 
 
-_URL_TEXT = re.compile(r"(?:https?://|www\.)\S+")
-
-
-_BARE_URL = re.compile(r"(?<![(\[<\"/\w])https?://[^\s)\]>]*[^\s)\]>.,;:!?]")
-
-
-def _link_title(url: str) -> str | None:
+def link_title(url: str) -> str | None:
     return _LINK_TITLES.get(url.split("#")[0].rstrip("/"))
 
 
-def _title_bare_url(m: re.Match[str]) -> str:
-    title = _link_title(m.group(0))
+def title_bare_url(m: re.Match[str]) -> str:
+    title = link_title(m.group(0))
     return f"[{title}]({m.group(0)})" if title else m.group(0)
 
 
-def _unwrap_links(text: str, url: str, keep_web: bool = False) -> str:
+def unwrap_links(text: str, url: str, keep_web: bool = False) -> str:
     def label(m: re.Match[str]) -> str:
         before = text[m.start() - 1] if m.start() else ""
         after = text[m.end()] if m.end() < len(text) else ""
@@ -41,12 +35,12 @@ def _unwrap_links(text: str, url: str, keep_web: bool = False) -> str:
         if keep_web and target.startswith("http"):
             target = _RESOLVED_LINKS.get(target, re.sub(r"[?&](?:cid|utm_\w+)=[^&]*$", "", target))
             return f"{lead}[{m.group(1)}]({target}){trail}"
-        if _URL_TEXT.fullmatch(m.group(1)) and target.startswith("http"):
+        if URL_TEXT.fullmatch(m.group(1)) and target.startswith("http"):
             return lead + target + trail
         return lead + m.group(1) + trail
 
     return re.sub(rf"\[([^\]]+)\]\(({url})\)", label, text)
 
 
-def _plain_links(text: str) -> str:
+def plain_links(text: str) -> str:
     return re.sub(r"\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)", r"\1", text)

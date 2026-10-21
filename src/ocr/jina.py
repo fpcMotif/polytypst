@@ -7,7 +7,7 @@ from pathlib import Path
 
 import httpx
 
-from .base import OCREngine, OCRLine, OCRPage, normalize_ocr_markdown
+from .base import OCREngine, OCRPage, normalize_ocr_markdown, text_lines
 
 JINA_CHAT_ENDPOINT = "https://api.jina.ai/v1/chat/completions"
 JINA_OCR_MODEL = "jina-ocr-v1"
@@ -122,11 +122,7 @@ class JinaCloudOCREngine(OCREngine):
                 ) from exc
             return OCRPage(page_number, 0, 0, [], raw_text="")
         self._consecutive_failures = 0
-        lines = [
-            OCRLine(text=l, x=0.1, y=0.5, w=0.8, h=0.03)
-            for l in md_text.splitlines()
-            if l.strip()
-        ]
+        lines = text_lines(md_text)
         return OCRPage(page_number, 0, 0, lines, raw_text=md_text)
 
     def recognize_document(self, image_paths: list[Path]) -> list[OCRPage]:

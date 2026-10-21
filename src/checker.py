@@ -2,8 +2,10 @@
 
 import re
 import unicodedata
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from itertools import pairwise
 from pathlib import Path
 from typing import Literal
 
@@ -74,6 +76,7 @@ class AuditSpec:
     chapter_titles: dict[int, str] = field(default_factory=dict)
     bibliography_from_page: int | None = None
     language: str = "auto"
+    book_headers: tuple[str, ...] = ()
 
     @classmethod
     def from_monograph(cls, spec: MonographSpec) -> "AuditSpec":
@@ -85,7 +88,12 @@ class AuditSpec:
             chapter_heading_regex=rf"^{heading}$",
             chapter_titles={ch.number: ch.title for ch in spec.chapters},
             figure_pages=spec.figure_pages,
+            book_headers=tuple(filter(None, (spec.author, spec.title))),
         )
+
+
+def _letters(text: str) -> str:
+    return "".join(c for c in text.casefold() if c.isalpha())
 
 
 def _snippet(text: str, start: int, end: int, pad: int = 20) -> str:
@@ -160,6 +168,10 @@ _MASHED_TOKENS = (
     r",d[zxyrtuvs]\b",
     r"\(\d+\([a-zA-Z\s]+\)\d+\)",
 )
+_FOLIO_RE = re.compile(r"^—?\s*\d+\s*—?$")
+_NAME_HYPHEN_RE = re.compile(r"\b([A-Z][a-z]{1,4})-[\s]*$")
+_TRAILING_WORD_RE = re.compile(r"\b[A-Za-z]+$")
+_LEADING_WORD_RE = re.compile(r"^[A-Za-z]+\b")
 _BOILERPLATE = (
     "raspberry",
     "temperature monitoring",
@@ -170,6 +182,11 @@ _BOILERPLATE = (
     "social media",
     "research questions",
     "smith, j.",
+    "problem statement",
+    "literature review",
+    "existing solutions",
+    "data preprocessing",
+    "model training",
 )
 _HYPHEN_PREFIXES = (
     "z-",
@@ -226,6 +243,7 @@ class DocumentQualityChecker:
                 self.check_isolated_math_blocks,
                 self.check_orphaned_equation_numbers,
                 self.check_equation_margin_overflow,
+                self.check_shrunken_display_math,
                 self.check_visual_line_height_spikes,
             ),
             STRUCTURE_TIER: (
@@ -267,7 +285,7 @@ class DocumentQualityChecker:
                 continue
             for line in b[4].strip().splitlines():
                 l = line.strip()
-                if l and not re.match(r"^—?\s*\d+\s*—?$", l):
+                if l and not _FOLIO_RE.match(l):
                     body_lines.append(l)
         return body_lines
 
@@ -336,7 +354,7 @@ class DocumentQualityChecker:
         for pno in range(len(self.doc)):
             for l in self._extract_body_lines(self.doc[pno]):
                 # Check for hyphenated English names like "Ric-" or "Gene-"
-                m = re.search(r"\b([A-Z][a-z]{1,4})-[\s]*$", l)
+                m = _NAME_HYPHEN_RE.search(l)
                 if (
                     m
                     and not l.endswith(("—", "–"))
@@ -354,9 +372,8 @@ class DocumentQualityChecker:
     def check_cross_page_splits(self, report: CheckReport) -> None:
         """Rule 5: No unclosed parentheses or split English proper nouns across page breaks."""
         bib_from = self.spec.bibliography_from_page
-        for pno in range(len(self.doc) - 1):
-            cur_lines = self._extract_body_lines(self.doc[pno])
-            next_lines = self._extract_body_lines(self.doc[pno + 1])
+        body_lines = [self._extract_body_lines(page) for page in self.doc]
+        for pno, (cur_lines, next_lines) in enumerate(pairwise(body_lines)):
             if not cur_lines or not next_lines:
                 continue
 
@@ -389,8 +406,8 @@ class DocumentQualityChecker:
                 )
                 if (
                     not is_bib
-                    and re.search(r"\b[A-Za-z]+$", last_line)
-                    and re.search(r"^[A-Za-z]+\b", first_line)
+                    and _TRAILING_WORD_RE.search(last_line)
+                    and _LEADING_WORD_RE.search(first_line)
                 ):
                     self._issue(
                         report,
@@ -418,16 +435,18 @@ class DocumentQualityChecker:
         """Rule 6: Zero foreign boilerplate keywords from VLM hallucinations."""
         for pno, text in enumerate(self._texts):
             lowered = text.lower()
-            for kw in _BOILERPLATE:
-                if kw in lowered:
-                    self._issue(
-                        report,
-                        "ERROR",
-                        "HALLUCINATED_BOILERPLATE",
-                        pno + 1,
-                        f"Hallucinated template keyword '{kw}' detected",
-                        kw,
-                    )
+            found = [kw for kw in _BOILERPLATE if kw in lowered]
+            if len(found) < 2:
+                continue
+            for kw in found:
+                self._issue(
+                    report,
+                    "ERROR",
+                    "HALLUCINATED_BOILERPLATE",
+                    pno + 1,
+                    f"Hallucinated template keyword '{kw}' detected",
+                    kw,
+                )
 
     def check_isolated_math_blocks(self, report: CheckReport) -> None:
         """Rule 7: No single-letter isolated display equations breaking sentence flow."""
@@ -557,9 +576,24 @@ class DocumentQualityChecker:
         header_re = re.compile(
             r"(?:\[[IVXLCDM]+,\s*§\s*\d+[a-z]?|[IVXLCDM]+,\s*§\s*\d+[a-z]?\]\s+[A-Z]{4,})"
         )
+        book_headers = {_letters(h) for h in self.spec.book_headers}
+        # A scan sets its running header in capitals, which prose never does for its own author.
+        caps_headers = [" ".join(h.upper().split()) for h in self.spec.book_headers]
         for pno in range(len(self.doc)):
             for l in self._extract_body_lines(self.doc[pno]):
-                if header_re.search(l):
+                if pno >= self.spec.front_matter_pages and (
+                    _letters(l) in book_headers
+                    or any(h in " ".join(l.split()) for h in caps_headers)
+                ):
+                    self._issue(
+                        report,
+                        "ERROR",
+                        "LEAKED_RUNNING_HEADER",
+                        pno + 1,
+                        "Scanned running header with the book's author or title leaked into body text",
+                        l[:80],
+                    )
+                elif header_re.search(l):
                     self._issue(
                         report,
                         "ERROR",
@@ -756,6 +790,44 @@ class DocumentQualityChecker:
                     pno + 1,
                     "Mangled ellipsis '⋅𝑠' (corrupted from \\cdots) detected",
                     _snippet(t, m.start(), m.end(), pad=15),
+                )
+
+    def check_shrunken_display_math(self, report: CheckReport) -> None:
+        """A math line whose largest glyph is far below body size was scaled down to fit the measure."""
+        sizes: Counter[float] = Counter()
+        pages = [page.get_text("dict") for page in self.doc]
+        for d in pages:
+            for b in d["blocks"]:
+                for ln in b.get("lines", []):
+                    for s in ln["spans"]:
+                        sizes[round(s["size"], 1)] += len(s["text"].strip())
+        if not sizes:
+            return
+        floor = 0.6 * sizes.most_common(1)[0][0]
+        for pno, d in enumerate(pages):
+            if pno + 1 in self.spec.figure_pages:
+                continue
+            lines = [
+                [s for s in ln["spans"] if s["text"].strip()]
+                for b in d["blocks"]
+                for ln in b.get("lines", [])
+            ]
+            shrunk = [
+                spans
+                for spans in lines
+                if len("".join(s["text"] for s in spans).strip()) >= 3
+                and all("Math" in s["font"] for s in spans)
+                and max(s["size"] for s in spans) < floor
+            ]
+            if shrunk:
+                size = max(s["size"] for s in shrunk[0])
+                self._issue(
+                    report,
+                    "WARNING",
+                    "SHRUNKEN_DISPLAY_MATH",
+                    pno + 1,
+                    f"Math set at {size:.1f}pt, below {floor:.1f}pt",
+                    "".join(s["text"] for s in shrunk[0]).strip()[:80],
                 )
 
     def check_visual_line_height_spikes(self, report: CheckReport) -> None:

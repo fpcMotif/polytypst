@@ -4,7 +4,7 @@ import re
 from dataclasses import replace
 
 from ..compiler.monograph import ChapterSpec, FigureLayout, MonographSpec
-from .compiler import AhlforsCompiler
+from .typst_blocks import TITLE_PAGE_BLOCK, TOC_BLOCK, TYPST_PREAMBLE
 
 RUNNING_HEADERS = (
     "COMPLEX ANALYSIS|COMPLEX NUMBERS|COMPLEX FUNCTIONS|"
@@ -98,10 +98,10 @@ AHLFORS_SPEC = MonographSpec(
     prebuilt_fixups=(
         ("|z_1 / z_2| = |z_1| / |z_2|", "abs(z_1 / z_2) = abs(z_1) / abs(z_2)"),
     ),
-    typst_preamble=AhlforsCompiler.TYPST_PREAMBLE,
-    typst_front_matter=AhlforsCompiler.TITLE_PAGE_BLOCK
+    typst_preamble=TYPST_PREAMBLE,
+    typst_front_matter=TITLE_PAGE_BLOCK
     + "\n"
-    + AhlforsCompiler.TOC_BLOCK,
+    + TOC_BLOCK,
     book_aliases=False,
 )
 
@@ -109,11 +109,11 @@ AHLFORS_ILLUSTRATED_SPEC = replace(
     AHLFORS_SPEC,
     slug="ahlfors_illustrated",
     figure_dir="figures_color",
-    typst_front_matter=AhlforsCompiler.TITLE_PAGE_BLOCK.replace(
+    typst_front_matter=TITLE_PAGE_BLOCK.replace(
         "THIRD EDITION", "THIRD EDITION — COLORFUL ILLUSTRATED EDITION"
     )
     + "\n"
-    + AhlforsCompiler.TOC_BLOCK,
+    + TOC_BLOCK,
     extra_figures={
         55: (
             (

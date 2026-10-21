@@ -1,5 +1,6 @@
 """Comprehensive tests for Universal KISS PDF-to-Markdown Pipeline and Dual-G4 architecture."""
 
+from dataclasses import replace
 from pathlib import Path
 
 from PIL import Image
@@ -243,13 +244,23 @@ def test_three_axis_composition_presets():
                     lang=lang_key,
                     domain=dom_key,
                 )
-                compiler = MonographCompiler(spec)
+                compiler = MonographCompiler(replace(spec, publisher=pub.imprint_name))
                 preamble = compiler.build_typst_preamble()
                 title_page = compiler.build_typst_title_page()
                 assert f"width: {pub.width_pt}pt" in preamble
                 assert f'lang: "{lang.typst_lang}"' in preamble
                 assert pub.cities_line in title_page
                 assert f"#outline(title: [{lang.contents_title}]" in title_page
+
+
+def test_spec_less_book_names_no_invented_publisher_or_author():
+    from polytypst.compiler.monograph import MonographCompiler, resolve_monograph_spec
+
+    spec = resolve_monograph_spec(Path("Lectures on Moduli.pdf"), 7)
+    title_page = MonographCompiler(spec).build_typst_title_page()
+    assert "LECTURES ON MODULI" in title_page
+    for invented in ("Cambridge", "CAMBRIDGE", "Author", "New York"):
+        assert invented not in title_page
 
 
 def test_markdown_pages_merge_when_inline_math_straddles_pages():

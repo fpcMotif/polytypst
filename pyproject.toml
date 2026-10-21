@@ -39,6 +39,7 @@ build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.170.5",
     "pytest>=9.1.1",
     "ruff==0.17.1",
 ]
@@ -53,6 +54,7 @@ packages = [
     "polytypst.compiler",
     "polytypst.fermat",
     "polytypst.goursat",
+    "polytypst.hecke",
     "polytypst.kashiwara",
     "polytypst.kenji_alg",
     "polytypst.kerodon",
@@ -62,6 +64,7 @@ packages = [
     "polytypst.ocr",
     "polytypst.parity",
     "polytypst.parser",
+    "polytypst.siegel_symplectic",
     "polytypst.taocp",
     "polytypst.vision",
     "polytypst.複素多様体論",

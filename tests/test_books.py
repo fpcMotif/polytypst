@@ -42,6 +42,9 @@ def test_specs_come_from_the_editions():
     from polytypst.klein.zh_spec import KLEIN_ZH_SPEC
     from polytypst.kodaira.spec import KODAIRA_SPEC
     from polytypst.london_treasury.spec import LONDON_TREASURY_SPEC
+    from polytypst.hecke.spec import HECKE_SPEC
+    from polytypst.siegel_symplectic.spec import SIEGEL_SYMPLECTIC_SPEC
+    from polytypst.siegel_symplectic.styles import STYLED_SPECS
     from polytypst.複素多様体論.spec import FUKUSO_SPEC
 
     every = (
@@ -62,6 +65,9 @@ def test_specs_come_from_the_editions():
         KENJI_ALG2_SPEC,
         KENJI_ALG3_SPEC,
         LONDON_TREASURY_SPEC,
+        SIEGEL_SYMPLECTIC_SPEC,
+        *STYLED_SPECS.values(),
+        HECKE_SPEC,
     )
     assert set(book_specs()) == {s.slug for s in every}
     kodaira = books()["kodaira"].spec

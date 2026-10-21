@@ -118,7 +118,7 @@ def test_sample_pages_spread_across_the_book(tmp_path: Path) -> None:
     assert picked == ["p_013.png", "p_038.png", "p_063.png", "p_088.png"]
 
 
-def test_shard_worker_writes_cleaned_text_and_empty_blank_pages(
+def test_shard_worker_writes_cleaned_text_and_marks_blank_pages(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     inked = Image.new("RGB", (400, 400), "white")
@@ -139,4 +139,4 @@ def test_shard_worker_writes_cleaned_text_and_empty_blank_pages(
     assert done == 2
     assert seen == ["book prompt"]
     assert (out / "p_001.md").read_text(encoding="utf-8") == "Text1"
-    assert (out / "p_002.md").read_text(encoding="utf-8") == ""
+    assert (out / "p_002.md").read_text(encoding="utf-8") == "<!-- blank page -->\n"

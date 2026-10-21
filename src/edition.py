@@ -4,7 +4,12 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .compiler.monograph import MONOGRAPH_FORMATS, MonographCompiler, MonographSpec
+from .compiler.monograph import (
+    MONOGRAPH_FORMATS,
+    MonographCompiler,
+    MonographOutputs,
+    MonographSpec,
+)
 from .parity.diagrams import DiagramText
 from .parity.report import Tolerance
 from .parity.source import source_ocr_dir
@@ -25,14 +30,14 @@ class Parity:
 @dataclass(frozen=True)
 class Edition:
     """One rebuild of a book. `build` takes an explicit source scan path, or None for the spec's,
-    and the subset of `formats` to make. Markdown and Typst are always written."""
+    and the subset of the optional `formats` to make beside the outputs it always writes."""
 
     rebuilt: Path
     build: Callable[[Path | None, frozenset[str]], None]
     summary: str = ""
     parity: Parity | None = None
     spec: MonographSpec | None = None
-    formats: frozenset[str] = MONOGRAPH_FORMATS
+    formats: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -49,6 +54,14 @@ class Book:
         return source_ocr_dir(self.out_dir)
 
 
+def report_build(outputs: MonographOutputs) -> None:
+    """Print the PDF and its page count, or the Typst file when no PDF was made."""
+    if outputs.pdf_path is not None:
+        print(f"{outputs.pdf_path}: {outputs.total_pages} pages")
+    else:
+        print(outputs.typst_path)
+
+
 def monograph_edition(
     spec: MonographSpec, out_dir: Path, summary: str = "", prepare: Callable[[Path | None], None] | None = None,
     parity: Parity | None = None,
@@ -58,10 +71,6 @@ def monograph_edition(
     def build(source: Path | None, formats: frozenset[str]) -> None:
         if prepare is not None:
             prepare(source)
-        outputs = MonographCompiler(spec).build_all(out_dir, formats)
-        if "pdf" in formats:
-            print(f"{outputs.pdf_path}: {outputs.total_pages} pages")
-        else:
-            print(outputs.typst_path)
+        report_build(MonographCompiler(spec).build_all(out_dir, formats))
 
-    return Edition(out_dir / f"{spec.slug}.pdf", build, summary, parity, spec)
+    return Edition(out_dir / f"{spec.slug}.pdf", build, summary, parity, spec, MONOGRAPH_FORMATS)

@@ -7,6 +7,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .gpu_worker import BLANK_TRANSCRIPT, is_blank_page
+
 
 @dataclass
 class OCRLine:
@@ -18,6 +20,11 @@ class OCRLine:
     confidence: float = 1.0
     is_heading: bool = False
     heading_level: int = 0
+
+
+def text_lines(text: str) -> list[OCRLine]:
+    """One OCRLine per non-blank line of a transcript, at a fixed placeholder box."""
+    return [OCRLine(text=l, x=0.1, y=0.5, w=0.8, h=0.03) for l in text.splitlines() if l.strip()]
 
 
 @dataclass
@@ -49,14 +56,32 @@ def transcript_path(out_dir: Path, number: int) -> Path:
     return out_dir / f"p_{number:03d}.md"
 
 
+def _is_blank_transcript(t: Path) -> bool:
+    return t.read_text(encoding="utf-8") == BLANK_TRANSCRIPT
+
+
 def pending_pages(pages: Sequence[Path], out_dir: Path) -> list[Path]:
-    """Pages whose transcript is missing or shorter than `MIN_TRANSCRIPT_BYTES`."""
+    """Pages whose transcript is missing, or shorter than `MIN_TRANSCRIPT_BYTES` and not a blank-page marker."""
     return [
         p
         for p in pages
         if not (t := transcript_path(out_dir, page_number(p))).exists()
-        or t.stat().st_size < MIN_TRANSCRIPT_BYTES
+        or (t.stat().st_size < MIN_TRANSCRIPT_BYTES and not _is_blank_transcript(t))
     ]
+
+
+def mark_blank_pages(pages: Sequence[Path], out_dir: Path) -> list[int]:
+    """Write the blank-page marker for each blank render, replacing any transcript a model invented for it."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    marked: list[int] = []
+    for p in pages:
+        t = transcript_path(out_dir, page_number(p))
+        if t.exists() and _is_blank_transcript(t):
+            continue
+        if is_blank_page(p):
+            _ = t.write_text(BLANK_TRANSCRIPT, encoding="utf-8")
+            marked.append(page_number(p))
+    return marked
 
 
 def read_transcripts(out_dir: Path, pages: Sequence[Path]) -> list[tuple[int, str]]:

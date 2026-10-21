@@ -9,12 +9,12 @@ import re
 import shutil
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal
 
-import pymupdf
 from PIL import Image
 
 from ..tex_markdown import normalize_html_tables
@@ -121,11 +121,41 @@ class MonographSpec:
 
 @dataclass(frozen=True)
 class MonographOutputs:
+    """The files one build wrote. A format that was not requested has no path."""
+
     markdown_path: Path
-    latex_path: Path
     typst_path: Path
-    pdf_path: Path
-    total_pages: int
+    latex_path: Path | None = None
+    pdf_path: Path | None = None
+    epub_path: Path | None = None
+    total_pages: int = 0
+
+
+def alias_as_book(path: Path) -> None:
+    """Copy `path` to `book<suffix>` beside it, the stable name the web exporter reads."""
+    shutil.copy2(path, path.with_name(f"book{path.suffix}"))
+
+
+def run_formats(writers: Mapping[str, tuple[Path, Callable[[], object]]], formats: frozenset[str]) -> dict[str, Path]:
+    """Run the writer of each requested format in parallel; each writer makes one file. Returns those files by format."""
+    chosen = {name: writers[name] for name in formats}
+    with ThreadPoolExecutor() as pool:
+        for future in [pool.submit(write) for _, write in chosen.values()]:
+            future.result()
+    return {name: path for name, (path, _) in chosen.items()}
+
+
+def build_outputs(markdown: Path, typst: Path, made: Mapping[str, Path]) -> MonographOutputs:
+    """The outputs record of a build that wrote `markdown`, `typst` and the `made` formats."""
+    pages = 0
+    if "pdf" in made:
+        import pymupdf
+
+        with pymupdf.open(made["pdf"]) as doc:
+            pages = len(doc)
+    return MonographOutputs(
+        markdown, typst, made.get("tex"), made.get("pdf"), made.get("epub"), pages
+    )
 
 
 @dataclass(frozen=True)
@@ -174,9 +204,9 @@ def resolve_monograph_spec(
     return MonographSpec(
         slug=slug,
         title=pdf_path.stem,
-        author="Author",
-        publisher=comp.publisher.imprint_name,
-        series=comp.publisher.default_series,
+        author="",
+        publisher="",
+        series="",
         publisher_key=comp.publisher.key,
         lang=comp.language.code,
         domain=comp.domain.key,
@@ -423,8 +453,8 @@ def _label_section_equations(s: str, pno: int) -> str:
     """Label `(1.2)`-style equation numbers as `<eq-PAGE-1-2>`."""
     s = re.sub(r"\\tag\{\(?(\d+)\.(\d+[a-z']?)\)?\}", rf"\\tag{{{pno}-\1-\2}}", s)
     s = re.sub(
-        r"^\s*\((\d+)\.(\d+[a-z']?)\)\s*\$([^$\n]{8,})\$\s*$",
-        r"(\1.\2)\n$$\n\3\n$$",
+        r"^[ \t]*(\(\d+(?:\.\d+[a-z']?)?\))[ \t]*\$([^$\n]{8,})\$([.,;]?)[ \t]*$",
+        r"\1\n$$\n\2\3\n$$",
         s,
         flags=re.MULTILINE,
     )
@@ -464,7 +494,7 @@ def _label_section_equations(s: str, pno: int) -> str:
 
     s = re.sub(
         r"(?:^[ \t]*\((\d+)(?:\.(\d+[a-z']?))?\)[ \t]*\n*\s*)?\$\$(.*?)\$\$"
-        r"(?:[ \t]*\n?[ \t]*\((\d+)(?:\.(\d+[a-z']?))?\)[ \t]*(?=\n|$))?",
+        r"(?:[ \t]*\n?[ \t]*\n?[ \t]*\((\d+)(?:\.(\d+[a-z']?))?\)[ \t]*(?=\n|$)(?!\s*\$\$))?",
         replace_block,
         s,
         flags=re.MULTILINE | re.DOTALL,
@@ -472,7 +502,9 @@ def _label_section_equations(s: str, pno: int) -> str:
     s = re.sub(r"\\tag\{[^{}]*\}", "", s)
     s = re.sub(r"(<eq-[^>]+>)(?:\s*<eq-[^>]+>)+", r"\1", s)
     if len(re.findall(r"\$\$", s)) % 2 != 0:
-        s = s.rstrip() + "$$"
+        s = s.rstrip()
+        para_end = s.find("\n\n", s.rfind("$$") + 2)
+        s = s + "$$" if para_end == -1 else s[:para_end].rstrip() + "$$" + s[para_end:]
     return s
 
 
@@ -480,8 +512,8 @@ def _label_page_equations(s: str, ch_num: int, pno: int) -> str:
     """Label plain `(n)` equation numbers as `<eq-CHAPTER-PAGE-n>`."""
     s = re.sub(r"\\tag\{(\d+)\}", rf"\\tag{{{ch_num}-{pno}-\1}}", s)
     s = re.sub(
-        r"^\s*\((\d+)\)\s*\$([^$\n]{10,})\$\s*$",
-        r"(\1)\n$$\n\2\n$$",
+        r"^[ \t]*\((\d+)\)[ \t]*\$([^$\n]{10,})\$([.,;]?)[ \t]*$",
+        r"(\1)\n$$\n\2\3\n$$",
         s,
         flags=re.MULTILINE,
     )
@@ -508,7 +540,7 @@ def _label_page_equations(s: str, ch_num: int, pno: int) -> str:
 
     return re.sub(
         r"(?:^[ \t]*\((\d+)\)[ \t]*\n*\s*)?\$\$(.*?)\$\$"
-        r"(?:[ \t]*\n?[ \t]*\n?[ \t]*\((\d+)\)[ \t]*(?=\n|$))?",
+        r"(?:[ \t]*\n?[ \t]*\n?[ \t]*\((\d+)\)[ \t]*(?=\n|$)(?!\s*\$\$))?",
         replace_block,
         s,
         flags=re.MULTILINE | re.DOTALL,
@@ -560,7 +592,7 @@ ITALIC_THEOREM_KINDS = frozenset(
 THEOREM_HEAD_RE = re.compile(
     rf"^(?P<open>\*\*)?(?P<kind>{'|'.join(THEOREM_KINDS)})\s+"
     r"(?P<num>[0-9A-Z]+(?:\.\d+)*[a-z]?)(?P<dot>\.)?(?P<close>\*\*)?"
-    r"\s*(?P<note>\([^()]{1,60}\))?\s*(?:\*\*)?(?P<dot2>\.)?\s*(?P<rest>.*)$",
+    r"\s*(?P<note>\([^()]{1,60}\))?\s*(?:\*\*)?(?P<dot2>\.)?(?:\*\*)?\s*(?P<rest>.*)$",
     re.IGNORECASE,
 )
 PROOF_HEAD_RE = re.compile(
@@ -591,6 +623,26 @@ CHAPTER_OPENING_RE = re.compile(
     r"^(?:#+\s*.+|(?:CHAPTER|APPENDIX)\s+[0-9A-Z]+|[—–-]+\s*.+?\s*[—–-]+)$",
     re.IGNORECASE,
 )
+UNNUMBERED_CHAPTER_PREFIXES = (
+    "人名索引",
+    "专业名词索引",
+    "译后记",
+    "附录",
+    "参考文献",
+    "Index",
+    "Appendix",
+    "Bibliography",
+    "References",
+    "Solutions",
+    "Historical Note",
+)
+
+
+def is_unnumbered_chapter(title: str) -> bool:
+    return title.startswith(UNNUMBERED_CHAPTER_PREFIXES)
+
+
+SCANNER_WATERMARK_RE = re.compile(r"ClibPDF\s*-\s*www\.[\w.]+\.(?:com|net)[;,]?[ \t]*")
 END_MATTER_HEADING_RE = re.compile(
     r"^\**(?:summary|exercises|problems|notes)\**$", re.IGNORECASE
 )
@@ -674,7 +726,7 @@ def _first_top_level_char(body: str, target: str) -> int:
 
 
 CONTINUATION_OP_RE = re.compile(
-    r"^(?:\+|-|\\times|\\cdot|\\le|\\ge|<|>|\\equiv|\\cong|\\approx|\\to|\\mapsto|\\longmapsto|\\Longleftrightarrow|\\Leftrightarrow)\b"
+    r"^(?:[+\-<>]|\\(?:times|cdot|le|ge|equiv|cong|approx|to|mapsto|longmapsto|Longleftrightarrow|Leftrightarrow)\b)"
 )
 
 
@@ -721,52 +773,6 @@ def _merge_display_run(run: str, display_blocks: list[tuple[str, str]]) -> str:
     return f"@@DISPLAYBLOCK{ids[0]}@@"
 
 
-def _find_balanced_parens(s: str, start: int) -> int:
-    count = 0
-    for i in range(start, len(s)):
-        if s[i] == "(":
-            count += 1
-        elif s[i] == ")":
-            count -= 1
-            if count == 0:
-                return i
-    return -1
-
-
-def _fix_typst_single_arg_frac(text: str) -> str:
-    pos = 0
-    res: list[str] = []
-    while True:
-        idx = text.find("frac(", pos)
-        if idx == -1:
-            res.append(text[pos:])
-            break
-        res.append(text[pos:idx])
-        end1 = _find_balanced_parens(text, idx + 4)
-        if end1 != -1:
-            inner1 = text[idx + 5 : end1]
-            if "," not in inner1:
-                nxt = text[end1 + 1 :].lstrip()
-                if nxt.startswith("("):
-                    start2 = text.find("(", end1 + 1)
-                    end2 = _find_balanced_parens(text, start2)
-                    if end2 != -1:
-                        inner2 = text[start2 + 1 : end2]
-                        res.append(f"({inner1})/({inner2})")
-                        pos = end2 + 1
-                        continue
-        res.append("frac(")
-        pos = idx + 5
-    return "".join(res)
-def _normalize_typst_differentials(t: str) -> str:
-    t = t.replace("upright(d)", "dif")
-    return re.sub(
-        r"(?<![a-zA-Z0-9_\^])d\s*([xyztrsuvwqp]|xi|alpha|beta|gamma|theta|phi|tau|lambda|mu)(?=[0-9\s\^_,.;!?\)]|$)",
-        r"dif \1",
-        t,
-    )
-
-
 class MonographCompiler:
     """Compiles transcribed Markdown pages and figures into Markdown, LaTeX, Typst, and PDF."""
 
@@ -807,7 +813,7 @@ class MonographCompiler:
         )
         heading_rules = self.composition.typst_heading_rules()
         return f"""#set document(
-  title: "{self.spec.title} — {self.spec.author}",
+  title: "{" — ".join(filter(None, (self.spec.title, self.spec.author)))}",
   author: "{self.spec.author}",
   date: auto
 )
@@ -821,9 +827,11 @@ class MonographCompiler:
     let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
     if page-number > 4 and not on-chapter-page [
       #if calc.odd(page-number) [
-        #let secs = query(heading.where(level: 2).before(here()))
         #let chaps = query(heading.where(level: 1).before(here()))
-        #let title = if secs != () {{ secs.last().body }} else if chaps != () {{ chaps.last().body }} else {{ "{self.spec.title}" }}
+        #let in-chapter = if chaps == () {{ heading.where(level: 2) }} else {{ heading.where(level: 2).after(chaps.last().location()) }}
+        #let secs = query(in-chapter).filter(h => h.location().page() <= here().page())
+        #let on-page = secs.filter(h => h.location().page() == here().page())
+        #let title = if on-page != () {{ on-page.first().body }} else if secs != () {{ secs.last().body }} else if chaps != () {{ chaps.last().body }} else {{ "{self.spec.title}" }}
         #grid(
           columns: (1fr, auto),
           align(left)[#text(8.5pt, font: {font_expr}, style: "italic")[#title]],
@@ -859,7 +867,7 @@ class MonographCompiler:
   linebreaks: "optimized"
 )
 
-#show math.equation: set text(font: "{lang.math_font}")
+#show math.equation: set text(font: ({", ".join(f'"{f}"' for f in (lang.math_font, *lang.font_stack[1:]))},))
 #set math.equation(numbering: {eq_num_str})
 #set math.mat(row-gap: 0.55em, column-gap: 0.8em)
 #set math.cases(gap: 0.55em)
@@ -958,20 +966,36 @@ class MonographCompiler:
                 parts.append(f"Edited by {self.spec.editor}")
             joined_credits = "\\ ".join(parts)
             credits = f'#v(1.6em)\n  #text(10pt, style: "italic", font: {font_expr})[{joined_credits}]'
-        return f"""
-#align(center + horizon)[
-  #text(10pt, tracking: 0.14em, font: {font_expr})[#smallcaps("{self.spec.series}")]
-  #v(3em)
-  #text(26pt, weight: "bold", font: {font_expr})[{self.spec.title.upper()}]
-  #v(2.2em)
-  #text(14pt, weight: "bold", font: {font_expr})[#smallcaps("{self.spec.author}")]
-  {credits}
-  #v(5em)
+        series = (
+            f'#text(10pt, tracking: 0.14em, font: {font_expr})[#smallcaps("{self.spec.series}")]\n  #v(3em)'
+            if self.spec.series
+            else ""
+        )
+        author = (
+            f'#v(2.2em)\n  #text(14pt, weight: "bold", font: {font_expr})[#smallcaps("{self.spec.author}")]'
+            if self.spec.author
+            else ""
+        )
+        cities = (
+            f'\n  #v(0.4em)\n  #text(8.5pt, fill: luma(90), font: {font_expr})[{pub.cities_line}]'
+            if self.spec.publisher == pub.imprint_name
+            else ""
+        )
+        imprint = (
+            f"""#v(5em)
   #line(length: 35%, stroke: 0.4pt + luma(140))
   #v(1.2em)
-  #text(11pt, weight: "bold", tracking: 0.12em, font: {font_expr})[{self.spec.publisher.upper()}]
-  #v(0.4em)
-  #text(8.5pt, fill: luma(90), font: {font_expr})[{pub.cities_line}]
+  #text(11pt, weight: "bold", tracking: 0.12em, font: {font_expr})[{self.spec.publisher.upper()}]{cities}"""
+            if self.spec.publisher
+            else ""
+        )
+        return f"""
+#align(center + horizon)[
+  {series}
+  #par(justify: false)[#text(26pt, weight: "bold", hyphenate: false, font: {font_expr})[{self.spec.title.upper()}]]
+  {author}
+  {credits}
+  {imprint}
 ]
 
 #pagebreak()
@@ -1103,21 +1127,15 @@ class MonographCompiler:
     def _is_page_furniture(self, lt: str, pno: int, lines_so_far: int) -> bool:
         spec = self.spec
         zone = spec.header_zone_lines
+        m_sec_hdr = re.match(r"^(?:#+\s*)?([0-9A-Z]+\.\d+)\.?\s+(.+?)(?:\s+\d{1,3})?$", lt)
+        sec_id = m_sec_hdr.group(1) if m_sec_hdr else ""
+        known_section = sec_id in spec.sections and self._section_in_chapter(sec_id, pno)
+        if known_section and lines_so_far <= 2:
+            return sec_id in self._seen_sections
         if lines_so_far <= (2 if zone is None else zone):
             if any(re.match(rx, lt, re.IGNORECASE) for rx in spec.running_header_regexes):
                 return True
             if any(re.match(rx, lt, re.IGNORECASE) for rx in spec.drop_line_regexes):
-                return True
-        if spec.sections and lines_so_far <= 2:
-            m_sec_hdr = re.match(
-                r"^(?:#+\s*)?([0-9A-Z]+\.\d+)\.?\s+(.+?)(?:\s+\d{1,3})?$", lt
-            )
-            sec_id = m_sec_hdr.group(1) if m_sec_hdr else ""
-            if (
-                sec_id in spec.sections
-                and sec_id in self._seen_sections
-                and self._section_in_chapter(sec_id, pno)
-            ):
                 return True
         return (
             pno in self._chapter_starts
@@ -1172,6 +1190,13 @@ class MonographCompiler:
             return normalize_run_in(inner_h, from_heading=True)
         if re.match(r"^Chapter\s+\d+$", inner_h, re.IGNORECASE):
             return f"## {inner_h}"
+        m_para = re.match(r"^§\s*(\d+(?:\.\d+)*)", inner_h)
+        if m_para:
+            key = f"{self._chapter_of(pno)}:§{m_para.group(1)}"
+            if key in self._seen_sections:
+                return ""
+            self._seen_sections.add(key)
+            return f"## {inner_h}"
         if re.match(r"^Proof\b", inner_h, re.IGNORECASE):
             return f"*{inner_h}*"
         thm_heads = "|".join(
@@ -1181,7 +1206,15 @@ class MonographCompiler:
             return (
                 f"**{inner_h}**" if inner_h.endswith((".", ":")) else f"**{inner_h}.**"
             )
-        return inner_h
+        if inner_h.startswith("R.H. "):
+            return ""
+        if len(inner_h) > 90:
+            return inner_h
+        key = f"heading:{inner_h}"
+        if key in self._seen_sections:
+            return ""
+        self._seen_sections.add(key)
+        return f"### {inner_h}"
 
     def extract_page_parts(
         self, md_text: str, pno: int
@@ -1189,6 +1222,8 @@ class MonographCompiler:
         spec = self.spec
         layout = spec.figures
         md_text = re.sub(r"<!--.*?-->", "", md_text, flags=re.DOTALL)
+        md_text = SCANNER_WATERMARK_RE.sub("", md_text)
+        md_text = re.sub(r"\\\(\s*((?:(?!\n\n).)+?)\s*\\\)", r"$\1$", md_text, flags=re.DOTALL)
         md_text = normalize_html_tables(md_text)
         body_lines: list[str] = []
         footnotes: list[str] = []
@@ -1249,7 +1284,7 @@ class MonographCompiler:
                     pno in self._chapter_starts
                     and not any(b.strip() and not b.startswith("#") for b in body_lines)
                     and CHAPTER_OPENING_RE.match(lt)
-                    and not re.match(r"^#*\s*[0-9A-Z]+\.\d+", lt)
+                    and not re.match(r"^#*\s*(?:[0-9A-Z]+\.\d+|§)", lt)
                 ):
                     continue
                 heading = self._normalized_heading(lt, pno)
@@ -1389,16 +1424,16 @@ class MonographCompiler:
         cleaned_lines: list[str] = []
         symbol = "\\" + spec.stray_dollar_symbol
         for line in s.splitlines():
-            if line.count("$") % 2 != 0:
+            if len(_UNESCAPED_DOLLAR_RE.findall(line)) % 2 != 0:
                 if spec.stray_dollar_symbol:
                     line = re.sub(
-                        r"(?<!\$)\$(?!\$)(?=[0-9A-Za-z_])",
+                        r"(?<![\\$])\$(?!\$)(?=[0-9A-Za-z_])",
                         lambda _: symbol + "_",
                         line,
                     )
-                    line = re.sub(r"(?<!\$)\$(?!\$)", lambda _: symbol + " ", line)
+                    line = re.sub(r"(?<![\\$])\$(?!\$)", lambda _: symbol + " ", line)
                 else:
-                    line = re.sub(r"(?<!\$)\$(?!\$)", "", line, count=1)
+                    line = re.sub(r"(?<![\\$])\$(?!\$)", "", line, count=1)
             cleaned_lines.append(line)
         s = "\n".join(cleaned_lines)
 
@@ -1411,15 +1446,26 @@ class MonographCompiler:
             inline_blocks.append(code)
             return f"@@INLINEMATH{len(inline_blocks) - 1}@@"
 
-        s = re.sub(r"\$([^$\n]+)\$", save_inline, s)
+        s = re.sub(r"(?<!\\)\$((?:[^$\n\\]|\\.)+)\$", save_inline, s)
+        s = "\n\n".join(
+            para.replace("`", r"\`") if para.count("`") % 2 else para
+            for para in s.split("\n\n")
+        )
 
-        s = re.sub(r"(?<![=\s])#", r"\#", s)
         s = re.sub(r"^\s*#", r"\#", s, flags=re.MULTILINE)
+        s = re.sub(r"(?<![=\\])#", r"\#", s)
         s = re.sub(r"<(?!eq-|fig-|sec-)", r"\<", s)
         s = re.sub(r"^\s*/\s*", r"\/ ", s, flags=re.MULTILINE)
         s = s.replace("//", r"\/\/").replace("*/", "* /")
         s = re.sub(r"(?<![@\\])@(?=[\w])(?!@)", r"\@", s)
         s = re.sub(r"(?<!\\)~", r"\~", s)
+        images: list[str] = []
+
+        def save_image(m: re.Match[str]) -> str:
+            images.append(m.group(0))
+            return f"@@IMAGE{len(images) - 1}@@"
+
+        s = re.sub(r"!\[[^\]]*\]\([^)]+\)", save_image, s)
         if spec.nonbreaking_hyphens:
             s = re.sub(
                 r"(?<![@<])\b(?!(?:eq|fig|sec)\b)([a-zA-Z]+)-([a-zA-Z]+)",
@@ -1427,6 +1473,9 @@ class MonographCompiler:
                 s,
             )
 
+        s = re.sub(r"^(\d+)\.(?= \S.{99,})", r"\1\\.", s, flags=re.MULTILINE)
+        s = re.sub(r"(?<!\\)([\[\]])", r"\\\1", s)
+        s = re.sub(r"^\*\*(\d+)\*\.\*\*", r"#strong[\1\\*.]", s, flags=re.MULTILINE)
         s = re.sub(r"^(\s*)\*(?=\d+\.|EXERCISES)", r"\1\\*", s, flags=re.MULTILINE)
         s = re.sub(
             r"\*\*((?:(?!\n\n|@@DISPLAYBLOCK|@@FN)[^\*])+?)\*\*", r"#strong[\1]", s
@@ -1437,7 +1486,7 @@ class MonographCompiler:
             s,
         )
         s = re.sub(r"(?<!\\)\*", r"\\*", s)
-        s = re.sub(r"(#emph\[[^\]]+\])(?=\[)", r"\1 ", s)
+        s = re.sub(r"(#emph\[[^\]]+\])(?=\\?\[)", r"\1 ", s)
         s = re.sub(r"(?<!\\)_", r"\\_", s)
         s = re.sub(r"(?<!\\)\^", r"\\^", s)
         def repl_img(m: re.Match[str]) -> str:
@@ -1468,6 +1517,7 @@ class MonographCompiler:
                 print(f"warning: image {path!r} not found, omitted", file=sys.stderr)
                 return "\n\n"
             return f"\n\n#align(center)[#image(\"{path}\", {width_str})]\n\n"
+        s = re.sub(r"@@IMAGE(\d+)@@", lambda m: images[int(m.group(1))], s)
         s = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", repl_img, s)
         s = s.replace(r"\cdots", "...").replace(r"\ldots", "...")
         s = re.sub(
@@ -1492,10 +1542,10 @@ class MonographCompiler:
             + [(body, True) for body, _ in display_blocks]
         )
         inline_typst = [
-            _normalize_typst_differentials(t) for t in converted[: len(inline_blocks)]
+            normalize_typst_differentials(t) for t in converted[: len(inline_blocks)]
         ]
         display_typst = [
-            _normalize_typst_differentials(t) for t in converted[len(inline_blocks) :]
+            normalize_typst_differentials(t) for t in converted[len(inline_blocks) :]
         ]
         s = re.sub(
             r"@@INLINEMATH(\d+)@@", lambda m: f"${inline_typst[int(m.group(1))]}$", s
@@ -1518,20 +1568,7 @@ class MonographCompiler:
         s = re.sub(r"(#(?:strong|emph)\[[^\]]+\])(?=\()", r"\1\\", s)
         s = re.sub(r"@@FIGBLOCK(\d+)@@", lambda m: fig_blocks[int(m.group(1))], s)
         s = re.sub(r"@@FNSTART@@(.*?)@@FNEND@@", r"#footnote[\1]", s)
-        s = re.sub(r'delim:\s*"\|\|"', 'delim: "|"', s)
-        s = s.replace("planck.reduce", "planck")
-        s = s.replace("times.circle", r"\u{2297}")
-        s = s.replace("plus.circle", r"\u{2295}")
-        s = s.replace("angle.l", "chevron.l")
-        s = s.replace("angle.r", "chevron.r")
-        s = re.sub(r"\bneq\b", "!=", s)
-        s = re.sub(r"\bprod(?=[^a-zA-Z]|$)", "product", s)
-        s = re.sub(r"\bs\s*u\s*b\s*s\s*t\s*a\s*c\s*k\b", "", s)
-        s = re.sub(r"o\s+p\s+e\s+r\s+a\s+t\s+o\s+r\s+n\s+a\s+m\s+e\s*\(\s*([a-zA-Z]+)\s*\)", r'op("\1")', s)
-        s = re.sub(r"t\s+e\s+x\s+t\s*\(\s*(\"[^\"]*\")\s*\)", r"upright(\1)", s)
-        s = re.sub(r"(?<=[(\s])\^([a-zA-Z0-9]+)", r'""^\1', s)
-        s = re.sub(r"(?<=[(\s])_([a-zA-Z0-9]+)", r'""_\1', s)
-        s = _fix_typst_single_arg_frac(s)
+        s = finish_typst_math(s)
         if spec.paginate_like_source:
             s = re.sub(
                 r"(?:#h\([^)]*\);)?@@SRCPAGE(\d+)@@",
@@ -1662,8 +1699,8 @@ class MonographCompiler:
                 f"year: {spec.year}\n"
                 "---\n\n"
                 f"# {spec.title}\n\n"
-                f"**{spec.author}**  \n"
-                f"**{spec.publisher}**\n"
+                + "  \n".join(f"**{s}**" for s in (spec.author, spec.publisher) if s)
+                + "\n"
             )
         ]
         typst_sections: list[str] = [
@@ -1722,7 +1759,7 @@ class MonographCompiler:
                     f'#heading(level: 1, numbering: _ => "{number}")[{title}]\n'
                     "#chapter-label.update(none)"
                 )
-            elif spec.chapter_label or any(title.startswith(k) for k in ("人名索引", "专业名词索引", "译后记", "附录", "Index", "Appendix")):
+            elif spec.chapter_label or is_unnumbered_chapter(title):
                 heading = f"= {title}"
             else:
                 heading = "= " + spec.chapter_heading.format(
@@ -1783,9 +1820,8 @@ class MonographCompiler:
         return path
 
     def _alias(self, path: Path) -> None:
-        book = path.with_name(f"book{path.suffix}")
-        if self.spec.book_aliases and path != book:
-            _ = shutil.copy2(path, book)
+        if self.spec.book_aliases and path.stem != "book":
+            alias_as_book(path)
 
     def build_all(self, out_dir: Path, formats: frozenset[str] = MONOGRAPH_FORMATS) -> MonographOutputs:
         """Write Markdown and Typst, then run Pandoc for LaTeX and Typst for PDF when `formats` names them."""
@@ -1795,24 +1831,16 @@ class MonographCompiler:
         typ_out = self._write(out_dir, "typ", rendered.typst)
         tex_out = self._write(out_dir, "tex")
         pdf_out = self._write(out_dir, "pdf")
-        if "tex" in formats:
-            self._write_latex(md_out, tex_out)
-        if "pdf" in formats:
-            compile_typst(typ_out, pdf_out)
-        made = [md_out, typ_out, *(p for p, f in ((tex_out, "tex"), (pdf_out, "pdf")) if f in formats)]
-        for path in made:
-            self._alias(path)
-        total_pages = 0
-        if "pdf" in formats:
-            with pymupdf.open(str(pdf_out)) as doc:
-                total_pages = len(doc)
-        return MonographOutputs(
-            markdown_path=md_out,
-            latex_path=tex_out,
-            typst_path=typ_out,
-            pdf_path=pdf_out,
-            total_pages=total_pages,
+        made = run_formats(
+            {
+                "tex": (tex_out, lambda: self._write_latex(md_out, tex_out)),
+                "pdf": (pdf_out, lambda: compile_typst(typ_out, pdf_out)),
+            },
+            formats,
         )
+        for path in (md_out, typ_out, *made.values()):
+            self._alias(path)
+        return build_outputs(md_out, typ_out, made)
 
     def _write_latex(self, md_out: Path, tex_out: Path) -> None:
         header_includes = (

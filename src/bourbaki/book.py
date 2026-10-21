@@ -53,7 +53,6 @@ BOOK = Book(
         "facsimile": Edition(
             FACSIMILE_PDF, build_facsimile, "every OCR word placed on its scan ink box",
             Parity(facsimile_page_map, FACSIMILE, DIAGRAM_DIR, DIAGRAM_TEXT),
-            formats=frozenset({"pdf"}),
         ),
         "modern": monograph_edition(BOURBAKI_SPEC, OUT_DIR, "reflowed Springer-style monograph"),
     },
