@@ -4,7 +4,6 @@ import base64
 import os
 import time
 from pathlib import Path
-from typing import List, Optional
 
 import httpx
 
@@ -21,7 +20,7 @@ class JinaCloudUnavailable(RuntimeError):
     """Raised after too many consecutive pages fail, so a caller can fall back to Colab."""
 
 
-def _load_jina_api_key() -> Optional[str]:
+def _load_jina_api_key() -> str | None:
     key = os.environ.get("JINA_API_KEY")
     if key:
         return key
@@ -45,12 +44,12 @@ def _load_jina_api_key() -> Optional[str]:
 class JinaCloudOCREngine(OCREngine):
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         prompt: str = DEFAULT_JINA_PROMPT,
         retries: int = 5,
         pacing_sec: float = 1.5,
         max_consecutive_failures: int = 5,
-        client: Optional[httpx.Client] = None,
+        client: httpx.Client | None = None,
     ) -> None:
         self.api_key = api_key or _load_jina_api_key()
         if not self.api_key:
@@ -130,5 +129,5 @@ class JinaCloudOCREngine(OCREngine):
         ]
         return OCRPage(page_number, 0, 0, lines, raw_text=md_text)
 
-    def recognize_document(self, image_paths: List[Path]) -> List[OCRPage]:
+    def recognize_document(self, image_paths: list[Path]) -> list[OCRPage]:
         return [self.recognize_page(p, idx + 1) for idx, p in enumerate(image_paths)]

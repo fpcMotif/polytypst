@@ -2,7 +2,7 @@
 
 import subprocess
 from pathlib import Path
-from typing import Optional
+
 from ..parser.stitcher import ParsedBook
 
 DEFAULT_EPUB_CSS = """
@@ -108,8 +108,8 @@ class PandocCompilers:
                             import re
                             clean_caption = re.sub(r"^(图\s*\d+\s*|Figure\s*\d+\s*[:\.\s]*)", "", fig.caption).strip()
                             lines.append(f"\n![图 {fig.figure_id} {clean_caption}]({fig.image_rel_path})\n")
-                    except Exception:
-                        pass
+                    except ValueError:
+                        continue
                 elif block.startswith("__CITATION__"):
                     citation = block[len("__CITATION__"):]
                     lines.append(f"\n* {citation}\n")
@@ -123,7 +123,7 @@ class PandocCompilers:
 
         return "\n".join(lines)
 
-    def compile_epub(self, md_path: Path, output_epub: Path, css_path: Optional[Path] = None) -> Path:
+    def compile_epub(self, md_path: Path, output_epub: Path, css_path: Path | None = None) -> Path:
         output_epub.parent.mkdir(parents=True, exist_ok=True)
         if not css_path:
             css_path = output_epub.parent / "epub.css"
@@ -140,7 +140,7 @@ class PandocCompilers:
             "--metadata", f"publisher={self.book.publisher}",
             "--metadata", "lang=zh-CN"
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True, cwd=str(md_path.parent.resolve()))
+        res = subprocess.run(cmd, check=False, capture_output=True, text=True, cwd=str(md_path.parent.resolve()))
         if res.returncode != 0:
             raise RuntimeError(f"EPUB compilation failed:\n{res.stderr}")
         return output_epub
@@ -156,7 +156,7 @@ class PandocCompilers:
             "-V", "documentclass=ctexbook",
             "-V", "geometry:margin=2.5cm"
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True, cwd=str(md_path.parent.resolve()))
+        res = subprocess.run(cmd, check=False, capture_output=True, text=True, cwd=str(md_path.parent.resolve()))
         if res.returncode != 0:
             raise RuntimeError(f"LaTeX generation failed:\n{res.stderr}")
         return output_tex

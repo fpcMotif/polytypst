@@ -1,12 +1,14 @@
 """High-elegance vector diagram generator producing publication-grade SVGs for John Roberts' The Modern Firm."""
 
 from pathlib import Path
+
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Ellipse
 from matplotlib.axis import Axis
+from matplotlib.patches import Ellipse
 from matplotlib.spines import Spine
 from matplotlib.text import Annotation, Text
 from matplotlib.transforms import Bbox
@@ -75,7 +77,7 @@ def _arrow(ax, start, end, lw=0.7):
         "",
         xy=end,
         xytext=start,
-        arrowprops=dict(arrowstyle="-|>,head_length=0.5,head_width=0.22", lw=lw, color=INK, shrinkA=0, shrinkB=0),
+        arrowprops={"arrowstyle": "-|>,head_length=0.5,head_width=0.22", "lw": lw, "color": INK, "shrinkA": 0, "shrinkB": 0},
         annotation_clip=False,
     )
 
@@ -422,12 +424,12 @@ def generate_serre_figure_1(out_path: Path) -> None:
         ax.plot(x_arc[mask], y_arc[mask], color="#334155", lw=0.95, zorder=3)
 
     ax.plot(0.0, 1.0, "o", color="#0f172a", ms=3.5, zorder=4)
-    ax.text(0.03, 1.06, "i", style="italic", size=9.5, ha="left", va="bottom", color="#0f172a", bbox=dict(fc="white", ec="none", pad=0.5))
+    ax.text(0.03, 1.06, "i", style="italic", size=9.5, ha="left", va="bottom", color="#0f172a", bbox={"fc": "white", "ec": "none", "pad": 0.5})
     ax.plot(-0.5, y_s3, "o", color="#0f172a", ms=3.5, zorder=4)
     ax.text(-0.62, y_s3 + 0.08, "ρ", style="italic", size=9.5, ha="center", va="bottom", color="#0f172a")
 
     ax.text(-1.0, 1.48, "$T^{-1}$", ha="center", va="center", size=9.5, weight="bold", color="#0f172a")
-    ax.text(0.0, 1.48, "1", ha="center", va="center", size=10, weight="bold", color="#0f172a", bbox=dict(fc="white", ec="none", pad=1.2))
+    ax.text(0.0, 1.48, "1", ha="center", va="center", size=10, weight="bold", color="#0f172a", bbox={"fc": "white", "ec": "none", "pad": 1.2})
     ax.text(1.0, 1.48, "T", ha="center", va="center", size=9.5, weight="bold", color="#0f172a")
 
     ax.text(-0.88, 0.72, "$T^{-1}S$", ha="center", va="center", size=8.5, color="#0f172a")
@@ -467,13 +469,13 @@ def generate_serre_figure_2(out_path: Path) -> None:
     r_eps = 0.11
 
     ax.plot([-0.5, 0.5], [y_top, y_top], color="#0f172a", lw=1.4)
-    ax.annotate("", xy=(-0.08, y_top), xytext=(0.1, y_top), arrowprops=dict(arrowstyle="->", lw=1.3, color="#0f172a"))
+    ax.annotate("", xy=(-0.08, y_top), xytext=(0.1, y_top), arrowprops={"arrowstyle": "->", "lw": 1.3, "color": "#0f172a"})
 
     ax.plot([-0.5, -0.5], [y_s3 + r_eps, y_top], color="#0f172a", lw=1.4)
-    ax.annotate("", xy=(-0.5, 1.55), xytext=(-0.5, 1.75), arrowprops=dict(arrowstyle="->", lw=1.3, color="#0f172a"))
+    ax.annotate("", xy=(-0.5, 1.55), xytext=(-0.5, 1.75), arrowprops={"arrowstyle": "->", "lw": 1.3, "color": "#0f172a"})
 
     ax.plot([0.5, 0.5], [y_s3 + r_eps, y_top], color="#0f172a", lw=1.4)
-    ax.annotate("", xy=(0.5, 1.75), xytext=(0.5, 1.55), arrowprops=dict(arrowstyle="->", lw=1.3, color="#0f172a"))
+    ax.annotate("", xy=(0.5, 1.75), xytext=(0.5, 1.55), arrowprops={"arrowstyle": "->", "lw": 1.3, "color": "#0f172a"})
 
     th_rho_l = np.linspace(np.pi / 2.0, -np.pi / 6.0, 60)
     ax.plot(-0.5 + r_eps * np.cos(th_rho_l), y_s3 + r_eps * np.sin(th_rho_l), color="#0f172a", lw=1.3)

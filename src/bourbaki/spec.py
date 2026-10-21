@@ -4,13 +4,13 @@ import re
 from dataclasses import replace
 from pathlib import Path
 
-from .linebreaks import last_line_fills, scan_line_breaks
 from ..compiler.monograph import (
     ChapterSpec,
     FigureLayout,
     MonographSpec,
     running_header_regexes,
 )
+from .linebreaks import last_line_fills, scan_line_breaks
 
 RUNNING_HEADERS = (
     r"FLAT MODULES|LOCALIZATION|GRADUATIONS|FILTRATIONS|TOPOLOGIES|"

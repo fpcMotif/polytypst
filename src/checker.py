@@ -194,7 +194,12 @@ class DocumentQualityChecker:
         self._texts: list[str] = [page.get_text() for page in self.doc]
         if self.spec.language == "auto":
             sample = "".join(self._texts[:5])
-            self.language: str = "zh" if re.search(r"[一-龥]", sample) else "en"
+            if re.search(r"[\u3040-\u30ff]", sample):
+                self.language: str = "ja"
+            elif re.search(r"[一-龥]", sample):
+                self.language = "zh"
+            else:
+                self.language = "en"
         else:
             self.language = self.spec.language
 
@@ -502,7 +507,8 @@ class DocumentQualityChecker:
             for b in self.doc[pno].get_text("blocks"):
                 text = b[4].strip()
                 m = heading_re.search(text)
-                if not m:
+                if not m or "number" not in heading_re.groupindex:
+                    # A spec whose heading carries no number, such as 第1章 正則関数.
                     continue
                 ch_num = int(m.group("number"))
                 if ch_num < current_chapter:
@@ -778,6 +784,7 @@ def audit_pdf(
 ) -> CheckReport:
     if spec is None:
         import pymupdf
+
         from .books import find_known_book
 
         with pymupdf.open(str(pdf_path)) as doc:

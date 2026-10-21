@@ -4,12 +4,15 @@ Pure OpenCV + Poppler high-speed implementation (sub-second per page).
 Enforces zero spatial drift, margin boundary safety, and red-shift blob gating.
 """
 
-from dataclasses import dataclass, field
-from pathlib import Path
 import subprocess
 import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
 import cv2
 import numpy as np
+
+from ..shitouji_vertical import source_pdf
 
 PDFTOPPM = "/nix/store/5mwz7xmrc7928bcfl6jif5z29fabyq9b-poppler-utils-26.09.0/bin/pdftoppm"
 WORK_DIR = Path("/tmp/shitouji_work")
@@ -189,8 +192,8 @@ class JevShitoujiVerifier:
 
 
 def main():
-    p_orig = Path("/Users/martinfan/Downloads/石頭記＠四校訖自用.v2.006a.PDF")
-    p_rep = Path("/Users/martinfan/devv/polytypst/shitouji/typst/shitouji_complete_all_in_one.pdf")
+    p_orig = source_pdf()
+    p_rep = Path("shitouji/typst/shitouji_complete_all_in_one.pdf")
 
     verifier = JevShitoujiVerifier(p_orig, p_rep)
     test_pages = [19, 20, 25]

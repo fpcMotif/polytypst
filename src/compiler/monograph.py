@@ -110,6 +110,7 @@ class MonographSpec:
     prebuilt_fixups: tuple[tuple[str, str], ...] = ()
     typst_preamble: str = ""
     typst_front_matter: str = ""
+    latex_preamble: str = ""
     book_aliases: bool = True
     pdf_name_markers: tuple[str, ...] = ()
     pdf_page_count: int | None = None
@@ -222,6 +223,39 @@ BLOCK_STARTS = (
     "(a)",
     "(b)",
 )
+_UNESCAPED_DOLLAR_RE = re.compile(r"(?<!\\)\$")
+_OPEN_EQNUM_SPACE_RE = re.compile(r"\((\d{1,3})\.[ \t]+(\d{1,3})\)")
+_DOUBLE_BACKSLASH_MACRO_RE = re.compile(r"\\\\(?=[A-Za-z])")
+_MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)\s]+)\)")
+_LATEX_GROUP_SUPERSCRIPT_RE = re.compile(r"\{\}\^(\\[A-Za-z]+|[A-Za-z0-9])")
+_LATEX_ACCENT_SUPERSCRIPT_RE = re.compile(
+    r"\{\}\^(\\(?:bar|tilde|hat|vec|dot|ddot|overline))(\{[^{}]*\})"
+)
+_LATEX_SUPERSCRIPT_SUBSCRIPT_RE = re.compile(r"(\^(?:\\[A-Za-z]+|\{[^{}]*\}))_")
+_LATEX_SPACED_RIGHT_RE = re.compile(r"\\(\s+)?[Rr]ight(?![a-zA-Z])")
+_LATEX_CARET_CONTROL_RE = re.compile(r"\^\\\s")
+_LATEX_TRAILING_CARET_RE = re.compile(r"\^(?=\s*[\$}\)\],])")
+_LATEX_UNICODE_GREEK = {
+    "α": "alpha", "β": "beta", "γ": "gamma", "δ": "delta", "ε": "epsilon",
+    "ζ": "zeta", "η": "eta", "θ": "theta", "ι": "iota", "κ": "kappa",
+    "λ": "lambda", "μ": "mu", "ν": "nu", "ξ": "xi", "ο": "omicron",
+    "π": "pi", "ρ": "rho", "σ": "sigma", "τ": "tau", "υ": "upsilon",
+    "φ": "phi", "χ": "chi", "ψ": "psi", "ω": "omega",
+    "Γ": "Gamma", "Δ": "Delta", "Θ": "Theta", "Λ": "Lambda", "Ξ": "Xi",
+    "Π": "Pi", "Σ": "Sigma", "Υ": "Upsilon", "Φ": "Phi", "Ψ": "Psi", "Ω": "Omega",
+}
+_LATEX_UNICODE_GREEK_RE = re.compile(r"\\([" + "".join(_LATEX_UNICODE_GREEK) + r"])")
+_LATEX_SCRIPT_TWO_ARG_RE = re.compile(
+    r"([_^])(\\[dt]?frac|\\binom)(\{[^{}]*\})(\{[^{}]*\})"
+)
+_LATEX_SCRIPT_EMPTY_GROUP_RE = re.compile(r"([_^])(\\[A-Za-z]+)\{\}([_^])")
+_LATEX_SCRIPT_MACRO_RE = re.compile(
+    r"([_^])(\\(?!frac|dfrac|tfrac|binom)[A-Za-z]+)(\{[^{}]*\})"
+)
+_LATEX_SCRIPT_MACRO_GROUP_RE = re.compile(r"([_^])(\\[A-Za-z]+)([_^])")
+_LATEX_SCRIPT_SEPARATION_RE = re.compile(r"(\^\{[^{}]*\}|\^[A-Za-z0-9])([_^])")
+_DOUBLE_SUBSCRIPT_RE = re.compile(r"(\^\\[A-Za-z]+)_")
+_STAR_DOUBLE_SUPERSCRIPT_RE = re.compile(r"\^\*_\{([^{}]*)\}\^(\{[^{}]*\}|\\[A-Za-z]+|[A-Za-z0-9])")
 PROSE_IN_MATH_RE = re.compile(
     r"differential|equations|functions|polynomial|converges|identically|"
     r"derivative|continuous|condition|sufficient|necessary|arbitrary|"
@@ -280,10 +314,98 @@ def split_first_paragraph(text: str) -> tuple[str, str]:
     return parts[0], parts[1]
 
 
+def _fix_inline_math_delimiters(text: str) -> str:
+    """Drop spaces just inside a single-dollar math span; Pandoc and Typst reject them."""
+    out: list[str] = []
+    in_math = False
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if ch == "\\" and text[i + 1 : i + 2] == "$":
+            out.append("\\$")
+            i += 2
+            continue
+        if ch != "$":
+            out.append(ch)
+            i += 1
+            continue
+        if text[i + 1 : i + 2] == "$":
+            end = text.find("$$", i + 2)
+            if end == -1:
+                out.append(text[i:])
+                break
+            out.append(text[i : end + 2])
+            i = end + 2
+            continue
+        if in_math:
+            while out and out[-1].isspace():
+                out.pop()
+            out.append("$")
+            in_math = False
+        else:
+            out.append("$")
+            in_math = True
+            i += 1
+            while i < n and text[i] in " \t":
+                i += 1
+            continue
+        i += 1
+    return "".join(out)
+
+
+def latex_safe_markdown(text: str) -> str:
+    """Repair OCR math that LaTeX rejects but Typst tolerates."""
+    text = _LATEX_ACCENT_SUPERSCRIPT_RE.sub(r"{}^{\1\2}", text)
+    text = _LATEX_UNICODE_GREEK_RE.sub(
+        lambda m: "\\" + _LATEX_UNICODE_GREEK[m.group(1)], text
+    )
+    text = _LATEX_SCRIPT_TWO_ARG_RE.sub(r"\1{\2\3\4}", text)
+    text = _LATEX_SCRIPT_EMPTY_GROUP_RE.sub(r"\1{\2}{}\3", text)
+    text = _LATEX_SCRIPT_MACRO_RE.sub(r"\1{\2\3}", text)
+    text = _LATEX_SCRIPT_MACRO_GROUP_RE.sub(r"\1{\2}\3", text)
+    text = _LATEX_SCRIPT_SEPARATION_RE.sub(r"\1{}\2", text)
+    text = _LATEX_SPACED_RIGHT_RE.sub(r"\\right", text)
+    text = _LATEX_CARET_CONTROL_RE.sub(r"^\\", text)
+    text = _LATEX_TRAILING_CARET_RE.sub("", text)
+    return _LATEX_GROUP_SUPERSCRIPT_RE.sub(r"{}^{\1}", text)
+
+
+def _split_trailing_note_block(text: str) -> tuple[str, str]:
+    """Split a trailing reference/rule block off the prose that precedes it."""
+    if not text.strip():
+        return text, ""
+    blocks = re.split(r"\n\s*\n", text.rstrip())
+    if len(blocks) < 2:
+        return text, ""
+    tail = blocks[-1].strip()
+    if not re.match(r"^(?:—|---|\d+\)\s)", tail):
+        return text, ""
+    return "\n\n".join(blocks[:-1]).rstrip(), blocks[-1].strip()
+
+
+def _join_pages_across_math(pages: list[str]) -> list[str]:
+    """Merge a page that opens inline math with the page that closes it."""
+    merged: list[str] = []
+    for page in pages:
+        if (
+            merged
+            and len(_UNESCAPED_DOLLAR_RE.findall(merged[-1].rstrip())) % 2 == 1
+            and page.lstrip().startswith("$")
+            and not page.lstrip().startswith("$$")
+        ):
+            merged[-1] = merged[-1].rstrip() + " " + page.lstrip()[1:]
+            continue
+        merged.append(page)
+    return merged
+
+
 def join_cross_page_text(prev: str, curr_first: str) -> str:
     prev_r = prev.rstrip()
     curr_l = curr_first.lstrip()
     last_line = prev_r.splitlines()[-1].strip() if prev_r else ""
+    if len(_UNESCAPED_DOLLAR_RE.findall(prev_r)) % 2 == 1 and curr_l.startswith("$") and not curr_l.startswith("$$"):
+        return prev_r + " " + curr_l[1:]
     if last_line.endswith("$$") or EQ_LABEL_END_RE.search(last_line):
         return prev_r + "\n" + curr_l
     if prev_r.endswith("-"):
@@ -858,6 +980,18 @@ class MonographCompiler:
 #pagebreak()
 """
 
+    def _drop_missing_images(self, text: str) -> str:
+        """Drop OCR-emitted image refs whose file is not on disk; real figures are re-added from captions."""
+        root = getattr(self, "_out_dir", None)
+
+        def keep(match: re.Match[str]) -> str:
+            target = match.group(1)
+            if Path(target).exists() or (root is not None and (Path(root) / target).exists()):
+                return match.group(0)
+            return ""
+
+        return _MD_IMAGE_RE.sub(keep, text)
+
     def _resolve_figure_asset(self, fig_dir: Path, fig_id: str) -> Path | None:
         for ext in ("svg", "png"):
             candidate = fig_dir / f"fig_{fig_id}.{ext}"
@@ -1129,6 +1263,14 @@ class MonographCompiler:
 
         s = "\n".join(body_lines).strip()
         s = re.sub(r"\\\s+(begin|end)\b", r"\\\1", s)
+        s = _DOUBLE_BACKSLASH_MACRO_RE.sub(r"\\", s)
+        s = _OPEN_EQNUM_SPACE_RE.sub(r"(\1.\2)", s)
+        s = self._drop_missing_images(s)
+        s = _fix_inline_math_delimiters(s)
+        s = _DOUBLE_SUBSCRIPT_RE.sub(r"\1{}_", s)
+        s = _STAR_DOUBLE_SUPERSCRIPT_RE.sub(
+            lambda m: "^{" + "*" + m.group(2).strip("{}") + "}_{" + m.group(1) + "}", s
+        )
         for pattern, repl in spec.page_fixups.get(pno, ()):
             rep_arg = (
                 repl if re.search(r"\\[1-9]|\\g<", repl) else (lambda _, r=repl: r)
@@ -1156,17 +1298,20 @@ class MonographCompiler:
             all_top_figs = pending_figs + top_figs
             pending_figs = []
             starts_lower = bool(text.strip()) and text.lstrip()[0].islower()
+            prose, note_block = _split_trailing_note_block(acc)
             continues_prev = (
-                not ends_complete_paragraph(acc) and not starts_new_block(text)
+                not ends_complete_paragraph(prose) and not starts_new_block(text)
             ) or starts_lower
 
             if not acc:
                 acc = self.render_figure_group(all_top_figs, fig_dir) + text
             elif continues_prev:
                 first_p, rest_p = split_first_paragraph(text)
-                acc = join_cross_page_text(acc, first_p)
+                acc = join_cross_page_text(prose, first_p)
                 if all_top_figs:
                     acc += self.render_figure_group(all_top_figs, fig_dir)
+                if note_block:
+                    acc += "\n\n" + note_block
                 if rest_p:
                     acc += "\n\n" + rest_p
             else:
@@ -1316,8 +1461,8 @@ class MonographCompiler:
                             pt_w = min(360, max(110, round(pw / 300 * 72)))
                             width_str = f"width: {pt_w}pt"
                             break
-                    except Exception:
-                        pass
+                    except OSError:
+                        continue
             else:
                 print(f"warning: image {path!r} not found, omitted", file=sys.stderr)
                 return "\n\n"
@@ -1562,7 +1707,7 @@ class MonographCompiler:
                         md_page += f"\n\n![{cap}]({spec.figure_dir}/{asset.name})"
                 ch_md_pages.append(md_page)
 
-            md_sections.append("\n\n".join(ch_md_pages))
+            md_sections.append("\n\n".join(_join_pages_across_math(ch_md_pages)))
             title = clean_margin_and_inline_math(chap.title)
             label = (
                 chap.label
@@ -1649,10 +1794,19 @@ class MonographCompiler:
         typ_out = self._write(out_dir, "typ", rendered.typst)
         tex_out = self._write(out_dir, "tex")
         pdf_out = self._write(out_dir, "pdf")
+        header_includes = (
+            r"\usepackage[all,cmtip]{xy}\usepackage{amscd}\usepackage{amsthm}"
+        )
+        if self.spec.latex_preamble:
+            header_includes = f"{header_includes}\n{self.spec.latex_preamble}"
+        latex_md = md_out.with_name(md_out.stem + "_latex.md")
+        latex_md.write_text(
+            latex_safe_markdown(md_out.read_text(encoding="utf-8")), encoding="utf-8"
+        )
         _ = subprocess.run(
             [
                 "pandoc",
-                str(md_out),
+                str(latex_md),
                 "-f",
                 "markdown+tex_math_dollars+raw_tex",
                 "-t",
@@ -1664,12 +1818,13 @@ class MonographCompiler:
                 "-V",
                 f"geometry:{self.composition.publisher.pandoc_geometry}",
                 "-V",
-                r"header-includes=\usepackage[all,cmtip]{xy}\usepackage{amscd}\usepackage{amsthm}",
+                f"header-includes={header_includes}",
                 "-o",
                 str(tex_out),
             ],
             check=True,
         )
+        latex_md.unlink()
         compile_typst(typ_out, pdf_out)
         for path in (md_out, typ_out, tex_out, pdf_out):
             self._alias(path)

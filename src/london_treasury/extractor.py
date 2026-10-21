@@ -14,6 +14,7 @@ import pymupdf
 from bs4 import BeautifulSoup
 
 from ..compiler.monograph import REPO_FONTS_DIR, MonographOutputs, compile_typst
+from ..parity.source import source_pdf as resolve_source_pdf
 from .spec import LONDON_TREASURY_SPEC
 
 TEMPLATE_TYP = Path(__file__).with_name("template.typ")
@@ -25,7 +26,6 @@ SIMPLE_ICONS_REDDIT_PATH = "M12 0C5.373 0 0 5.373 0 12c0 3.314 1.343 6.314 3.515
 REDDIT_ORANGE = "#ff4500"
 REDDIT_DELETED = "#aaaaaa"
 REDDIT_PALETTE = ("#ff4500", "#0079d3", "#46a758", "#d9a400", "#7193ff", "#e0569e", "#00a6a5", "#9a6bd6")
-DEFAULT_SOURCE_PDF = Path("/Users/martinfan/Downloads/伦敦分行资金与交易业务阅读册.pdf")
 
 LATIN_OBFUSCATION_WORDS = frozenset(
     {
@@ -459,7 +459,7 @@ def _join_brochure_lines(lines: list[str]) -> list[str]:
     )
     out: list[str] = []
     paras = (_brochure_bio_head(p.strip()) for p in re.split(r"\n\s*\n", text) if p.strip())
-    for p in (q for p in paras for q in p.split("\n\n")):
+    for p in (q for para in paras for q in para.split("\n\n")):
         prev = out[-1] if out else ""
         plain = prev and not prev.startswith(("#", "*", "-")) and not p.startswith(("#", "*", "-", "•"))
         runs_on = plain and (
@@ -849,11 +849,7 @@ _SOCIAL_LINE = re.compile(
 )
 _CLICK_VIDEO = re.compile(r"\s*click\s+\[Video \d+\]\([^)]*\)\s*VIDEO")
 _LOREM = frozenset(
-    "lorem ipsum dolor dolore dolorum dolores et ut id eos qui quia quae quis quo est sit amet aut"
-    " perferendis aliquam expedita perspiciatis minus omnis quasi corporis explicabo rerum molestiae"
-    " saepe exercitationem nulla optio pariatur totam sapiente sint nihil magni ratione nemo neque"
-    " enim fugiat fugit velit vel iure illum alias ea eum eius esse animi atque culpa officia natus"
-    " nobis odio porro quam quas ipsa iste itaque minima modi nam numquam vero voluptate tempora".split()
+    ["lorem", "ipsum", "dolor", "dolore", "dolorum", "dolores", "et", "ut", "id", "eos", "qui", "quia", "quae", "quis", "quo", "est", "sit", "amet", "aut", "perferendis", "aliquam", "expedita", "perspiciatis", "minus", "omnis", "quasi", "corporis", "explicabo", "rerum", "molestiae", "saepe", "exercitationem", "nulla", "optio", "pariatur", "totam", "sapiente", "sint", "nihil", "magni", "ratione", "nemo", "neque", "enim", "fugiat", "fugit", "velit", "vel", "iure", "illum", "alias", "ea", "eum", "eius", "esse", "animi", "atque", "culpa", "officia", "natus", "nobis", "odio", "porro", "quam", "quas", "ipsa", "iste", "itaque", "minima", "modi", "nam", "numquam", "vero", "voluptate", "tempora"]
 ) | LATIN_OBFUSCATION_WORDS
 
 
@@ -1289,16 +1285,12 @@ def _en_blocks(raw_en: str, title: str) -> list[_EnBlock]:
             and b.kind == "para"
             and not _EN_SENTENCE_END.search(prev.text)
             and re.match(r"[a-z]", b.text)
-        ):
-            prev.text = f"{prev.text} {b.text}"
-        elif (
+        ) or (
             prev
             and prev.kind == b.kind == "head"
             and not _EN_SENTENCE_END.search(prev.text)
             and re.match(r"[a-z]", b.text)
-        ) or (prev and prev.kind == b.kind == "para" and _EN_DANGLING.search(prev.text)):
-            prev.text = f"{prev.text} {b.text}"
-        elif (
+        ) or (prev and prev.kind == b.kind == "para" and _EN_DANGLING.search(prev.text)) or (
             (
                 prev
                 and prev.kind == b.kind == "para"
@@ -1817,7 +1809,7 @@ def render_typst(book: ParsedReaderBook) -> str:
 def build_london_treasury(
     source_pdf: Path | None = None, out_dir: Path | None = None
 ) -> MonographOutputs:
-    src = source_pdf or DEFAULT_SOURCE_PDF
+    src = resolve_source_pdf(LONDON_TREASURY_SPEC, source_pdf)
     target_dir = out_dir or Path("output/london_treasury")
     target_dir.mkdir(parents=True, exist_ok=True)
 

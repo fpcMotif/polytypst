@@ -9,6 +9,8 @@ _OCR_NEQ_REGEX: Pattern[str] = re.compile(
     r"([a-zA-Z0-9\)])[ \t]+#[ \t]+([0-9Ooa-zA-Z])"
 )
 _HYPHENATION_REGEX: Pattern[str] = re.compile(r"([a-zA-Z]{2,})-\s*\n\s*([a-zA-Z]{2,})")
+_DOLLAR_REGEX: Pattern[str] = re.compile(r"(?<!\\)\$")
+_EQNUM_SPACE_REGEX: Pattern[str] = re.compile(r"\((\d{1,3})\.[ \t]+(\d{1,3})\)")
 _BRACKET_RUNNING_HEADER_REGEX: Pattern[str] = re.compile(
     r"^(?:"
     r"\[?[IVXLCDM1K]+[\.,]\s*(?:§+\s*[0-9a-z:]*|Ex[a-z]*\.?)\]?(?:\s+[A-Z][A-Z\s\.,'\-]*\s*\d{0,4})?"
@@ -522,6 +524,9 @@ def stitch_document(
         cur_l = cur.lstrip()
         if not cur_l:
             continue
+        if len(_DOLLAR_REGEX.findall(acc_r)) % 2 == 1 and cur_l.startswith("$") and not cur_l.startswith("$$"):
+            acc = acc_r + " " + cur_l[1:]
+            continue
         if re.search(r"[a-zA-Z]{2,}-$", acc_r) and re.match(r"^[a-z]{2,}", cur_l):
             acc = acc_r[:-1] + cur_l
             continue
@@ -541,5 +546,6 @@ def stitch_document(
             acc = acc_r + "\n\n" + cur_l
 
     full_doc = _HYPHENATION_REGEX.sub(r"\1\2", acc)
+    full_doc = _EQNUM_SPACE_REGEX.sub(r"(\1.\2)", full_doc)
 
     return full_doc

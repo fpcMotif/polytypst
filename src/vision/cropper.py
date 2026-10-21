@@ -1,10 +1,10 @@
 """High-DPI diagram cropping with content-aware margin trimming."""
 
 from pathlib import Path
-from typing import Tuple, Optional
+
 import numpy as np
-from PIL import Image
 import pymupdf
+from PIL import Image
 
 
 class HighDPICropper:
@@ -15,7 +15,7 @@ class HighDPICropper:
     def crop_figure(
         self,
         page_num: int,
-        box: Tuple[float, float, float, float],  # (left, top, right, bottom) normalized 0.0 - 1.0 from top-left
+        box: tuple[float, float, float, float],  # (left, top, right, bottom) normalized 0.0 - 1.0 from top-left
         out_path: Path,
         dpi: int = 300,
         pad_px: int = 15

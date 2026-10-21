@@ -6,7 +6,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
 
 
 @dataclass
@@ -26,14 +25,16 @@ class OCRPage:
     page_number: int
     width: int
     height: int
-    lines: List[OCRLine] = field(default_factory=list)
-    raw_text: Optional[str] = None
+    lines: list[OCRLine] = field(default_factory=list)
+    raw_text: str | None = None
 
 
 MIN_TRANSCRIPT_BYTES = 30
 _FENCED_RE = re.compile(
-    r"\A\s*```(?:markdown|md|latex|tex)?\s*\n(.*?)\n\s*```\s*\Z", re.S
+    r"\A\s*```(?:markdown|md|latex|tex)?\s*\n(.*?)\n\s*```\s*\Z", re.DOTALL
 )
+_OPEN_FENCE_RE = re.compile(r"\A\s*```(?:markdown|md|latex|tex)?[^\n]*\n")
+_CLOSE_FENCE_RE = re.compile(r"\n\s*```\s*\Z")
 
 
 def page_number(image_path: Path) -> int:
@@ -76,6 +77,9 @@ def normalize_ocr_markdown(decoded: object) -> str:
     m = _FENCED_RE.match(text)
     if m:
         text = m.group(1)
+    elif _OPEN_FENCE_RE.match(text):
+        # A fence the model never closed would swallow the rest of the book.
+        text = _CLOSE_FENCE_RE.sub("\n", _OPEN_FENCE_RE.sub("", text, count=1))
     return text.strip() + "\n" if text.strip() else ""
 
 
@@ -83,12 +87,10 @@ class OCREngine(ABC):
     @abstractmethod
     def recognize_page(self, image_path: Path, page_number: int) -> OCRPage:
         """Run OCR on a single rendered page image."""
-        pass
 
     @abstractmethod
-    def recognize_document(self, image_paths: List[Path]) -> List[OCRPage]:
+    def recognize_document(self, image_paths: list[Path]) -> list[OCRPage]:
         """Run OCR on an entire sequence of page images."""
-        pass
 
     def transcribe_pages(
         self, pages: Sequence[Path], out_dir: Path

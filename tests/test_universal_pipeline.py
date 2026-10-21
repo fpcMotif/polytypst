@@ -92,6 +92,35 @@ def test_tex_markdown_stitcher():
     assert "\\cosh^2 x - \\sinh^2 x = 1" in stitched
 
 
+def test_stitcher_joins_inline_math_split_across_pages():
+    pages = [
+        (1, "パラメータ $t = (t_1, t_2, \\cdots,"),
+        (2, "$t_m$) と共に変わるものが多い．"),
+    ]
+    stitched = stitch_document(pages)
+    assert "$t = (t_1, t_2, \\cdots, t_m$)" in stitched
+    assert stitched.count("$") % 2 == 0
+
+
+def test_stitcher_closes_gaps_in_equation_numbers():
+    stitched = stitch_document([(1, "次式を得る (5. 83) である.")])
+    assert "(5.83)" in stitched
+
+
+def test_cross_page_join_repairs_math_split_by_page_break():
+    from polytypst.compiler.monograph import join_cross_page_text
+
+    joined = join_cross_page_text("パラメータ $t = (t_1,", "$t_2)$ と共に")
+    assert "$t = (t_1, t_2)$" in joined
+    assert joined.count("$") % 2 == 0
+
+
+def test_double_backslash_before_macro_is_collapsed():
+    from polytypst.compiler.monograph import _DOUBLE_BACKSLASH_MACRO_RE
+
+    assert _DOUBLE_BACKSLASH_MACRO_RE.sub(r"\\", r"\\mathcal{A} \\ x") == r"\mathcal{A} \\ x"
+
+
 def test_figure_extractor_box_detection():
     lines = [
         OCRLine("Some leading title above", x=0.10, y=0.80, w=0.80, h=0.02),
@@ -221,3 +250,35 @@ def test_three_axis_composition_presets():
                 assert f'lang: "{lang.typst_lang}"' in preamble
                 assert pub.cities_line in title_page
                 assert f"#outline(title: [{lang.contents_title}]" in title_page
+
+
+def test_markdown_pages_merge_when_inline_math_straddles_pages():
+    from polytypst.compiler.monograph import _join_pages_across_math
+
+    merged = _join_pages_across_math(["本文 $t = (t_1,", "$t_2)$ の続き"])
+    assert len(merged) == 1
+    assert "$t = (t_1, t_2)$" in merged[0]
+
+
+def test_missing_ocr_image_refs_are_dropped_but_real_ones_kept(tmp_path):
+    from polytypst.books import book_specs
+    from polytypst.compiler.monograph import MonographCompiler
+
+    spec = book_specs()["kodaira_complex_analysis"]
+    compiler = MonographCompiler(spec)
+    compiler._out_dir = tmp_path
+    (tmp_path / "figures").mkdir()
+    (tmp_path / "figures" / "fig_1_1.png").write_bytes(b"x")
+    text = "A\n\n![Diagram](image)\n\nB\n\n![real](figures/fig_1_1.png)\n"
+    out = compiler._drop_missing_images(text)
+    assert "![Diagram](image)" not in out
+    assert "![real](figures/fig_1_1.png)" in out
+
+
+def test_latex_safe_markdown_braces_group_superscripts():
+    from polytypst.compiler.monograph import latex_safe_markdown
+
+    out = latex_safe_markdown(r"d\bar{z}_j{}^\alpha \wedge x{}^2")
+    assert r"{}^{\alpha}" in out
+    assert r"{}^{2}" in out
+    assert r"{}^\alpha" not in out

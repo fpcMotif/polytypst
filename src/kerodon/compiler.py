@@ -3,9 +3,11 @@
 import re
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional
 
-from .extractor import KerodonChapter, KerodonEnvironment, KerodonSection, KerodonSubsection
+from .extractor import (
+    KerodonChapter,
+    KerodonEnvironment,
+)
 
 
 class KerodonCompiler:
@@ -180,6 +182,7 @@ class KerodonCompiler:
         res = subprocess.run(
             ["pandoc", "-f", "markdown+tex_math_dollars", "-t", "typst"],
             input=s,
+            check=False,
             text=True,
             capture_output=True
         )
@@ -188,7 +191,7 @@ class KerodonCompiler:
         return out_t
     def generate_typst(self, output_path: Path) -> str:
         """Assemble Typst source document matching authentic LaTeX monograph layout."""
-        all_envs: List[KerodonEnvironment] = []
+        all_envs: list[KerodonEnvironment] = []
         for sec in self.chapter.sections:
             all_envs.extend(sec.intro_environments)
             for sub in sec.subsections:
@@ -226,6 +229,7 @@ class KerodonCompiler:
             res = subprocess.run(
                 ["pandoc", "-f", "markdown+tex_math_dollars", "-t", "typst"],
                 input=text,
+                check=False,
                 text=True,
                 capture_output=True
             )

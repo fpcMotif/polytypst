@@ -21,6 +21,13 @@ from .ocr.tesseract import TesseractOCREngine
 from .parser.stitcher import DocumentStitcher, FigureBlock
 from .vision.vector_figures import generate_all_vector_figures
 
+BOOK_COMMANDS = """\
+book commands (see `polytypst COMMAND --help`):
+  polytypst books                         list every book and its editions
+  polytypst build BOOK [--edition E]      build one edition of a book
+  polytypst parity BOOK --edition E       check a rebuilt edition against its scan
+"""
+
 
 def main() -> None:
     if sys.argv[1:2] in (["books"], ["build"], ["parity"]):
@@ -28,16 +35,17 @@ def main() -> None:
 
         sys.exit(books_main(sys.argv[1], sys.argv[2:]))
     parser = argparse.ArgumentParser(
-        description="polytypst: Universal tool to turn complex PDFs into beautiful Typst, LaTeX, and EPUB."
+        description="polytypst: Universal tool to turn complex PDFs into beautiful Typst, LaTeX, and EPUB.",
+        epilog=BOOK_COMMANDS,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "pdf_path", type=Path, nargs="?", help="Path to input PDF document"
     )
     parser.add_argument(
-        "--book",
-        type=str,
-        choices=["modern-firm", "serre", "kerodon", "all"],
-        help="Build canonical book deliverables",
+        "--legacy-stitcher",
+        action="store_true",
+        help="Use the original OCR + DocumentStitcher path instead of the universal pipeline",
     )
     parser.add_argument(
         "--export-web",
@@ -154,7 +162,7 @@ def main() -> None:
         web_pub = Path(__file__).resolve().parents[1] / "web" / "public"
         export_all_web_data(root_dir, web_pub)
         print(f"Exported web catalog and assets to {web_pub}")
-        if not args.book and not args.pdf_path:
+        if not args.pdf_path:
             return
 
     if not args.pdf_path or not args.pdf_path.exists():
@@ -165,7 +173,7 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     figures_dir = out_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
-    if not args.book:
+    if not args.legacy_stitcher:
         from .pipeline import UniversalPDFPipeline
 
         pipeline = UniversalPDFPipeline(
@@ -178,6 +186,7 @@ def main() -> None:
             publisher=args.publisher,
             lang=args.lang,
             domain=args.domain,
+            languages=args.languages.split(","),
         )
         res = pipeline.process(
             mode=args.mode, double_check_with_mac=(not args.no_verify)

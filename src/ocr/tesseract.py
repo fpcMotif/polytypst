@@ -1,10 +1,8 @@
 """Tesseract 5 OCR Engine fallback for 129 languages."""
 
-import json
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List, Optional
 
 from .base import OCREngine, OCRLine, OCRPage
 
@@ -23,13 +21,13 @@ class TesseractOCREngine(OCREngine):
             "nix", "--extra-experimental-features", "nix-command flakes", "shell", "nixpkgs#tesseract5",
             "--command", "tesseract", str(image_path), str(base_tsv), "-l", self.languages, "tsv"
         ]
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(cmd, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         real_tsv = Path(str(base_tsv) + ".tsv")
         lines = []
         if real_tsv.exists():
             with open(real_tsv, "r", encoding="utf-8", errors="ignore") as f:
-                header = f.readline()
+                f.readline()
                 for line in f:
                     parts = line.strip().split("\t")
                     if len(parts) >= 12 and parts[11].strip():
@@ -40,5 +38,5 @@ class TesseractOCREngine(OCREngine):
 
         return OCRPage(page_number, 0, 0, lines)
 
-    def recognize_document(self, image_paths: List[Path]) -> List[OCRPage]:
+    def recognize_document(self, image_paths: list[Path]) -> list[OCRPage]:
         return [self.recognize_page(p, idx + 1) for idx, p in enumerate(image_paths)]

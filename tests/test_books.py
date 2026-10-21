@@ -5,10 +5,26 @@ from polytypst.books_cli import parse_pages
 
 PACKAGE = Path(__file__).parents[1] / "src"
 
-
 def test_every_book_py_is_a_book():
     assert sorted(books()) == sorted(p.parent.name for p in PACKAGE.glob("*/book.py"))
     assert list(books()["bourbaki"].editions) == ["vintage", "facsimile", "modern"]
+
+
+def test_source_scans_are_named_relative_to_the_sources_folder():
+    absolute = {slug: spec.source_pdf for slug, spec in book_specs().items() if Path(spec.source_pdf or "").is_absolute()}
+    assert absolute == {}
+
+
+def test_code_holds_no_home_directory_paths():
+    root = PACKAGE.parent
+    hits = [
+        f"{path.relative_to(root)}:{n}"
+        for folder in ("src", "scripts")
+        for path in sorted((root / folder).rglob("*.py"))
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if "/Users/" in line
+    ]
+    assert hits == []
 
 
 def test_specs_come_from_the_editions():
@@ -26,6 +42,7 @@ def test_specs_come_from_the_editions():
     from polytypst.klein.zh_spec import KLEIN_ZH_SPEC
     from polytypst.kodaira.spec import KODAIRA_SPEC
     from polytypst.london_treasury.spec import LONDON_TREASURY_SPEC
+    from polytypst.複素多様体論.spec import FUKUSO_SPEC
 
     every = (
         AHLFORS_SPEC,
@@ -36,6 +53,7 @@ def test_specs_come_from_the_editions():
         FERMAT_SPEC,
         FERMAT2_SPEC,
         FERMAT3_SPEC,
+        FUKUSO_SPEC,
         KASHIWARA_SPEC,
         KLEIN_SPEC,
         KLEIN_ZH_SPEC,

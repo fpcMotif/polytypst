@@ -15,6 +15,14 @@ from ..ocr.base import OCRLine, OCRPage
 from .cropper import HighDPICropper
 
 FIGURES_MANIFEST_NAME = "figures_manifest.json"
+MIN_FIGURE_INK_RATIO = 0.002
+
+
+def _crop_ink_ratio(img: Image.Image) -> float:
+    """Share of dark pixels in a crop; near-zero means blank paper, not a diagram."""
+    gray = img.convert("L")
+    dark = sum(gray.histogram()[:200])
+    return dark / max(1, gray.width * gray.height)
 
 
 @dataclass
@@ -381,6 +389,8 @@ class FigureExtractor:
                         )
 
                     cropped = im.crop(box_px)
+                    if _crop_ink_ratio(cropped) < MIN_FIGURE_INK_RATIO:
+                        continue
                     out_name = f"fig_{fid}.png"
                     out_path = out_dir / out_name
                     cropped.save(out_path, format="PNG")

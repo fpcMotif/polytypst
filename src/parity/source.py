@@ -22,6 +22,14 @@ class SourceScanError(RuntimeError):
     pass
 
 
+def sources_dir(wanted: str) -> Path:
+    """The folder of source scans named by $POLYTYPST_SOURCES; `wanted` names the file for the error."""
+    root = os.environ.get(SOURCES_ENV)
+    if not root:
+        raise SourceScanError(f"set {SOURCES_ENV} (environment or mise.local.toml) to the folder holding {wanted!r}")
+    return Path(root).expanduser()
+
+
 def source_pdf(spec: MonographSpec, override: Path | None = None) -> Path:
     """The book's source scan: `override` when given, else `spec.source_pdf` inside $POLYTYPST_SOURCES."""
     if override is not None:
@@ -29,12 +37,7 @@ def source_pdf(spec: MonographSpec, override: Path | None = None) -> Path:
     else:
         if not spec.source_pdf:
             raise SourceScanError(f"{spec.slug} has no source_pdf on its spec")
-        root = os.environ.get(SOURCES_ENV)
-        if not root:
-            raise SourceScanError(
-                f"set {SOURCES_ENV} (environment or mise.local.toml) to the folder holding {spec.source_pdf!r}"
-            )
-        path = Path(root).expanduser() / spec.source_pdf
+        path = sources_dir(spec.source_pdf) / spec.source_pdf
     if not path.is_file():
         raise SourceScanError(f"source scan not found: {path}")
     return path

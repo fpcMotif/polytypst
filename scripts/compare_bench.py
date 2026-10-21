@@ -1,5 +1,5 @@
-import json
 import difflib
+import json
 import re
 from pathlib import Path
 

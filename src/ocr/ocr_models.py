@@ -11,9 +11,9 @@ DEEPSEEK_INFER_RUNTIME = "deepseek-infer"
 VLLM_CHAT_RUNTIME = "vllm-chat"
 
 _GROUNDING = re.compile(
-    r"<\|ref\|>.*?<\|/ref\|>\s*<\|det\|>.*?<\|/det\|>|<\|det\|>.*?<\|/det\|>", re.S
+    r"<\|ref\|>.*?<\|/ref\|>\s*<\|det\|>.*?<\|/det\|>|<\|det\|>.*?<\|/det\|>", re.DOTALL
 )
-_FRONT_MATTER = re.compile(r"\A---\n.*?\n---\n", re.S)
+_FRONT_MATTER = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
 _END_TOKENS = ("<｜end▁of▁sentence｜>", "<|im_end|>", "<|endoftext|>")
 
 

@@ -37,6 +37,9 @@ logging.getLogger("transformers_modules").setLevel(logging.ERROR)
 
 STATS_NAME = "_stats.json"
 MIN_INK_AREA = 400
+# A blank sheet keeps dust and show-through under a thousandth of its area (measured
+# 5k dark pixels on a 17.4M-pixel scan); one line of type carries far more.
+BLANK_INK_RATIO = 0.001
 VLLM_BATCH = 16
 
 UNIVERSAL_TEX_PROMPT = (
@@ -58,19 +61,23 @@ Transcriber = Callable[[list[Image.Image]], list[str]]
 def crop_and_measure_ink(
     img: Image.Image, padding: int = 24
 ) -> tuple[Image.Image, int]:
-    """Remove outer white margins and return (cropped_image, dark_pixel_bbox_area)."""
+    """Remove outer white margins and return (cropped_image, dark pixel count).
+
+    The count is ink, not the bounding box: dust specks in two corners make a blank
+    page's box span the sheet, and a blank page sent to the model comes back invented.
+    """
     gray = img.convert("L")
     bw = gray.point(lambda p: 255 if p < 200 else 0)
     bbox = bw.getbbox()
     if not bbox:
         return img, 0
-    area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+    ink_pixels = bw.histogram()[255]
     w, h = img.size
     left = max(0, bbox[0] - padding)
     top = max(0, bbox[1] - padding)
     right = min(w, bbox[2] + padding)
     bottom = min(h, bbox[3] + padding)
-    return img.crop((left, top, right, bottom)), area
+    return img.crop((left, top, right, bottom)), ink_pixels
 
 
 def _torch() -> Any:
@@ -213,10 +220,16 @@ TRANSCRIBERS: dict[str, Callable[[OCRModel, str], Transcriber]] = {
 }
 
 
+def blank_page_threshold(img: Image.Image) -> int:
+    """Dark pixels below which a scan holds no text to transcribe."""
+    return max(MIN_INK_AREA, int(img.width * img.height * BLANK_INK_RATIO))
+
+
 def _load_page(item: tuple[int, str]) -> tuple[int, Image.Image | None]:
     p_num, path = item
-    cropped, area = crop_and_measure_ink(Image.open(path).convert("RGB"))
-    return p_num, cropped if area >= MIN_INK_AREA else None
+    image = Image.open(path).convert("RGB")
+    cropped, ink = crop_and_measure_ink(image)
+    return p_num, cropped if ink >= blank_page_threshold(image) else None
 
 
 def _load_batch(batch: list[tuple[int, str]]) -> list[tuple[int, Image.Image | None]]:

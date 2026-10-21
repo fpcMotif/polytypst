@@ -6,12 +6,15 @@ above each caption using horizontal whitespace band isolation and tight ink boun
 
 from pathlib import Path
 
+from polytypst.parity.source import sources_dir
 from polytypst.vision.figure_extractor import (
     FIGURES_MANIFEST_NAME,
     ExtractedFigure,
     FigureExtractor,
     write_figures_manifest,
 )
+
+KODAIRA_PDF = "Complex Analysis ( etc.).pdf"
 
 KODAIRA_BODY_PAGES = range(12, 413)
 
@@ -31,7 +34,7 @@ def extract_all_kodaira_figures(
 
 if __name__ == "__main__":
     extract_all_kodaira_figures(
-        pdf_path=Path("/Users/martinfan/Downloads/Complex Analysis ( etc.).pdf"),
+        pdf_path=sources_dir(KODAIRA_PDF) / KODAIRA_PDF,
         renders_dir=Path("output/kodaira/page_renders"),
         figs_dir=Path("output/kodaira/figures"),
     )

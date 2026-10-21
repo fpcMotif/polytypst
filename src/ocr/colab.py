@@ -6,6 +6,7 @@ import subprocess
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Self
 
 from .ocr_models import OCRModel
 
@@ -62,14 +63,21 @@ def fit_problem(model: OCRModel, gpu: ColabGPU) -> str | None:
 def colab_cli(
     *args: str, stdin: str | None = None, timeout: float | None = None
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["colab", *args],
-        input=stdin,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=False,
-    )
+    """Run the CLI; a call that hangs returns status 124 instead of stalling the run."""
+    command = ["colab", *args]
+    try:
+        return subprocess.run(
+            command,
+            input=stdin,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as e:
+        out = e.stdout if isinstance(e.stdout, str) else ""
+        err = e.stderr if isinstance(e.stderr, str) else ""
+        return subprocess.CompletedProcess(command, 124, out, err)
 
 
 @dataclass(frozen=True)
@@ -112,7 +120,7 @@ class ColabSession:
         self.name = name
         self.gpu = gpu
 
-    def __enter__(self) -> "ColabSession":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *_exc: object) -> None:
@@ -123,7 +131,7 @@ class ColabSession:
 
     def start(self) -> bool:
         self._log(f"Launching Colab VM ({self.gpu})...")
-        res = colab_cli("new", "--session", self.name, "--gpu", self.gpu)
+        res = colab_cli("new", "--session", self.name, "--gpu", self.gpu, timeout=900)
         if res.returncode != 0:
             self._log(
                 f"Session creation error: {res.stderr.strip() or res.stdout.strip()}"
@@ -141,22 +149,32 @@ class ColabSession:
 
     def exec(self, code: str, timeout: int = 60) -> subprocess.CompletedProcess[str]:
         return colab_cli(
-            "exec", "--session", self.name, "--timeout", str(timeout), stdin=code
+            "exec",
+            "--session",
+            self.name,
+            "--timeout",
+            str(timeout),
+            stdin=code,
+            timeout=timeout + 60,
         )
 
     def ls(self, remote_dir: str) -> list[str]:
-        res = colab_cli("ls", "--session", self.name, remote_dir, timeout=30)
+        res = colab_cli("ls", "--session", self.name, remote_dir, timeout=90)
         return [line.strip() for line in res.stdout.splitlines() if line.strip()]
 
     def download(self, remote: str, local: Path) -> bool:
-        res = colab_cli("download", "--session", self.name, remote, str(local))
+        res = colab_cli(
+            "download", "--session", self.name, remote, str(local), timeout=1800
+        )
         return res.returncode == 0 and local.exists()
 
     def upload(self, local: Path, remote: str) -> bool:
         """Upload in chunks of at most 25 MB; larger Jupyter payloads fail with HTTP 400."""
         chunk = UPLOAD_CHUNK_MB * 1024 * 1024
         if local.stat().st_size <= chunk:
-            res = colab_cli("upload", "--session", self.name, str(local), remote)
+            res = colab_cli(
+                "upload", "--session", self.name, str(local), remote, timeout=900
+            )
             return res.returncode == 0
         data = local.read_bytes()
         parts_dir = local.parent / f"_parts_{self.name}"
@@ -171,6 +189,7 @@ class ColabSession:
                     self.name,
                     str(part),
                     f"/content/part_{idx:03d}.bin",
+                    timeout=900,
                 )
                 part.unlink()
                 if res.returncode != 0:

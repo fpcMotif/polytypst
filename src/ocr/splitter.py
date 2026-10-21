@@ -1,7 +1,7 @@
 """2-Up spread splitter for scanned book spreads."""
 
 from pathlib import Path
-from typing import List, Tuple
+
 import pymupdf
 
 
@@ -16,7 +16,7 @@ class TwoUpSplitter:
         landscape_count = sum(1 for i in range(sample_pages) if self.doc[i].rect.width > self.doc[i].rect.height * 1.1)
         return landscape_count >= 3
 
-    def split_and_render_all(self, out_dir: Path, dpi: int = 150) -> List[Path]:
+    def split_and_render_all(self, out_dir: Path, dpi: int = 150) -> list[Path]:
         """Split all 2-up spreads into individual left and right portrait page images."""
         out_dir.mkdir(parents=True, exist_ok=True)
         rendered_paths = []

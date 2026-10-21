@@ -26,8 +26,7 @@ class KerodonDiagramCropper:
             for token in text.split():
                 clean_tok = token.strip()
                 if len(clean_tok) == 4 and clean_tok.isalnum() and clean_tok == clean_tok.upper():
-                    if clean_tok not in tag_page_map:
-                        tag_page_map[clean_tok] = pno
+                    tag_page_map.setdefault(clean_tok, pno)
         cropped_count = 0
 
         # Collect all environments

@@ -496,7 +496,7 @@ ENV_MATRIX_RE = re.compile(
 ENV_CASES_RE = re.compile(r"\\begin\{cases\}(.*?)\\end\{cases\}", re.DOTALL)
 ENV_ARRAY_RE = re.compile(r"\\begin\{array\}\{[^{}]*\}(.*?)\\end\{array\}", re.DOTALL)
 ENV_ALIGNED_RE = re.compile(
-    r"\\(?:begin|end)\{(?:aligned|align|split|gather| multline)\*?\}"
+    r"\\(?:begin|end)\{(?:aligned|alignedat|align|split|gather|gathered|multline|multlined)\*?\}"
 )
 MAT_CELL_LABEL_RE = re.compile(r"(^|[;,]\s*)(\\?[a-zA-Z_][a-zA-Z0-9_]*)\s*:")
 

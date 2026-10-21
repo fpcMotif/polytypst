@@ -3,7 +3,6 @@
 import shutil
 from collections.abc import Sequence
 from pathlib import Path
-from typing import List
 
 from .base import (
     OCREngine,
@@ -36,7 +35,7 @@ class CachedMarkdownEngine(OCREngine):
         ]
         return OCRPage(page_number, 0, 0, lines, raw_text=text)
 
-    def recognize_document(self, image_paths: List[Path]) -> List[OCRPage]:
+    def recognize_document(self, image_paths: list[Path]) -> list[OCRPage]:
         return [self.recognize_page(p, page_number(p)) for p in image_paths]
 
 
@@ -80,7 +79,7 @@ class LocalGPUWorkerEngine(OCREngine):
     def recognize_page(self, image_path: Path, page_number: int) -> OCRPage:
         return self.recognize_document([image_path])[0]
 
-    def recognize_document(self, image_paths: List[Path]) -> List[OCRPage]:
+    def recognize_document(self, image_paths: list[Path]) -> list[OCRPage]:
         scratch = image_paths[0].parent / "_local_ocr"
         try:
             found = dict(self.transcribe_pages(image_paths, scratch))

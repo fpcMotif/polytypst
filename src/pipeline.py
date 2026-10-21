@@ -56,9 +56,11 @@ class UniversalPDFPipeline:
         ocr_prompt: str | None = None,
         ocr_engine: OCREngine | None = None,
         ocr_model: str = DEFAULT_OCR_MODEL,
+        languages: list[str] | None = None,
     ):
         self.ocr_model: str = ocr_model
         self.ocr_prompt: str | None = ocr_prompt
+        self.languages: list[str] | None = languages
         self.ocr_engine: OCREngine | None = ocr_engine
         self.pdf_path: Path = Path(pdf_path)
         self.output_dir: Path = Path(output_dir)
@@ -208,7 +210,7 @@ class UniversalPDFPipeline:
             print(
                 "Double-checking Jina OCR transcription with macOS Apple Vision OCR..."
             )
-            verifier = OCRVerifier()
+            verifier = OCRVerifier(languages=self.languages)
             verification = verifier.verify_document(rendered_pages, pages_md)
             print(
                 f"Verified {verification.total_pages_verified} pages. Discrepancies found on {len(verification.discrepant_pages)} pages."

@@ -2,10 +2,10 @@
 
 import argparse
 from pathlib import Path
-from .extractor import KerodonExtractor
-from .diagrams import KerodonDiagramCropper
-from .compiler import KerodonCompiler
 
+from .compiler import KerodonCompiler
+from .diagrams import KerodonDiagramCropper
+from .extractor import KerodonExtractor
 
 CHAPTER_METADATA = {
     1: ("0001", 18, 144),

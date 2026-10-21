@@ -3,14 +3,14 @@
 import base64
 import os
 from pathlib import Path
-from typing import List, Optional
+
 import httpx
 
 from .base import OCREngine, OCRLine, OCRPage
 
 
 class MistralOCREngine(OCREngine):
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         self.api_key = api_key or os.environ.get("MISTRAL_API_KEY")
         if not self.api_key:
             # Check mise.local.toml or .env in current working tree
@@ -31,8 +31,8 @@ class MistralOCREngine(OCREngine):
                                     if val and not val.startswith("your-"):
                                         self.api_key = val
                                         break
-                    except Exception:
-                        pass
+                    except OSError:
+                        continue
                 if self.api_key:
                     break
 
@@ -79,5 +79,5 @@ class MistralOCREngine(OCREngine):
         lines = [OCRLine(text=l, x=0.1, y=0.5, w=0.8, h=0.03) for l in md_text.splitlines() if l.strip()]
         return OCRPage(page_number, width, height, lines, raw_text=md_text)
 
-    def recognize_document(self, image_paths: List[Path]) -> List[OCRPage]:
+    def recognize_document(self, image_paths: list[Path]) -> list[OCRPage]:
         return [self.recognize_page(p, idx + 1) for idx, p in enumerate(image_paths)]

@@ -2,8 +2,7 @@
 
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import List, Optional, Tuple, Dict
+
 from ..ocr.base import OCRLine, OCRPage
 
 
@@ -19,8 +18,8 @@ class FigureBlock:
 class DocumentSection:
     title: str
     level: int  # 1 = Part/Book, 2 = Chapter, 3 = Section, 4 = Subsection
-    content_blocks: List[str] = field(default_factory=list)
-    figures: List[FigureBlock] = field(default_factory=list)
+    content_blocks: list[str] = field(default_factory=list)
+    figures: list[FigureBlock] = field(default_factory=list)
 
 
 @dataclass
@@ -30,8 +29,8 @@ class ParsedBook:
     author: str
     translator: str
     publisher: str
-    sections: List[DocumentSection] = field(default_factory=list)
-    figures: List[FigureBlock] = field(default_factory=list)
+    sections: list[DocumentSection] = field(default_factory=list)
+    figures: list[FigureBlock] = field(default_factory=list)
 
 
 # Known section titles from Table of Contents for exact heading mapping
@@ -70,7 +69,7 @@ FIGURE_ANCHORS = {
 
 
 class DocumentStitcher:
-    def __init__(self, pages: List[OCRPage], figures_map: Optional[Dict[int, FigureBlock]] = None):
+    def __init__(self, pages: list[OCRPage], figures_map: dict[int, FigureBlock] | None = None):
         self.pages = sorted(pages, key=lambda p: p.page_number)
         self.figures_map = figures_map or {}
 
@@ -82,11 +81,9 @@ class DocumentStitcher:
         if line.y < 0.08:
             return True
         # Standalone page numbers like "— 24 —", "24", "42"
-        if re.match(r"^—?\s*\d+\s*—?$", line.text.strip()):
-            return True
-        return False
+        return bool(re.match(r"^—?\s*\d+\s*—?$", line.text.strip()))
 
-    def is_chapter_header(self, text: str, line: OCRLine) -> Optional[Tuple[str, str]]:
+    def is_chapter_header(self, text: str, line: OCRLine) -> tuple[str, str] | None:
         clean = text.strip().replace("／", "1")
         m = re.match(r"^第\s*([0-9一二三四五六七八九十]+)\s*章\s*(.*)", clean)
         if m and (line.h > 0.025 or line.y > 0.70):
@@ -220,13 +217,16 @@ class DocumentStitcher:
 
                     # Check if this paragraph contains a figure anchor!
                     for fig_id, anchors in FIGURE_ANCHORS.items():
-                        if fig_id not in placed_figures and fig_id in self.figures_map:
-                            if any(a in completed_para for a in anchors):
-                                fig = self.figures_map[fig_id]
-                                current_sec.figures.append(fig)
-                                book.figures.append(fig)
-                                current_sec.content_blocks.append(f"__FIGURE_{fig_id}__")
-                                placed_figures.add(fig_id)
+                        if (
+                            fig_id not in placed_figures
+                            and fig_id in self.figures_map
+                            and any(a in completed_para for a in anchors)
+                        ):
+                            fig = self.figures_map[fig_id]
+                            current_sec.figures.append(fig)
+                            book.figures.append(fig)
+                            current_sec.content_blocks.append(f"__FIGURE_{fig_id}__")
+                            placed_figures.add(fig_id)
                 else:
                     if current_para:
                         prev = current_para[-1]
@@ -242,13 +242,16 @@ class DocumentStitcher:
             completed_para = "".join(current_para)
             current_sec.content_blocks.append(completed_para)
             for fig_id, anchors in FIGURE_ANCHORS.items():
-                if fig_id not in placed_figures and fig_id in self.figures_map:
-                    if any(a in completed_para for a in anchors):
-                        fig = self.figures_map[fig_id]
-                        current_sec.figures.append(fig)
-                        book.figures.append(fig)
-                        current_sec.content_blocks.append(f"__FIGURE_{fig_id}__")
-                        placed_figures.add(fig_id)
+                if (
+                    fig_id not in placed_figures
+                    and fig_id in self.figures_map
+                    and any(a in completed_para for a in anchors)
+                ):
+                    fig = self.figures_map[fig_id]
+                    current_sec.figures.append(fig)
+                    book.figures.append(fig)
+                    current_sec.content_blocks.append(f"__FIGURE_{fig_id}__")
+                    placed_figures.add(fig_id)
 
         # Fallback for any unplaced figures (ensure none are lost)
         for fig_id, fig in self.figures_map.items():

@@ -1,4 +1,3 @@
-import os
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -6,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 import pymupdf
+
+from .parity.source import sources_dir
 
 SOURCE_PDF = "石頭記＠四校訖自用.v2.006a.PDF"
 FIRST_PAGE = 19
@@ -22,7 +23,7 @@ HUI_RE = re.compile(r"第([一二三四五六七八九十〇廿卅卌]+)回")
 
 
 def source_pdf() -> Path:
-    return Path(os.environ.get("POLYTYPST_SOURCES", "~/Downloads")).expanduser() / SOURCE_PDF
+    return sources_dir(SOURCE_PDF) / SOURCE_PDF
 
 
 @dataclass
@@ -270,7 +271,7 @@ def extract_chapters(pdf: Path | None = None) -> list[dict[str, Any]]:
         para = None
 
     for pno in range(FIRST_PAGE, reader.doc.page_count + 1):
-        units, display, frame = reader.page_units(pno)
+        units, display, _frame = reader.page_units(pno)
         if any(g.size > 40 for g in display):
             continue
         titles = [g for g in display if g.black]

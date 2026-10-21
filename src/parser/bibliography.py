@@ -1,12 +1,12 @@
 """Academic Bibliography Parser and Formatter matching highest university press standards."""
 
 import re
-from typing import List, Tuple
+
 from ..ocr.base import OCRPage
 
 
 class BibliographyParser:
-    def __init__(self, pages: List[OCRPage]):
+    def __init__(self, pages: list[OCRPage]):
         # Filter bibliography pages: from page 177 through 190
         self.bib_pages = [p for p in pages if 177 <= p.page_number <= 190]
         self.acknowledgement = (
@@ -15,7 +15,7 @@ class BibliographyParser:
             "徐秋慧、钟红英、赵文荣、李朝气、马二排、罗宇、刘头坤核对了书中的参考文献，在此表示感谢。"
         )
 
-    def parse(self) -> Tuple[List[str], str]:
+    def parse(self) -> tuple[list[str], str]:
         """Extract and clean individual citation entries from OCR pages."""
         raw_lines = []
         for p in self.bib_pages:
@@ -47,11 +47,7 @@ class BibliographyParser:
             clean_t = text.strip()
             is_new = False
             # Starts with Author, Year: e.g. "Akerlof, G. A. (1970)" or "Abreu, D."
-            if re.match(r"^[A-Z][a-zA-Z\s\.\,\'\-]{2,35}\s*\([12][09][0-9]{2}", clean_t):
-                is_new = True
-            elif re.match(r"^[A-Z][a-z]+,\s*[A-Z]\.", clean_t):
-                is_new = True
-            elif re.match(r"^[—\-\–\s]*\([12][09][0-9]{2}[a-z]?\)", clean_t):
+            if re.match(r"^[A-Z][a-zA-Z\s\.\,\'\-]{2,35}\s*\([12][09][0-9]{2}", clean_t) or re.match(r"^[A-Z][a-z]+,\s*[A-Z]\.", clean_t) or re.match(r"^[—\-\–\s]*\([12][09][0-9]{2}[a-z]?\)", clean_t):
                 is_new = True
 
             if is_new and current_entry:

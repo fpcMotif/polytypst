@@ -267,3 +267,11 @@ def test_pipeline_figure_cache_requires_every_listed_file(
     RecordingVision.calls = []
     assert pipeline.extract_figures(rendered_pages=[]) == complete
     assert RecordingVision.calls == []
+
+
+def test_crop_ink_ratio_discriminates_blank_paper() -> None:
+    blank = Image.new("RGB", (60, 200), "white")
+    assert figure_extractor._crop_ink_ratio(blank) < figure_extractor.MIN_FIGURE_INK_RATIO
+    drawn = ImageDraw.Draw(blank)
+    drawn.rectangle((20, 60, 40, 140), fill="black")
+    assert figure_extractor._crop_ink_ratio(blank) >= figure_extractor.MIN_FIGURE_INK_RATIO

@@ -14,7 +14,7 @@ LONDON_TREASURY_SPEC = MonographSpec(
     domain="economics",
     pdf_page_count=57,
     pdf_name_markers=("伦敦分行资金与交易业务阅读册", "london_branch_treasury"),
-    source_pdf="/Users/martinfan/Downloads/伦敦分行资金与交易业务阅读册.pdf",
+    source_pdf="伦敦分行资金与交易业务阅读册.pdf",
     chapters=[
         ChapterSpec(0, "导读与全书框架", 2, 7),
         ChapterSpec(1, "第一章 资金与资产负债管理", 8, 15),

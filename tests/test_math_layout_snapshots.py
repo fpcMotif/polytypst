@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pymupdf
 import pytest
+
 from polytypst.compiler.monograph import (
     ChapterSpec,
     MonographCompiler,

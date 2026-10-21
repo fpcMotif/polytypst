@@ -3,7 +3,6 @@
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
 
 
 @dataclass
@@ -11,8 +10,8 @@ class KerodonDiagram:
     tag: str
     index: int
     latex_source: str
-    image_path: Optional[str] = None
-    caption: Optional[str] = None
+    image_path: str | None = None
+    caption: str | None = None
 
 
 @dataclass
@@ -23,7 +22,7 @@ class KerodonEnvironment:
     title: str     # e.g. "The Simplex Category"
     raw_html: str
     body_markdown: str
-    diagrams: List[KerodonDiagram] = field(default_factory=list)
+    diagrams: list[KerodonDiagram] = field(default_factory=list)
 
 
 @dataclass
@@ -31,7 +30,7 @@ class KerodonSubsection:
     tag: str
     number: str    # e.g. "1.1.1"
     title: str     # e.g. "Face Operators"
-    environments: List[KerodonEnvironment] = field(default_factory=list)
+    environments: list[KerodonEnvironment] = field(default_factory=list)
 
 
 @dataclass
@@ -39,8 +38,8 @@ class KerodonSection:
     tag: str
     number: str    # e.g. "1.1"
     title: str     # e.g. "Simplicial Sets"
-    intro_environments: List[KerodonEnvironment] = field(default_factory=list)
-    subsections: List[KerodonSubsection] = field(default_factory=list)
+    intro_environments: list[KerodonEnvironment] = field(default_factory=list)
+    subsections: list[KerodonSubsection] = field(default_factory=list)
 
 
 @dataclass
@@ -49,7 +48,7 @@ class KerodonChapter:
     number: str    # e.g. "1"
     title: str     # e.g. "The Language of $\\infty$-Categories"
     intro_text: str = ""
-    sections: List[KerodonSection] = field(default_factory=list)
+    sections: list[KerodonSection] = field(default_factory=list)
 
 
 class KerodonExtractor:
@@ -144,7 +143,7 @@ class KerodonExtractor:
         """Extract Chapter 1."""
         return self.extract_chapter(1, "0001")
 
-    def _parse_environments_from_html(self, html: str) -> List[KerodonEnvironment]:
+    def _parse_environments_from_html(self, html: str) -> list[KerodonEnvironment]:
         """Extract individual articles from HTML page content."""
         envs = []
         for article_m in re.finditer(r"<article class=\"([^\"]+)\" id=\"([^\"]+)\">(.*?)</article>", html, re.DOTALL):

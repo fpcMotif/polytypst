@@ -8,17 +8,14 @@ from pathlib import Path
 
 import pymupdf
 
+from polytypst.parity.source import sources_dir
 from polytypst.taocp.compiler import TaocpBookCompiler
 from polytypst.taocp.extractor import TaocpExtractor
 from polytypst.taocp.figures import TaocpAssetProcessor
 
-DEFAULT_PDF_PATH = Path(
-    "/Users/martinfan/Downloads/Art of Computer Programming, The Volume 3 Sorting and Searching (Donald E. Knuth).pdf"
-)
-DEFAULT_EPUB_PATH = Path(
-    "/Users/martinfan/Downloads/The Art of Computer Programming, Vol. 03 Sorting and Searching (Donald E. Knuth).epub"
-)
-DEFAULT_OUT_DIR = Path("/Users/martinfan/devv/polytypst/output/taocp")
+PDF_NAME = "Art of Computer Programming, The Volume 3 Sorting and Searching (Donald E. Knuth).pdf"
+EPUB_NAME = "The Art of Computer Programming, Vol. 03 Sorting and Searching (Donald E. Knuth).epub"
+DEFAULT_OUT_DIR = Path("output/taocp")
 
 
 def main() -> None:
@@ -27,7 +24,9 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print("[1/5] Scanning EPUB spine, anchor IDs, and required graphic assets...")
-    extractor = TaocpExtractor(DEFAULT_EPUB_PATH)
+    epub_path = sources_dir(EPUB_NAME) / EPUB_NAME
+    pdf_path = sources_dir(PDF_NAME) / PDF_NAME
+    extractor = TaocpExtractor(epub_path)
     spine_hrefs, valid_ids, required_images = extractor.scan_spine()
     print(
         f"      Found {len(spine_hrefs)} spine sections, {len(valid_ids)} unique anchors, "
@@ -37,7 +36,7 @@ def main() -> None:
     print(
         "[2/5] Extracting & upgrading graphic assets via 300-DPI PDF FFT-NCC matching..."
     )
-    processor = TaocpAssetProcessor(DEFAULT_EPUB_PATH, DEFAULT_PDF_PATH, out_dir)
+    processor = TaocpAssetProcessor(epub_path, pdf_path, out_dir)
     assets = processor.process_assets(required_images)
     n_pdf_matched = sum(1 for a in assets.values() if a.method == "pdf_300dpi_ncc")
     n_upscaled = sum(1 for a in assets.values() if a.method == "epub_upscaled")

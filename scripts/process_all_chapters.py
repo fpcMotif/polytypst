@@ -1,16 +1,14 @@
 """Master Recursive Harvester & Compiler for all remaining Kerodon Chapters (4 to 10)."""
 
-import sys
-import time
 import re
+import time
 import urllib.request
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
-from polytypst.kerodon.extractor import KerodonExtractor
-from polytypst.kerodon.diagrams import KerodonDiagramCropper
 from polytypst.kerodon.compiler import KerodonCompiler
-
+from polytypst.kerodon.diagrams import KerodonDiagramCropper
+from polytypst.kerodon.extractor import KerodonExtractor
 
 CHAPTERS_CONFIG = [
     (8, "03JA", 1804, 2183, ["03JB", "043P", "03LZ", "03V7", "03Y9", "04C0", "05K8"]),
@@ -31,9 +29,9 @@ def fetch_tag(tag: str, cache_dir: Path) -> bool:
 
 
 def process_chapter(ch_num: int, ch_tag: str, start_p: int, end_p: int, sec_tags: list, cache_dir: Path, out_dir: Path, pdf_path: Path):
-    print(f"\n=================================================================")
+    print("\n=================================================================")
     print(f"PROCESSING CHAPTER {ch_num:02d} (Tag {ch_tag}, pp. {start_p} - {end_p})")
-    print(f"=================================================================")
+    print("=================================================================")
 
     # 1. Harvest subsections from section files
     subs_to_fetch = []

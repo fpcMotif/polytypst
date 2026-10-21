@@ -2,14 +2,14 @@
 
 import glob
 import os
-import sys
 import time
 from pathlib import Path
-from PIL import Image
+
 import torch
+from PIL import Image
 from transformers import AutoModelForCausalLM, AutoProcessor
 
-print(f"=== COLAB A100 JINA OCR BATCH WORKER ===")
+print("=== COLAB A100 JINA OCR BATCH WORKER ===")
 print(f"PyTorch version: {torch.__version__}")
 print(f"CUDA Available: {torch.cuda.is_available()}")
 if not torch.cuda.is_available():
@@ -88,5 +88,6 @@ print(f"\nCompleted {total_processed} pages in {elapsed:.1f}s (avg {elapsed/max(
 # Create archive
 archive_path = Path("/content/ahlfors_jina_md.tar.gz")
 import subprocess
+
 subprocess.check_call(["tar", "-czf", str(archive_path), "-C", "/content", "markdown"])
 print(f"Created archive: {archive_path} ({archive_path.stat().st_size / 1024:.1f} KB)")

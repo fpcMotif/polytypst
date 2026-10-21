@@ -6,6 +6,7 @@ page's Markdown, and a justified break marker goes after it (`@@BR@@`), or
 inside it at the scan's hyphenation point (`@@HY@@`).
 """
 
+import itertools
 import re
 from dataclasses import dataclass
 from functools import cache
@@ -17,7 +18,7 @@ from ..parity.source import SourcePage, read_source_page, source_ocr_dir
 BODY_TOP, BODY_BOTTOM = 60.0, 58.0
 WINDOW = 60
 WORD_RE = re.compile(r"[A-Za-z]+")
-MATH_RE = re.compile(r"\$\$.*?\$\$|\$[^$\n]*\$", re.S)
+MATH_RE = re.compile(r"\$\$.*?\$\$|\$[^$\n]*\$", re.DOTALL)
 
 
 def scan_body_lines(page: SourcePage) -> list[str]:
@@ -44,7 +45,7 @@ class Ending:
 def line_endings(lines: list[str]) -> list[Ending]:
     """The ending of every line but the last that has two words before the break."""
     out, offset = [], 0
-    for text, nxt in zip(lines, lines[1:]):
+    for text, nxt in itertools.pairwise(lines):
         words, following = WORD_RE.findall(text), WORD_RE.findall(nxt)
         offset += len(words)
         if len(words) < 2 or not following:
@@ -56,7 +57,7 @@ def line_endings(lines: list[str]) -> list[Ending]:
 
 def _tokens(body: str) -> list[re.Match]:
     math = [m.span() for m in MATH_RE.finditer(body)]
-    skip = [(m.start(), m.end()) for m in re.finditer(r"^(?:#|!\[).*$", body, re.M)]
+    skip = [(m.start(), m.end()) for m in re.finditer(r"^(?:#|!\[).*$", body, re.MULTILINE)]
     blocked = sorted(math + skip)
     out, k = [], 0
     for tok in WORD_RE.finditer(body):

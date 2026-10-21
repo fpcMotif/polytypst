@@ -796,8 +796,8 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> dict[str, Any]:
             old_data = json.loads(cat_file.read_text(encoding="utf-8"))
             for b in old_data.get("books", []):
                 existing_books_map[b["slug"]] = b
-        except Exception:
-            pass
+        except (OSError, ValueError, KeyError):
+            existing_books_map = {}
 
     roberts_out_dir = _first_existing(root_dir / "output" / "modern_firm", root_dir.parent / "output" / "modern_firm")
     serre_out_dir = _first_existing(

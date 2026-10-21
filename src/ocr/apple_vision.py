@@ -5,7 +5,6 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List
 
 from .base import OCREngine, OCRLine, OCRPage
 
@@ -74,7 +73,7 @@ DispatchQueue.concurrentPerform(iterations: files.count) { idx in
 
 
 class AppleVisionOCREngine(OCREngine):
-    def __init__(self, languages: List[str] | None = None):
+    def __init__(self, languages: list[str] | None = None):
         self.languages = languages or ["zh-Hans", "en-US", "ja-JP", "fr-FR"]
         self._compiled_binary = None
 
@@ -100,7 +99,7 @@ class AppleVisionOCREngine(OCREngine):
         pages = self.recognize_document([image_path])
         return pages[0] if pages else OCRPage(page_number, 0, 0, [])
 
-    def recognize_document(self, image_paths: List[Path]) -> List[OCRPage]:
+    def recognize_document(self, image_paths: list[Path]) -> list[OCRPage]:
         bin_path = self._ensure_binary()
         with tempfile.TemporaryDirectory() as temp_in, tempfile.TemporaryDirectory() as temp_out:
             # Symlink or copy images

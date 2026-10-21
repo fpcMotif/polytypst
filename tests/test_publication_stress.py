@@ -1,6 +1,7 @@
 import re
 import zipfile
 from pathlib import Path
+
 import pymupdf
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -145,9 +146,9 @@ def test_serre_zero_leaked_running_headers_or_signatures() -> None:
     md_text = (SERRE_DIR / "combined_serre.md").read_text(encoding="utf-8")
     for line in md_text.splitlines():
         s = line.strip()
-        assert not re.match(r"^J\.-P\.\s*SERRE\s*\d*$", s, re.I), f"Leaked printer signature in Serre: {s}"
-        assert not re.match(r"^\d+\s+COURS D'ARITHMÉTIQUE$", s, re.I), f"Leaked running header in Serre: {s}"
-        assert not re.match(r"^(?:CORPS\s+.*|SYMBOLE DE HILBERT|FORMES\s+.*)\s+\d+$", s, re.I), (
+        assert not re.match(r"^J\.-P\.\s*SERRE\s*\d*$", s, re.IGNORECASE), f"Leaked printer signature in Serre: {s}"
+        assert not re.match(r"^\d+\s+COURS D'ARITHMÉTIQUE$", s, re.IGNORECASE), f"Leaked running header in Serre: {s}"
+        assert not re.match(r"^(?:CORPS\s+.*|SYMBOLE DE HILBERT|FORMES\s+.*)\s+\d+$", s, re.IGNORECASE), (
             f"Leaked running header with page number in Serre: {s}"
         )
 
@@ -657,7 +658,7 @@ def test_project_mise_and_uv_environment_configuration() -> None:
 
     mise_cfg = tomllib.loads(mise_toml.read_text(encoding="utf-8"))
     assert "_.file" not in mise_cfg.get("env", {})
-    assert "python" in mise_cfg.get("tools", {})
+    assert (poly_dir / ".python-version").read_text(encoding="utf-8").strip() == "3.12"
     assert "uv" in mise_cfg.get("tools", {})
     assert "test" in mise_cfg.get("tasks", {})
     assert "check-web" in mise_cfg.get("tasks", {})

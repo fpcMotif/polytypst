@@ -3,17 +3,16 @@
 import argparse
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+
 import pymupdf
 
 from .apple_vision import AppleVisionOCREngine
-from .splitter import TwoUpSplitter
 
 
 class PDFToMarkdownPipeline:
     """End-to-end pipeline to turn PDF pages into clean Markdown with dual-comparator verification."""
 
-    GREEK_CORRECTIONS = [
+    GREEK_CORRECTIONS = (
         (r"\b(:3|{3|B)\b", r"\\beta"),
         (r"\bi(:3|{3|B)\b", r"i \\beta"),
         (r"\ba\s*\+\s*i(:3|{3|B)", r"\\alpha + i \\beta"),
@@ -24,7 +23,7 @@ class PDFToMarkdownPipeline:
         (r"\[a\s*\+\s*bl", r"|a + b|"),
         (r"\[al\s*\+\s*\[b\[", r"|a| + |b|"),
         (r"Ia\s*-\s*b\\", r"|a - b|"),
-    ]
+    )
 
     def __init__(self, pdf_path: Path, output_dir: Path, dpi: int = 200):
         self.pdf_path = Path(pdf_path)
@@ -37,7 +36,7 @@ class PDFToMarkdownPipeline:
         self.doc = pymupdf.open(str(self.pdf_path))
         self.engine = AppleVisionOCREngine(languages=["en-US"])
 
-    def render_and_split_pages(self, start_page: int = 1, end_page: Optional[int] = None) -> List[Path]:
+    def render_and_split_pages(self, start_page: int = 1, end_page: int | None = None) -> list[Path]:
         """Render specified PDF pages into crisp high-DPI PNGs."""
         if end_page is None:
             end_page = len(self.doc)
@@ -93,7 +92,7 @@ class PDFToMarkdownPipeline:
 
         return s
 
-    def batch_process(self, start_page: int, end_page: int) -> Dict[int, str]:
+    def batch_process(self, start_page: int, end_page: int) -> dict[int, str]:
         """Batch process a range of pages into clean Markdown."""
         print(f"Batch processing pages {start_page} to {end_page}...")
         self.render_and_split_pages(start_page, end_page)

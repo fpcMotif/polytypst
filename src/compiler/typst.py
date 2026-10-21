@@ -1,8 +1,9 @@
 """Typst compiler producing exquisite Chinese book output with Songti SC typography and publication figures."""
 
-import subprocess
 import re
+import subprocess
 from pathlib import Path
+
 from ..parser.stitcher import ParsedBook
 
 
@@ -127,8 +128,8 @@ class TypstCompiler:
                             lines.append(f'  image("{fig.image_rel_path}", width: 72%),')
                             lines.append(f'  caption: [图 {fig.figure_id}  {clean_caption}]')
                             lines.append(f") <fig-{fig.figure_id}>\n")
-                    except Exception:
-                        pass
+                    except ValueError:
+                        continue
                 elif block.startswith("__CITATION__"):
                     citation = block[len("__CITATION__"):]
                     escaped = citation.replace("\\", "\\\\")
@@ -165,7 +166,7 @@ class TypstCompiler:
             "nix", "--extra-experimental-features", "nix-command flakes", "shell", "nixpkgs#typst",
             "--command", "typst", "compile", str(typst_path.resolve()), str(output_pdf.resolve())
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True, cwd=str(typst_path.parent.resolve()))
+        res = subprocess.run(cmd, check=False, capture_output=True, text=True, cwd=str(typst_path.parent.resolve()))
         if res.returncode != 0:
             raise RuntimeError(f"Typst compilation failed:\n{res.stderr}")
         return output_pdf
