@@ -1,14 +1,15 @@
 # Scanned books: build an edition and check it against the scan
 
-This guide covers the commands that rebuild a scanned book and measure how closely the rebuilt PDF sits on the source scan. Three commands serve every book:
+This guide covers the commands that rebuild a scanned book and measure how closely the rebuilt PDF sits on the source scan. Four commands serve every book:
 
 - `uv run polytypst books` lists each book and its editions. `[parity]` marks the editions you can check against the scan.
 - `uv run polytypst build BOOK [--edition E]` builds one edition. The default edition is the first one listed.
 - `uv run polytypst parity BOOK --edition E [--pages 31-40]` checks a rebuilt edition against its source scan.
+- `uv run polytypst new-book KEY --title T ...` writes the package of a new book. See [Add another book](#add-another-book).
 
 Each command's `--help` gives its flags. This guide gives the order, the hidden inputs, and how to add a book. Bourbaki, *Commutative Algebra*, is the one book with parity editions today.
 
-Terms (source scan, rebuilt PDF, page map, scan parity) are defined in `GLOSSARY.md`.
+`GLOSSARY.md` defines the terms source scan, rebuilt PDF, page map and scan parity.
 
 ## Before you start
 
@@ -42,10 +43,11 @@ Diagrams are the Typst snippets `fig_PPP_NNN.typ`, where `PPP` is the source pag
 
 ## Add another book
 
-A book is a folder `src/<key>/` with a `book.py` that defines `BOOK`. The folder installs as the package `polytypst.<key>`. `src/books.py` finds every such file, so no shared file names a book. The key is the folder name and the folder under `output/`.
+A book is a folder `src/<key>/` with a `book.py` that defines `BOOK`. The folder installs as the package `polytypst.<key>`. `src/books.py` finds every such file. Only `pyproject.toml` and `tests/test_books.py` name each book. The key is the folder name and the folder under `output/`. The key must be a Python identifier.
 
-1. Write `src/<key>/book.py`. Set `BOOK = Book(spec, OUTPUT / "<key>", {name: edition, ...}, figures)`. `monograph_edition(spec, out_dir, summary)` makes an edition that compiles the OCR pages. `figures` is optional and draws code-reproduced figures before each build. `src/kodaira/book.py` is the smallest model.
-2. Add `"polytypst.<key>"` to `packages` in `pyproject.toml`. If the entry is missing, `tests/test_packaging.py` fails.
-3. Run `uv run polytypst books` and confirm that the book and its editions appear.
-4. To check an edition against its scan, set `source_pdf` on the book's `MonographSpec` to the scan's file name. Then pass `parity=Parity(page_map, tolerance, diagrams, diagram_text)` to the edition. The edition needs `diagrams` and `diagram_text` only when the book has diagram snippets. `src/bourbaki/book.py` is the model to follow.
-5. Run `uv run polytypst parity <key> --edition <edition> --pages <a few pages>`, and read the overlays before you run the whole book.
+1. Run `uv run polytypst new-book <key> --title T --author A --source <scan file> --pages N`. The command writes `src/<key>/__init__.py`, `spec.py` and `book.py`. It also adds `"polytypst.<key>"` to `packages` in `pyproject.toml`.
+2. Fill in the chapters, sections and figure layout in `src/<key>/spec.py`. The generated `book.py` sets `BOOK = Book(spec, OUTPUT / "<key>", {"monograph": monograph_edition(...)})`. `monograph_edition(spec, out_dir, summary)` makes an edition that compiles the OCR pages. To draw code-reproduced figures before each build, pass a `figures` function as the fourth argument. `src/kodaira/book.py` is the smallest model.
+3. Add the spec to `test_specs_come_from_the_editions` in `tests/test_books.py`. If the spec is missing there, that test fails.
+4. Run `uv run polytypst books` and confirm that the book and its editions appear.
+5. To check an edition against its scan, set `source_pdf` on the book's `MonographSpec` to the scan's file name. Then pass `parity=Parity(page_map, tolerance, diagrams, diagram_text)` to the edition. The edition needs `diagrams` and `diagram_text` only when the book has diagram snippets. `src/bourbaki/book.py` is the model to follow.
+6. Run `uv run polytypst parity <key> --edition <edition> --pages <a few pages>`, and read the overlays before you run the whole book.

@@ -1,4 +1,4 @@
-"""`polytypst books`, `polytypst build` and `polytypst parity`: one entry point for every book in `polytypst/<key>/book.py`."""
+"""`polytypst books`, `build`, `parity` and `new-book`: one entry point for every book in `src/<key>/book.py`."""
 
 import argparse
 from pathlib import Path
