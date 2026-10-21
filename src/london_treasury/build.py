@@ -8,6 +8,7 @@ import pymupdf
 
 from ..compiler.monograph import REPO_FONTS_DIR, MonographOutputs, compile_typst
 from ..parity.source import source_pdf as resolve_source_pdf
+from .models import ParsedReaderBook
 from .reader import parse_reader_pdf
 from .render import (
     _write_epub_assets,
@@ -22,30 +23,10 @@ EPUB_CSS = Path(__file__).with_name("epub.css")
 
 EPUB_FONTS = ("SourceSerif4-Regular", "SourceSerif4-It", "SourceSerif4-Bold", "SourceSerif4-BoldIt", "SourceSans3-Regular", "SourceSans3-Bold")
 
+LONDON_FORMATS = frozenset({"pdf", "tex", "epub"})
 
-def build_london_treasury(
-    source_pdf: Path | None = None, out_dir: Path | None = None
-) -> MonographOutputs:
-    src = resolve_source_pdf(LONDON_TREASURY_SPEC, source_pdf)
-    target_dir = out_dir or Path("output/london_treasury")
-    target_dir.mkdir(parents=True, exist_ok=True)
 
-    parsed = parse_reader_pdf(src, target_dir)
-    md_text = render_markdown(parsed)
-    typ_text = render_typst(parsed)
-
-    slug = LONDON_TREASURY_SPEC.slug
-    md_path = target_dir / f"{slug}.md"
-    typ_path = target_dir / f"{slug}.typ"
-    tex_path = target_dir / f"{slug}.tex"
-    pdf_path = target_dir / f"{slug}.pdf"
-    epub_path = target_dir / f"{slug}.epub"
-
-    md_path.write_text(md_text, encoding="utf-8")
-    typ_path.write_text(typ_text, encoding="utf-8")
-
-    compile_typst(typ_path, pdf_path)
-
+def _write_latex(md_path: Path, tex_path: Path) -> None:
     subprocess.run(
         [
             "pandoc",
@@ -67,7 +48,8 @@ def build_london_treasury(
         check=True,
     )
 
-    asset_dir = target_dir / "epub_assets"
+
+def _write_epub(parsed: ParsedReaderBook, asset_dir: Path, epub_path: Path) -> None:
     _write_epub_assets(asset_dir)
     subprocess.run(
         [
@@ -97,17 +79,44 @@ def build_london_treasury(
         check=True,
     )
 
-    for src_f, alias_name in (
-        (md_path, "book.md"),
-        (typ_path, "book.typ"),
-        (tex_path, "book.tex"),
-        (pdf_path, "book.pdf"),
-        (epub_path, "book.epub"),
-    ):
-        shutil.copy2(src_f, target_dir / alias_name)
 
-    with pymupdf.open(pdf_path) as built_doc:
-        total_pages = len(built_doc)
+def build_london_treasury(
+    source_pdf: Path | None = None, out_dir: Path | None = None, formats: frozenset[str] = LONDON_FORMATS
+) -> MonographOutputs:
+    src = resolve_source_pdf(LONDON_TREASURY_SPEC, source_pdf)
+    target_dir = out_dir or Path("output/london_treasury")
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    parsed = parse_reader_pdf(src, target_dir)
+    md_text = render_markdown(parsed)
+    typ_text = render_typst(parsed)
+
+    slug = LONDON_TREASURY_SPEC.slug
+    md_path = target_dir / f"{slug}.md"
+    typ_path = target_dir / f"{slug}.typ"
+    tex_path = target_dir / f"{slug}.tex"
+    pdf_path = target_dir / f"{slug}.pdf"
+    epub_path = target_dir / f"{slug}.epub"
+
+    md_path.write_text(md_text, encoding="utf-8")
+    typ_path.write_text(typ_text, encoding="utf-8")
+
+    if "pdf" in formats:
+        compile_typst(typ_path, pdf_path)
+    if "tex" in formats:
+        _write_latex(md_path, tex_path)
+    if "epub" in formats:
+        _write_epub(parsed, target_dir / "epub_assets", epub_path)
+
+    made = {"md": md_path, "typ": typ_path, "tex": tex_path, "pdf": pdf_path, "epub": epub_path}
+    for ext, src_f in made.items():
+        if ext in {"md", "typ"} or ext in formats:
+            shutil.copy2(src_f, target_dir / f"book.{ext}")
+
+    total_pages = 0
+    if "pdf" in formats:
+        with pymupdf.open(pdf_path) as built_doc:
+            total_pages = len(built_doc)
 
     return MonographOutputs(
         markdown_path=md_path,

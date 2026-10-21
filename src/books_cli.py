@@ -54,7 +54,15 @@ def _build(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     book, _, edition = _pick(parser, args.book, args.edition)
     if book.figures is not None:
         _ = book.figures(book.out_dir)
-    edition.build(args.source)
+    formats = edition.formats
+    if args.formats is not None:
+        formats = frozenset(f for f in args.formats.split(",") if f)
+        if formats - edition.formats:
+            parser.error(
+                f"{args.book} cannot make {', '.join(sorted(formats - edition.formats))}; "
+                f"formats: {', '.join(sorted(edition.formats))}"
+            )
+    edition.build(args.source, formats)
     return 0
 
 
@@ -112,6 +120,12 @@ def main(command: str, argv: list[str]) -> int:
         parser.add_argument("book", help="book key from `polytypst books`")
         parser.add_argument("--edition", help="edition name (default: the book's first)")
         parser.add_argument("--source", type=Path, help=f"source scan PDF (default: ${SOURCES_ENV}/<spec.source_pdf>)")
+    if command == "build":
+        parser.add_argument(
+            "--formats",
+            help="comma-separated slow formats to make, e.g. pdf or pdf,tex; empty writes only Markdown and Typst "
+            "(default: every format the edition makes)",
+        )
     if command == "parity":
         parser.add_argument("--pages", help="source pages to check, e.g. 31-34,40 (default: all)")
         parser.add_argument("--out", type=Path, help="report folder (default: output/<book>/parity_<edition>)")

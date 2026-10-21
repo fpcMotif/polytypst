@@ -37,7 +37,7 @@ def prepare_vintage(source: Path | None) -> None:
         fit.write_text("{}\n", encoding="utf-8")
 
 
-def build_facsimile(source: Path | None) -> None:
+def build_facsimile(source: Path | None, _formats: frozenset[str]) -> None:
     pdf = write_facsimile(source_pdf(BOURBAKI_SPEC, source), OUT_DIR)
     print(f"{pdf}: {pymupdf.open(pdf).page_count} pages")
 
@@ -53,6 +53,7 @@ BOOK = Book(
         "facsimile": Edition(
             FACSIMILE_PDF, build_facsimile, "every OCR word placed on its scan ink box",
             Parity(facsimile_page_map, FACSIMILE, DIAGRAM_DIR, DIAGRAM_TEXT),
+            formats=frozenset({"pdf"}),
         ),
         "modern": monograph_edition(BOURBAKI_SPEC, OUT_DIR, "reflowed Springer-style monograph"),
     },

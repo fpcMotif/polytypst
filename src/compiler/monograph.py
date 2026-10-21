@@ -22,6 +22,7 @@ from .presets import CompositionConfig, resolve_composition
 from .typst_math import clean_margin_and_inline_math, convert_math_batch
 
 REPO_FONTS_DIR = Path(__file__).resolve().parents[2] / "fonts"
+MONOGRAPH_FORMATS = frozenset({"tex", "pdf"})
 
 Figure = tuple[str, str]
 PageParts = tuple[int, str, list[Figure], list[Figure]]
@@ -1786,14 +1787,34 @@ class MonographCompiler:
         if self.spec.book_aliases and path != book:
             _ = shutil.copy2(path, book)
 
-    def build_all(self, out_dir: Path) -> MonographOutputs:
-        """Write Markdown and Typst, then run Pandoc for LaTeX and Typst for PDF."""
+    def build_all(self, out_dir: Path, formats: frozenset[str] = MONOGRAPH_FORMATS) -> MonographOutputs:
+        """Write Markdown and Typst, then run Pandoc for LaTeX and Typst for PDF when `formats` names them."""
         out_dir = Path(out_dir)
         rendered = self.render(out_dir)
         md_out = self._write(out_dir, "md", rendered.markdown)
         typ_out = self._write(out_dir, "typ", rendered.typst)
         tex_out = self._write(out_dir, "tex")
         pdf_out = self._write(out_dir, "pdf")
+        if "tex" in formats:
+            self._write_latex(md_out, tex_out)
+        if "pdf" in formats:
+            compile_typst(typ_out, pdf_out)
+        made = [md_out, typ_out, *(p for p, f in ((tex_out, "tex"), (pdf_out, "pdf")) if f in formats)]
+        for path in made:
+            self._alias(path)
+        total_pages = 0
+        if "pdf" in formats:
+            with pymupdf.open(str(pdf_out)) as doc:
+                total_pages = len(doc)
+        return MonographOutputs(
+            markdown_path=md_out,
+            latex_path=tex_out,
+            typst_path=typ_out,
+            pdf_path=pdf_out,
+            total_pages=total_pages,
+        )
+
+    def _write_latex(self, md_out: Path, tex_out: Path) -> None:
         header_includes = (
             r"\usepackage[all,cmtip]{xy}\usepackage{amscd}\usepackage{amsthm}"
         )
@@ -1825,18 +1846,6 @@ class MonographCompiler:
             check=True,
         )
         latex_md.unlink()
-        compile_typst(typ_out, pdf_out)
-        for path in (md_out, typ_out, tex_out, pdf_out):
-            self._alias(path)
-        with pymupdf.open(str(pdf_out)) as doc:
-            total_pages = len(doc)
-        return MonographOutputs(
-            markdown_path=md_out,
-            latex_path=tex_out,
-            typst_path=typ_out,
-            pdf_path=pdf_out,
-            total_pages=total_pages,
-        )
 
 
 def compile_typst(typ_path: Path, pdf_path: Path) -> None:

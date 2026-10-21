@@ -1,6 +1,35 @@
 import pytest
 
-from polytypst import cli
+from polytypst import books_cli, cli
+from polytypst.compiler.monograph import MonographSpec
+from polytypst.edition import Book, Edition
+
+
+@pytest.fixture
+def built(monkeypatch, tmp_path):
+    calls = []
+    edition = Edition(tmp_path / "x.pdf", lambda source, formats: calls.append(formats), formats=frozenset({"pdf", "tex"}))
+    book = Book(MonographSpec(slug="x", title="X", author="A"), tmp_path, {"monograph": edition})
+    monkeypatch.setattr(books_cli, "books", lambda: {"probe": book})
+    return calls
+
+
+def test_build_makes_every_format_by_default(built):
+    assert books_cli.main("build", ["probe"]) == 0
+    assert built == [frozenset({"pdf", "tex"})]
+
+
+def test_build_makes_only_the_requested_formats(built):
+    assert books_cli.main("build", ["probe", "--formats", "pdf"]) == 0
+    assert books_cli.main("build", ["probe", "--formats", ""]) == 0
+    assert built == [frozenset({"pdf"}), frozenset()]
+
+
+def test_build_rejects_a_format_the_edition_cannot_make(built, capsys):
+    with pytest.raises(SystemExit):
+        books_cli.main("build", ["probe", "--formats", "epub"])
+    assert "epub" in capsys.readouterr().err
+    assert built == []
 
 
 def test_top_level_help_lists_the_book_commands(monkeypatch, capsys):

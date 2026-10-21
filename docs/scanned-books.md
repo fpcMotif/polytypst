@@ -3,7 +3,7 @@
 This guide covers the commands that rebuild a scanned book and measure how closely the rebuilt PDF sits on the source scan. Four commands serve every book:
 
 - `uv run polytypst books` lists each book and its editions. `[parity]` marks the editions you can check against the scan.
-- `uv run polytypst build BOOK [--edition E]` builds one edition. The default edition is the first one listed.
+- `uv run polytypst build BOOK [--edition E] [--formats pdf,tex]` builds one edition. The default edition is the first one listed. By default it makes every format of the edition. It always writes Markdown and Typst. To check text only, pass `--formats ""`. That skips the PDF, LaTeX and EPUB steps.
 - `uv run polytypst parity BOOK --edition E [--pages 31-40]` checks a rebuilt edition against its source scan.
 - `uv run polytypst new-book KEY --title T ...` writes the package of a new book. See [Add another book](#add-another-book).
 

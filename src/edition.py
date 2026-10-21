@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .compiler.monograph import MonographCompiler, MonographSpec
+from .compiler.monograph import MONOGRAPH_FORMATS, MonographCompiler, MonographSpec
 from .parity.diagrams import DiagramText
 from .parity.report import Tolerance
 from .parity.source import source_ocr_dir
@@ -24,13 +24,15 @@ class Parity:
 
 @dataclass(frozen=True)
 class Edition:
-    """One rebuild of a book. `build` takes an explicit source scan path, or None for the spec's."""
+    """One rebuild of a book. `build` takes an explicit source scan path, or None for the spec's,
+    and the subset of `formats` to make. Markdown and Typst are always written."""
 
     rebuilt: Path
-    build: Callable[[Path | None], None]
+    build: Callable[[Path | None, frozenset[str]], None]
     summary: str = ""
     parity: Parity | None = None
     spec: MonographSpec | None = None
+    formats: frozenset[str] = MONOGRAPH_FORMATS
 
 
 @dataclass(frozen=True)
@@ -53,10 +55,13 @@ def monograph_edition(
 ) -> Edition:
     """An edition built by compiling the book's OCR pages with `MonographCompiler`."""
 
-    def build(source: Path | None) -> None:
+    def build(source: Path | None, formats: frozenset[str]) -> None:
         if prepare is not None:
             prepare(source)
-        outputs = MonographCompiler(spec).build_all(out_dir)
-        print(f"{outputs.pdf_path}: {outputs.total_pages} pages")
+        outputs = MonographCompiler(spec).build_all(out_dir, formats)
+        if "pdf" in formats:
+            print(f"{outputs.pdf_path}: {outputs.total_pages} pages")
+        else:
+            print(outputs.typst_path)
 
     return Edition(out_dir / f"{spec.slug}.pdf", build, summary, parity, spec)
