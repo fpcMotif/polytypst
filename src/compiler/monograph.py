@@ -33,6 +33,16 @@ MONOGRAPH_FORMATS = frozenset({"tex", "pdf"})
 
 PageParts = tuple[int, str, list[Figure], list[Figure]]
 Rewrite = tuple[str, str]
+OPERATOR_NAMES = (
+    "Ad", "ad", "Aut", "ch", "Cl", "Coker", "Der", "End", "Ext", "Frob", "Gal", "GL",
+    "Hom", "Id", "id", "Im", "Ker", "Mor", "Ob", "ord", "Proj", "S.S.", "SL", "Spec",
+    "Spm", "Tr",
+)
+GENERIC_PRE_MATH_REWRITES: tuple[Rewrite, ...] = (
+    (r"plus\.circle", r"\\u{2295}"),
+    (r"times\.circle", r"\\u{2297}"),
+    (rf"\\text\{{({'|'.join(map(re.escape, OPERATOR_NAMES))})\}}", r"\\operatorname{\1}"),
+)
 
 
 @dataclass(frozen=True)
@@ -1017,7 +1027,7 @@ class MonographCompiler:
         s = re.sub(r"^#\s+(.*?)$", r"= \1", s, flags=re.MULTILINE)
 
         s = s.replace(r"\leqq", "<=").replace(r"\geqq", ">=")
-        for pattern, repl in spec.pre_math_rewrites:
+        for pattern, repl in (*GENERIC_PRE_MATH_REWRITES, *spec.pre_math_rewrites):
             s = re.sub(pattern, repl, s)
 
         display_blocks: list[tuple[str, str]] = []

@@ -82,7 +82,6 @@ FERMAT_SPEC = MonographSpec(
         r"^[A-Z\s\$\-\.\,]+\s+\d+$",
     ),
     pre_math_rewrites=(
-        (r"\\text\{ord\}", r"\\operatorname{ord}"),
         (r"C\$_p\$", r"$C_p$"),
         (r"\(C\$_p\$\)", r"($C_p$)"),
     ),

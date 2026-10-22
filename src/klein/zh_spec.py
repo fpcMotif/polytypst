@@ -70,7 +70,6 @@ KLEIN_ZH_SPEC = MonographSpec(
         r"^■\s*[^\n]+\s*\d*$",
     ),
     pre_math_rewrites=(
-        (r"plus\.circle", r"\\u{2295}"),
         (r"\bUrvariabie\b", "Urvariable"),
         (r"\bkontragredicnt\b", "kontragredient"),
     ),
