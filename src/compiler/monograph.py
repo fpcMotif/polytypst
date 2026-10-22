@@ -93,7 +93,7 @@ class MonographSpec:
     figures: FigureLayout = field(default_factory=FigureLayout)
     extra_figures: dict[int, tuple[Figure, ...]] = field(default_factory=dict)
     figure_pages: frozenset[int] = frozenset()
-    min_page_chars: int = 20
+    min_page_chars: int = 1
     skip_page_markers: tuple[str, ...] = ("1.1.1.1.1", "musical compositions")
     folio_pattern: str = r"^(?:\d{1,3}|[ivxlcdm]+)$"
     running_header_regexes: tuple[str, ...] = ()
@@ -173,6 +173,27 @@ class RenderedMonograph:
     typst: str
 
 
+_CJK_CHARS = "　-鿿가-힯＀-￯"
+_UNBREAKABLE_RUN_RE = re.compile(rf"[{_CJK_CHARS}]|[^\s{_CJK_CHARS}]+")
+
+
+def escape_typst_text(text: str) -> str:
+    """Escape plain text, such as a title from a file name, for Typst markup."""
+    s = re.sub(r"([\\#$*_\[\]<>@~^`/])", r"\\\1", text)
+    return re.sub(r"^(\s*)([=+\-]|\d+\.)", r"\1\\\2", s)
+
+
+def _balanced_backticks(para: str) -> bool:
+    """True when every backtick run opens and closes Typst raw text: runs of 1-3 that pair up."""
+    runs = [len(r) for r in re.findall(r"`+", para)]
+    return all(n <= 3 and runs.count(n) % 2 == 0 for n in runs)
+
+
+def escape_quoted(text: str) -> str:
+    """Escape text for a double-quoted Typst or YAML string."""
+    return text.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def running_header_regexes(pattern: str) -> tuple[str, ...]:
     """Line regexes for running headers named by an alternation of titles."""
     prefix = r"(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?"
@@ -219,7 +240,7 @@ def resolve_monograph_spec(
         publisher_key=comp.publisher.key,
         lang=comp.language.code,
         domain=comp.domain.key,
-        chapters=[ChapterSpec(1, pdf_path.stem, 1, total_pages)],
+        chapters=[ChapterSpec(1, escape_typst_text(pdf_path.stem), 1, total_pages)],
     )
 
 
@@ -1035,7 +1056,7 @@ class MonographCompiler:
         )
         heading_rules = self.composition.typst_heading_rules()
         return f"""#set document(
-  title: "{" — ".join(filter(None, (self.spec.title, self.spec.author)))}",
+  title: "{escape_quoted(" — ".join(filter(None, (self.spec.title, self.spec.author))))}",
   author: "{self.spec.author}",
   date: auto
 )
@@ -1053,7 +1074,7 @@ class MonographCompiler:
         #let in-chapter = if chaps == () {{ heading.where(level: 2) }} else {{ heading.where(level: 2).after(chaps.last().location()) }}
         #let secs = query(in-chapter).filter(h => h.location().page() <= here().page())
         #let on-page = secs.filter(h => h.location().page() == here().page())
-        #let title = if on-page != () {{ on-page.first().body }} else if secs != () {{ secs.last().body }} else if chaps != () {{ chaps.last().body }} else {{ "{self.spec.title}" }}
+        #let title = if on-page != () {{ on-page.first().body }} else if secs != () {{ secs.last().body }} else if chaps != () {{ chaps.last().body }} else {{ "{escape_quoted(self.spec.title)}" }}
         #grid(
           columns: (1fr, auto),
           align(left)[#text(8.5pt, font: {font_expr}, style: "italic")[#title]],
@@ -1061,7 +1082,7 @@ class MonographCompiler:
         )
       ] else [
         #let chaps = query(heading.where(level: 1).before(here()))
-        #let title = if chaps != () {{ chaps.last().body }} else {{ "{self.spec.title}" }}
+        #let title = if chaps != () {{ chaps.last().body }} else {{ "{escape_quoted(self.spec.title)}" }}
         #grid(
           columns: (auto, 1fr),
           align(left)[#text(9.5pt, font: {font_expr})[#page-number]],
@@ -1245,10 +1266,15 @@ class MonographCompiler:
             if self.spec.publisher
             else ""
         )
+        title = self.spec.title.upper()
         return f"""
 #align(center + horizon)[
   {series}
-  #par(justify: false)[#text(26pt, weight: "bold", hyphenate: false, font: {font_expr})[{self.spec.title.upper()}]]
+  #layout(size => {{
+    let longest = measure(text(26pt, weight: "bold", font: {font_expr})[{escape_typst_text(max(_UNBREAKABLE_RUN_RE.findall(title) or [""], key=len))}]).width
+    let fit = calc.min(1, size.width / calc.max(longest, 1pt))
+    par(justify: false)[#text(26pt * fit, weight: "bold", hyphenate: false, font: {font_expr})[{escape_typst_text(title)}]]
+  }})
   {author}
   {credits}
   {imprint}
@@ -1704,7 +1730,7 @@ class MonographCompiler:
 
         s = re.sub(r"(?<!\\)\$((?:[^$\n\\]|\\.)+)\$", save_inline, s)
         s = "\n\n".join(
-            para.replace("`", r"\`") if para.count("`") % 2 else para
+            para if _balanced_backticks(para) else para.replace("`", r"\`")
             for para in s.split("\n\n")
         )
 
@@ -1948,7 +1974,7 @@ class MonographCompiler:
         md_sections: list[str] = [
             (
                 "---\n"
-                f'title: "{spec.title}"\n'
+                f'title: "{escape_quoted(spec.title)}"\n'
                 f'author: "{spec.author}"\n'
                 f'translator: "{spec.translator}"\n'
                 f'editor: "{spec.editor}"\n'
@@ -1984,7 +2010,8 @@ class MonographCompiler:
                 raw_text = self._read_page(md_dir, pno)
                 if (
                     raw_text is None
-                    or len(raw_text) < spec.min_page_chars
+                    or len(re.sub(r"<!--.*?-->", "", raw_text, flags=re.DOTALL).strip())
+                    < spec.min_page_chars
                     or any(marker in raw_text for marker in spec.skip_page_markers)
                 ):
                     continue

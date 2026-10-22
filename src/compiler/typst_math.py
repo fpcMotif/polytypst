@@ -1161,7 +1161,10 @@ def convert_math_batch(items: list[tuple[str, bool]]) -> list[str]:
                 code = key[0]
                 for pattern, repl in LATEX_MACRO_REWRITES:
                     code = pattern.sub(repl, code)
-                converted = sanitize_math_code(code, is_display=key[1])
+                try:
+                    converted = sanitize_math_code(code, is_display=key[1])
+                except RecursionError:
+                    converted = _as_math_string(key[0])
                 converted = converted.replace("plus.circle", "plus.o")
                 if converted.count('"') % 2:
                     converted = converted.replace('"', "")
@@ -1262,37 +1265,55 @@ def _typst_rejects(bodies: list[tuple[str, bool]]) -> set[int]:
     Without a Typst binary every body counts as valid.
     """
     command = _typst_command()
-    rejected: set[int] = set()
     if command is None or not bodies:
-        return rejected
+        return set()
     with tempfile.TemporaryDirectory() as tmp:
-        source = Path(tmp) / "math.typ"
-        while len(rejected) < len(bodies):
-            lines: list[str] = []
-            owner: list[int] = []
-            for i, (body, is_display) in enumerate(bodies):
-                if i in rejected:
-                    continue
-                block = f"$ {body} $" if is_display else f"${body}$"
-                for line in [*block.splitlines(), ""]:
-                    lines.append(line)
-                    owner.append(i)
-            _ = source.write_text("\n".join(lines), encoding="utf-8")
-            res = subprocess.run(
-                [*command, "compile", "--diagnostic-format", "short", str(source), str(Path(tmp) / "math.pdf")],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            match = _TYPST_ERROR_LINE_RE.search(res.stderr)
-            if res.returncode == 0 or match is None:
-                break
-            rejected.add(owner[min(int(match.group(1)), len(owner)) - 1])
+        return _rejects_among(command, Path(tmp), bodies, list(range(len(bodies))))
+
+
+def _rejects_among(
+    command: tuple[str, ...], tmp: Path, bodies: list[tuple[str, bool]], indexes: list[int]
+) -> set[int]:
+    """Reject the body each Typst error names; split the batch when Typst crashes without naming one."""
+    rejected: set[int] = set()
+    remaining = list(indexes)
+    source = tmp / "math.typ"
+    while remaining:
+        lines: list[str] = []
+        owner: list[int] = []
+        for i in remaining:
+            body, is_display = bodies[i]
+            block = f"$ {body} $" if is_display else f"${body}$"
+            for line in [*block.splitlines(), ""]:
+                lines.append(line)
+                owner.append(i)
+        _ = source.write_text("\n".join(lines), encoding="utf-8")
+        res = subprocess.run(
+            [*command, "compile", "--diagnostic-format", "short", str(source), str(tmp / "math.pdf")],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode == 0:
+            break
+        match = _TYPST_ERROR_LINE_RE.search(res.stderr)
+        if match is not None:
+            bad = owner[min(int(match.group(1)), len(owner)) - 1]
+            rejected.add(bad)
+            remaining.remove(bad)
+        elif len(remaining) == 1:
+            rejected.add(remaining[0])
+            break
+        else:
+            mid = len(remaining) // 2
+            rejected |= _rejects_among(command, tmp, bodies, remaining[:mid])
+            rejected |= _rejects_among(command, tmp, bodies, remaining[mid:])
+            break
     return rejected
 
 
 def clean_margin_and_inline_math(text: str) -> str:
-    parts = text.split("$")
+    parts = re.split(r"(?<!\\)\$", text)
     odd = list(range(1, len(parts), 2))
     converted = convert_math_batch([(parts[i], False) for i in odd])
     for i, body in zip(odd, converted, strict=True):
