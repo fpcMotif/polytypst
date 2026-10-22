@@ -18,6 +18,7 @@ from typing import Literal
 
 from PIL import Image
 
+from ..ocr.transcripts import TranscriptStore
 from ..tex_markdown import normalize_html_tables
 from .presets import CompositionConfig, resolve_composition
 from .typst_math import (
@@ -1896,11 +1897,12 @@ class MonographCompiler:
     def format_index(self, md_dir: Path, start_p: int, end_p: int) -> str:
         title = self.spec.index_title
         entries: list[str] = []
+        store = TranscriptStore(md_dir)
         for pno in range(start_p, end_p + 1):
-            p_file = md_dir / f"p_{pno:03d}.md"
-            if not p_file.exists():
+            text = store.text(pno)
+            if text is None:
                 continue
-            for raw_line in p_file.read_text(encoding="utf-8").splitlines():
+            for raw_line in text.splitlines():
                 lt = raw_line.strip()
                 if not lt or re.match(rf"^(?:#+\s*)?{title}$", lt, re.IGNORECASE):
                     continue
@@ -1930,10 +1932,8 @@ class MonographCompiler:
         )
 
     def _read_page(self, md_dir: Path, pno: int) -> str | None:
-        p_file = md_dir / f"p_{pno:03d}.md"
-        if not p_file.exists():
-            return None
-        return p_file.read_text(encoding="utf-8").strip()
+        text = TranscriptStore(md_dir).text(pno)
+        return None if text is None else text.strip()
 
     def _single_page_section(
         self, md_dir: Path, pno: int, title: str

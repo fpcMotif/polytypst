@@ -12,6 +12,7 @@ from PIL import Image
 
 from ..ocr.apple_vision import AppleVisionOCREngine
 from ..ocr.base import OCRLine, OCRPage
+from ..ocr.transcripts import TranscriptStore
 from .cropper import HighDPICropper
 
 FIGURES_MANIFEST_NAME = "figures_manifest.json"
@@ -303,11 +304,10 @@ class FigureExtractor:
         extracted: list[ExtractedFigure] = []
         seen_ids: set[str] = set()
         pages_to_scan: set[int] = set()
-        md_pages_dir = out_dir.parent / "markdown_pages"
+        transcripts = TranscriptStore(out_dir.parent / "markdown_pages")
         for pno in pages:
             t = doc[pno - 1].get_text()
-            md_path = md_pages_dir / f"p_{pno:03d}.md"
-            md_txt = md_path.read_text(encoding="utf-8") if md_path.exists() else ""
+            md_txt = transcripts.text(pno) or ""
             if (
                 "Fig" in t
                 or "fig" in t

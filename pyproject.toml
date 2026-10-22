@@ -63,7 +63,6 @@ packages = [
     "polytypst.london_treasury",
     "polytypst.ocr",
     "polytypst.parity",
-    "polytypst.parser",
     "polytypst.siegel_symplectic",
     "polytypst.taocp",
     "polytypst.vision",
