@@ -5,6 +5,7 @@ import unicodedata
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import cached_property
 from itertools import pairwise
 from pathlib import Path
 from typing import Literal
@@ -77,6 +78,14 @@ class AuditSpec:
     bibliography_from_page: int | None = None
     language: str = "auto"
     book_headers: tuple[str, ...] = ()
+    footnote_numbering: str = ""
+    footnote_marks: tuple[str, ...] = ()
+    footnote_reset: str = "page"
+
+    def footnote_label(self, n: int) -> str:
+        if n <= len(self.footnote_marks):
+            return self.footnote_marks[n - 1]
+        return str(n) if self.footnote_marks else self.footnote_numbering.replace("1", str(n))
 
     @classmethod
     def from_monograph(cls, spec: MonographSpec) -> "AuditSpec":
@@ -89,6 +98,9 @@ class AuditSpec:
             chapter_titles={ch.number: ch.title for ch in spec.chapters},
             figure_pages=spec.figure_pages,
             book_headers=tuple(filter(None, (spec.author, spec.title))),
+            footnote_numbering=spec.footnote_numbering if spec.footnote_style else "",
+            footnote_marks=spec.footnote_marks,
+            footnote_reset=spec.footnote_reset,
         )
 
 
@@ -168,6 +180,8 @@ _MASHED_TOKENS = (
     r",d[zxyrtuvs]\b",
     r"\(\d+\([a-zA-Z\s]+\)\d+\)",
 )
+_NOTE_MARK_RE = re.compile(r"^(?:\d{1,3}\)?|\*{1,3}|[†‡§¶]{1,2})$")
+_NOTE_MARK_START_RE = re.compile(r"^(\d{1,3}\)?|\*{1,3}|[†‡§¶]{1,2})(?=[^\s\d.,])")
 _FOLIO_RE = re.compile(r"^—?\s*\d+\s*—?$")
 _NAME_HYPHEN_RE = re.compile(r"\b([A-Z][a-z]{1,4})-[\s]*$")
 _TRAILING_WORD_RE = re.compile(r"\b[A-Za-z]+$")
@@ -235,6 +249,7 @@ class DocumentQualityChecker:
                 self.check_inverted_partial_derivatives,
                 self.check_mangled_dots,
                 self.check_leaked_running_headers,
+                self.check_footnotes_left_in_body,
             ),
             LAYOUT_TIER: (
                 self.check_solo_pages,
@@ -245,6 +260,7 @@ class DocumentQualityChecker:
                 self.check_equation_margin_overflow,
                 self.check_shrunken_display_math,
                 self.check_visual_line_height_spikes,
+                self.check_footnote_mark_sequence,
             ),
             STRUCTURE_TIER: (
                 self.check_chapter_structural_integrity,
@@ -792,18 +808,105 @@ class DocumentQualityChecker:
                     _snippet(t, m.start(), m.end(), pad=15),
                 )
 
-    def check_shrunken_display_math(self, report: CheckReport) -> None:
-        """A math line whose largest glyph is far below body size was scaled down to fit the measure."""
+    @cached_property
+    def _page_dicts(self) -> list[dict]:
+        return [page.get_text("dict") for page in self.doc]
+
+    @cached_property
+    def _body_size(self) -> float | None:
         sizes: Counter[float] = Counter()
-        pages = [page.get_text("dict") for page in self.doc]
-        for d in pages:
+        for d in self._page_dicts:
             for b in d["blocks"]:
                 for ln in b.get("lines", []):
                     for s in ln["spans"]:
                         sizes[round(s["size"], 1)] += len(s["text"].strip())
-        if not sizes:
+        return sizes.most_common(1)[0][0] if sizes else None
+
+    def _footnote_entries(self, pno: int) -> list[str]:
+        """Marks of the note entries below the page's note rule, read from the first line of each note-size block.
+
+        A mark is a small span of its own, or a superscript glyph merged into the note text ("1First")."""
+        body = self._body_size
+        page = self.doc[pno]
+        blocks = [b for b in self._page_dicts[pno]["blocks"] if b.get("lines")]
+        body_tops = [
+            b["bbox"][1] for b in blocks
+            if any(s["size"] >= 0.95 * body and s["text"].strip() for s in b["lines"][0]["spans"])
+            and not _FOLIO_RE.match("".join(s["text"] for s in b["lines"][0]["spans"]).strip())
+        ]
+        rules = [
+            d["rect"].y0
+            for d in page.get_drawings()
+            if d["rect"].height < 2 and 0.15 * page.rect.width < d["rect"].width < 0.5 * page.rect.width
+            and d["rect"].y0 > 0.3 * page.rect.height
+            and not any(top > d["rect"].y0 for top in body_tops)
+        ]
+        if not rules:
+            return []
+        marks = []
+        for b in blocks:
+            lines = b["lines"]
+            if lines[0]["bbox"][1] < max(rules):
+                continue
+            spans = [s for s in lines[0]["spans"] if s["text"].strip()]
+            text_spans = [s for s in spans if s["size"] > 0.7 * body]
+            if not text_spans or not all(s["size"] < 0.95 * body for s in text_spans):
+                continue
+            if len(spans) > 1 and spans[0]["size"] < 0.75 * spans[1]["size"]:
+                mark = spans[0]["text"].strip()
+            else:
+                m = _NOTE_MARK_START_RE.match("".join(s["text"] for s in spans).strip())
+                mark = m.group(1) if m else ""
+            if _NOTE_MARK_RE.match(mark):
+                marks.append(mark)
+        return marks
+
+    def check_footnote_mark_sequence(self, report: CheckReport) -> None:
+        """Note marks on each page follow the scan's numbering: restart per page, per chapter, or run on."""
+        if not self.spec.footnote_numbering or self._body_size is None:
             return
-        body = sizes.most_common(1)[0][0]
+        numbers = {self.spec.footnote_label(n): n for n in range(200, 0, -1)}
+        last = 0
+        for pno in range(len(self.doc)):
+            marks = self._footnote_entries(pno)
+            if not marks:
+                continue
+            found = [numbers.get(m, 0) for m in marks]
+            starts = {"page": {1}, "chapter": {1, last + 1}, "book": {last + 1}}[self.spec.footnote_reset]
+            if not any(found == list(range(s, s + len(found))) for s in starts):
+                expected = " ".join(self.spec.footnote_label(n) for n in range(min(starts), min(starts) + len(found)))
+                self._issue(
+                    report, "ERROR", "FOOTNOTE_MARK_SEQUENCE", pno + 1,
+                    f"Note marks {' '.join(marks)} where the scan's numbering gives {expected}",
+                )
+            last = found[-1]
+
+    def check_footnotes_left_in_body(self, report: CheckReport) -> None:
+        """A body-size paragraph that opens with a note mark ("*The …", "¹ Liouville …") is a note the splitter missed."""
+        if not self.spec.footnote_numbering or self._body_size is None:
+            return
+        marks = [*map(re.escape, sorted(self.spec.footnote_marks, key=len, reverse=True)), "[¹²³⁴⁵⁶⁷⁸⁹⁰]+"]
+        opener = re.compile(rf"^(?:{'|'.join(marks)})\s*\w+(?:\s+\S+){{3}}")
+        for pno, d in enumerate(self._page_dicts):
+            block_starts = [
+                (b["bbox"][3], "".join(s["text"] for s in b["lines"][0]["spans"]).strip())
+                for b in d["blocks"]
+                if b.get("lines") and b["lines"][0]["spans"]
+                and b["lines"][0]["spans"][0]["size"] >= 0.95 * self._body_size
+            ]
+            for _, text in block_starts:
+                if opener.match(text):
+                    self._issue(
+                        report, "WARNING", "FOOTNOTE_LEFT_IN_BODY", pno + 1,
+                        "A note line sits in the body text instead of the page's notes", text[:80],
+                    )
+
+    def check_shrunken_display_math(self, report: CheckReport) -> None:
+        """A math line whose largest glyph is far below body size was scaled down to fit the measure."""
+        body = self._body_size
+        if body is None:
+            return
+        pages = self._page_dicts
         floor = 0.6 * body
         script_sizes = (0.7 * body, 0.5 * body)
         for pno, d in enumerate(pages):

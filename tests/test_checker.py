@@ -1,8 +1,10 @@
+from dataclasses import replace
 from pathlib import Path
 
 import pymupdf
 
 from polytypst.checker import (
+    ALL_TIERS,
     LAYOUT_TIER,
     STRUCTURE_TIER,
     TEXT_TIER,
@@ -10,7 +12,9 @@ from polytypst.checker import (
     DocumentQualityChecker,
     audit_pdf,
 )
-from polytypst.compiler.monograph import compile_typst
+from polytypst.compiler.monograph import compile_typst, typst_footnote_rules
+from polytypst.kashiwara.spec import KASHIWARA_SPEC
+from polytypst.klein.spec import KLEIN_SPEC
 from polytypst.kodaira.spec import KODAIRA_SPEC
 from polytypst.siegel_symplectic.spec import SIEGEL_SYMPLECTIC_SPEC
 
@@ -223,3 +227,52 @@ def test_figure_pages_are_exempt_from_isolated_letters(tmp_path: Path) -> None:
         path, AuditSpec(figure_pages=frozenset({1}))
     ).run_all_checks(frozenset({LAYOUT_TIER}))
     assert "ISOLATED_MATH_BLOCK" not in exempt.rules()
+
+
+NOTE_PROSE = "Ordinary prose fills the page at the body size, line after line. " * 6
+NOTE_PAGES = (
+    f"{NOTE_PROSE}A#footnote[First note on page one.] {NOTE_PROSE}B#footnote[Second note on page one.]\n#pagebreak()\n"
+    f"{NOTE_PROSE}C#footnote[First note on page two.]\n#pagebreak()\n"
+    f"{NOTE_PROSE}D#footnote[First note on page three.]\n"
+)
+
+
+def _notes_pdf(tmp_path: Path, rules: str, pages: str = NOTE_PAGES) -> Path:
+    return _typst_pdf(tmp_path, f"#set page(width: 320pt, height: 420pt)\n#set text(10pt)\n{rules}{pages}")
+
+
+def _note_pages(report, rule: str) -> list[int]:
+    return [i.page_num for i in report.issues if i.rule_name == rule]
+
+
+def test_layout_tier_accepts_notes_marked_like_the_scan(tmp_path: Path) -> None:
+    pdf = _notes_pdf(tmp_path, typst_footnote_rules(KLEIN_SPEC))
+    report = audit_pdf(pdf, KLEIN_SPEC, ALL_TIERS)
+    assert _note_pages(report, "FOOTNOTE_MARK_SEQUENCE") == []
+    assert _note_pages(report, "FOOTNOTE_LEFT_IN_BODY") == []
+
+
+def test_layout_tier_flags_star_marks_that_do_not_restart_on_a_new_page(tmp_path: Path) -> None:
+    pdf = _notes_pdf(tmp_path, typst_footnote_rules(replace(KLEIN_SPEC, footnote_reset="book")))
+    report = audit_pdf(pdf, KLEIN_SPEC, frozenset({LAYOUT_TIER}))
+    assert _note_pages(report, "FOOTNOTE_MARK_SEQUENCE") == [2, 3]
+
+
+def test_layout_tier_flags_running_numbers_that_restart_on_a_new_page(tmp_path: Path) -> None:
+    pdf = _notes_pdf(tmp_path, typst_footnote_rules(replace(KASHIWARA_SPEC, footnote_reset="page")))
+    report = audit_pdf(pdf, KASHIWARA_SPEC, frozenset({LAYOUT_TIER}))
+    assert _note_pages(report, "FOOTNOTE_MARK_SEQUENCE") == [2, 3]
+
+
+def test_layout_tier_reads_no_notes_below_a_figure_line_with_body_text_after_it(tmp_path: Path) -> None:
+    figure = f"{NOTE_PROSE}\n\n#line(length: 35%)\n#text(8.5pt)[2Mapping by the function of the figure above.]\n\n{NOTE_PROSE}\n"
+    pdf = _notes_pdf(tmp_path, typst_footnote_rules(KLEIN_SPEC), figure)
+    report = audit_pdf(pdf, KLEIN_SPEC, frozenset({LAYOUT_TIER}))
+    assert _note_pages(report, "FOOTNOTE_MARK_SEQUENCE") == []
+
+
+def test_text_tier_flags_a_note_left_at_the_foot_of_the_body(tmp_path: Path) -> None:
+    left = f"{NOTE_PROSE}\n\n\\*The conditions described in this paragraph hold only for the end of the century.\n"
+    pdf = _notes_pdf(tmp_path, typst_footnote_rules(KLEIN_SPEC), left)
+    report = audit_pdf(pdf, KLEIN_SPEC, frozenset({TEXT_TIER}))
+    assert _note_pages(report, "FOOTNOTE_LEFT_IN_BODY") == [1]
