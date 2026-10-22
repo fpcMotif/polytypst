@@ -50,7 +50,7 @@ def main() -> None:
     )
     ocr_summary = processor.run_ocr_verification()
     print(
-        f"      Verified {ocr_summary['verified_checkpoints']} PDF page checkpoints via AppleVisionOCREngine."
+        f"      Verified {ocr_summary['verified_checkpoints']} PDF page checkpoints via {ocr_summary['engine']}."
     )
 
     print(

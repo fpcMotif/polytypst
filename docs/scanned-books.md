@@ -9,7 +9,7 @@ This guide covers the commands that rebuild a scanned book and measure how close
 
 Each command's `--help` gives its flags. This guide gives the order, the hidden inputs, and how to add a book. Bourbaki, *Commutative Algebra*, is the one book with parity editions today.
 
-`GLOSSARY.md` defines the terms source scan, rebuilt PDF, page map, scan parity, transcript, transcript store and backend.
+`GLOSSARY.md` defines the terms source scan, rebuilt PDF, page map, scan parity, transcript, transcript store, backend and line cache.
 
 ## Before you start
 
@@ -42,8 +42,8 @@ If a page keeps failing, the store leaves it pending and reports it at the end, 
 
 ## Bourbaki procedure
 
-1. Build the facsimile: `uv run polytypst build bourbaki --edition facsimile`. The first run also writes the source OCR cache to `output/bourbaki/source_ocr/` (Apple Vision, one JSON file per page plus `pages.json`). Later runs reuse the cache.
-2. Build the vintage edition: `uv run polytypst build bourbaki --edition vintage`. It forces the scan's line breaks, so it reads the source OCR cache. It runs OCR first when the cache is missing.
+1. Build the facsimile: `uv run polytypst build bourbaki --edition facsimile`. The first run also writes the line cache to `output/bourbaki/source_ocr/`, with one JSON file per page, `lines.json` and `pages.json`. Apple Vision makes the lines on macOS, and Tesseract makes them elsewhere, in English and French. Later runs reuse the cache.
+2. Build the vintage edition: `uv run polytypst build bourbaki --edition vintage`. It forces the scan's line breaks, so it reads the line cache. It runs OCR first on the pages that the cache lacks.
 3. When vintage page heights drift, run `uv run python scripts/bourbaki_fit.py [ROUNDS]`. It rewrites `output/bourbaki/page_fit.json` and recompiles the vintage Typst source with `typst query` on each round. After it finishes, run step 2 again so the PDF uses the new fit.
 4. Optionally, to tune the vintage typeface, run `uv run python scripts/bourbaki_linebreaks.py [NAME=k=v,...]`. It scores Typst input settings by how many scan line endings they reproduce, and writes `output/bourbaki/linebreaks.json`.
 5. Check each edition: `uv run polytypst parity bourbaki --edition facsimile`, then `--edition vintage`. Add `--pages 31-40` for a page range. The vintage page map comes from the `<src-mark>` markers in `output/bourbaki/bourbaki_1970_vintage.typ`, so run step 2 before this step.

@@ -7,6 +7,7 @@ diagrams replace the OCR text inside the scan box where each diagram is found.
 """
 
 import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,10 +17,10 @@ from fontTools.ttLib import TTFont
 from PIL import ImageFont
 
 from ..compiler.monograph import REPO_FONTS_DIR as FONTS
+from ..ocr.pages import OcrLine
 from ..parity.diagrams import diagram_ink, find_diagram
 from ..parity.source import (
     SCAN_DPI,
-    OcrLine,
     ensure_source_ocr,
     read_source_page,
     source_ocr_dir,
@@ -162,7 +163,7 @@ PREAMBLE = f"""#set document(title: "Commutative Algebra (1970 facsimile)")
 """
 
 
-def build_facsimile(source: Path, out_dir: Path) -> Path:
+def build_facsimile(source: Path, out_dir: Path, languages: Sequence[str]) -> Path:
     """Write and compile the facsimile edition of the `source` scan; returns the PDF path."""
     out_dir.mkdir(parents=True, exist_ok=True)
     work = out_dir / "facsimile"
@@ -170,7 +171,7 @@ def build_facsimile(source: Path, out_dir: Path) -> Path:
     install_bourbaki_diagrams(out_dir)
     doc = pymupdf.open(source)
     cache = source_ocr_dir(out_dir)
-    ensure_source_ocr(source, cache)
+    ensure_source_ocr(source, cache, languages)
     diagrams = locate_diagrams(doc, work)
     measure = Measure()
     pages = []

@@ -1,5 +1,6 @@
 import json
 import random
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import ClassVar
 
@@ -7,7 +8,8 @@ import pymupdf
 import pytest
 from PIL import Image, ImageDraw
 
-from polytypst.ocr.base import OCRLine, OCRPage
+from polytypst import pipeline as pipeline_module
+from polytypst.ocr.pages import LinePage, OcrLine, PageImage
 from polytypst.pipeline import UniversalPDFPipeline
 from polytypst.vision import figure_extractor
 from polytypst.vision.figure_extractor import (
@@ -197,8 +199,8 @@ def pdf_with_raster(tmp_path: Path) -> Path:
 
 
 def test_extract_all_returns_digital_and_scanned_figures(tmp_path: Path) -> None:
-    caption = OCRLine("FIG. 1", x=0.45, y=0.3, w=0.08, h=0.02)
-    ocr_pages = [OCRPage(page_number=1, width=612, height=792, lines=[caption])]
+    caption = OcrLine("FIG. 1", x=0.45, y=0.3, w=0.08, h=0.02)
+    ocr_pages = [LinePage(1, (caption,))]
     out_dir = tmp_path / "book" / "figures"
 
     figs = FigureExtractor(pdf_with_raster(tmp_path)).extract_all(
@@ -211,19 +213,21 @@ def test_extract_all_returns_digital_and_scanned_figures(tmp_path: Path) -> None
 
 class RecordingVision:
     calls: ClassVar[list[int]] = []
+    provenance = "recording"
 
-    def __init__(self, languages: list[str]) -> None:
+    def __init__(self, languages: Sequence[str]) -> None:
         _ = languages
 
-    def recognize_page(self, image_path: Path, page_number: int) -> OCRPage:
-        _ = image_path
-        RecordingVision.calls.append(page_number)
-        return OCRPage(page_number=page_number, width=0, height=0)
+    def read(self, pages: Sequence[PageImage]) -> Iterator[LinePage]:
+        for page in pages:
+            RecordingVision.calls.append(page.number)
+            yield LinePage(page.number, ())
 
 
 @pytest.fixture
 def five_page_book(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    monkeypatch.setattr(figure_extractor, "AppleVisionOCREngine", RecordingVision)
+    monkeypatch.setattr(figure_extractor, "line_reader", RecordingVision)
+    monkeypatch.setattr(pipeline_module, "line_reader", RecordingVision)
     RecordingVision.calls = []
     pdf_path = tmp_path / "book.pdf"
     doc = pymupdf.open()

@@ -18,6 +18,7 @@ from typing import Literal
 
 from PIL import Image
 
+from ..ocr.lines import DEFAULT_OCR_LANGUAGES
 from ..ocr.transcripts import TranscriptStore
 from ..tex_markdown import normalize_html_tables
 from .presets import CompositionConfig, resolve_composition
@@ -127,6 +128,7 @@ class MonographSpec:
     pdf_page_count: int | None = None
     source_pdf: str = ""
     ocr_prompt: str | None = None
+    ocr_languages: tuple[str, ...] = DEFAULT_OCR_LANGUAGES
 
 
 @dataclass(frozen=True)

@@ -8,9 +8,8 @@ from polytypst.goursat.figures import (
     generate_goursat_cover_svg,
     normalize_goursat_markdown,
 )
-from polytypst.ocr.base import OCRLine
 from polytypst.ocr.colab_cluster import ColabOCRCluster
-from polytypst.ocr.pages import PageImage
+from polytypst.ocr.pages import OcrLine, PageImage
 from polytypst.tex_markdown import stitch_document
 from polytypst.vision.figure_extractor import ExtractedFigure, FigureExtractor
 
@@ -123,13 +122,13 @@ def test_double_backslash_before_macro_is_collapsed():
 
 def test_figure_extractor_box_detection():
     lines = [
-        OCRLine("Some leading title above", x=0.10, y=0.80, w=0.80, h=0.02),
-        OCRLine("Text column line 1", x=0.35, y=0.55, w=0.50, h=0.02),
-        OCRLine("Text column line 2", x=0.35, y=0.52, w=0.50, h=0.02),
-        OCRLine("FIG. 1", x=0.15, y=0.45, w=0.08, h=0.02),
-        OCRLine("Text column line 3", x=0.35, y=0.48, w=0.50, h=0.02),
-        OCRLine("Text column line 4", x=0.35, y=0.42, w=0.50, h=0.02),
-        OCRLine("Full width closing paragraph below", x=0.10, y=0.30, w=0.80, h=0.02),
+        OcrLine("Some leading title above", x=0.10, y=0.80, w=0.80, h=0.02),
+        OcrLine("Text column line 1", x=0.35, y=0.55, w=0.50, h=0.02),
+        OcrLine("Text column line 2", x=0.35, y=0.52, w=0.50, h=0.02),
+        OcrLine("FIG. 1", x=0.15, y=0.45, w=0.08, h=0.02),
+        OcrLine("Text column line 3", x=0.35, y=0.48, w=0.50, h=0.02),
+        OcrLine("Text column line 4", x=0.35, y=0.42, w=0.50, h=0.02),
+        OcrLine("Full width closing paragraph below", x=0.10, y=0.30, w=0.80, h=0.02),
     ]
     cap = lines[3]
     box = FigureExtractor.detect_figure_box(lines, cap)

@@ -28,6 +28,10 @@ _Avoid_: markdown cache, markdown_pages, OCR cache
 The OCR service that makes transcripts, written as `KIND[:MODEL][?KEY=VALUE&...]`, as in `gemini` or `local:deepseek-ocr`. The kinds are gemini, openai, jina, mistral, local, colab and cached.
 _Avoid_: OCR engine, mode
 
+**Line cache**:
+The folder of OCR lines with their boxes for a book, `output/<key>/source_ocr/`, one `pNNN.json` file per page, plus `lines.json`. That file records which line reader made each page. Scan parity, the facsimile and figure extraction read it. A line reader is Apple Vision on macOS and Tesseract elsewhere, in the languages that the book's `ocr_languages` names.
+_Avoid_: source OCR, Vision cache, OCR pages
+
 **Scan parity**:
 How far each word, line and diagram of a rebuilt PDF page sits from the same ink on its source scan page, in points.
 _Avoid_: redshift, overlay score, pixel parity

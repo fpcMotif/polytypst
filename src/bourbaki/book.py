@@ -31,14 +31,14 @@ def vintage_page_map() -> dict[int, list[int]]:
 
 def prepare_vintage(source: Path | None) -> None:
     """Vintage forces the scan's line breaks, so it needs the source OCR, and Typst reads page_fit.json."""
-    ensure_source_ocr(source_pdf(BOURBAKI_1970_SPEC, source), source_ocr_dir(OUT_DIR))
+    ensure_source_ocr(source_pdf(BOURBAKI_1970_SPEC, source), source_ocr_dir(OUT_DIR), BOURBAKI_1970_SPEC.ocr_languages)
     fit = OUT_DIR / "page_fit.json"
     if not fit.exists():
         fit.write_text("{}\n", encoding="utf-8")
 
 
 def build_facsimile(source: Path | None, _formats: frozenset[str], _footnotes: str) -> None:
-    pdf = write_facsimile(source_pdf(BOURBAKI_SPEC, source), OUT_DIR)
+    pdf = write_facsimile(source_pdf(BOURBAKI_SPEC, source), OUT_DIR, BOURBAKI_SPEC.ocr_languages)
     print(f"{pdf}: {pymupdf.open(pdf).page_count} pages")
 
 

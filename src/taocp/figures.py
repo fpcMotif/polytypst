@@ -14,7 +14,8 @@ import numpy as np
 import pymupdf
 from PIL import Image
 
-from polytypst.ocr.apple_vision import AppleVisionOCREngine
+from polytypst.ocr.lines import DEFAULT_OCR_LANGUAGES, line_reader
+from polytypst.ocr.pages import PageImage
 
 # Measured linear resolution ratio between 300-DPI PDF scan (1844px text block)
 # and EPUB JPEG graphics (674px text block).
@@ -336,7 +337,7 @@ class TaocpAssetProcessor:
             except (OSError, ValueError):
                 ocr_report_path.unlink(missing_ok=True)
 
-        engine = AppleVisionOCREngine(languages=["en-US"])
+        reader = line_reader(DEFAULT_OCR_LANGUAGES)
         checkpoint_pages = [
             ("frontmatter_title", 1, None),
             ("preface_opening", 5, None),
@@ -357,20 +358,16 @@ class TaocpAssetProcessor:
             tempfile.TemporaryDirectory() as tmpdir,
             pymupdf.open(self.pdf_path) as doc,
         ):
-            img_paths: list[Path] = []
+            images: list[PageImage] = []
             for idx, (label, pdf_p1, _) in enumerate(checkpoint_pages):
                 pix = doc[pdf_p1 - 1].get_pixmap(colorspace=pymupdf.csGRAY, dpi=300)
                 p_img = Path(tmpdir) / f"chk_{idx:02d}_{label}.png"
                 pix.save(str(p_img))
-                img_paths.append(p_img)
+                images.append(PageImage(idx + 1, p_img))
 
-            ocr_pages = engine.recognize_document(img_paths)
-            for (label, pdf_p1, expected_book_page), ocr_page in zip(
-                checkpoint_pages,
-                ocr_pages,
-                strict=False,
-            ):
-                lines = [ln.text.strip() for ln in ocr_page.lines if ln.text.strip()]
+            found = {page.number: page.lines for page in reader.read(images)}
+            for idx, (label, pdf_p1, expected_book_page) in enumerate(checkpoint_pages):
+                lines = [ln.text.strip() for ln in found.get(idx + 1, ()) if ln.text.strip()]
                 full_text = "\n".join(lines)
                 results.append(
                     {
@@ -385,7 +382,7 @@ class TaocpAssetProcessor:
                 )
 
         summary: dict[str, object] = {
-            "engine": "AppleVisionOCREngine (VNRecognizeTextRequestAccurate)",
+            "engine": reader.provenance,
             "pdf_to_book_page_offset": 11,
             "verified_checkpoints": len(results),
             "checkpoints": results,

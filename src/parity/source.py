@@ -7,6 +7,7 @@ explicit path. OCR lines are cached as one JSON file per page in the book's
 
 import json
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -14,6 +15,8 @@ from pathlib import Path
 import pymupdf
 
 from ..compiler.monograph import MonographSpec
+from ..ocr.lines import LineStore, line_reader
+from ..ocr.pages import OcrLine, PageImage
 
 SOURCES_ENV = "POLYTYPST_SOURCES"
 SCAN_DPI = 300
@@ -49,17 +52,6 @@ def source_ocr_dir(out_dir: Path) -> Path:
 
 
 @dataclass(frozen=True)
-class OcrLine:
-    """One Vision OCR line; x, y, w, h are fractions of the page with the origin at the bottom left."""
-
-    text: str
-    x: float
-    y: float
-    w: float
-    h: float
-
-
-@dataclass(frozen=True)
 class SourcePage:
     number: int
     width: float
@@ -70,8 +62,8 @@ class SourcePage:
         return (1 - line.y - line.h) * self.height
 
 
-def ensure_source_ocr(source: Path, cache: Path, batch: int = 40) -> None:
-    """Run Vision OCR on every scan page that has no cached lines, and record the page sizes."""
+def ensure_source_ocr(source: Path, cache: Path, languages: Sequence[str], batch: int = 40) -> None:
+    """Run OCR on every scan page that has no cached lines, and record the page sizes."""
     cache.mkdir(parents=True, exist_ok=True)
     doc = pymupdf.open(source)
     sizes = cache / "pages.json"
@@ -81,24 +73,20 @@ def ensure_source_ocr(source: Path, cache: Path, batch: int = 40) -> None:
     todo = [p for p in range(1, doc.page_count + 1) if not (cache / f"p{p:03d}.json").exists()]
     if not todo:
         return
-    from ..ocr.apple_vision import AppleVisionOCREngine
-
-    engine = AppleVisionOCREngine(["en-US", "fr-FR"])
+    reader = line_reader(languages)
+    store = LineStore(cache)
     scans = cache / "scans"
     scans.mkdir(exist_ok=True)
     for start in range(0, len(todo), batch):
-        pages = todo[start : start + batch]
-        paths = []
-        for p in pages:
+        pages = []
+        for p in todo[start : start + batch]:
             png = scans / f"p{p:03d}.png"
             doc[p - 1].get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csGRAY).save(png)
-            paths.append(png)
-        for p, result in zip(pages, engine.recognize_document(paths)):
-            lines = [{"text": l.text, "x": l.x, "y": l.y, "w": l.w, "h": l.h} for l in result.lines]
-            (cache / f"p{p:03d}.json").write_text(json.dumps(lines, ensure_ascii=False), encoding="utf-8")
-        for png in paths:
-            png.unlink()
-        print(f"OCR {pages[-1]}/{doc.page_count}", flush=True)
+            pages.append(PageImage(p, png))
+        store.read(pages, reader)
+        for page in pages:
+            page.path.unlink()
+        print(f"OCR {pages[-1].number}/{doc.page_count}", flush=True)
 
 
 @cache
@@ -113,5 +101,4 @@ def read_source_page(cache: Path, number: int) -> SourcePage:
     if not path.exists() or not sizes.exists():
         raise SourceScanError(f"no source OCR for page {number} in {cache}; run ensure_source_ocr first")
     width, height = _page_sizes(sizes)[str(number)]
-    lines = tuple(OcrLine(**line) for line in json.loads(path.read_text(encoding="utf-8")))
-    return SourcePage(number, width, height, lines)
+    return SourcePage(number, width, height, LineStore(cache).lines(number) or ())

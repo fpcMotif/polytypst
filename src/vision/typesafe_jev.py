@@ -4,12 +4,15 @@ import base64
 import io
 import os
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
 import numpy as np
 from PIL import Image
+
+from ..ocr.pages import LineReader, OcrLine, image_lines
 
 
 @dataclass
@@ -157,24 +160,22 @@ class TypeSafeJevVision:
         detection: DiagramDetectionResult,
         out_path: Path,
         pad_px: int = 16,
-        ocr_lines: list[object] | None = None,
+        ocr_lines: Sequence[OcrLine] | None = None,
+        *,
+        reader: LineReader,
     ) -> Path:
         import re
         import tempfile
 
-        from ..ocr.apple_vision import AppleVisionOCREngine
-        from ..ocr.base import OCRLine
-
         cap_re = re.compile(TypeSafeJevVision.CAPTION_TOKEN_RE)
-        eng = AppleVisionOCREngine(languages=["en-US"])
-        lines: list[OCRLine] = []
+        lines: Sequence[OcrLine] = ()
         if ocr_lines is not None:
-            lines = [l for l in ocr_lines if isinstance(l, OCRLine)]
+            lines = ocr_lines
         else:
             try:
-                lines = eng.recognize_page(image_path, 1).lines
+                lines = image_lines(reader, image_path)
             except (OSError, RuntimeError, ValueError):
-                lines = []
+                lines = ()
 
         img = Image.open(image_path).convert("RGB")
         w, h = img.size
@@ -248,8 +249,7 @@ class TypeSafeJevVision:
         try:
             with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
                 Image.fromarray(sub).save(tmp.name)
-                cop = eng.recognize_page(Path(tmp.name), 1)
-                for cl in cop.lines:
+                for cl in image_lines(reader, Path(tmp.name)):
                     ctxt = cl.text.strip()
                     ctop = 1.0 - (cl.y + cl.h)
                     cbot = 1.0 - cl.y
@@ -292,10 +292,8 @@ class TypeSafeJevVision:
         return out_path
 
     @staticmethod
-    def verify_cropped_diagram(image_path: Path) -> tuple[bool, list[str]]:
+    def verify_cropped_diagram(image_path: Path, reader: LineReader) -> tuple[bool, list[str]]:
         import re
-
-        from ..ocr.apple_vision import AppleVisionOCREngine
 
         issues: list[str] = []
         if not image_path.exists():
@@ -313,9 +311,7 @@ class TypeSafeJevVision:
 
         cap_re = re.compile(TypeSafeJevVision.CAPTION_TOKEN_RE)
         try:
-            eng = AppleVisionOCREngine(languages=["en-US"])
-            op = eng.recognize_page(image_path, 1)
-            for l in op.lines:
+            for l in image_lines(reader, image_path):
                 t = l.text.strip()
                 if cap_re.search(t):
                     issues.append(f"Leaked figure caption in crop: {t!r}")

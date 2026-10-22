@@ -1,5 +1,6 @@
 """Universal KISS Document Intelligence Pipeline for any PDF (Math, Econ, Physics, etc.)."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,9 +12,9 @@ from .compiler.monograph import (
     MonographOutputs,
     resolve_monograph_spec,
 )
-from .ocr.apple_vision import AppleVisionOCREngine
 from .ocr.backend import DEFAULT_BACKEND, Backend
-from .ocr.pages import page_images
+from .ocr.lines import DEFAULT_OCR_LANGUAGES, LineStore, line_reader
+from .ocr.pages import LinePage, PageImage, page_images
 from .ocr.splitter import TwoUpSplitter
 from .ocr.transcripts import TranscriptStore
 from .tex_markdown import stitch_document
@@ -120,16 +121,15 @@ class UniversalPDFPipeline:
     def extract_figures(
         self,
         rendered_pages: list[Path],
-        ocr_languages: list[str] | None = None,
+        ocr_languages: Sequence[str] = DEFAULT_OCR_LANGUAGES,
     ) -> list[ExtractedFigure]:
         """Automatically detect, crop, and catalogue all figures in the PDF."""
-        _ = ocr_languages
         self.figures_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = self.output_dir / FIGURES_MANIFEST_NAME
         cached = load_complete_figures_manifest(manifest_path)
         if cached is not None:
             return cached
-        extractor = FigureExtractor(self.pdf_path)
+        extractor = FigureExtractor(self.pdf_path, line_reader(ocr_languages))
 
         # First run fast local Apple Vision OCR for layout and figure caption detection
         print(
@@ -139,8 +139,10 @@ class UniversalPDFPipeline:
             self.renders_dir, self.figures_dir
         )
         if not figures and rendered_pages:
-            apple_engine = AppleVisionOCREngine(languages=["en-US", "fr-FR", "zh-Hans"])
-            ocr_pages = apple_engine.recognize_document(rendered_pages)
+            store = LineStore(self.output_dir / "source_ocr")
+            pages = [PageImage(i + 1, path) for i, path in enumerate(rendered_pages)]
+            lines = store.read(pages, extractor.reader)
+            ocr_pages = [LinePage(number, page_lines) for number, page_lines in lines.items()]
             figures = extractor.extract_all(
                 self.figures_dir, ocr_pages=ocr_pages, dpi=300
             )
@@ -179,7 +181,7 @@ class UniversalPDFPipeline:
         rendered_pages = self.render_all_pages()
 
         # Step 2: Extract & Ground all figures
-        figures = self.extract_figures(rendered_pages)
+        figures = self.extract_figures(rendered_pages, spec.ocr_languages)
 
         # Step 3: Transcribe the pages the transcript store lacks
         pages_md = self.run_transcription()

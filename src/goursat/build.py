@@ -3,9 +3,9 @@
 import argparse
 from pathlib import Path
 
-from ..ocr.apple_vision import AppleVisionOCREngine
 from ..ocr.backend import Backend, backend_argument
-from ..ocr.pages import Transcriber, page_images
+from ..ocr.lines import LineStore
+from ..ocr.pages import LinePage, PageImage, Transcriber, page_images
 from ..ocr.transcripts import TranscriptStore
 from ..tex_markdown import stitch_document
 from ..vision.figure_extractor import (
@@ -35,14 +35,16 @@ GOURSAT_RUNNING_HEADERS = (
 
 
 def _figures(
-    pdf_path: Path, out_dir: Path, renders: list[Path]
+    pdf_path: Path, out_dir: Path, renders: list[PageImage]
 ) -> list[ExtractedFigure]:
     manifest_path = out_dir / FIGURES_MANIFEST_NAME
     cached = load_complete_figures_manifest(manifest_path)
     if cached is not None:
         return cached
-    ocr_pages = AppleVisionOCREngine(languages=["en-US"]).recognize_document(renders)
-    figures = FigureExtractor(pdf_path).extract_figures_from_ocr_pages(
+    extractor = FigureExtractor(pdf_path)
+    lines = LineStore(out_dir / "source_ocr").read(renders, extractor.reader)
+    ocr_pages = [LinePage(number, page_lines) for number, page_lines in lines.items()]
+    figures = extractor.extract_figures_from_ocr_pages(
         ocr_pages, out_dir / "figures", dpi=300
     )
     write_figures_manifest(manifest_path, figures)
@@ -52,7 +54,7 @@ def _figures(
 def build_goursat(pdf_path: Path, out_dir: Path, transcriber: Transcriber) -> Path:
     """Write `book.md`, the vector figures, and the web gallery into `out_dir`."""
     pages = page_images(out_dir / "page_renders")
-    figures = _figures(pdf_path, out_dir, [p.path for p in pages])
+    figures = _figures(pdf_path, out_dir, pages)
     print(f"{len(figures)} figures grounded.")
 
     text_pages = [p for p in pages if p.number <= GOURSAT_LAST_TEXT_PAGE]

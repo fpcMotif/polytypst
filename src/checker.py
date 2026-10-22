@@ -620,13 +620,15 @@ class DocumentQualityChecker:
                     )
 
     def check_extracted_figures_purity(self, report: CheckReport) -> None:
+        from .ocr.lines import DEFAULT_OCR_LANGUAGES, line_reader
         from .vision.typesafe_jev import TypeSafeJevVision
 
         fig_dir = self.pdf_path.parent / "figures"
         if not fig_dir.exists():
             return
+        reader = line_reader(DEFAULT_OCR_LANGUAGES)
         for png_path in sorted(fig_dir.glob("fig_*.png")):
-            ok, reasons = TypeSafeJevVision.verify_cropped_diagram(png_path)
+            ok, reasons = TypeSafeJevVision.verify_cropped_diagram(png_path, reader)
             if not ok:
                 self._issue(
                     report,

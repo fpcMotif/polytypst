@@ -73,7 +73,7 @@ def _parity(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     if not edition.rebuilt.exists():
         parser.error(f"{edition.rebuilt} is missing; run: polytypst build {args.book} --edition {name}")
     source = source_pdf(book.spec, args.source)
-    ensure_source_ocr(source, book.ocr)
+    ensure_source_ocr(source, book.ocr, book.spec.ocr_languages)
     page_map = edition.parity.page_map()
     if args.pages:
         wanted = parse_pages(args.pages)
