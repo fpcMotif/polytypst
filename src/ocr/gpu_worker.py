@@ -27,6 +27,7 @@ from .ocr_models import (
     DEEPSEEK_INFER_RUNTIME,
     DEFAULT_OCR_MODEL,
     JINA_RUNTIME,
+    UNIVERSAL_TEX_PROMPT,
     VLLM_CHAT_RUNTIME,
     OCRModel,
     ocr_model,
@@ -45,19 +46,6 @@ BLANK_INK_RATIO = 0.001
 INK_CONTRAST = 60
 BLANK_TRANSCRIPT = "<!-- blank page -->\n"
 VLLM_BATCH = 16
-
-UNIVERSAL_TEX_PROMPT = (
-    "Transcribe this document page into clean, high-fidelity Markdown resembling LaTeX source.\n"
-    "Rules:\n"
-    "1. Format all mathematical expressions, variables, and formulas in LaTeX syntax: use inline $...$ and display $$...$$.\n"
-    "2. Preserve all mathematical symbols, operators, superscripts, subscripts, fractions, integrals, sums, and limits exactly.\n"
-    "3. Format headings with Markdown (#, ##, ###) reflecting document structure.\n"
-    "4. Bold structural environments (e.g. **Theorem 1.**, **Lemma 2.**, **Definition.**, **Proposition.**, **Proof.**, **Example.**).\n"
-    "5. Label display equations with exact numbering if present (e.g. $$ f(x) = \\dots $$ (1)).\n"
-    "6. Convert tables into clean Markdown or HTML tables.\n"
-    "7. For diagrams and figures, transcribe any caption or figure title (e.g. FIG. 1, Figure 2, Fig. 1.1) as a standalone line and preserve natural reading order.\n"
-    "8. Preserve all body text, notes, and references without omitting content."
-)
 
 Transcriber = Callable[[list[Image.Image]], list[str]]
 
