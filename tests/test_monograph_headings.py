@@ -3,6 +3,7 @@ from pathlib import Path
 import pymupdf
 import pytest
 
+from polytypst.checker import LAYOUT_TIER, DocumentQualityChecker
 from polytypst.compiler.monograph import (
     MonographCompiler,
     compile_typst,
@@ -56,6 +57,66 @@ def _odd_heads(tmp_path: Path, body: str) -> tuple[dict[int, str], pymupdf.Docum
         if (p.number + 1) % 2 == 1
     }
     return heads, doc
+
+
+def test_display_too_wide_to_fit_breaks_instead_of_shrinking(tmp_path: Path) -> None:
+    terms = " + ".join(f"integral K_{k} (t, x - x') u({k}, x') dif x'" for k in range(9))
+    body = f"\nSome prose before.\n\n$ u(t, x) = {terms} $\n\nMore prose.\n\n$ v(t, x) = {terms} $ <eq-3-7>\n\nEnd.\n"
+    typ = tmp_path / "w.typ"
+    typ.write_text(MonographCompiler(KODAIRA_SPEC).build_typst_preamble() + body, encoding="utf-8")
+    pdf = tmp_path / "w.pdf"
+    compile_typst(typ, pdf)
+    doc = pymupdf.open(pdf)
+    sizes = [
+        s["size"]
+        for p in doc
+        for b in p.get_text("dict")["blocks"]
+        for ln in b.get("lines", [])
+        for s in ln["spans"]
+        if "𝐾" in s["text"]
+    ]
+    assert len(sizes) == 18
+    assert min(sizes) >= 8
+    assert "(3.7)" in "".join(p.get_text() for p in doc)
+    report = DocumentQualityChecker(pdf).run_all_checks(frozenset({LAYOUT_TIER}))
+    assert not {"SHRUNKEN_DISPLAY_MATH", "MARGIN_OVERFLOW"} & report.rules()
+
+
+def test_display_too_wide_with_no_top_level_break_stays_inside_the_margins(tmp_path: Path) -> None:
+    terms = " + ".join(f"integral K_{k} (t, x - x') u({k}, x') dif x'" for k in range(9))
+    body = (
+        f"\nSome prose before.\n\n$ Lambda = {{ ({terms}) }} $\n\nMore prose.\n\n"
+        f"$ u &= {terms} \\\n &= 0 $\n\nEnd.\n"
+    )
+    typ = tmp_path / "w.typ"
+    typ.write_text(MonographCompiler(KODAIRA_SPEC).build_typst_preamble() + body, encoding="utf-8")
+    pdf = tmp_path / "w.pdf"
+    compile_typst(typ, pdf)
+    report = DocumentQualityChecker(pdf).run_all_checks(frozenset({LAYOUT_TIER}))
+    assert "MARGIN_OVERFLOW" not in report.rules()
+
+
+def test_rows_of_a_too_wide_aligned_display_are_fitted_one_by_one(tmp_path: Path) -> None:
+    long = " + ".join(f"integral K_{k} (t, x - x') u({k}, x') dif x'" for k in range(3))
+    breakable = " + ".join(f"integral K_{k} (t, x - x') u({k}, x') dif x'" for k in range(3, 12))
+    body = f"\nSome prose before.\n\n$ {long} &= 0 \\\n 0 &= {long} \\\n &= {breakable} $\n\nEnd.\n"
+    typ = tmp_path / "w.typ"
+    typ.write_text(MonographCompiler(KODAIRA_SPEC).build_typst_preamble() + body, encoding="utf-8")
+    pdf = tmp_path / "w.pdf"
+    compile_typst(typ, pdf)
+    doc = pymupdf.open(pdf)
+    sizes = [
+        s["size"]
+        for p in doc
+        for b in p.get_text("dict")["blocks"]
+        for ln in b.get("lines", [])
+        for s in ln["spans"]
+        if "𝐾" in s["text"]
+    ]
+    assert len(sizes) == 15
+    assert min(sizes) >= 8
+    report = DocumentQualityChecker(pdf).run_all_checks(frozenset({LAYOUT_TIER}))
+    assert not {"SHRUNKEN_DISPLAY_MATH", "MARGIN_OVERFLOW"} & report.rules()
 
 
 def test_running_head_shows_the_current_chapter_section(tmp_path: Path) -> None:
@@ -121,6 +182,14 @@ def test_scanner_watermark_is_removed_from_page_text():
     text, _, _ = compiler.extract_page_parts("Gauss wrote.\n\nClibPDF - www.fastio.com; for example the lemniscate.\n\nClibPDF - www.iasj.net\n", 30)
     assert "ClibPDF" not in text
     assert "for example the lemniscate." in text
+
+
+def test_display_holding_a_sentence_is_set_as_a_paragraph():
+    compiler = MonographCompiler(HECKE_SPEC)
+    page = "$$a = 0 \\text{ holds; in a similar manner, one obtains the same bound for } b = 0.\n\nNext paragraph.\n"
+    text, _, _ = compiler.extract_page_parts(page, 30)
+    assert "$$" not in text
+    assert "in a similar manner, one obtains the same bound for $b = 0.$" in text
 
 
 def test_first_section_on_a_chapter_start_page_is_kept():

@@ -648,6 +648,44 @@ def is_unnumbered_chapter(title: str) -> bool:
 
 
 SCANNER_WATERMARK_RE = re.compile(r"ClibPDF\s*-\s*www\.[\w.]+\.(?:com|net)[;,]?[ \t]*")
+DISPLAY_TO_BLANK_LINE_RE = re.compile(r"\$\$(.*?)(?:\$\$|(?=\n[ \t]*\n)|\Z)", re.DOTALL)
+DISPLAY_TAG_RE = re.compile(r"(?:\\tag\{[^{}]*\}|\(\d+(?:\.\d+)*[a-z]?\))\s*$")
+TEXT_MACRO_RE = re.compile(r"\\(?:text|textrm|mbox)\{")
+MATH_EDGE_SPACING_RE = re.compile(r"^(?:\s|\\[,;:! ]|\\q?quad\b)+|(?:\s|\\[,;:! ]|\\q?quad\b)+$")
+
+
+def _math_and_text_pieces(body: str) -> list[tuple[bool, str]]:
+    pieces: list[tuple[bool, str]] = []
+    pos = 0
+    while m := TEXT_MACRO_RE.search(body, pos):
+        depth, end = 1, m.end()
+        while end < len(body) and depth:
+            depth += {"{": 1, "}": -1}.get(body[end], 0)
+            end += 1
+        pieces += [(True, body[pos : m.start()]), (False, body[m.end() : end - 1])]
+        pos = end
+    return [*pieces, (True, body[pos:])]
+
+
+def prose_displays_to_paragraphs(md: str) -> str:
+    """Turn a display whose \\text{} parts hold a sentence back into a paragraph with inline math."""
+
+    def rewrite(m: re.Match[str]) -> str:
+        body = m.group(1).strip()
+        if "\\begin{" in body or "\\\\" in body or DISPLAY_TAG_RE.search(body):
+            return m.group(0)
+        pieces = _math_and_text_pieces(body)
+        if sum(len(text.split()) for is_math, text in pieces if not is_math) < 8:
+            return m.group(0)
+        words = []
+        for is_math, part in pieces:
+            part = MATH_EDGE_SPACING_RE.sub("", part) if is_math else part.strip()
+            if part:
+                words.append(f"${part}$" if is_math else part)
+        return "\n\n" + " ".join(" ".join(words).split()) + "\n\n"
+
+    out = DISPLAY_TO_BLANK_LINE_RE.sub(rewrite, md)
+    return re.sub(r"\n{3,}", "\n\n", out).strip("\n") if out != md else md
 END_MATTER_HEADING_RE = re.compile(
     r"^\**(?:summary|exercises|problems|notes)\**$", re.IGNORECASE
 )
@@ -906,33 +944,67 @@ class MonographCompiler:
     it
   }}
 }}
+#let display-break-after = ("=", "<", ">", "+", "−", "≤", "≥", "≠", "≈", "≡", "→", "∈", "⊂", "⊆")
+#let display-pieces(body) = {{
+  let kids = if body.has("children") {{ body.children }} else {{ (body,) }}
+  if kids.any(k => k.func() == linebreak) {{
+    return ()
+  }}
+  let pieces = ((),)
+  for k in kids {{
+    pieces.at(-1).push(k)
+    if k.has("text") and k.text in display-break-after {{
+      pieces.push(())
+    }}
+  }}
+  pieces.filter(p => p.len() > 0).map(p => p.join())
+}}
+#let display-rows(body) = {{
+  let kids = if body.has("children") {{ body.children }} else {{ (body,) }}
+  let rows = ((),)
+  for k in kids {{
+    if k.func() == linebreak {{
+      rows.push(())
+    }} else if repr(k.func()) != "align-point" {{
+      rows.at(-1).push(k)
+    }}
+  }}
+  rows.filter(r => r.any(k => k.func() != [ ].func())).map(r => r.join())
+}}
+#let fit-display(body, avail) = {{
+  let eq = math.equation(body, block: true, numbering: none)
+  let w = measure(eq).width
+  let rows = display-rows(body)
+  if w > avail and avail / w < 0.8 and rows.len() > 1 {{
+    return stack(spacing: 0.9em, ..rows.map(r => align(center, fit-display(r, avail))))
+  }}
+  let pieces = display-pieces(body)
+  let breakable = pieces.len() > 1 and pieces.all(p => measure(math.equation(math.display(p), block: false)).width <= avail)
+  if w <= avail or w == 0pt {{
+    eq
+  }} else if avail / w >= 0.8 or not breakable {{
+    scale(x: avail / w * 100%, y: avail / w * 100%, reflow: true, eq)
+  }} else {{
+    block(width: avail, {{
+      set align(center)
+      set par(justify: false, first-line-indent: 0pt)
+      math.equation(math.display(body), block: false)
+    }})
+  }}
+}}
 #show math.equation.where(block: true): it => {{
   if it.numbering == none {{
     return it
   }}
   layout(size => {{
-    let eq = math.equation(it.body, block: true, numbering: none)
     if not it.has("label") {{
-      let m = measure(eq)
-      if m.width > size.width and m.width > 0pt {{
-        let factor = (size.width / m.width) * 100%
-        align(center, scale(x: factor, y: factor, reflow: true, eq))
-      }} else {{
-        eq
-      }}
+      align(center, fit-display(it.body, size.width))
     }} else {{
       let lbl = str(it.label).trim("eq-", at: start)
       let parts = lbl.split("-")
       let disp = if parts.len() >= 2 {{ parts.at(-2) + "." + parts.last() }} else {{ parts.last() }}
       let num-box = [(#disp)]
-      let avail = size.width - measure(num-box).width - 12pt
-      let m = measure(eq)
-      let fitted = if m.width > avail and m.width > 0pt {{
-        let factor = (avail / m.width) * 100%
-        scale(x: factor, y: factor, reflow: true, eq)
-      }} else {{
-        eq
-      }}
+      let fitted = fit-display(it.body, size.width - measure(num-box).width - 12pt)
       grid(
         columns: (1fr, auto),
         column-gutter: 0.8em,
@@ -1229,6 +1301,7 @@ class MonographCompiler:
         md_text = re.sub(r"<!--.*?-->", "", md_text, flags=re.DOTALL)
         md_text = SCANNER_WATERMARK_RE.sub("", md_text)
         md_text = re.sub(r"\\\(\s*((?:(?!\n\n).)+?)\s*\\\)", r"$\1$", md_text, flags=re.DOTALL)
+        md_text = prose_displays_to_paragraphs(md_text)
         md_text = normalize_html_tables(md_text)
         body_lines: list[str] = []
         footnotes: list[str] = []
