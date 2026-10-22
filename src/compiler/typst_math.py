@@ -938,6 +938,7 @@ ESCAPED_DELIM_RE = re.compile(r"\\([()\[\]])")
 LATEX_MACRO_REWRITES: tuple[tuple[Pattern[str], str], ...] = (
     (re.compile(r"\\tag\*?\{[^{}]*\}"), ""),
     (re.compile(r"\\(?:nonumber|notag|displaystyle|textstyle)(?![a-zA-Z])"), ""),
+    (re.compile(r"\\dfrac(?![a-zA-Z])"), r"\\frac"),
     (re.compile(r"\\varprojlim"), r"\\underset{\\longleftarrow}{\\lim}"),
     (re.compile(r"\\varinjlim"), r"\\underset{\\longrightarrow}{\\lim}"),
     (re.compile(r"\\leqq(?![a-zA-Z])"), r"\\leq"),
@@ -965,6 +966,22 @@ LATEX_MACRO_REWRITES: tuple[tuple[Pattern[str], str], ...] = (
     (re.compile(r"(?<!\\)#"), r"\\#"),
     (re.compile(r"(?<=[(\[|])\s*\\ \s*"), ""),
     (re.compile(r"\s*\\ \s*(?=[)\]|])"), ""),
+    (re.compile(r"\\arctg(?![a-zA-Z])"), r"\\arctan"),
+    (re.compile(r"\\arcctg(?![a-zA-Z])"), r"\\operatorname{arcctg}"),
+    (re.compile(r"\\arectg(?![a-zA-Z])"), r"\\operatorname{arcctg}"),
+    (re.compile(r"\\arccotg(?![a-zA-Z])"), r"\\operatorname{arccot}"),
+    (re.compile(r"\\arsec(?![a-zA-Z])"), r"\\operatorname{arcsec}"),
+    (re.compile(r"\\arccsc(?![a-zA-Z])"), r"\\operatorname{arccsc}"),
+    (re.compile(r"\\tg(?![a-zA-Z])"), r"\\tan"),
+    (re.compile(r"\\ctg(?![a-zA-Z])"), r"\\cot"),
+    (re.compile(r"\\sh(?![a-zA-Z])"), r"\\sinh"),
+    (re.compile(r"\\ch(?![a-zA-Z])"), r"\\cosh"),
+    (re.compile(r"\\th(?![a-zA-Z])"), r"\\tanh"),
+    (re.compile(r"\\cth(?![a-zA-Z])"), r"\\coth"),
+    (re.compile(r"\\Arcsin(?![a-zA-Z])"), r"\\operatorname{Arcsin}"),
+    (re.compile(r"\\Arctg(?![a-zA-Z])"), r"\\operatorname{Arctg}"),
+    (re.compile(r"\\varliminf(?![a-zA-Z])"), r"\\liminf"),
+    (re.compile(r"\\varlimsup(?![a-zA-Z])"), r"\\limsup"),
 )
 _PANDOC_CACHE: dict[tuple[str, bool], str] = {}
 _DANGLING_OPERATOR_RE = re.compile(r"([\^_√])(?=\s*(?:$|[)\]},;&^_]))")
@@ -1168,8 +1185,10 @@ def convert_math_batch(items: list[tuple[str, bool]]) -> list[str]:
                 converted = converted.replace("plus.circle", "plus.o")
                 if converted.count('"') % 2:
                     converted = converted.replace('"', "")
-            _PANDOC_CACHE[key] = _give_operands(converted)
-        finished = [(finish_typst_math(normalize_typst_differentials(_PANDOC_CACHE[k])), k[1]) for k in todo]
+            _PANDOC_CACHE[key] = finish_typst_math(
+                normalize_typst_differentials(_give_operands(converted))
+            )
+        finished = [(_PANDOC_CACHE[k], k[1]) for k in todo]
         for key in _typst_rejects(finished):
             _PANDOC_CACHE[todo[key]] = _as_math_string(todo[key][0])
     return [_PANDOC_CACHE[k] for k in items]
@@ -1242,6 +1261,7 @@ def finish_typst_math(s: str) -> str:
 
 
 _TYPST_ERROR_LINE_RE = re.compile(r"\.typ:(\d+):\d+: error")
+REPO_FONTS_DIR = Path(__file__).resolve().parents[2] / "fonts"
 
 
 def _as_math_string(latex: str) -> str:
@@ -1251,12 +1271,50 @@ def _as_math_string(latex: str) -> str:
 
 
 @functools.cache
-def _typst_command() -> tuple[str, ...] | None:
+def typst_command(fallback_nix: bool = True) -> tuple[str, ...] | None:
     if shutil.which("typst"):
         return ("typst",)
     if shutil.which("mise"):
         return ("mise", "exec", "--", "typst")
+    if fallback_nix and shutil.which("nix"):
+        return ("nix", "shell", "nixpkgs#typst", "--command", "typst")
     return None
+
+
+def _typst_command() -> tuple[str, ...] | None:
+    return typst_command(fallback_nix=False)
+
+
+def run_typst(
+    subcommand: str,
+    *args: str,
+    check: bool = True,
+    capture_output: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    cmd = typst_command(fallback_nix=True) or ("typst",)
+    return subprocess.run(
+        [*cmd, subcommand, "--font-path", str(REPO_FONTS_DIR), *args],
+        check=check,
+        capture_output=capture_output,
+        text=True,
+    )
+
+
+def compile_typst(
+    typ_path: Path,
+    pdf_path: Path,
+    *extra_args: str,
+    capture_output: bool = False,
+) -> None:
+    _ = run_typst(
+        "compile",
+        *extra_args,
+        str(typ_path),
+        str(pdf_path),
+        check=True,
+        capture_output=capture_output,
+    )
+
 
 
 def _typst_rejects(bodies: list[tuple[str, bool]]) -> set[int]:

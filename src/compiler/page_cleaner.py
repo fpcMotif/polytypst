@@ -59,12 +59,19 @@ def _fix_inline_math_delimiters(text: str) -> str:
     return "".join(out)
 
 
-def _label_section_equations(s: str, pno: int) -> str:
-    """Label `(1.2)`-style equation numbers as `<eq-PAGE-1-2>`."""
+def _section_equation_id(ch: str, num: str | None) -> str:
+    return f"{ch}-{num.replace('.', '-')}" if num else ch
+
+
+def _label_section_equations(s: str, pno: int, deep: bool = False) -> str:
+    """Label `(1.2)`-style equation numbers as `<eq-PAGE-1-2>`.
+
+    With `deep`, numbers of any depth such as `(1.2.1.1)` are labelled too, as `<eq-1-2-1-1>`."""
+    number = r"(\d+)(?:\.(\d+(?:\.\d+)*))?\.?" if deep else r"(\d+)(?:\.(\d+[a-z']?))?"
     s = re.sub(r"\\tag\{\(?(\d+)\.(\d+[a-z']?)\)?\}", rf"\\tag{{{pno}-\1-\2}}", s)
     s = re.sub(
-        r"^[ \t]*(\(\d+(?:\.\d+[a-z']?)?\))[ \t]*\$([^$\n]{8,})\$([.,;]?)[ \t]*$",
-        r"\1\n$$\n\2\3\n$$",
+        rf"^[ \t]*(\({number}\))[ \t]*\$([^$\n]{{8,}})\$[ \t]*([.,;]?)[ \t]*$",
+        r"\1\n$$\n\4\5\n$$",
         s,
         flags=re.MULTILINE,
     )
@@ -75,25 +82,17 @@ def _label_section_equations(s: str, pno: int) -> str:
         body = m.group(3).strip()
         post_ch, post_num = m.group(4), m.group(5)
         eq_id = ""
-        if pre_ch and pre_num:
-            eq_id = f"{pre_ch}-{pre_num}"
-        elif pre_ch:
-            eq_id = f"{pre_ch}"
-        elif post_ch and post_num:
-            eq_id = f"{post_ch}-{post_num}"
+        if pre_ch:
+            eq_id = _section_equation_id(pre_ch, pre_num)
         elif post_ch:
-            eq_id = f"{post_ch}"
-        m_start = re.match(
-            r"^\((\d+)(?:\.(\d+[a-z']?))?\)\s*(?:\\q?quad\s*|\\hfill\s*)*", body
-        )
+            eq_id = _section_equation_id(post_ch, post_num)
+        m_start = re.match(rf"^\({number}\)\s*(?:\\q?quad\s*|\\hfill\s*)*", body)
         if m_start and not eq_id:
-            ch, num = m_start.group(1), m_start.group(2)
-            eq_id = f"{ch}-{num}" if num else f"{ch}"
+            eq_id = _section_equation_id(m_start.group(1), m_start.group(2))
             body = body[m_start.end() :].strip()
-        m_end = re.search(r"(?:\\hfill|\\q?quad|\s)+\((\d+)(?:\.(\d+[a-z']?))?\)\s*$", body)
+        m_end = re.search(rf"(?:\\hfill|\\q?quad|\s)+\({number}\)\s*$", body)
         if m_end and not eq_id:
-            ch, num = m_end.group(1), m_end.group(2)
-            eq_id = f"{ch}-{num}" if num else f"{ch}"
+            eq_id = _section_equation_id(m_end.group(1), m_end.group(2))
             body = body[: m_end.start()].strip()
         m_tag = re.search(r"\\tag\{([0-9a-zA-Z'-]+)\}", body)
         if m_tag:
@@ -103,8 +102,8 @@ def _label_section_equations(s: str, pno: int) -> str:
         return f"\n\n$$\n{body}\n$${label}\n\n"
 
     s = re.sub(
-        r"(?:^[ \t]*\((\d+)(?:\.(\d+[a-z']?))?\)[ \t]*\n*\s*)?\$\$(.*?)\$\$"
-        r"(?:[ \t]*\n?[ \t]*\n?[ \t]*\((\d+)(?:\.(\d+[a-z']?))?\)[ \t]*(?=\n|$)(?!\s*\$\$))?",
+        rf"(?:^[ \t]*\({number}\)[ \t]*\n*\s*)?\$\$(.*?)\$\$"
+        rf"(?:[ \t]*\n?[ \t]*\n?[ \t]*\({number}\)[ \t]*(?=\n|$)(?!\s*\$\$))?",
         replace_block,
         s,
         flags=re.MULTILINE | re.DOTALL,
@@ -158,9 +157,14 @@ def _label_page_equations(s: str, ch_num: int, pno: int) -> str:
 
 
 SUPERSCRIPT_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
+CIRCLED_DIGITS = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
 FOOTNOTE_LINE_RES = {
     "superscript": re.compile(rf"^([{SUPERSCRIPT_DIGITS}]+)\s*(\S.*)$"),
     "paren": re.compile(r"^(\d{1,2})\)\s+(\S.*)$"),
+    "parenthesized": re.compile(r"^(?=\$\^|\(\d{1,2}\)\s+[A-ZÀ-Ý«\u4e00-\u9fff])(?:\$\^\{?)?\((\d{1,2})\)(?:\}?\$)?\s*(\S.*)$"),
+    "circled": re.compile(
+        rf"^(?:(?:\$\^(?:\{{\\text\{{|\{{)?|\\text\{{|\^\{{)?([{CIRCLED_DIGITS}])(?:\}}\}}?\$|\}})?|(?:\$\^\{{?)?\((\d{{1,2}})\)(?:\}}?\$)?|(?:([{SUPERSCRIPT_DIGITS}]+)\)|(?:\$\^\{{|\^\{{)(\d{{1,2}})\)\}}\$?))\s*(\S.*)$"
+    ),
     "symbol": re.compile(r"^\\?(\*{1,3}|†{1,2}|‡|§(?=\s+[A-Z]))\s*(\S.*)$"),
 }
 FOOTNOTE_RULE_RE = re.compile(r"^(?:[—–-]+|_{3,})$")
@@ -172,7 +176,7 @@ def _note_line(line: str, style: str, below_rule: bool = False) -> re.Match[str]
     """Above a note rule a star note must open a sentence, and a star touching its word must be the line's only star,
     so italic heads ("*Example 3.* Let"), starred exercises ("*6.") and math lines stay in the body."""
     m = FOOTNOTE_LINE_RES[style].match(line)
-    if not m or below_rule or not m.group(1).startswith("*"):
+    if not m or below_rule or not (m.group(1) or "").startswith("*"):
         return m
     touching = not line.lstrip("\\")[len(m.group(1))].isspace()
     if not re.match(r"[A-Z“\"]", m.group(2)) or (touching and "*" in re.sub(r"\$[^$]*\$", "", m.group(2))):
@@ -180,9 +184,25 @@ def _note_line(line: str, style: str, below_rule: bool = False) -> re.Match[str]
     return m
 
 
+def _inline_note_math(text: str) -> str:
+    text = re.sub(r"\$\$\s*(.*?)\s*\$\$", r"$\\displaystyle \1$", text, flags=re.DOTALL)
+    if re.search(r"[\u4e00-\u9fff\u3040-\u30ff]", text):
+        return text
+    return re.sub(
+        rf"[{CIRCLED_DIGITS}]",
+        lambda m: f"({CIRCLED_DIGITS.index(m.group(0)) + 1})",
+        text,
+    )
+
 def _note(m: re.Match[str]) -> tuple[str, str]:
     """A star mark that leaves the note's emphasis stars unpaired also opened an italic title ("*Memorial*, see")."""
-    key, text = m.group(1), m.group(2).strip()
+    groups = m.groups()
+    key = next(g for g in groups[:-1] if g is not None)
+    if all(ch in SUPERSCRIPT_DIGITS for ch in key) and len(groups) > 2 and groups[2] == key:
+        key = key.translate(str.maketrans(SUPERSCRIPT_DIGITS, "0123456789")) + ")"
+    elif len(groups) > 3 and groups[3] == key:
+        key = f"{key})"
+    text = _inline_note_math(groups[-1].strip())
     if key.startswith("*") and len(re.findall(r"\*+", re.sub(r"\$[^$]*\$", "", text))) % 2:
         text = f"*{text}"
     return key, text
@@ -228,6 +248,12 @@ def split_page_footnotes(md: str, style: str, folio_pattern: str) -> tuple[str, 
     return body, mid_page + notes
 
 
+def has_circled_footnotes(md: str, folio_pattern: str) -> bool:
+    """Whether the page ends in circled note lines whose marks the body also calls, such as "估算①" and "① Romer"."""
+    body, notes = split_page_footnotes(md, "circled", folio_pattern)
+    return bool(notes) and all(key in CIRCLED_DIGITS and key in body for key, _ in notes)
+
+
 def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, list[tuple[str, str]]]:
     lines = md.splitlines()
     notes: list[tuple[str, str]] = []
@@ -238,8 +264,26 @@ def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, lis
                 if m := _note_line(below, style, below_rule=True):
                     notes.append(_note(m))
                 else:
-                    notes[-1] = (notes[-1][0], f"{notes[-1][1]} {below}")
+                    notes[-1] = (notes[-1][0], _inline_note_math(f"{notes[-1][1]} {below}"))
             return "\n".join(lines[:i]), notes
+    if style == "circled":
+        for idx, (i, lt) in enumerate(kept):
+            if _note_line(lt, style, below_rule=True) and not any(
+                re.match(r"^(?:#+\s+|\d{1,3}\.\s+\S)", below) for _, below in kept[idx + 1 :]
+            ):
+                for _, below in kept[idx:]:
+                    if m := _note_line(below, style, below_rule=True):
+                        notes.append(_note(m))
+                    elif re.match(r"^(\d{1,2})\)\s+(\S.*)$", below) and re.search(
+                        rf"(?:\^\{{?\s*{below.split(')', 1)[0]}\)\s*\}}?|[{SUPERSCRIPT_DIGITS}]+\))",
+                        "\n".join(lines[:i]),
+                    ):
+                        m_ed = re.match(r"^(\d{1,2})\)\s+(\S.*)$", below)
+                        if m_ed:
+                            notes.append((f"{m_ed.group(1)})", _inline_note_math(m_ed.group(2).strip())))
+                    else:
+                        notes[-1] = (notes[-1][0], _inline_note_math(f"{notes[-1][1]} {below}"))
+                return "\n".join(lines[:i]), notes
     end = len(lines)
     for i in range(len(lines) - 1, -1, -1):
         lt = lines[i].strip()
@@ -263,6 +307,33 @@ def _footnote_call(s: str, key: str, style: str) -> re.Match[str] | None:
     if style == "paren":
         sup = key.translate(str.maketrans("0123456789", SUPERSCRIPT_DIGITS))
         return re.search(rf"\$\^\{{?\(?{key}\)\}}?\$|\$\^\{{?{key}\}}?\)\$|{sup}[)⁾]", s)
+    if style == "parenthesized":
+        return re.search(rf"\s?\$\^\{{?\({key}\)\}}?\$", s)
+    if style == "circled":
+        if key.endswith(")"):
+            num = key[:-1]
+            sup = num.translate(str.maketrans("0123456789", SUPERSCRIPT_DIGITS))
+            return re.search(rf"\s?\$\^\{{?\s*\(?{num}\)\s*\}}?\$|\^\{{?\s*{num}\)\s*\}}?|{sup}[)⁾]", s)
+        num = str(CIRCLED_DIGITS.index(key) + 1) if key in CIRCLED_DIGITS else key
+        k_char = CIRCLED_DIGITS[int(num) - 1] if num.isdigit() and 1 <= int(num) <= 20 else key
+        exact = re.search(
+            rf"\s?\$(?!\$)(?:\^\{{?(?:\\text\{{)?|\\text\{{)?{re.escape(k_char)}\}}?\}}?\$(?!\$)"
+            rf"|\s?\^\{{?(?:\\text\{{)?{re.escape(k_char)}\}}?\}}?"
+            rf"|\s?\\text\{{{re.escape(k_char)}\}}"
+            rf"|\s?\$(?!\$)\^\{{?\({num}\)\}}?\$(?!\$)"
+            rf"|\^\{{?\({num}\)\}}?"
+            rf"|{re.escape(k_char)}",
+            s,
+        )
+        if exact:
+            return exact
+        return re.search(
+            r"\s?\$(?!\$)\^(?:\{?\\text\{[⊙①-⑳]\}|\{\\(?:odot|ominus|oplus|circ)\}|\\(?:odot|ominus|oplus|circ))\}?\$(?!\$)"
+            r"|\s?\^(?:\{?\\text\{[⊙①-⑳]\}|\{\\(?:odot|ominus|oplus|circ)\}|\\(?:odot|ominus|oplus|circ))\}?"
+            r"|\s*\\(?:odot|ominus|oplus|circledast)"
+            r"|\$(?!\$)\\circledast\$(?!\$)",
+            s,
+        )
     if key.startswith("*"):
         for m in re.finditer(rf"(?<!\*)\*+(?=[\s,.;:)]|$)|\$\^\{{?{re.escape(key)}\}}?\$", s):
             line = s[s.rfind("\n", 0, m.start()) + 1 : m.start()]
@@ -287,7 +358,16 @@ def attach_footnotes(s: str, notes: list[tuple[str, str]], style: str) -> str:
     for key, text in notes:
         note = f"@@FNSTART@@{text}@@FNEND@@"
         call = _footnote_call(s, key, style)
-        s = s[: call.start()] + note + s[call.end() :] if call else s + note
+        if call:
+            clean_s = s[: call.start()] + s[call.end() :]
+            pos = call.start()
+            for m in re.finditer(r"\$\$[\s\S]*?\$\$|(?<!\\)\$(?:[^$\n\\]|\\.)+\$", clean_s):
+                if m.start() <= pos < m.end():
+                    pos = m.end()
+                    break
+            s = clean_s[:pos] + note + clean_s[pos:]
+        else:
+            s = s + note
     return s
 
 
@@ -382,6 +462,12 @@ def prose_displays_to_paragraphs(md: str) -> str:
         if "\\begin{" in body or "\\\\" in body or DISPLAY_TAG_RE.search(body):
             return m.group(0)
         pieces = _math_and_text_pieces(body)
+        if any(
+            p.replace(r"\{", "").replace(r"\}", "").count("{") != p.replace(r"\{", "").replace(r"\}", "").count("}")
+            for is_math, p in pieces
+            if is_math
+        ):
+            return m.group(0)
         if sum(len(text.split()) for is_math, text in pieces if not is_math) < 8:
             return m.group(0)
         words = []
@@ -638,6 +724,14 @@ class PageCleaner:
 
             m_fig = self._caption_re.match(lt)
             if m_fig:
+                title = m_fig.groupdict().get("title") or ""
+                if title and (
+                    len(title) > 50
+                    or any(w in title for w in ["所示为", "体现了", "表明", "可知", "指出", "解释为"])
+                    or title.endswith("。")
+                ):
+                    m_fig = None
+            if m_fig:
                 while body_lines and (
                     not body_lines[-1].strip() or FIGURE_LABEL_RE.match(body_lines[-1])
                 ):
@@ -655,14 +749,20 @@ class PageCleaner:
                         _ = body_lines.pop()
                     else:
                         break
-                chapter, number = m_fig.group("chapter"), m_fig.group("number")
-                fid = f"{chapter}_{number}"
+                chapter = m_fig.groupdict().get("chapter")
+                number = m_fig.group("number")
+                fid = f"{chapter}_{number}" if chapter else number
                 if fid not in seen_figs_on_page:
                     seen_figs_on_page.add(fid)
-                    tail = (m_fig.groupdict().get("tail") or "").strip()
-                    cap = layout.caption_format.format(chapter=chapter, number=number)
+                    tail = (m_fig.groupdict().get("tail") or m_fig.groupdict().get("title") or "").strip()
+                    if "{chapter}" in layout.caption_format and not chapter:
+                        cap = f"图 {number}" if "图" in lt else f"Figure {number}"
+                    elif "图" in lt and not layout.caption_format.startswith("图"):
+                        cap = f"图 {chapter}-{number}"
+                    else:
+                        cap = layout.caption_format.format(chapter=chapter or "", number=number)
                     if tail:
-                        sep = " " if cap.endswith((".", ":")) else ". "
+                        sep = " " if cap.endswith((".", ":")) or cap.startswith("图") else ". "
                         cap = f"{cap}{sep}{tail}"
                     if lines_so_far <= layout.top_zone_lines or pno in layout.top_pages:
                         top_figs.append((fid, cap))
@@ -671,14 +771,17 @@ class PageCleaner:
                 continue
 
             if spec.normalize_headings:
+                heading = self._normalized_heading(lt, pno) if spec.heading_hook is not None else None
                 if (
-                    pno in self._chapter_starts
+                    heading is None
+                    and pno in self._chapter_starts
                     and not any(b.strip() and not b.startswith("#") for b in body_lines)
-                    and CHAPTER_OPENING_RE.match(lt)
+                    and re.match(r"^#\s+(?:Chapter\s+\d+|\d+\s+.*)", lt, re.IGNORECASE)
                     and not re.match(r"^#*\s*(?:[0-9A-Z]+\.\d+|§)", lt)
                 ):
                     continue
-                heading = self._normalized_heading(lt, pno)
+                if heading is None and spec.heading_hook is None:
+                    heading = self._normalized_heading(lt, pno)
                 if heading == "":
                     continue
                 if heading is not None:
@@ -698,6 +801,13 @@ class PageCleaner:
         s = _STAR_DOUBLE_SUPERSCRIPT_RE.sub(
             lambda m: "^{" + "*" + m.group(2).strip("{}") + "}_{" + m.group(1) + "}", s
         )
+        if spec.lang in ("zh", "ja"):
+            def _replace_cjk_prose(m: re.Match[str]) -> str:
+                if m.group(0).startswith("$"):
+                    return m.group(0)
+                txt = m.group(0).replace("~", "～")
+                return re.sub(r"(?<=[，。；：\s（\[])\((\d{1,2})\)(?=[\s\u4e00-\u9fff，。；：])", r"（\1）", txt)
+            s = re.sub(r"\$\$[\s\S]*?\$\$|(?<!\\)\$(?:[^$\n\\]|\\.)+\$|[^$]+", _replace_cjk_prose, s)
         for pattern, repl in spec.page_fixups.get(pno, ()):
             rep_arg = (
                 repl if re.search(r"\\[1-9]|\\g<", repl) else (lambda _, r=repl: r)
@@ -708,6 +818,6 @@ class PageCleaner:
         if spec.equation_numbering == "page":
             s = _label_page_equations(s, self._chapter_of(pno), pno)
         elif spec.equation_numbering == "section":
-            s = _label_section_equations(s, pno)
+            s = _label_section_equations(s, pno, deep=spec.cross_references)
         bot_figs.extend(spec.extra_figures.get(pno, ()))
         return CleanPage(s.strip(), top_figs, bot_figs)

@@ -1,9 +1,13 @@
+from pathlib import Path
+
 import pymupdf
 
 from polytypst.ahlfors.spec import AHLFORS_SPEC
 from polytypst.bourbaki_lie.spec import BOURBAKI_LIE_SPEC
 from polytypst.compiler.monograph import (
     MonographCompiler,
+    RenderedMonograph,
+    adhoc_spec,
     compile_typst,
     latex_footnote_header,
     markdown_footnotes,
@@ -178,6 +182,11 @@ def test_italic_at_the_start_of_a_body_line_is_not_a_note():
     assert split(page) == (page.rstrip("\n"), [])
 
 
+def test_a_semicolon_after_a_note_stays_in_the_text():
+    typst = MonographCompiler(HECKE_SPEC).format_typst("une catégorie" + note("Nous considérons.") + "; pour deux objets")
+    assert "#footnote[Nous considérons.]\\; pour" in typst
+
+
 def test_markdown_output_uses_pandoc_inline_notes():
     assert markdown_footnotes("common." + note("This *assumes* it.") + " So") == "common.^[This *assumes* it.] So"
 
@@ -263,3 +272,55 @@ def test_latex_header_follows_footmisc():
     assert latex_footnote_header(FUKUSO_SPEC) == r"\usepackage[perpage]{footmisc}\renewcommand\thefootnote{\arabic{footnote})}"
     assert latex_footnote_header(HECKE_SPEC) == ""
     assert latex_footnote_header(running_footnotes(HECKE_SPEC)) == r"\counterwithout{footnote}{chapter}"
+
+
+def rendered_book(tmp_path: Path, *pages: str, lang: str = "zh") -> tuple[MonographCompiler, RenderedMonograph]:
+    spec = adhoc_spec(Path("Probe.pdf"), len(pages), lang=lang)
+    md_dir = tmp_path / spec.markdown_dir
+    md_dir.mkdir(parents=True)
+    for pno, page in enumerate(pages, start=1):
+        _ = (md_dir / f"p_{pno:03d}.md").write_text(page, encoding="utf-8")
+    compiler = MonographCompiler(spec)
+    return compiler, compiler.render(tmp_path)
+
+
+def test_hand_numbered_circled_notes_become_auto_numbered_footnotes(tmp_path):
+    compiler, rendered = rendered_book(
+        tmp_path,
+        "潜在 GDP 可以从数据中估算①，结果却大不相同②。\n\n① Romer (2006)，p. 178.\n② 根据日本经济企划厅（1999）制定。",
+    )
+    assert compiler.spec.footnote_style == "circled"
+    assert rendered.markdown.count("^[") == 2
+    assert rendered.typst.count("#footnote[") == 2
+    assert "估算①" not in rendered.typst and "② 根据" not in rendered.typst
+    assert 'numbering: "①"' in rendered.typst
+    assert r"\textcircled" in latex_footnote_header(compiler.spec)
+
+
+def test_chinese_note_marks_are_drawn_in_the_text_and_the_note_area(tmp_path):
+    _, rendered = rendered_book(
+        tmp_path,
+        "潜在 GDP 可以从数据中估算①，结果却大不相同②。\n\n① Romer (2006)，p. 178.\n② 根据日本经济企划厅（1999）制定。",
+    )
+    typ = tmp_path / "zh.typ"
+    _ = typ.write_text(rendered.typst, encoding="utf-8")
+    compile_typst(typ, tmp_path / "zh.pdf")
+    page = pymupdf.open(tmp_path / "zh.pdf")[-1]
+    marks = page.search_for("①") + page.search_for("②")
+    assert len(marks) == 4
+    for rect in marks:
+        pix = page.get_pixmap(clip=rect, dpi=300, colorspace=pymupdf.csGRAY)
+        assert min(pix.samples) < 128, f"mark at {rect} has no ink"
+
+
+def test_circled_numbers_that_are_not_notes_are_drawn_as_circles(tmp_path):
+    compiler, rendered = rendered_book(tmp_path, "Two steps: ① sort the list, then Ⓑ merge it.", lang="en")
+    assert compiler.spec.footnote_style == ""
+    assert "① sort" in rendered.markdown
+    typ = tmp_path / "circled.typ"
+    _ = typ.write_text(rendered.typst, encoding="utf-8")
+    compile_typst(typ, tmp_path / "circled.pdf")
+    page = pymupdf.open(tmp_path / "circled.pdf")[-1]
+    text = page.get_text()
+    assert "sort" in text and "①" not in text and "Ⓑ" not in text
+    assert len(page.get_drawings()) >= 2
