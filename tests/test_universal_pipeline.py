@@ -3,6 +3,7 @@
 from dataclasses import replace
 from pathlib import Path
 
+from polytypst.goursat.build import goursat_markdown
 from polytypst.goursat.figures import (
     GOURSAT_SVG_GENERATORS,
     generate_goursat_cover_svg,
@@ -10,14 +11,12 @@ from polytypst.goursat.figures import (
 )
 from polytypst.ocr.colab_cluster import ColabOCRCluster
 from polytypst.ocr.pages import OcrLine, PageImage
-from polytypst.tex_markdown import stitch_document
 from polytypst.vision.figure_extractor import ExtractedFigure, FigureExtractor
 
 
 def test_tex_markdown_cleaner_delimiters():
-    running_headers = ["CALCULUS BOOK", "IMPLICIT FUNCTIONS"]
     raw = (
-        "CALCULUS BOOK\n"
+        "A COURSE IN MATHEMATICAL ANALYSIS\n"
         "II, § 20] IMPLICIT FUNCTIONS 87\n"
         "123\n"
         "Let us consider a *continuous* function \\( f(x) \\) and $ P(x, y) $ such that\n"
@@ -25,9 +24,9 @@ def test_tex_markdown_cleaner_delimiters():
         "with x # 0, where differ-\n"
         "ential elements apply."
     )
-    cleaned = stitch_document([(1, raw)], running_headers=running_headers)
+    cleaned = goursat_markdown([(1, raw)], [])
 
-    assert "CALCULUS BOOK" not in cleaned
+    assert "A COURSE IN MATHEMATICAL ANALYSIS" not in cleaned
     assert "IMPLICIT FUNCTIONS 87" not in cleaned
     assert "\n123\n" not in cleaned
     assert "*continuous*" in cleaned
@@ -39,10 +38,7 @@ def test_tex_markdown_cleaner_delimiters():
     assert "f(x) = \\int_0^x t^2 \\mathrm{d} t" in cleaned
     assert "x \\neq 0" in cleaned
     assert "differential" in cleaned
-    diff_page = stitch_document(
-        [(2, "$\\frac{dy}{dx} + \\frac{d^2 y}{dx^2} + d\\alpha$")],
-        running_headers=running_headers,
-    )
+    diff_page = goursat_markdown([(2, "$\\frac{dy}{dx} + \\frac{d^2 y}{dx^2} + d\\alpha$")], [])
     assert (
         diff_page
         == "$\\frac{\\mathrm{d} y}{\\mathrm{d} x} + \\frac{\\mathrm{d}^2 y}{\\mathrm{d} x^2} + \\mathrm{d} \\alpha$"
@@ -73,7 +69,7 @@ def test_tex_markdown_cleaner_figure_injection():
         image_rel_path="figures/fig_1.png",
         source_page=1,
     )
-    cleaned = stitch_document([(1, raw)], figures=[fig])
+    cleaned = goursat_markdown([(1, raw)], [fig])
 
     assert "![FIG. 1. The geometric derivative.](figures/fig_1.png)" in cleaned
     caption_idx = cleaned.find("FIG. 1. The geometric derivative.")
@@ -86,7 +82,7 @@ def test_tex_markdown_stitcher():
         (1, "First page content with a hyper-\n"),
         (2, "bolic equation $$ \\cosh^2 x - \\sinh^2 x = 1 $$ continuing here."),
     ]
-    stitched = stitch_document(pages)
+    stitched = goursat_markdown(pages, [])
     assert "hyperbolic equation" in stitched
     assert "\\cosh^2 x - \\sinh^2 x = 1" in stitched
 
@@ -96,13 +92,13 @@ def test_stitcher_joins_inline_math_split_across_pages():
         (1, "パラメータ $t = (t_1, t_2, \\cdots,"),
         (2, "$t_m$) と共に変わるものが多い．"),
     ]
-    stitched = stitch_document(pages)
+    stitched = goursat_markdown(pages, [])
     assert "$t = (t_1, t_2, \\cdots, t_m$)" in stitched
     assert stitched.count("$") % 2 == 0
 
 
 def test_stitcher_closes_gaps_in_equation_numbers():
-    stitched = stitch_document([(1, "次式を得る (5. 83) である.")])
+    stitched = goursat_markdown([(1, "次式を得る (5. 83) である.")], [])
     assert "(5.83)" in stitched
 
 

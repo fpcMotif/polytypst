@@ -707,7 +707,7 @@ class PageCleaner:
             s = attach_footnotes(s, footnotes, spec.footnote_style)
         if spec.equation_numbering == "page":
             s = _label_page_equations(s, self._chapter_of(pno), pno)
-        else:
+        elif spec.equation_numbering == "section":
             s = _label_section_equations(s, pno)
         bot_figs.extend(spec.extra_figures.get(pno, ()))
         return CleanPage(s.strip(), top_figs, bot_figs)

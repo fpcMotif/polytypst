@@ -105,7 +105,7 @@ class MonographSpec:
     footnote_marks: tuple[str, ...] = ()
     footnote_numbering: str = "1"
     footnote_reset: Literal["page", "chapter", "book"] = "page"
-    equation_numbering: Literal["section", "page"] = "section"
+    equation_numbering: Literal["section", "page", "none"] = "section"
     page_fixups: dict[int, tuple[Rewrite, ...]] = field(default_factory=dict)
     heading_rewrites: tuple[Rewrite, ...] = ()
     heading_hook: Callable[[str, int], str | None] | None = None

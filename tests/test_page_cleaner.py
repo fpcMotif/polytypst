@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from polytypst.compiler.monograph import ChapterSpec, MonographSpec
 from polytypst.compiler.page_cleaner import CleanPage, PageCleaner
 
@@ -22,6 +24,14 @@ def test_a_new_cleaner_has_placed_no_headings():
     _ = PageCleaner.for_spec(SPEC).clean("## 1.2 Power Series\n\nText.", 5)
     fresh = PageCleaner.for_spec(SPEC).clean("## 1.2 Power Series\n\nText.", 5)
     assert fresh.body.startswith("## 1.2 Power series")
+
+
+def test_unnumbered_cleaning_leaves_equation_tags_as_written():
+    page = "Hence\n\n$$\nx = 1 \\tag{29}\n$$\n\nand so on."
+    labeled = PageCleaner.for_spec(SPEC).clean(page, 5).body
+    unlabeled = PageCleaner.for_spec(replace(SPEC, equation_numbering="none")).clean(page, 5).body
+    assert "<eq-" in labeled
+    assert unlabeled == page
 
 
 def test_folios_watermarks_and_captions_leave_the_body():
