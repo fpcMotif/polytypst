@@ -65,6 +65,5 @@ KLEIN_SPEC = MonographSpec(
         (r"\bPluecker\b", "Plücker"),
         (r"\bMoebius\b", "Möbius"),
         (r"\bBraunschweig\b", "Brunswick"),
-        (r"plus\.circle", r"\\u{2295}"),
     ),
 )

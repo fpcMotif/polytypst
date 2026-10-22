@@ -53,12 +53,4 @@ FERMAT2_SPEC = MonographSpec(
         r"^\d+\s+[A-Z\s\$\-\.\,\?]+$",
         r"^[A-Z\s\$\-\.\,\?]+\s+\d+$",
     ),
-    pre_math_rewrites=(
-        (r"plus\.circle", r"\\u{2295}"),
-        (r"times\.circle", r"\\u{2297}"),
-        (r"\\text\{Gal\}", r"\\operatorname{Gal}"),
-        (r"\\text\{Frob\}", r"\\operatorname{Frob}"),
-        (r"\\text\{Cl\}", r"\\operatorname{Cl}"),
-        (r"\\text\{ord\}", r"\\operatorname{ord}"),
-    ),
 )

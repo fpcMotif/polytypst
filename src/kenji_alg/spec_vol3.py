@@ -58,17 +58,5 @@ KENJI_ALG3_SPEC = MonographSpec(
         r"^\d+\s+[A-Z\s\$\-\.\,\?]+$",
         r"^[A-Z\s\$\-\.\,\?]+\s+\d+$",
     ),
-    pre_math_rewrites=(
-        (r"plus\.circle", r"\\u{2295}"),
-        (r"times\.circle", r"\\u{2297}"),
-        (r"\\text\{Spec\}", r"\\operatorname{Spec}"),
-        (r"\\text\{Spm\}", r"\\operatorname{Spm}"),
-        (r"\\text\{Proj\}", r"\\operatorname{Proj}"),
-        (r"\\text\{Hom\}", r"\\operatorname{Hom}"),
-        (r"\\text\{Mor\}", r"\\operatorname{Mor}"),
-        (r"\\text\{Ob\}", r"\\operatorname{Ob}"),
-        (r"\\text\{id\}", r"\\operatorname{id}"),
-        (r"\\text\{Id\}", r"\\operatorname{Id}"),
-    ),
     figure_pages=frozenset({20, 48, 128, 150}),
 )

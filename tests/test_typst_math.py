@@ -1,4 +1,10 @@
-from polytypst.compiler.monograph import CONTINUATION_OP_RE
+from dataclasses import replace
+
+from polytypst.compiler.monograph import (
+    CONTINUATION_OP_RE,
+    MonographCompiler,
+    MonographSpec,
+)
 from polytypst.compiler.typst_math import convert_environments, convert_math_batch
 
 
@@ -15,6 +21,22 @@ def test_regex_fallback_still_applies_the_macro_rewrites():
     out = convert(r"\Psi \longmapsto b(\varphi) \unknownocrmacro")
     assert "⟼" in out
     assert "l o n g" not in out
+
+
+def test_every_book_gets_the_circle_and_operator_name_rewrites():
+    bare = MonographSpec(slug="t", title="T", author="A")
+    explicit = replace(
+        bare,
+        pre_math_rewrites=(
+            (r"plus\.circle", r"\\u{2295}"),
+            (r"\\text\{Hom\}", r"\\operatorname{Hom}"),
+            (r"\\text\{S\.S\.\}", r"\\operatorname{S.S.}"),
+        ),
+    )
+    text = r"Let $\text{Hom}(A, B) plus.circle \text{S.S.}(u)$ be given."
+    expected = MonographCompiler(explicit).format_typst(text)
+    assert "⊕" in expected or "2295" in expected
+    assert MonographCompiler(bare).format_typst(text) == expected
 
 
 def test_square_operator_keeps_full_size():

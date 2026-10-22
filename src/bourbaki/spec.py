@@ -156,9 +156,6 @@ BOURBAKI_SPEC = MonographSpec(
         r"^\d+\s+[A-Z\s\$\-\.\,]+$",
         r"^[A-Z\s\$\-\.\,]+\s+\d+$",
     ),
-    pre_math_rewrites=(
-        (r"plus\.circle", r"\\u{2295}"),
-    ),
 )
 
 VINTAGE_PREAMBLE = (Path(__file__).parent / "vintage_preamble.typ").read_text(encoding="utf-8")

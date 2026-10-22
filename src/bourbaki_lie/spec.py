@@ -46,16 +46,4 @@ BOURBAKI_LIE_SPEC = MonographSpec(
         r"^\d+\s+[A-Z\s\$\-\.\,]+$",
         r"^[A-Z\s\$\-\.\,]+\s+\d+$",
     ),
-    pre_math_rewrites=(
-        (r"plus\.circle", r"\\u{2295}"),
-        (r"times\.circle", r"\\u{2297}"),
-        (r"\\text\{ad\}", r"\\operatorname{ad}"),
-        (r"\\text\{Ad\}", r"\\operatorname{Ad}"),
-        (r"\\text\{Der\}", r"\\operatorname{Der}"),
-        (r"\\text\{Aut\}", r"\\operatorname{Aut}"),
-        (r"\\text\{End\}", r"\\operatorname{End}"),
-        (r"\\text\{GL\}", r"\\operatorname{GL}"),
-        (r"\\text\{SL\}", r"\\operatorname{SL}"),
-        (r"\\text\{Tr\}", r"\\operatorname{Tr}"),
-    ),
 )

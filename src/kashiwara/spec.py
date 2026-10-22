@@ -63,15 +63,4 @@ KASHIWARA_SPEC = MonographSpec(
         r"^\d+\s+[A-Z\s\$\-\.\,\?]+$",
         r"^[A-Z\s\$\-\.\,\?]+\s+\d+$",
     ),
-    pre_math_rewrites=(
-        (r"plus\.circle", r"\\u{2295}"),
-        (r"times\.circle", r"\\u{2297}"),
-        (r"\\text\{Ker\}", r"\\operatorname{Ker}"),
-        (r"\\text\{Coker\}", r"\\operatorname{Coker}"),
-        (r"\\text\{Im\}", r"\\operatorname{Im}"),
-        (r"\\text\{Hom\}", r"\\operatorname{Hom}"),
-        (r"\\text\{Ext\}", r"\\operatorname{Ext}"),
-        (r"\\text\{ch\}", r"\\operatorname{ch}"),
-        (r"\\text\{S\.S\.\}", r"\\operatorname{S.S.}"),
-    ),
 )
