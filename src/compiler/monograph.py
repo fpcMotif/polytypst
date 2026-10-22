@@ -19,7 +19,12 @@ from PIL import Image
 
 from ..tex_markdown import normalize_html_tables
 from .presets import CompositionConfig, resolve_composition
-from .typst_math import clean_margin_and_inline_math, convert_math_batch
+from .typst_math import (
+    clean_margin_and_inline_math,
+    convert_math_batch,
+    finish_typst_math,
+    normalize_typst_differentials,
+)
 
 REPO_FONTS_DIR = Path(__file__).resolve().parents[2] / "fonts"
 MONOGRAPH_FORMATS = frozenset({"tex", "pdf"})

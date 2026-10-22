@@ -1166,9 +1166,76 @@ def convert_math_batch(items: list[tuple[str, bool]]) -> list[str]:
                 if converted.count('"') % 2:
                     converted = converted.replace('"', "")
             _PANDOC_CACHE[key] = _give_operands(converted)
-        for key in _typst_rejects([(_PANDOC_CACHE[k], k[1]) for k in todo]):
+        finished = [(finish_typst_math(normalize_typst_differentials(_PANDOC_CACHE[k])), k[1]) for k in todo]
+        for key in _typst_rejects(finished):
             _PANDOC_CACHE[todo[key]] = _as_math_string(todo[key][0])
     return [_PANDOC_CACHE[k] for k in items]
+
+
+def _find_balanced_parens(s: str, start: int) -> int:
+    count = 0
+    for i in range(start, len(s)):
+        if s[i] == "(":
+            count += 1
+        elif s[i] == ")":
+            count -= 1
+            if count == 0:
+                return i
+    return -1
+
+
+def _fix_typst_single_arg_frac(text: str) -> str:
+    pos = 0
+    res: list[str] = []
+    while True:
+        idx = text.find("frac(", pos)
+        if idx == -1:
+            res.append(text[pos:])
+            break
+        res.append(text[pos:idx])
+        end1 = _find_balanced_parens(text, idx + 4)
+        if end1 != -1:
+            inner1 = text[idx + 5 : end1]
+            if "," not in inner1:
+                nxt = text[end1 + 1 :].lstrip()
+                if nxt.startswith("("):
+                    start2 = text.find("(", end1 + 1)
+                    end2 = _find_balanced_parens(text, start2)
+                    if end2 != -1:
+                        inner2 = text[start2 + 1 : end2]
+                        res.append(f"({inner1})/({inner2})")
+                        pos = end2 + 1
+                        continue
+        res.append("frac(")
+        pos = idx + 5
+    return "".join(res)
+
+
+def normalize_typst_differentials(t: str) -> str:
+    t = t.replace("upright(d)", "dif")
+    return re.sub(
+        r"(?<![a-zA-Z0-9_\^])d\s*([xyztrsuvwqp]|xi|alpha|beta|gamma|theta|phi|tau|lambda|mu)(?=[0-9\s\^_,.;!?\)]|$)",
+        r"dif \1",
+        t,
+    )
+
+
+def finish_typst_math(s: str) -> str:
+    """Rewrite symbol names and call shapes in converted math that Typst 0.15 rejects."""
+    s = re.sub(r'delim:\s*"\|\|"', 'delim: "|"', s)
+    s = s.replace("planck.reduce", "planck")
+    s = s.replace("times.circle", r"\u{2297}")
+    s = s.replace("plus.circle", r"\u{2295}")
+    s = s.replace("angle.l", "chevron.l")
+    s = s.replace("angle.r", "chevron.r")
+    s = re.sub(r"\bneq\b", "!=", s)
+    s = re.sub(r"\bprod(?=[^a-zA-Z]|$)", "product", s)
+    s = re.sub(r"\bs\s*u\s*b\s*s\s*t\s*a\s*c\s*k\b", "", s)
+    s = re.sub(r"o\s+p\s+e\s+r\s+a\s+t\s+o\s+r\s+n\s+a\s+m\s+e\s*\(\s*([a-zA-Z]+)\s*\)", r'op("\1")', s)
+    s = re.sub(r"t\s+e\s+x\s+t\s*\(\s*(\"[^\"]*\")\s*\)", r"upright(\1)", s)
+    s = re.sub(r"(?<=[(\s])\^([a-zA-Z0-9]+)", r'""^\1', s)
+    s = re.sub(r"(?<=[(\s])_([a-zA-Z0-9]+)", r'""_\1', s)
+    return _fix_typst_single_arg_frac(s)
 
 
 _TYPST_ERROR_LINE_RE = re.compile(r"\.typ:(\d+):\d+: error")

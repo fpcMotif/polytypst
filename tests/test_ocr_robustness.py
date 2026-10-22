@@ -18,7 +18,11 @@ from polytypst.compiler.monograph import (
     MonographCompiler,
     resolve_monograph_spec,
 )
-from polytypst.compiler.typst_math import convert_math_batch
+from polytypst.compiler.typst_math import (
+    convert_math_batch,
+    finish_typst_math,
+    normalize_typst_differentials,
+)
 
 OCR_STATES: dict[str, str] = {
     "empty": "",
@@ -98,7 +102,14 @@ def _compile(typ: Path) -> str:
     """Compile `typ` and return the PDF text, failing the test with Typst's error."""
     pdf = typ.with_suffix(".pdf")
     res = subprocess.run(
-        [*_typst_command(), "compile", "--font-path", str(REPO_FONTS_DIR), str(typ), str(pdf)],
+        [
+            *_typst_command(),
+            "compile",
+            "--font-path",
+            str(REPO_FONTS_DIR),
+            str(typ),
+            str(pdf),
+        ],
         capture_output=True,
         text=True,
         check=False,
@@ -128,7 +139,9 @@ def _flat(text: str) -> str:
 
 
 @pytest.mark.parametrize("ocr_text", OCR_STATES.values(), ids=OCR_STATES.keys())
-def test_each_ocr_state_compiles_and_keeps_its_neighbour_pages(tmp_path: Path, ocr_text: str) -> None:
+def test_each_ocr_state_compiles_and_keeps_its_neighbour_pages(
+    tmp_path: Path, ocr_text: str
+) -> None:
     pdf_text = _flat(_build_spec_less_book(tmp_path, [OPENING, ocr_text, CLOSING]))
     assert _flat(OPENING) in pdf_text
     assert _flat(CLOSING) in pdf_text
@@ -150,7 +163,11 @@ class OCREngineMachine(RuleBasedStateMachine):
         self.pages.append([OPENING])
 
     def _sentinel(self, draw_letters: str) -> str:
-        word = "zq" + draw_letters + SENTINEL_LETTERS[len(self.sentinels) % len(SENTINEL_LETTERS)]
+        word = (
+            "zq"
+            + draw_letters
+            + SENTINEL_LETTERS[len(self.sentinels) % len(SENTINEL_LETTERS)]
+        )
         self.sentinels.append(word)
         return f"The word {word} is plain prose."
 
@@ -170,7 +187,11 @@ class OCREngineMachine(RuleBasedStateMachine):
     def append_prose(self, letters: str) -> None:
         self.pages[-1].append(self._sentinel(letters))
 
-    @rule(noise=st.text(st.characters(codec="utf-8", exclude_categories=["Cs"]), max_size=40))
+    @rule(
+        noise=st.text(
+            st.characters(codec="utf-8", exclude_categories=["Cs"]), max_size=40
+        )
+    )
     def append_noise(self, noise: str) -> None:
         self.pages[-1].append(noise)
 
@@ -187,7 +208,11 @@ class OCREngineMachine(RuleBasedStateMachine):
 
     def teardown(self) -> None:
         with tempfile.TemporaryDirectory() as out_dir:
-            pdf_text = _flat(_build_spec_less_book(Path(out_dir), ["\n\n".join(page) for page in self.pages]))
+            pdf_text = _flat(
+                _build_spec_less_book(
+                    Path(out_dir), ["\n\n".join(page) for page in self.pages]
+                )
+            )
         missing = [word for word in self.sentinels if word not in pdf_text]
         assert not missing, f"sentinel prose lost: {missing}"
 
@@ -203,27 +228,87 @@ TestOCREngineMachine = OCREngineMachine.TestCase
 
 LATEX_ATOMS = st.sampled_from(
     [
-        "x", "y", "n", "1", "2", "+", "-", "=", "<", ">", ",", ".", "|", "'", "!",
-        "^", "_", "{", "}", "(", ")", "[", "]", "&", "\\\\", " ",
-        "\\frac", "\\sqrt", "\\left(", "\\right)", "\\left.", "\\right|",
-        "\\alpha", "\\infty", "\\sum", "\\int", "\\partial", "\\mathbb{R}", "\\mathcal",
-        "\\bar", "\\hat", "\\text{ if }", "\\operatorname{Hom}", "\\cdots", "\\to",
-        "\\begin{pmatrix}", "\\end{pmatrix}", "\\begin{cases}", "\\end{cases}",
-        "\\binom", "\\overline", "\\lim_{n \\to \\infty}", "\\,", "\\;", "\\quad", "\\foo",
+        "x",
+        "y",
+        "n",
+        "1",
+        "2",
+        "+",
+        "-",
+        "=",
+        "<",
+        ">",
+        ",",
+        ".",
+        "|",
+        "'",
+        "!",
+        "^",
+        "_",
+        "{",
+        "}",
+        "(",
+        ")",
+        "[",
+        "]",
+        "&",
+        "\\\\",
+        " ",
+        "\\frac",
+        "\\sqrt",
+        "\\left(",
+        "\\right)",
+        "\\left.",
+        "\\right|",
+        "\\alpha",
+        "\\infty",
+        "\\sum",
+        "\\int",
+        "\\partial",
+        "\\mathbb{R}",
+        "\\mathcal",
+        "\\bar",
+        "\\hat",
+        "\\text{ if }",
+        "\\operatorname{Hom}",
+        "\\cdots",
+        "\\to",
+        "\\begin{pmatrix}",
+        "\\end{pmatrix}",
+        "\\begin{cases}",
+        "\\end{cases}",
+        "\\binom",
+        "\\overline",
+        "\\lim_{n \\to \\infty}",
+        "\\,",
+        "\\;",
+        "\\quad",
+        "\\foo",
     ]
 )
 
 
-@settings(max_examples=FUZZ_EXAMPLES, deadline=None, suppress_health_check=[HealthCheck.too_slow, HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=FUZZ_EXAMPLES,
+    deadline=None,
+    suppress_health_check=[HealthCheck.too_slow, HealthCheck.function_scoped_fixture],
+)
 @given(
     snippets=st.lists(
-        st.tuples(st.lists(LATEX_ATOMS, min_size=1, max_size=12).map("".join), st.booleans()),
+        st.tuples(
+            st.lists(LATEX_ATOMS, min_size=1, max_size=12).map("".join), st.booleans()
+        ),
         min_size=1,
         max_size=12,
     )
 )
-def test_any_ocr_math_converts_to_typst_that_compiles(tmp_path: Path, snippets: list[tuple[str, bool]]) -> None:
-    converted = convert_math_batch(snippets)
+def test_any_ocr_math_converts_to_typst_that_compiles(
+    tmp_path: Path, snippets: list[tuple[str, bool]]
+) -> None:
+    converted = [
+        finish_typst_math(normalize_typst_differentials(t))
+        for t in convert_math_batch(snippets)
+    ]
     body = "\n\n".join(
         f"$ {typ} $" if display else f"${typ}$"
         for typ, (_, display) in zip(converted, snippets, strict=True)
