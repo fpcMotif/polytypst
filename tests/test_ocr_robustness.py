@@ -82,7 +82,31 @@ OCR_STATES: dict[str, str] = {
     "control_chars": "Before\x00null\x07bell\x1bescape after.",
     "bom_and_crlf": "﻿First line\r\nSecond line\r\n",
     "long_line": ("word " * 5000).strip(),
+    "runaway_frac_nesting": "$" + "\\frac{" * 2000 + "x" + "}{y}" * 2000 + "$",
+    "backtick_run": "`" * 10000,
+    "star_run": "*" * 20000,
+    "dollar_run": "$" * 20001,
+    "unclosed_bold_over_a_page": "**" + "word " * 10000,
+    "left_run": "$" + "\\left(" * 5000 + "$",
 }
+HOSTILE_PDF_NAMES = [
+    "Lectures [draft] #2.pdf",
+    'He said "hi".pdf',
+    "Price $5 and $x$.pdf",
+    "back\\slash.pdf",
+    "star*under_score@at<lt>.pdf",
+    "]].pdf",
+    "#set page(width: 1pt).pdf",
+    "/* comment.pdf",
+    "// slashes.pdf",
+    "a}b{c.pdf",
+    "it's.pdf",
+    "ünïcödé 数学.pdf",
+]
+OCR_CORPUS_DIR = Path(
+    os.environ.get("OCR_CORPUS_DIR", Path(__file__).resolve().parents[1] / "output")
+)
+CORPUS_PAGES = sorted(OCR_CORPUS_DIR.glob("*/markdown_pages/p_*.md"))
 
 FUZZ_EXAMPLES = int(os.environ.get("OCR_FUZZ_EXAMPLES", "30"))
 OPENING = "The opening page of the probe book is plain prose."
@@ -119,9 +143,9 @@ def _compile(typ: Path) -> str:
     return "\n".join(page.get_text() for page in pymupdf.open(pdf))
 
 
-def _build_spec_less_book(out_dir: Path, pages: list[str]) -> str:
+def _build_spec_less_book(out_dir: Path, pages: list[str], pdf_name: str = "Probe Book.pdf") -> str:
     """Write `pages` as OCR output for an unknown PDF, build it, and return the PDF text."""
-    spec = resolve_monograph_spec(Path("Probe Book.pdf"), len(pages))
+    spec = resolve_monograph_spec(Path(pdf_name), len(pages))
     md_dir = out_dir / spec.markdown_dir
     md_dir.mkdir(parents=True, exist_ok=True)
     for old in md_dir.glob("p_*.md"):
@@ -134,8 +158,9 @@ def _build_spec_less_book(out_dir: Path, pages: list[str]) -> str:
 
 
 def _flat(text: str) -> str:
-    """Join hyphenated line breaks and drop whitespace, so words compare across line wraps."""
-    return re.sub(r"\s+", "", re.sub(r"-\s*\n", "", text))
+    """Join hyphenated line breaks, drop whitespace, and straighten typeset quotes, so words compare."""
+    text = text.translate(str.maketrans("“”‘’", "\"\"''"))
+    return re.sub(r"\s+", "", re.sub(r"[-\xad]\s*\n", "", text))
 
 
 @pytest.mark.parametrize("ocr_text", OCR_STATES.values(), ids=OCR_STATES.keys())
@@ -143,6 +168,101 @@ def test_each_ocr_state_compiles_and_keeps_its_neighbour_pages(
     tmp_path: Path, ocr_text: str
 ) -> None:
     pdf_text = _flat(_build_spec_less_book(tmp_path, [OPENING, ocr_text, CLOSING]))
+    assert _flat(OPENING) in pdf_text
+    assert _flat(CLOSING) in pdf_text
+
+
+@pytest.mark.parametrize("short_page", ["以上で証明を終わる。", "QED.", "\\"])
+def test_a_short_page_keeps_its_text(tmp_path: Path, short_page: str) -> None:
+    pdf_text = _flat(_build_spec_less_book(tmp_path, [OPENING, short_page, CLOSING]))
+    assert _flat(short_page).strip("\\") in pdf_text
+    assert _flat(CLOSING) in pdf_text
+
+
+def test_math_nested_too_deep_for_the_fallback_converter_still_compiles(tmp_path: Path) -> None:
+    deep = OCR_STATES["runaway_frac_nesting"]
+    pdf_text = _flat(_build_spec_less_book(tmp_path, [OPENING + "\n\n" + deep[:1304], deep[1304:], CLOSING]))
+    assert _flat(OPENING) in pdf_text
+    assert _flat(CLOSING) in pdf_text
+
+
+@pytest.mark.parametrize(
+    "pdf_name", ["数学在十九世纪的发展第二卷复变函数与代数几何.pdf", "Lectures on the Theory of Algebraic Numbers and Their Ideals.pdf"]
+)
+def test_a_title_that_can_wrap_keeps_its_full_size(tmp_path: Path, pdf_name: str) -> None:
+    _ = _build_spec_less_book(tmp_path, [OPENING], pdf_name)
+    slug = resolve_monograph_spec(Path(pdf_name), 1).slug
+    title_page = pymupdf.open(tmp_path / f"{slug}.pdf")[0]
+    sizes = [span["size"] for block in title_page.get_text("dict")["blocks"] for line in block.get("lines", []) for span in line["spans"]]
+    assert max(sizes) == pytest.approx(26)
+
+
+@pytest.mark.parametrize("pdf_name", HOSTILE_PDF_NAMES)
+def test_any_pdf_file_name_becomes_a_title_that_compiles(tmp_path: Path, pdf_name: str) -> None:
+    pdf_text = _flat(_build_spec_less_book(tmp_path, [OPENING, CLOSING], pdf_name))
+    assert _flat(Path(pdf_name).stem.upper()) in pdf_text
+    assert _flat(OPENING) in pdf_text
+
+
+@settings(
+    max_examples=FUZZ_EXAMPLES,
+    deadline=None,
+    suppress_health_check=[HealthCheck.too_slow, HealthCheck.function_scoped_fixture],
+)
+@given(
+    stem=st.text(
+        st.characters(codec="utf-8", exclude_categories=["Cs", "Cc"], exclude_characters="/"),
+        min_size=1,
+        max_size=30,
+    )
+)
+def test_generated_pdf_file_names_compile(tmp_path: Path, stem: str) -> None:
+    _ = _build_spec_less_book(tmp_path, [OPENING, CLOSING], f"{stem}.pdf")
+
+
+def _mutate(text: str, op: str, at: int) -> str:
+    """Apply one OCR-style damage to a real page: a lost delimiter, a cut page, or a misread line order."""
+    delimiters = [i for i, ch in enumerate(text) if ch in "$}{\\]["]
+    lines = text.splitlines()
+    if op == "drop_delimiter" and delimiters:
+        i = delimiters[at % len(delimiters)]
+        return text[:i] + text[i + 1 :]
+    if op == "cut_page":
+        return text[: at % max(len(text), 1)]
+    if op == "repeat_line" and lines:
+        i = at % len(lines)
+        return "\n".join(lines[: i + 1] + lines[i:])
+    if op == "swap_lines" and len(lines) > 1:
+        i = at % (len(lines) - 1)
+        lines[i], lines[i + 1] = lines[i + 1], lines[i]
+        return "\n".join(lines)
+    return text
+
+
+@pytest.mark.skipif(not CORPUS_PAGES, reason="no saved OCR pages under OCR_CORPUS_DIR")
+@settings(
+    max_examples=FUZZ_EXAMPLES,
+    deadline=None,
+    suppress_health_check=[HealthCheck.too_slow, HealthCheck.function_scoped_fixture],
+)
+@given(
+    page=st.sampled_from(CORPUS_PAGES or [Path()]),
+    ops=st.lists(
+        st.tuples(
+            st.sampled_from(["drop_delimiter", "cut_page", "repeat_line", "swap_lines"]),
+            st.integers(min_value=0, max_value=10_000),
+        ),
+        min_size=1,
+        max_size=4,
+    ),
+)
+def test_damaged_real_ocr_pages_compile_and_keep_their_neighbour_pages(
+    tmp_path: Path, page: Path, ops: list[tuple[str, int]]
+) -> None:
+    text = page.read_text(encoding="utf-8")
+    for op, at in ops:
+        text = _mutate(text, op, at)
+    pdf_text = _flat(_build_spec_less_book(tmp_path, [OPENING, text, CLOSING]))
     assert _flat(OPENING) in pdf_text
     assert _flat(CLOSING) in pdf_text
 
@@ -198,6 +318,15 @@ class OCREngineMachine(RuleBasedStateMachine):
     @rule()
     def blank_page(self) -> None:
         self.pages.append([])
+
+    @rule(cut=st.integers(min_value=0, max_value=10_000))
+    def page_break_inside_last_fragment(self, cut: int) -> None:
+        fragment = self.pages[-1][-1] if self.pages[-1] else ""
+        if len(fragment) < 2 or "zq" in fragment:
+            return
+        at = 1 + cut % (len(fragment) - 1)
+        self.pages[-1][-1] = fragment[:at]
+        self.pages.append([fragment[at:]])
 
     @invariant()
     def pages_render(self) -> None:
