@@ -11,6 +11,13 @@ from .edition import Book, Edition
 from .new_book import scaffold_book
 from .parity import compare, verdict, write_report
 from .parity.source import SOURCES_ENV, ensure_source_ocr, source_pdf
+from .review import (
+    default_running_heads,
+    lowest_pages,
+    read_findings,
+    render_checklist,
+    review_folder,
+)
 
 EPILOG = f"""\
 examples:
@@ -129,6 +136,38 @@ def _audit(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def _review(parser: argparse.ArgumentParser, argv: list[str]) -> int:
+    parser.add_argument("folder", type=Path, help="output folder holding the rebuilt PDFs, sources, logs and source_ocr/")
+    parser.add_argument("--scan", type=Path, help="the source scan; needed for --visual and when source_ocr/ is empty")
+    parser.add_argument(
+        "--running-head", action="append", default=[],
+        help="a running-head title to find in body text (repeatable; default: the folder name without its number)",
+    )
+    parser.add_argument("--ocr-languages", default="zh-Hans,en-US", help="Vision OCR languages when source_ocr/ is empty")
+    parser.add_argument("--visual", action="store_true", help="also write red/cyan optical parity overlays per rebuilt PDF")
+    parser.add_argument("--out", type=Path, help="report folder (default: FOLDER/review)")
+    args = parser.parse_args(argv)
+    if not args.folder.is_dir():
+        parser.error(f"{args.folder} is not a folder")
+    ocr = args.folder / "source_ocr"
+    if not any(ocr.glob("p[0-9][0-9][0-9].json")):
+        if args.scan is None:
+            parser.error(f"{ocr} has no OCR pages; pass --scan SCAN.pdf to read them")
+        ensure_source_ocr(args.scan, ocr, args.ocr_languages.split(","))
+    if args.visual and args.scan is None:
+        parser.error("--visual needs --scan")
+    out = args.out or args.folder / "review"
+    heads = args.running_head or default_running_heads(args.folder)
+    measures = review_folder(args.folder, out, heads, args.scan, args.visual)
+    for name, m in measures.items():
+        if "coverage_median" in m:
+            print(f"{name}: {m['pages']} pages, coverage median {m['coverage_median']}, "
+                  f"{m['pages_coverage_below_half']} scan pages below half, {m['pages_text_past_edge']} pages with text past the edge")
+            print(f"  lowest coverage: {lowest_pages(out / 'pages.csv', name)}")
+    print(f"report: {out / 'measures.json'}, {out / 'pages.csv'}, {out / 'history.jsonl'}")
+    return 0
+
+
 def main(command: str, argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog=f"polytypst {command}", epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -138,8 +177,27 @@ def main(command: str, argv: list[str]) -> int:
             "parity": "Check a rebuilt edition against its source scan. Writes a report and exits 1 when a page fails.",
             "audit": "Count the checker's issues per rule in rebuilt editions. Exits 1 when a count rises above the baseline.",
             "new-book": "Write src/KEY/{__init__,spec,book}.py for a new book and add polytypst.KEY to pyproject.toml.",
+            "review": "Measure an output folder against its scan, with or without a book key: text coverage per scan page, "
+            "text past the page edge, LaTeX log warnings, literal numbers, links, footnotes and leaked running heads. "
+            "Writes FOLDER/review/ and prints what changed since the last review.",
+            "checklist": "Render a findings JSONL file as a Markdown checklist beside it, and count findings by status.",
         }[command],
     )
+    if command == "review":
+        return _review(parser, argv)
+    if command == "checklist":
+        parser.add_argument("findings", type=Path, help="JSONL file, one finding per line (fields of polytypst.review.Finding)")
+        args = parser.parse_args(argv)
+        try:
+            findings = read_findings(args.findings)
+        except ValueError as error:
+            print(f"{args.findings} has bad lines; fix them and run the command again:\n{error}")
+            return 1
+        out = args.findings.with_suffix(".md")
+        out.write_text(render_checklist(findings), encoding="utf-8")
+        status = Counter(f.status for f in findings)
+        print(f"{len(findings)} findings: " + ", ".join(f"{n} {s}" for s, n in sorted(status.items())) + f"; checklist: {out}")
+        return 0
     if command == "new-book":
         parser.add_argument("key", help="package and output folder name, a Python identifier")
         parser.add_argument("--title", required=True)
