@@ -3,7 +3,11 @@ from pathlib import Path
 from PIL import Image, ImageChops
 
 MIN_INK_AREA = 400
+# A blank sheet keeps dust and show-through under a thousandth of its area (measured
+# 5k dark pixels on a 17.4M-pixel scan); one line of type carries far more.
 BLANK_INK_RATIO = 0.001
+# Ink differs from the paper tone by this much, so toned stock is not ink and a cover's
+# light type on a dark ground still is.
 INK_CONTRAST = 60
 BLANK_TRANSCRIPT = "<!-- blank page -->\n"
 

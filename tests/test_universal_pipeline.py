@@ -3,8 +3,6 @@
 from dataclasses import replace
 from pathlib import Path
 
-from PIL import Image
-
 from polytypst.goursat.figures import (
     GOURSAT_SVG_GENERATORS,
     generate_goursat_cover_svg,
@@ -12,6 +10,7 @@ from polytypst.goursat.figures import (
 )
 from polytypst.ocr.base import OCRLine
 from polytypst.ocr.colab_cluster import ColabOCRCluster
+from polytypst.ocr.pages import PageImage
 from polytypst.tex_markdown import stitch_document
 from polytypst.vision.figure_extractor import ExtractedFigure, FigureExtractor
 
@@ -142,7 +141,7 @@ def test_figure_extractor_box_detection():
 
 
 def test_dual_colab_partitioning(tmp_path: Path):
-    dummy_pages = [tmp_path / f"p_{i:03d}.png" for i in range(1, 11)]
+    dummy_pages = [PageImage(i, tmp_path / f"p_{i:03d}.png") for i in range(1, 11)]
     chunks = ColabOCRCluster.partition_pages(dummy_pages, 2)
 
     assert len(chunks) == 2
@@ -155,20 +154,6 @@ def test_dual_colab_partitioning(tmp_path: Path):
     assert len(chunks3[0]) == 4
     assert len(chunks3[1]) == 3
     assert len(chunks3[2]) == 3
-
-
-def test_dual_colab_archive_packing(tmp_path: Path):
-    img_dir = tmp_path / "imgs"
-    img_dir.mkdir()
-    p1 = img_dir / "p_001.png"
-    p2 = img_dir / "p_002.png"
-    Image.new("RGB", (50, 50), color="white").save(p1)
-    Image.new("RGB", (50, 50), color="white").save(p2)
-
-    archive = tmp_path / "batch.tar.gz"
-    packed = ColabOCRCluster.pack_archive([p1, p2], archive)
-    assert packed.exists()
-    assert packed.stat().st_size > 0
 
 
 def test_goursat_svg_generators_complete():

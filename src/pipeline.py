@@ -12,11 +12,10 @@ from .compiler.monograph import (
     resolve_monograph_spec,
 )
 from .ocr.apple_vision import AppleVisionOCREngine
-from .ocr.base import OCREngine, mark_blank_pages, page_number
-from .ocr.engines import ocr_engine
-from .ocr.ocr_models import DEFAULT_OCR_MODEL
+from .ocr.backend import DEFAULT_BACKEND, Backend
+from .ocr.pages import page_images
 from .ocr.splitter import TwoUpSplitter
-from .ocr.verifier import OCRVerifier, VerificationReport
+from .ocr.transcripts import TranscriptStore
 from .tex_markdown import stitch_document
 from .vision.figure_extractor import (
     FIGURES_MANIFEST_NAME,
@@ -34,7 +33,6 @@ class PipelineResult:
     output_dir: Path
     master_markdown_path: Path
     figures: list[ExtractedFigure]
-    verification: VerificationReport | None = None
     monograph: MonographOutputs | None = None
 
 
@@ -45,28 +43,22 @@ class UniversalPDFPipeline:
         self,
         pdf_path: Path,
         output_dir: Path,
-        gpu_type: str = "G4",
-        num_colab_workers: int = 2,
-        shards_per_gpu: int = 3,
+        backend: Backend | None = None,
         render_dpi: int = 200,
         running_headers: list[str] | None = None,
         publisher: str = "cambridge",
         lang: str = "en",
         domain: str = "math",
         ocr_prompt: str | None = None,
-        ocr_engine: OCREngine | None = None,
-        ocr_model: str = DEFAULT_OCR_MODEL,
-        languages: list[str] | None = None,
+        pages: set[int] | None = None,
+        retranscribe: bool = False,
     ):
-        self.ocr_model: str = ocr_model
+        self.backend: Backend = backend or Backend.parse(DEFAULT_BACKEND)
         self.ocr_prompt: str | None = ocr_prompt
-        self.languages: list[str] | None = languages
-        self.ocr_engine: OCREngine | None = ocr_engine
+        self.pages: set[int] | None = pages
+        self.retranscribe: bool = retranscribe
         self.pdf_path: Path = Path(pdf_path)
         self.output_dir: Path = Path(output_dir)
-        self.gpu_type: str = gpu_type
-        self.num_colab_workers: int = num_colab_workers
-        self.shards_per_gpu: int = shards_per_gpu
         self.render_dpi: int = render_dpi
         self.running_headers: list[str] = running_headers or []
         self.publisher: str = publisher
@@ -156,35 +148,19 @@ class UniversalPDFPipeline:
         print(f"Extracted {len(figures)} figures into {self.figures_dir}.")
         return figures
 
-    def run_transcription(
-        self,
-        mode: str = "colab",
-        page_subset: list[int] | None = None,
-    ) -> list[tuple[int, str]]:
-        """Transcribe the rendered pages with the injected engine or the one `mode` names."""
-        engine = self.ocr_engine or ocr_engine(
-            mode,
-            prompt=self.ocr_prompt,
-            model=self.ocr_model,
-            gpu_type=self.gpu_type,
-            num_colab_workers=self.num_colab_workers,
-            shards_per_gpu=self.shards_per_gpu,
+    def run_transcription(self) -> dict[int, str]:
+        """Transcribe the rendered pages that the store lacks, limited to `pages` when set."""
+        pages = page_images(self.renders_dir)
+        if self.pages:
+            pages = [p for p in pages if p.number in self.pages]
+        transcriber = self.backend.transcriber(self.ocr_prompt)
+        print(f"Transcribing with {transcriber.provenance}")
+        return TranscriptStore(self.markdown_dir).transcribe(
+            pages, transcriber, retranscribe=self.retranscribe
         )
-        pages = sorted(self.renders_dir.glob("*.png"))
-        if page_subset:
-            wanted = set(page_subset)
-            pages = [p for p in pages if page_number(p) in wanted]
-        blank = mark_blank_pages(pages, self.markdown_dir)
-        if blank:
-            print(f"Marked {len(blank)} blank pages, which skip OCR: {blank}")
-        return engine.transcribe_pages(pages, self.markdown_dir)
 
-    def process(
-        self,
-        mode: str = "colab",
-        double_check_with_mac: bool = True,
-    ) -> PipelineResult:
-        """Run full end-to-end pipeline: render -> figures -> OCR -> verify -> clean/stitch."""
+    def process(self) -> PipelineResult:
+        """Run full end-to-end pipeline: render -> figures -> OCR -> clean/stitch."""
         self.output_dir.mkdir(parents=True, exist_ok=True)
         t_start = pymupdf.open(self.pdf_path)
         total_pages = len(t_start)
@@ -197,6 +173,7 @@ class UniversalPDFPipeline:
         )
         if self.ocr_prompt is None:
             self.ocr_prompt = spec.ocr_prompt
+        self.markdown_dir = self.output_dir / spec.markdown_dir
 
         # Step 1: Render pages
         rendered_pages = self.render_all_pages()
@@ -204,22 +181,10 @@ class UniversalPDFPipeline:
         # Step 2: Extract & Ground all figures
         figures = self.extract_figures(rendered_pages)
 
-        # Step 3: Run OCR transcription (Jina OCR v1)
-        pages_md = self.run_transcription(mode=mode)
+        # Step 3: Transcribe the pages the transcript store lacks
+        pages_md = self.run_transcription()
 
-        # Step 4: Double check with macOS Apple Vision OCR if requested
-        verification: VerificationReport | None = None
-        if double_check_with_mac and pages_md:
-            print(
-                "Double-checking Jina OCR transcription with macOS Apple Vision OCR..."
-            )
-            verifier = OCRVerifier(languages=self.languages)
-            verification = verifier.verify_document(rendered_pages, pages_md)
-            print(
-                f"Verified {verification.total_pages_verified} pages. Discrepancies found on {len(verification.discrepant_pages)} pages."
-            )
-
-        # Step 5: Clean, ground figures, and stitch into TeX-compatible Markdown
+        # Step 4: Clean, ground figures, and stitch into TeX-compatible Markdown
         print(
             "Cleaning math formulas, grounding figures, and stitching master document..."
         )
@@ -242,12 +207,13 @@ class UniversalPDFPipeline:
                 output_dir=self.output_dir,
                 master_markdown_path=master_path,
                 figures=figures,
-                verification=verification,
                 monograph=monograph_out,
             )
 
         master_markdown = stitch_document(
-            pages_md, figures=figures, running_headers=self.running_headers
+            sorted(pages_md.items()),
+            figures=figures,
+            running_headers=self.running_headers,
         )
 
         master_path = self.output_dir / "book.md"
@@ -262,5 +228,4 @@ class UniversalPDFPipeline:
             output_dir=self.output_dir,
             master_markdown_path=master_path,
             figures=figures,
-            verification=verification,
         )

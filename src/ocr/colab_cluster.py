@@ -14,19 +14,10 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .base import (
-    OCREngine,
-    OCRPage,
-    normalize_ocr_markdown,
-    page_number,
-    pending_pages,
-    read_transcripts,
-    text_lines,
-    transcript_path,
-)
 from .colab import ColabSession, account_usage, colab_gpu, fit_problem
 from .gpu_worker import STATS_NAME
 from .ocr_models import DEFAULT_OCR_MODEL, OCRModel, ocr_model
+from .pages import PageImage
 
 OCR_DIR = Path(__file__).resolve().parent
 REMOTE_PKG = "/content/ocrpkg"
@@ -90,9 +81,9 @@ class ColabOCRCluster:
 
     @staticmethod
     def partition_pages(
-        pages: list[Path], num_chunks: int, interleaved: bool = False
-    ) -> list[list[Path]]:
-        """Split a list of page paths into balanced chunks."""
+        pages: list[PageImage], num_chunks: int, interleaved: bool = False
+    ) -> list[list[PageImage]]:
+        """Split a list of pages into balanced chunks."""
         if not pages or num_chunks <= 1:
             return [pages]
         if interleaved:
@@ -100,7 +91,7 @@ class ColabOCRCluster:
                 pages[i::num_chunks] for i in range(num_chunks) if pages[i::num_chunks]
             ]
         k, m = divmod(len(pages), num_chunks)
-        chunks: list[list[Path]] = []
+        chunks: list[list[PageImage]] = []
         for i in range(num_chunks):
             start = i * k + min(i, m)
             end = (i + 1) * k + min(i + 1, m)
@@ -108,12 +99,13 @@ class ColabOCRCluster:
         return [c for c in chunks if len(c) > 0]
 
     @staticmethod
-    def pack_archive(page_files: list[Path], dest_archive: Path) -> Path:
-        """Create a compressed tar.gz archive of page image files."""
+    def pack_archive(pages: Sequence[PageImage], dest_archive: Path) -> Path:
+        """Create a compressed tar.gz of page images named `p_NNN<suffix>` for the worker."""
         dest_archive.parent.mkdir(parents=True, exist_ok=True)
         with tarfile.open(dest_archive, "w:gz") as tar:
-            for p in page_files:
-                tar.add(p, arcname=p.name)
+            for page in pages:
+                suffix = page.path.suffix.lower()
+                tar.add(page.path, arcname=f"p_{page.number:03d}{suffix}")
         return dest_archive
 
     def _prepare(
@@ -204,7 +196,7 @@ class ColabOCRCluster:
     def _run_node(
         self,
         session: ColabSession,
-        node_pages: list[Path],
+        node_pages: list[PageImage],
         out_dir: Path,
         scratch: Path,
     ) -> tuple[int, dict[str, object] | None]:
@@ -238,24 +230,16 @@ class ColabOCRCluster:
             _ = shutil.move(md, out_dir / md.name)
         return len(transcripts), stats
 
-    def run_cluster(
-        self,
-        pages_dir: Path,
-        out_dir: Path,
-        pages: Sequence[Path] | None = None,
-    ) -> ClusterStats:
-        """Transcribe the pending pages on up to `num_workers` VMs at once."""
+    def run_cluster(self, pages: Sequence[PageImage], out_dir: Path) -> ClusterStats:
+        """Transcribe `pages` into `out_dir` on up to `num_workers` VMs at once."""
         out_dir.mkdir(parents=True, exist_ok=True)
-        all_pages = (
-            list(pages) if pages is not None else sorted(pages_dir.glob("*.png"))
-        )
-        pending = pending_pages(all_pages, out_dir)
+        pending = list(pages)
         print(
             f"=== COLAB OCR: {self.model.key} on {self.num_workers}x {self.gpu_type} | "
-            f"{len(all_pages)} pages, {len(pending)} pending ==="
+            f"{len(pending)} pages ==="
         )
         if not pending:
-            return ClusterStats(len(all_pages), 0, 0.0, 0.0, 0)
+            return ClusterStats(0, 0, 0.0, 0.0, 0)
         problem = fit_problem(self.model, colab_gpu(self.gpu_type))
         if problem:
             raise ValueError(
@@ -286,59 +270,13 @@ class ColabOCRCluster:
             f"Cluster finished {completed} pages in {duration:.1f}s ({rate:.2f} pages/s)."
         )
         return ClusterStats(
-            total_pages=len(all_pages),
+            total_pages=len(pending),
             completed_pages=completed,
             duration_sec=duration,
             effective_pages_per_sec=rate,
             active_workers=sum(1 for n, _ in results if n),
             worker_stats=[s for _, s in results if s],
         )
-
-
-class ColabOCREngine(OCREngine):
-    """Transcribe pages on a Colab GPU cluster in resumable batches."""
-
-    def __init__(self, cluster: ColabOCRCluster, batch_size: int = 70) -> None:
-        self.cluster = cluster
-        self.batch_size = batch_size
-
-    def transcribe_pages(
-        self, pages: Sequence[Path], out_dir: Path
-    ) -> list[tuple[int, str]]:
-        out_dir.mkdir(parents=True, exist_ok=True)
-        pending = pending_pages(pages, out_dir)
-        batches = [
-            pending[i : i + self.batch_size]
-            for i in range(0, len(pending), self.batch_size)
-        ]
-        for idx, batch in enumerate(batches, start=1):
-            print(f"Colab batch {idx}/{len(batches)}: {len(batch)} pages")
-            _ = self.cluster.run_cluster(batch[0].parent, out_dir, pages=batch)
-            for image_path in batch:
-                t = transcript_path(out_dir, page_number(image_path))
-                if t.exists():
-                    _ = t.write_text(
-                        normalize_ocr_markdown(t.read_text(encoding="utf-8")),
-                        encoding="utf-8",
-                    )
-        return read_transcripts(out_dir, pages)
-
-    def recognize_page(self, image_path: Path, page_number: int) -> OCRPage:
-        with tempfile.TemporaryDirectory() as tmp:
-            transcripts = self.transcribe_pages([image_path], Path(tmp))
-        text = transcripts[0][1] if transcripts else ""
-        lines = text_lines(text)
-        return OCRPage(page_number, 0, 0, lines, raw_text=text)
-
-    def recognize_document(self, image_paths: list[Path]) -> list[OCRPage]:
-        with tempfile.TemporaryDirectory() as tmp:
-            transcripts = dict(self.transcribe_pages(image_paths, Path(tmp)))
-        return [
-            OCRPage(
-                page_number(p), 0, 0, [], raw_text=transcripts.get(page_number(p), "")
-            )
-            for p in image_paths
-        ]
 
 
 @dataclass(frozen=True)
@@ -366,7 +304,7 @@ class BenchResult:
 def benchmark(
     gpu: str,
     model: str,
-    pages: Sequence[Path],
+    pages: Sequence[PageImage],
     out_dir: Path,
     prompt: str | None = None,
 ) -> BenchResult:
@@ -379,7 +317,7 @@ def benchmark(
         prompt=prompt,
         model=model,
     )
-    stats = cluster.run_cluster(pages[0].parent, out_dir, pages=pages)
+    stats = cluster.run_cluster(pages, out_dir)
     return BenchResult(
         gpu=gpu,
         model=model,

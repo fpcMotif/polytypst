@@ -1,7 +1,7 @@
 """Self-contained GPU worker: transcribe page images with any model in `ocr_models`.
 
 Runs on a Colab VM as `python -m ocrpkg.gpu_worker` beside a copy of `ocr_models.py`, or
-locally through `LocalGPUWorkerEngine`. Each page becomes `p_NNN.md`; `_stats.json`
+locally through `LocalGpuTranscriber`. Each page becomes `p_NNN.md`; `_stats.json`
 records throughput.
 """
 
@@ -38,6 +38,13 @@ warnings.filterwarnings("ignore")
 logging.getLogger("transformers_modules").setLevel(logging.ERROR)
 
 STATS_NAME = "_stats.json"
+RENDER_SUFFIXES = (".png", ".jpg", ".jpeg")
+
+
+def worker_transcript_path(out_dir: Path, number: int) -> Path:
+    return out_dir / f"p_{number:03d}.md"
+
+
 VLLM_BATCH = 16
 
 Transcriber = Callable[[list[Image.Image]], list[str]]
@@ -221,7 +228,7 @@ def _shard_worker(
                 n: model.clean(t) for (n, _), t in zip(inked, texts, strict=True)
             }
             for n, _ in loaded:
-                _ = (out_dir / f"p_{n:03d}.md").write_text(
+                _ = worker_transcript_path(out_dir, n).write_text(
                     by_page.get(n, BLANK_TRANSCRIPT), encoding="utf-8"
                 )
             completed += len(loaded)
@@ -235,10 +242,10 @@ def _shard_worker(
 def page_items(
     pages_dir: Path, page_list: Sequence[int] | None = None
 ) -> list[tuple[int, str]]:
-    """(page number, path) for each `*_NNN.png` render, limited to `page_list` when given."""
+    """(page number, path) for each `*_NNN` image render, limited to `page_list` when given."""
     items: list[tuple[int, str]] = []
-    for path in sorted(pages_dir.glob("*.png")):
-        if path.name.startswith("._"):
+    for path in sorted(pages_dir.iterdir()):
+        if path.suffix.lower() not in RENDER_SUFFIXES or path.name.startswith("._"):
             continue
         try:
             n = int(path.stem.split("_")[-1])
@@ -257,25 +264,17 @@ def _gpu_summary() -> tuple[str, float]:
     return props.name, props.total_memory / 2**30
 
 
-def _is_pending(out_dir: Path, n: int) -> bool:
-    out = out_dir / f"p_{n:03d}.md"
-    return not out.exists() or out.stat().st_size < 15
-
-
 def run_worker(
-    pages_dir: Path,
+    items: Sequence[tuple[int, str]],
     out_dir: Path,
-    page_list: Sequence[int] | None = None,
-    prompt: str = UNIVERSAL_TEX_PROMPT,
-    num_shards: int = 1,
-    model_key: str = DEFAULT_OCR_MODEL,
+    prompt: str,
+    num_shards: int,
+    model_key: str,
 ) -> None:
     model = ocr_model(model_key)
     out_dir.mkdir(parents=True, exist_ok=True)
     gpu_name, vram_gb = _gpu_summary()
-    pending = [
-        (n, p) for n, p in page_items(pages_dir, page_list) if _is_pending(out_dir, n)
-    ]
+    pending = list(items)
     shards = min(
         model.copies_per_gpu(vram_gb, num_shards) if vram_gb else 1,
         max(1, len(pending)),
@@ -318,7 +317,6 @@ def run_worker(
     }
     _ = (out_dir / STATS_NAME).write_text(json.dumps(stats) + "\n", encoding="utf-8")
     print(f"Worker stats: {stats}", flush=True)
-    _archive_output(out_dir)
 
 
 def _archive_output(out_dir: Path) -> None:
@@ -342,10 +340,13 @@ if __name__ == "__main__":
     _ = parser.add_argument("--prompt-file", type=str, default="")
     _ = parser.add_argument("--model", type=str, default=DEFAULT_OCR_MODEL)
     args, _ = parser.parse_known_args()
+    out = Path(args.out)
     run_worker(
-        Path(args.pages),
-        Path(args.out),
-        [int(x) for x in args.page_list.split(",") if x.strip()] or None,
+        page_items(
+            Path(args.pages),
+            [int(x) for x in args.page_list.split(",") if x.strip()] or None,
+        ),
+        out,
         prompt=(
             Path(args.prompt_file).read_text(encoding="utf-8")
             if args.prompt_file
@@ -354,3 +355,4 @@ if __name__ == "__main__":
         num_shards=args.shards,
         model_key=args.model,
     )
+    _archive_output(out)

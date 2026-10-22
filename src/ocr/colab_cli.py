@@ -9,8 +9,8 @@ from pathlib import Path
 
 from .colab import COLAB_GPUS, account_usage, fit_problem, probe_gpu, write_probes
 from .colab_cluster import benchmark
-from .gpu_worker import page_items
 from .ocr_models import DEFAULT_OCR_MODEL, OCR_MODELS
+from .pages import PageImage, page_images
 
 
 def _table(header: list[str], rows: list[list[str]]) -> str:
@@ -72,9 +72,9 @@ def run_probes(gpus: list[str], out: Path) -> None:
     print(f"Wrote {out}")
 
 
-def sample_pages(pages_dir: Path, count: int) -> list[Path]:
+def sample_pages(pages_dir: Path, count: int) -> list[PageImage]:
     """`count` renders spread evenly across the book, so the sample mixes prose and math."""
-    items = [Path(p) for _, p in page_items(pages_dir)]
+    items = page_images(pages_dir)
     if len(items) <= count:
         return items
     step = len(items) / count

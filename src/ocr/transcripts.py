@@ -28,6 +28,7 @@ def normalize_ocr_markdown(decoded: object) -> str:
     if fenced:
         text = fenced.group(1)
     elif _OPEN_FENCE_RE.match(text):
+        # A fence the model never closed would swallow the rest of the book.
         text = _CLOSE_FENCE_RE.sub("\n", _OPEN_FENCE_RE.sub("", text, count=1))
     return text.strip() + "\n" if text.strip() else ""
 

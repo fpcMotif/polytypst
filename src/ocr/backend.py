@@ -1,14 +1,18 @@
+import argparse
 import hashlib
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from types import MappingProxyType
 from urllib.parse import parse_qsl, urlencode
 
 from .ocr_models import DEFAULT_OCR_MODEL, UNIVERSAL_TEX_PROMPT, ocr_model
-from .pages import OCRBackendError
+from .pages import OCRBackendError, Transcriber
 
 GEMINI_DEFAULT_MODEL = "gemini-3.1-pro-preview"
+JINA_BASE_URL = "https://api.jina.ai/v1"
+DEFAULT_BACKEND = "colab"
 
 Option = int | str
 
@@ -117,6 +121,99 @@ class Backend:
         if prompt is None:
             return made_by
         return f"{made_by}#prompt={hashlib.sha256(prompt.encode()).hexdigest()[:12]}"
+
+    def transcriber(self, book_prompt: str | None) -> Transcriber:
+        prompt = self.prompt(book_prompt)
+        provenance = self.provenance(prompt)
+        instruction = prompt or ""
+        if self.kind == "cached":
+            from .cached import CachedTranscriber
+            from .transcripts import TranscriptStore
+
+            store = TranscriptStore(Path(self.text("dir")))
+            return CachedTranscriber(store, provenance)
+        if self.kind == "local":
+            from .local_gpu import LocalGpuTranscriber
+
+            shards = self.number("shards")
+            return LocalGpuTranscriber(self.model, instruction, shards, provenance)
+        if self.kind == "colab":
+            return self._colab(instruction, provenance)
+        concurrency = self.number("concurrency")
+        max_side = self.number("max_side")
+        if self.kind == "gemini":
+            from .gemini import GeminiTranscriber
+
+            return GeminiTranscriber(
+                model=self.model,
+                prompt=instruction,
+                api_key=api_key("GEMINI_API_KEY"),
+                provenance=provenance,
+                concurrency=concurrency,
+                max_side=max_side,
+            )
+        if self.kind == "mistral":
+            from .mistral import MistralTranscriber
+
+            return MistralTranscriber(
+                model=self.model,
+                api_key=api_key("MISTRAL_API_KEY"),
+                provenance=provenance,
+                concurrency=concurrency,
+                max_side=max_side,
+            )
+        from .openai_compat import OpenAICompatTranscriber
+
+        if self.kind == "jina":
+            base_url, key, pace_sec = (
+                JINA_BASE_URL,
+                api_key("JINA_API_KEY"),
+                self.number("pace_ms") / 1000,
+            )
+        else:
+            key_env = self.text("key_env")
+            base_url, key, pace_sec = (
+                self.text("base_url"),
+                api_key(key_env) if key_env else None,
+                0.0,
+            )
+        return OpenAICompatTranscriber(
+            base_url=base_url,
+            model=self.model,
+            prompt=instruction,
+            api_key=key,
+            provenance=provenance,
+            concurrency=concurrency,
+            max_side=max_side,
+            pace_sec=pace_sec,
+        )
+
+    def _colab(self, prompt: str, provenance: str) -> Transcriber:
+        from .colab_cluster import ColabOCRCluster
+        from .colab_transcriber import ColabTranscriber
+
+        if not ColabOCRCluster.is_colab_available():
+            raise OCRBackendError(
+                "The colab CLI is missing or signed out (`colab usage` checks it). "
+                f"Run on this machine with --backend local:{self.model}, "
+                "or on an API with --backend gemini."
+            )
+        cluster = ColabOCRCluster(
+            gpu_type=self.text("gpu"),
+            num_workers=self.number("workers"),
+            shards_per_gpu=self.number("shards"),
+            session_prefix=self.text("session"),
+            prompt=prompt,
+            model=self.model,
+        )
+        return ColabTranscriber(cluster, self.number("batch"), provenance)
+
+
+def backend_argument(text: str) -> Backend:
+    try:
+        return Backend.parse(text)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from None
 
 
 def api_key(env_name: str) -> str:
