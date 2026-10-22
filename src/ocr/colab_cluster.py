@@ -132,6 +132,7 @@ class ColabOCRCluster:
         uploads = [
             (pages_archive, "/content/pages.tar.gz"),
             (OCR_DIR / "ocr_models.py", f"{REMOTE_PKG}/ocr_models.py"),
+            (OCR_DIR / "blank.py", f"{REMOTE_PKG}/blank.py"),
             (OCR_DIR / "gpu_worker.py", f"{REMOTE_PKG}/gpu_worker.py"),
         ]
         if self.prompt is not None:

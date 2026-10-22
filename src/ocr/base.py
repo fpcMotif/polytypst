@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .gpu_worker import BLANK_TRANSCRIPT, is_blank_page
+from .blank import BLANK_TRANSCRIPT, is_blank_page
 
 
 @dataclass

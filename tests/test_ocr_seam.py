@@ -14,13 +14,13 @@ from polytypst.ocr.base import (
     pending_pages,
     transcript_path,
 )
+from polytypst.ocr.blank import BLANK_TRANSCRIPT, is_blank_page
 from polytypst.ocr.colab_cluster import (
     ClusterStats,
     ColabOCRCluster,
     ColabOCREngine,
 )
 from polytypst.ocr.engines import CachedMarkdownEngine, ocr_engine
-from polytypst.ocr.gpu_worker import BLANK_TRANSCRIPT, is_blank_page
 from polytypst.ocr.jina import JinaCloudOCREngine, JinaCloudUnavailable
 from polytypst.pipeline import UniversalPDFPipeline
 
