@@ -1,8 +1,9 @@
 """Universal Academic Monograph Compiler for TeX-compatible Markdown, XeLaTeX, Typst, and PDF.
 
-A book supplies a declarative `MonographSpec`. `MonographCompiler` owns page
-cleaning, cross-page stitching, figure placement, LaTeX-to-Typst math, the
-Typst preamble, and the Pandoc and Typst subprocess runs.
+A book supplies a declarative `MonographSpec`. `PageCleaner` cleans each page.
+`MonographCompiler` joins the clean pages into chapters and places the figures.
+It converts LaTeX math to Typst and writes the Typst preamble. It also runs
+Pandoc and Typst.
 """
 
 import re
