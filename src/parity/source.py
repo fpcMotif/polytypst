@@ -16,14 +16,11 @@ import pymupdf
 
 from ..compiler.monograph import MonographSpec
 from ..ocr.lines import LineStore, line_reader
-from ..ocr.pages import OcrLine, PageImage
+from ..ocr.pages import OcrLine
+from ..ocr.scan import SourceScan, SourceScanError
 
 SOURCES_ENV = "POLYTYPST_SOURCES"
 SCAN_DPI = 300
-
-
-class SourceScanError(RuntimeError):
-    pass
 
 
 def sources_dir(wanted: str) -> Path:
@@ -75,14 +72,9 @@ def ensure_source_ocr(source: Path, cache: Path, languages: Sequence[str], batch
         return
     reader = line_reader(languages)
     store = LineStore(cache)
-    scans = cache / "scans"
-    scans.mkdir(exist_ok=True)
+    scan = SourceScan(source, split=False)
     for start in range(0, len(todo), batch):
-        pages = []
-        for p in todo[start : start + batch]:
-            png = scans / f"p{p:03d}.png"
-            doc[p - 1].get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csGRAY).save(png)
-            pages.append(PageImage(p, png))
+        pages = scan.pages(cache / "scans", dpi=SCAN_DPI, grey=True, numbers=todo[start : start + batch])
         store.read(pages, reader)
         for page in pages:
             page.path.unlink()

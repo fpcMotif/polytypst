@@ -5,7 +5,7 @@ polytypst re-typesets scanned mathematics books as Typst, LaTeX and EPUB. This g
 ## Language
 
 **Source scan**:
-The original PDF of a book, as scanned page images. It is the ground truth for text, layout and diagrams.
+The original scan of a book: a PDF, a folder of page images, or one image. It is the ground truth for text, layout and diagrams. Scan parity needs a PDF.
 _Avoid_: original, ground truth PDF, input PDF
 
 **Rebuilt PDF**:

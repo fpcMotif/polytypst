@@ -4,8 +4,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-import pymupdf
-
 from .books import render_book_figures
 from .compiler.monograph import (
     MonographCompiler,
@@ -15,7 +13,7 @@ from .compiler.monograph import (
 from .ocr.backend import DEFAULT_BACKEND, Backend
 from .ocr.lines import DEFAULT_OCR_LANGUAGES, LineStore, line_reader
 from .ocr.pages import LinePage, PageImage, page_images
-from .ocr.splitter import TwoUpSplitter
+from .ocr.scan import SourceScan
 from .ocr.transcripts import TranscriptStore
 from .tex_markdown import stitch_document
 from .vision.figure_extractor import (
@@ -29,7 +27,7 @@ from .vision.figure_extractor import (
 
 @dataclass
 class PipelineResult:
-    pdf_path: Path
+    source: Path
     total_pages: int
     output_dir: Path
     master_markdown_path: Path
@@ -42,7 +40,7 @@ class UniversalPDFPipeline:
 
     def __init__(
         self,
-        pdf_path: Path,
+        source: Path,
         output_dir: Path,
         backend: Backend | None = None,
         render_dpi: int = 200,
@@ -58,7 +56,7 @@ class UniversalPDFPipeline:
         self.ocr_prompt: str | None = ocr_prompt
         self.pages: set[int] | None = pages
         self.retranscribe: bool = retranscribe
-        self.pdf_path: Path = Path(pdf_path)
+        self.source: Path = Path(source)
         self.output_dir: Path = Path(output_dir)
         self.render_dpi: int = render_dpi
         self.running_headers: list[str] = running_headers or []
@@ -70,57 +68,17 @@ class UniversalPDFPipeline:
         self.figures_dir: Path = self.output_dir / "figures"
         self.markdown_dir: Path = self.output_dir / "markdown_pages"
 
-    def render_all_pages(self) -> list[Path]:
-        """Render all pages from PDF to image directory, handling 2-up spreads if present."""
-        self.renders_dir.mkdir(parents=True, exist_ok=True)
-        existing = sorted(self.renders_dir.glob("p_*.png"))
-        doc = pymupdf.open(self.pdf_path)
-        total_pages = len(doc)
-        if len(existing) >= max(1, total_pages - 15):
-            print(
-                f"Loaded {len(existing)} existing page images from {self.renders_dir}."
-            )
-            return existing
-
-        print(
-            f"Rendering {total_pages} pages from {self.pdf_path.name} at {self.render_dpi} DPI..."
-        )
-
-        splitter = TwoUpSplitter(self.pdf_path)
-        if splitter.is_two_up():
-            print(
-                "Detected 2-up scanned book spread. Splitting down spine into single portrait pages..."
-            )
-            return splitter.split_and_render_all(self.renders_dir, dpi=self.render_dpi)
-
-        rendered_paths: list[Path] = []
-        for i in range(total_pages):
-            out_p = self.renders_dir / f"p_{i + 1:03d}.png"
-            if not out_p.exists():
-                page = doc[i]
-                imgs = page.get_images()
-                saved_native = False
-                if len(imgs) == 1:
-                    xref = imgs[0][0]
-                    base_img = doc.extract_image(xref)
-                    if (
-                        base_img
-                        and str(base_img.get("ext", "")) == "png"
-                        and int(base_img.get("width", 0)) >= 1000
-                    ):
-                        _ = out_p.write_bytes(bytes(base_img["image"]))
-                        saved_native = True
-                if not saved_native:
-                    pix = page.get_pixmap(dpi=self.render_dpi)
-                    pix.save(out_p)
-            rendered_paths.append(out_p)
-
-        print(f"Rendered {len(rendered_paths)} page images in {self.renders_dir}.")
-        return rendered_paths
+    def render_all_pages(self, scan: SourceScan) -> list[PageImage]:
+        """Render every page of the source scan that `renders_dir` lacks, with 2-up spreads split."""
+        split = " (2-up spreads split down the spine)" if scan.split else ""
+        print(f"Rendering {scan.page_count} pages from {self.source.name}{split} at {self.render_dpi} DPI...")
+        pages = scan.pages(self.renders_dir, dpi=self.render_dpi)
+        print(f"{len(pages)} page images in {self.renders_dir}.")
+        return pages
 
     def extract_figures(
         self,
-        rendered_pages: list[Path],
+        rendered_pages: list[PageImage],
         ocr_languages: Sequence[str] = DEFAULT_OCR_LANGUAGES,
     ) -> list[ExtractedFigure]:
         """Automatically detect, crop, and catalogue all figures in the PDF."""
@@ -129,7 +87,7 @@ class UniversalPDFPipeline:
         cached = load_complete_figures_manifest(manifest_path)
         if cached is not None:
             return cached
-        extractor = FigureExtractor(self.pdf_path, line_reader(ocr_languages))
+        extractor = FigureExtractor(self.source, line_reader(ocr_languages))
 
         # First run fast local Apple Vision OCR for layout and figure caption detection
         print(
@@ -140,8 +98,7 @@ class UniversalPDFPipeline:
         )
         if not figures and rendered_pages:
             store = LineStore(self.output_dir / "source_ocr")
-            pages = [PageImage(i + 1, path) for i, path in enumerate(rendered_pages)]
-            lines = store.read(pages, extractor.reader)
+            lines = store.read(rendered_pages, extractor.reader)
             ocr_pages = [LinePage(number, page_lines) for number, page_lines in lines.items()]
             figures = extractor.extract_all(
                 self.figures_dir, ocr_pages=ocr_pages, dpi=300
@@ -164,10 +121,10 @@ class UniversalPDFPipeline:
     def process(self) -> PipelineResult:
         """Run full end-to-end pipeline: render -> figures -> OCR -> clean/stitch."""
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        t_start = pymupdf.open(self.pdf_path)
-        total_pages = len(t_start)
+        scan = SourceScan(self.source)
+        total_pages = scan.page_count
         spec = resolve_monograph_spec(
-            self.pdf_path,
+            self.source,
             total_pages,
             publisher_key=self.publisher,
             lang=self.lang,
@@ -178,10 +135,14 @@ class UniversalPDFPipeline:
         self.markdown_dir = self.output_dir / spec.markdown_dir
 
         # Step 1: Render pages
-        rendered_pages = self.render_all_pages()
+        rendered_pages = self.render_all_pages(scan)
 
         # Step 2: Extract & Ground all figures
-        figures = self.extract_figures(rendered_pages, spec.ocr_languages)
+        if scan.pdf is not None:
+            figures = self.extract_figures(rendered_pages, spec.ocr_languages)
+        else:
+            figures = []
+            print("Skipping figure extraction: it reads the PDF, and this scan's pages are not PDF pages.")
 
         # Step 3: Transcribe the pages the transcript store lacks
         pages_md = self.run_transcription()
@@ -204,7 +165,7 @@ class UniversalPDFPipeline:
                 f"  PDF:      {monograph_out.pdf_path} ({monograph_out.total_pages} pages)"
             )
             return PipelineResult(
-                pdf_path=self.pdf_path,
+                source=self.source,
                 total_pages=total_pages,
                 output_dir=self.output_dir,
                 master_markdown_path=master_path,
@@ -225,7 +186,7 @@ class UniversalPDFPipeline:
         )
 
         return PipelineResult(
-            pdf_path=self.pdf_path,
+            source=self.source,
             total_pages=total_pages,
             output_dir=self.output_dir,
             master_markdown_path=master_path,

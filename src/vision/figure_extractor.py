@@ -4,6 +4,7 @@ import json
 import re
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+from itertools import product
 from pathlib import Path
 from typing import Any, final
 
@@ -12,7 +13,7 @@ import pymupdf
 from PIL import Image
 
 from ..ocr.lines import DEFAULT_OCR_LANGUAGES, LineStore, line_reader
-from ..ocr.pages import LinePage, LineReader, OcrLine, PageImage
+from ..ocr.pages import LinePage, LineReader, OcrLine, page_images
 from ..ocr.transcripts import TranscriptStore
 from .cropper import HighDPICropper
 
@@ -318,8 +319,7 @@ class FigureExtractor:
             ):
                 pages_to_scan.update(p for p in (pno - 1, pno, pno + 1) if p in pages)
 
-        renders = [PageImage(pno, renders_dir / f"p_{pno:03d}.png") for pno in sorted(pages_to_scan)]
-        renders = [page for page in renders if page.path.exists()]
+        renders = [page for page in page_images(renders_dir) if page.number in pages_to_scan]
         page_lines = LineStore(out_dir.parent / "source_ocr").read(renders, self.reader)
         for pno, png_path in ((page.number, page.path) for page in renders):
             with Image.open(png_path) as im:
@@ -444,8 +444,8 @@ class FigureExtractor:
                 dest_path = out_dir / fig_filename
 
                 page_png: Path | None = None
-                for sub in ("page_renders", "pages", "renders"):
-                    cand = out_dir.parent / sub / f"p_{pno:03d}.png"
+                for sub, suffix in product(("page_renders", "pages", "renders"), (".png", ".jpg")):
+                    cand = out_dir.parent / sub / f"p_{pno:03d}{suffix}"
                     if cand.exists():
                         page_png = cand
                         break

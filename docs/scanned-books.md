@@ -20,7 +20,7 @@ Each command's `--help` gives its flags. This guide gives the order, the hidden 
 
 ## Transcribe the scan
 
-A monograph edition compiles the transcripts in the book's transcript store, `output/<key>/<markdown_dir>/`. To fill the store, run `uv run polytypst SCAN.pdf -o output/<key> --backend BACKEND`. The command renders the pages to `page_renders/`, finds the figures, and sends each page that has no transcript to the backend. A blank page gets a blank-page marker and goes to no backend.
+A monograph edition compiles the transcripts in the book's transcript store, `output/<key>/<markdown_dir>/`. To fill the store, run `uv run polytypst SCAN -o output/<key> --backend BACKEND`. SCAN is a PDF, a folder of page images, or one image. In a folder, the pages follow the natural order of the file names, so `IMG_99.jpg` comes before `IMG_100.jpg`. When most of the first five sheets are landscape, each sheet is split down the spine into two pages. The command renders the pages to `page_renders/` and records the source and settings in `renders.json`. A later run renders only the missing pages, or all pages again when the source or settings change. The command then finds the figures and sends each page that has no transcript to the backend. Figure extraction runs only on an unsplit PDF, because it reads the PDF's text layer. A blank page gets a blank-page marker and goes to no backend.
 
 | Backend | Runs on | Needs |
 | --- | --- | --- |

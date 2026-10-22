@@ -41,7 +41,7 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "pdf_path", type=Path, nargs="?", help="Path to input PDF document"
+        "source", type=Path, nargs="?", help="The source scan: a PDF, a folder of page images, or one image"
     )
     parser.add_argument(
         "--export-web",
@@ -101,18 +101,19 @@ def main() -> None:
         web_pub = Path(__file__).resolve().parents[1] / "web" / "public"
         export_all_web_data(root_dir, web_pub)
         print(f"Exported web catalog and assets to {web_pub}")
-        if not args.pdf_path:
+        if not args.source:
             return
 
-    if not args.pdf_path or not args.pdf_path.exists():
-        print(f"Error: File {args.pdf_path} does not exist.")
+    if not args.source or not args.source.exists():
+        print(f"Error: File {args.source} does not exist.")
         sys.exit(1)
 
     from .ocr.pages import OCRBackendError
+    from .ocr.scan import SourceScanError
     from .pipeline import UniversalPDFPipeline
 
     pipeline = UniversalPDFPipeline(
-        pdf_path=args.pdf_path,
+        source=args.source,
         output_dir=args.output,
         backend=args.backend,
         publisher=args.publisher,
@@ -125,6 +126,8 @@ def main() -> None:
         res = pipeline.process()
     except OCRBackendError as exc:
         sys.exit(f"OCR backend {args.backend} failed: {exc}")
+    except SourceScanError as exc:
+        sys.exit(f"Cannot read the source scan: {exc}")
     print(f"\n🎉 polytypst build complete! Master file: {res.master_markdown_path}")
 
 

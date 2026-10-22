@@ -77,6 +77,9 @@ uv pip install -e .
 ```bash
 # Transcribe a scanned PDF with the Gemini API, then compile it
 polytypst path/to/document.pdf --output output/book --backend gemini
+
+# A folder of page photos, or a single image, works the same way
+polytypst path/to/photos/ --output output/book --backend gemini
 ```
 
 ### Options
