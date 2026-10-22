@@ -87,6 +87,32 @@ def test_layout_tier_accepts_scripts_and_limits_at_normal_size(tmp_path: Path) -
     assert "SHRUNKEN_DISPLAY_MATH" not in report.rules()
 
 
+def test_layout_tier_accepts_second_level_scripts_beside_their_base(tmp_path: Path) -> None:
+    prose = "Ordinary prose fills the page at the body size. " * 12
+    pdf = _typst_pdf(
+        tmp_path,
+        f"#set text(10pt)\n{prose} Inline $x^(a^(p-1)) + sum_(j=0)^(n-1) c_j$, $e^(2 pi i (m omega + n))$,"
+        f" $e^((z - z_1)/(2 pi i))$ and $x^((n-1)/2)$ here.\n\n"
+        f"$ ((z - z_1)/(z - z_3)) / ((z_2 - z_1)/(z_2 - z_3)) $\n\n"
+        f"Inline cross ratio $((z - z_1)/(z - z_3)) / ((z_2 - z_1)/(z_2 - z_3))$ too.\n\n"
+        f"$ f(x) = sum_(j=0)^(n-1) a_(n_k)^(m_j) x^(p^(q-1)) + (partial f)/(partial x^alpha) $\n\n{prose}",
+    )
+    report = DocumentQualityChecker(pdf).run_all_checks(frozenset({LAYOUT_TIER}))
+    assert "SHRUNKEN_DISPLAY_MATH" not in report.rules()
+
+
+def test_layout_tier_accepts_small_math_labels_inside_a_drawn_figure(tmp_path: Path) -> None:
+    prose = "Ordinary prose fills the page at the body size. " * 12
+    figure = (
+        "#align(center, box(width: 220pt, height: 140pt, stroke: 0.5pt)["
+        "#place(center + horizon, text(5.5pt)[$gamma'(t_0) in [D] inter R$])"
+        "#place(top + left, line(start: (10pt, 130pt), end: (200pt, 20pt)))])"
+    )
+    pdf = _typst_pdf(tmp_path, f"#set text(10pt)\n{prose}\n\n{figure}\n\n{prose}")
+    report = DocumentQualityChecker(pdf).run_all_checks(frozenset({LAYOUT_TIER}))
+    assert "SHRUNKEN_DISPLAY_MATH" not in report.rules()
+
+
 def test_book_author_or_title_alone_on_a_body_line_is_a_leaked_header(
     tmp_path: Path,
 ) -> None:

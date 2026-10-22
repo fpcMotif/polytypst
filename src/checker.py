@@ -803,7 +803,9 @@ class DocumentQualityChecker:
                         sizes[round(s["size"], 1)] += len(s["text"].strip())
         if not sizes:
             return
-        floor = 0.6 * sizes.most_common(1)[0][0]
+        body = sizes.most_common(1)[0][0]
+        floor = 0.6 * body
+        script_sizes = (0.7 * body, 0.5 * body)
         for pno, d in enumerate(pages):
             if pno + 1 in self.spec.figure_pages:
                 continue
@@ -812,12 +814,25 @@ class DocumentQualityChecker:
                 for b in d["blocks"]
                 for ln in b.get("lines", [])
             ]
+            full_size = [pymupdf.Rect(s["bbox"]) for spans in lines for s in spans if s["size"] >= floor]
+            figures = [r for r in self.doc[pno].cluster_drawings() if r.width >= 40 and r.height >= 40]
+
+            def beside_full_size(spans: list[dict], full_size: list[pymupdf.Rect]) -> bool:
+                box = pymupdf.Rect(spans[0]["bbox"])
+                for s in spans[1:]:
+                    box |= s["bbox"]
+                box = box + (-floor, -floor, floor, floor)
+                return any(box.intersects(r) for r in full_size)
+
             shrunk = [
                 spans
                 for spans in lines
                 if len("".join(s["text"] for s in spans).strip()) >= 3
                 and all("Math" in s["font"] for s in spans)
                 and max(s["size"] for s in spans) < floor
+                and not any(abs(max(s["size"] for s in spans) - size) < 0.1 for size in script_sizes)
+                and not beside_full_size(spans, full_size)
+                and not any(pymupdf.Rect(spans[0]["bbox"]) in r for r in figures)
             ]
             if shrunk:
                 size = max(s["size"] for s in shrunk[0])
