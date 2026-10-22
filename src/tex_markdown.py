@@ -1,4 +1,9 @@
-"""TeX-compatible Markdown normalizer, figure grounder, and document stitcher."""
+"""OCR math repair and HTML table conversion for TeX-compatible Markdown.
+
+`repair_page_math` repairs one transcribed page: `\\neq` signs, hyphen joins and math
+delimiters. `repair_ocr_math` repairs one math body. `normalize_html_tables` changes
+OCR HTML tables into Markdown pipe tables.
+"""
 
 from __future__ import annotations
 
