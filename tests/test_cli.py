@@ -8,7 +8,9 @@ from polytypst.edition import Book, Edition
 @pytest.fixture
 def built(monkeypatch, tmp_path):
     calls = []
-    edition = Edition(tmp_path / "x.pdf", lambda source, formats: calls.append(formats), formats=frozenset({"pdf", "tex"}))
+    edition = Edition(
+        tmp_path / "x.pdf", lambda source, formats, footnotes: calls.append(formats), formats=frozenset({"pdf", "tex"})
+    )
     book = Book(MonographSpec(slug="x", title="X", author="A"), tmp_path, {"monograph": edition})
     monkeypatch.setattr(books_cli, "books", lambda: {"probe": book})
     return calls
@@ -29,6 +31,23 @@ def test_build_rejects_a_format_the_edition_cannot_make(built, capsys):
     with pytest.raises(SystemExit):
         books_cli.main("build", ["probe", "--formats", "epub"])
     assert "epub" in capsys.readouterr().err
+    assert built == []
+
+
+def test_build_passes_the_footnote_numbering(monkeypatch, tmp_path):
+    calls = []
+    spec = MonographSpec(slug="x", title="X", author="A", footnote_style="paren")
+    edition = Edition(tmp_path / "x.pdf", lambda source, formats, footnotes: calls.append(footnotes), spec=spec)
+    monkeypatch.setattr(books_cli, "books", lambda: {"probe": Book(spec, tmp_path, {"monograph": edition})})
+    assert books_cli.main("build", ["probe"]) == 0
+    assert books_cli.main("build", ["probe", "--footnotes", "running"]) == 0
+    assert calls == ["original", "running"]
+
+
+def test_build_rejects_running_footnotes_for_a_book_without_notes(built, capsys):
+    with pytest.raises(SystemExit):
+        books_cli.main("build", ["probe", "--footnotes", "running"])
+    assert "footnotes" in capsys.readouterr().err
     assert built == []
 
 

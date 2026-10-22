@@ -9,6 +9,7 @@ from .compiler.monograph import (
     MonographCompiler,
     MonographOutputs,
     MonographSpec,
+    running_footnotes,
 )
 from .parity.diagrams import DiagramText
 from .parity.report import Tolerance
@@ -30,10 +31,11 @@ class Parity:
 @dataclass(frozen=True)
 class Edition:
     """One rebuild of a book. `build` takes an explicit source scan path, or None for the spec's,
-    and the subset of the optional `formats` to make beside the outputs it always writes."""
+    the subset of the optional `formats` to make beside the outputs it always writes,
+    and "original" for the scan's footnote marks or "running" for 1, 2, 3 through the book."""
 
     rebuilt: Path
-    build: Callable[[Path | None, frozenset[str]], None]
+    build: Callable[[Path | None, frozenset[str], str], None]
     summary: str = ""
     parity: Parity | None = None
     spec: MonographSpec | None = None
@@ -68,9 +70,10 @@ def monograph_edition(
 ) -> Edition:
     """An edition built by compiling the book's OCR pages with `MonographCompiler`."""
 
-    def build(source: Path | None, formats: frozenset[str]) -> None:
+    def build(source: Path | None, formats: frozenset[str], footnotes: str) -> None:
         if prepare is not None:
             prepare(source)
-        report_build(MonographCompiler(spec).build_all(out_dir, formats))
+        built = running_footnotes(spec) if footnotes == "running" else spec
+        report_build(MonographCompiler(built).build_all(out_dir, formats))
 
     return Edition(out_dir / f"{spec.slug}.pdf", build, summary, parity, spec, MONOGRAPH_FORMATS)

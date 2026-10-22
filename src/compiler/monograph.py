@@ -12,6 +12,7 @@ import sys
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
+from itertools import pairwise
 from pathlib import Path
 from typing import Literal
 
@@ -100,7 +101,10 @@ class MonographSpec:
     drop_line_regexes: tuple[str, ...] = ()
     normalize_headings: bool = True
     theorem_heads_upper: bool = False
-    footnote_marker: str = ""
+    footnote_style: Literal["", "superscript", "paren", "symbol"] = ""
+    footnote_marks: tuple[str, ...] = ()
+    footnote_numbering: str = "1"
+    footnote_reset: Literal["page", "chapter", "book"] = "page"
     equation_numbering: Literal["section", "page"] = "section"
     page_fixups: dict[int, tuple[Rewrite, ...]] = field(default_factory=dict)
     heading_rewrites: tuple[Rewrite, ...] = ()
@@ -552,18 +556,193 @@ def _label_page_equations(s: str, ch_num: int, pno: int) -> str:
     )
 
 
-def _attach_footnotes(s: str, footnotes: list[str], marker: str) -> str:
-    s = re.sub(
-        r"takes the form(\s*\n+\s*\$\$.*?)\s*\\dagger\s*(\$\$)",
-        rf"takes the form{marker}\1\2",
-        s,
-        flags=re.DOTALL,
-    )
-    s = re.sub(r"\s*\\dagger\s*\$", f"${marker}", s)
-    for text in footnotes:
+SUPERSCRIPT_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
+FOOTNOTE_LINE_RES = {
+    "superscript": re.compile(rf"^([{SUPERSCRIPT_DIGITS}]+)\s*(\S.*)$"),
+    "paren": re.compile(r"^(\d{1,2})\)\s+(\S.*)$"),
+    "symbol": re.compile(r"^\\?(\*{1,3}|†{1,2}|‡|§(?=\s+[A-Z]))\s*(\S.*)$"),
+}
+FOOTNOTE_RULE_RE = re.compile(r"^(?:[—–-]+|_{3,})$")
+FOOTNOTE_RE = re.compile(r"@@FNSTART@@(.*?)@@FNEND@@", re.DOTALL)
+NOTE_CONTINUATION_RE = re.compile(r'^[a-z"“$(]')
+
+
+def _note_line(line: str, style: str, below_rule: bool = False) -> re.Match[str] | None:
+    """Above a note rule a star note must open a sentence, and a star touching its word must be the line's only star,
+    so italic heads ("*Example 3.* Let"), starred exercises ("*6.") and math lines stay in the body."""
+    m = FOOTNOTE_LINE_RES[style].match(line)
+    if not m or below_rule or not m.group(1).startswith("*"):
+        return m
+    touching = not line.lstrip("\\")[len(m.group(1))].isspace()
+    if not re.match(r"[A-Z“\"]", m.group(2)) or (touching and "*" in re.sub(r"\$[^$]*\$", "", m.group(2))):
+        return None
+    return m
+
+
+def _note(m: re.Match[str]) -> tuple[str, str]:
+    """A star mark that leaves the note's emphasis stars unpaired also opened an italic title ("*Memorial*, see")."""
+    key, text = m.group(1), m.group(2).strip()
+    if key.startswith("*") and len(re.findall(r"\*+", re.sub(r"\$[^$]*\$", "", text))) % 2:
+        text = f"*{text}"
+    return key, text
+
+
+def _split_mid_page_notes(body: str) -> tuple[str, list[tuple[str, str]]]:
+    """Cut note lines that OCR left above body text, with the lines that continue them.
+
+    A note ending in a colon takes every line below it, such as a list of volumes."""
+    lines = body.splitlines()
+    notes: list[tuple[str, str]] = []
+    cut: set[int] = set()
+    i = 0
+    while i < len(lines):
+        m = _note_line(lines[i].strip(), "symbol")
+        if not m:
+            i += 1
+            continue
+        key, text = _note(m)
+        takes_all = text.endswith(":")
+        cut.add(i)
+        i += 1
+        while i < len(lines):
+            nxt = lines[i].strip()
+            if nxt and (_note_line(nxt, "symbol") or not (takes_all or NOTE_CONTINUATION_RE.match(nxt))):
+                break
+            if nxt:
+                text = f"{text} {nxt}"
+            cut.add(i)
+            i += 1
+        notes.append((key, text))
+    return "\n".join(ln for k, ln in enumerate(lines) if k not in cut), notes
+
+
+def split_page_footnotes(md: str, style: str, folio_pattern: str) -> tuple[str, list[tuple[str, str]]]:
+    """Cut the run of note lines, and the rule above it, off the bottom of a page.
+
+    In symbol books, also cut notes that OCR placed above the page's last body text."""
+    body, notes = _split_foot_notes(md, style, folio_pattern)
+    if style != "symbol":
+        return body, notes
+    body, mid_page = _split_mid_page_notes(body)
+    return body, mid_page + notes
+
+
+def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, list[tuple[str, str]]]:
+    lines = md.splitlines()
+    notes: list[tuple[str, str]] = []
+    kept = [(i, ln.strip()) for i, ln in enumerate(lines) if ln.strip() and not re.match(folio_pattern, ln.strip(), re.IGNORECASE)]
+    for (i, lt), (_, after) in pairwise(kept):
+        if FOOTNOTE_RULE_RE.match(lt) and _note_line(after, style, below_rule=True):
+            for _, below in kept[kept.index((i, lt)) + 1 :]:
+                if m := _note_line(below, style, below_rule=True):
+                    notes.append(_note(m))
+                else:
+                    notes[-1] = (notes[-1][0], f"{notes[-1][1]} {below}")
+            return "\n".join(lines[:i]), notes
+    end = len(lines)
+    for i in range(len(lines) - 1, -1, -1):
+        lt = lines[i].strip()
+        if not lt or re.match(folio_pattern, lt, re.IGNORECASE):
+            continue
+        m = _note_line(lt, style)
+        if not m:
+            if notes and FOOTNOTE_RULE_RE.match(lt):
+                end = i
+            break
+        notes.append(_note(m))
+        end = i
+    return "\n".join(lines[:end]), notes[::-1]
+
+
+def _footnote_call(s: str, key: str, style: str) -> re.Match[str] | None:
+    if style == "superscript":
+        digits = key.translate(str.maketrans(SUPERSCRIPT_DIGITS, "0123456789"))
+        sup = f"[{SUPERSCRIPT_DIGITS}]"
+        return re.search(rf"(?<!{sup}){re.escape(key)}(?!{sup})|\$\^\{{?{digits}\}}?\$", s)
+    if style == "paren":
+        sup = key.translate(str.maketrans("0123456789", SUPERSCRIPT_DIGITS))
+        return re.search(rf"\$\^\{{?\(?{key}\)\}}?\$|\$\^\{{?{key}\}}?\)\$|{sup}[)⁾]", s)
+    if key.startswith("*"):
+        for m in re.finditer(rf"(?<!\*)\*+(?=[\s,.;:)]|$)|\$\^\{{?{re.escape(key)}\}}?\$", s):
+            line = s[s.rfind("\n", 0, m.start()) + 1 : m.start()]
+            outside_math = m.group(0).startswith("$") or len(re.findall(r"(?<!\\)\$", line)) % 2 == 0
+            if m.group(0).strip("$^{}") == key and outside_math and len(re.findall(r"\*+", line)) % 2 == 0:
+                return m
+        return None
+    if key == "§":
+        return re.search(r"(?<=\S)§(?=[\s,.;:)]|$)", s)
+    return re.search(rf"{re.escape(key)}|\$\^?\{{?\\dagger\}}?\$", s)
+
+
+def attach_footnotes(s: str, notes: list[tuple[str, str]], style: str) -> str:
+    if style == "symbol":
+        s = re.sub(
+            r"(\S)(\s*\n\s*\$\$(?:(?!\$\$).)*?)\s*\\dagger\s*(\$\$)",
+            r"\1†\2\n\3",
+            s,
+            flags=re.DOTALL,
+        )
+        s = re.sub(r"\s*\\dagger\s*\$", "$†", s)
+    for key, text in notes:
         note = f"@@FNSTART@@{text}@@FNEND@@"
-        s = s.replace(marker, note, 1) if marker in s else s + note
+        call = _footnote_call(s, key, style)
+        s = s[: call.start()] + note + s[call.end() :] if call else s + note
     return s
+
+
+def keep_notes_with_calls(block: str) -> str:
+    """Typst places a note entry before orphan and widow control moves its call's line to the next page,
+    so a paragraph that holds a note gives up that control. Source-page markers become set rules and stay unscoped."""
+    if "@@FNSTART@@" not in block or "@@SRC" in block:
+        return block
+    return f"#[#set text(costs: (orphan: 0%, widow: 0%))\n{block}\n]"
+
+
+def markdown_footnotes(s: str) -> str:
+    return FOOTNOTE_RE.sub(r"^[\1]", s)
+
+
+def running_footnotes(spec: MonographSpec) -> MonographSpec:
+    return replace(spec, footnote_marks=(), footnote_numbering="1", footnote_reset="book")
+
+
+def typst_footnote_rules(spec: MonographSpec) -> str:
+    if not spec.footnote_style:
+        return ""
+    if spec.footnote_marks:
+        marks = ", ".join(f'"{m}"' for m in spec.footnote_marks)
+        numbering = f"n => ({marks},).at(n - 1, default: str(n))"
+    else:
+        numbering = f'"{spec.footnote_numbering}"'
+    reset = {
+        "page": "#set page(background: counter(footnote).update(0))\n",
+        "chapter": "#show heading.where(level: 1): it => { counter(footnote).update(0); it }\n",
+        "book": "",
+    }[spec.footnote_reset]
+    return f"#set footnote(numbering: {numbering})\n{reset}"
+
+
+LATEX_FOOTNOTE_MARKS = {"*": "*", "**": "**", "***": "***", "†": r"\textdagger", "‡": r"\textdaggerdbl", "§": r"\textsection"}
+
+
+def latex_footnote_header(spec: MonographSpec) -> str:
+    """footmisc settings for the spec's marks. The book class already restarts notes at each chapter."""
+    if not spec.footnote_style:
+        return ""
+    header = {
+        "page": r"\usepackage[perpage]{footmisc}",
+        "chapter": "",
+        "book": r"\counterwithout{footnote}{chapter}",
+    }[spec.footnote_reset]
+    if spec.footnote_marks:
+        marks = "".join(f"{{{LATEX_FOOTNOTE_MARKS[m]}}}" for m in spec.footnote_marks)
+        header += (
+            rf"\DefineFNsymbols{{original}}{{{marks}}}\setfnsymbol{{original}}"
+            r"\renewcommand\thefootnote{\fnsymbol{footnote}}"
+        )
+    elif spec.footnote_numbering == "1)":
+        header += r"\renewcommand\thefootnote{\arabic{footnote})}"
+    return header
 
 
 THEOREM_KINDS = (
@@ -1303,8 +1482,10 @@ class MonographCompiler:
         md_text = re.sub(r"\\\(\s*((?:(?!\n\n).)+?)\s*\\\)", r"$\1$", md_text, flags=re.DOTALL)
         md_text = prose_displays_to_paragraphs(md_text)
         md_text = normalize_html_tables(md_text)
+        footnotes: list[tuple[str, str]] = []
+        if spec.footnote_style:
+            md_text, footnotes = split_page_footnotes(md_text, spec.footnote_style, spec.folio_pattern)
         body_lines: list[str] = []
-        footnotes: list[str] = []
         top_figs: list[Figure] = []
         bot_figs: list[Figure] = []
         seen_figs_on_page: set[str] = set()
@@ -1318,9 +1499,6 @@ class MonographCompiler:
                 continue
             lines_so_far = len([b for b in body_lines if b.strip()])
             if self._is_page_furniture(lt, pno, lines_so_far):
-                continue
-            if spec.footnote_marker and lt.startswith(spec.footnote_marker):
-                footnotes.append(lt.lstrip(spec.footnote_marker).strip())
                 continue
 
             m_fig = self._caption_re.match(lt)
@@ -1391,7 +1569,7 @@ class MonographCompiler:
             )
             s = re.sub(pattern, rep_arg, s, flags=re.DOTALL)
         if footnotes:
-            s = _attach_footnotes(s, footnotes, spec.footnote_marker)
+            s = attach_footnotes(s, footnotes, spec.footnote_style)
         if spec.equation_numbering == "page":
             s = _label_page_equations(s, self._chapter_of(pno), pno)
         else:
@@ -1645,7 +1823,8 @@ class MonographCompiler:
         )
         s = re.sub(r"(#(?:strong|emph)\[[^\]]+\])(?=\()", r"\1\\", s)
         s = re.sub(r"@@FIGBLOCK(\d+)@@", lambda m: fig_blocks[int(m.group(1))], s)
-        s = re.sub(r"@@FNSTART@@(.*?)@@FNEND@@", r"#footnote[\1]", s)
+        s = "\n\n".join(map(keep_notes_with_calls, s.split("\n\n")))
+        s = FOOTNOTE_RE.sub(r"#footnote[\1]", s)
         s = finish_typst_math(s)
         if spec.paginate_like_source:
             s = re.sub(
@@ -1783,6 +1962,7 @@ class MonographCompiler:
         ]
         typst_sections: list[str] = [
             self.build_typst_preamble(),
+            typst_footnote_rules(spec),
             self.build_typst_title_page(),
         ]
 
@@ -1888,7 +2068,7 @@ class MonographCompiler:
             typst_sections.append(self.format_index(md_dir, *spec.index_pages))
 
         return RenderedMonograph(
-            markdown="\n\n".join(md_sections), typst="\n".join(typst_sections)
+            markdown=markdown_footnotes("\n\n".join(md_sections)), typst="\n".join(typst_sections)
         )
 
     def _write(self, out_dir: Path, ext: str, content: str | None = None) -> Path:
@@ -1923,6 +2103,7 @@ class MonographCompiler:
     def _write_latex(self, md_out: Path, tex_out: Path) -> None:
         header_includes = (
             r"\usepackage[all,cmtip]{xy}\usepackage{amscd}\usepackage{amsthm}"
+            + latex_footnote_header(self.spec)
         )
         if self.spec.latex_preamble:
             header_includes = f"{header_includes}\n{self.spec.latex_preamble}"

@@ -59,7 +59,9 @@ def _build(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         formats = frozenset(f for f in args.formats.split(",") if f)
         if unknown := formats - edition.formats:
             parser.error(f"{args.book} cannot make {', '.join(sorted(unknown))}; formats: {', '.join(sorted(edition.formats))}")
-    edition.build(args.source, formats)
+    if args.footnotes == "running" and (edition.spec is None or not edition.spec.footnote_style):
+        parser.error(f"{args.book} has no footnotes to renumber; leave out --footnotes")
+    edition.build(args.source, formats, args.footnotes)
     return 0
 
 
@@ -122,6 +124,10 @@ def main(command: str, argv: list[str]) -> int:
             "--formats",
             help="comma-separated slow formats to make, e.g. pdf or pdf,tex; empty writes only Markdown and Typst "
             "(default: every format the edition makes)",
+        )
+        parser.add_argument(
+            "--footnotes", choices=("original", "running"), default="original",
+            help="original: the scan's marks (1), *, †) and restarts; running: 1, 2, 3 through the book",
         )
     if command == "parity":
         parser.add_argument("--pages", help="source pages to check, e.g. 31-34,40 (default: all)")

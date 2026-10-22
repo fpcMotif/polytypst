@@ -37,7 +37,7 @@ def prepare_vintage(source: Path | None) -> None:
         fit.write_text("{}\n", encoding="utf-8")
 
 
-def build_facsimile(source: Path | None, _formats: frozenset[str]) -> None:
+def build_facsimile(source: Path | None, _formats: frozenset[str], _footnotes: str) -> None:
     pdf = write_facsimile(source_pdf(BOURBAKI_SPEC, source), OUT_DIR)
     print(f"{pdf}: {pymupdf.open(pdf).page_count} pages")
 

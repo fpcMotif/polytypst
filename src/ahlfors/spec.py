@@ -70,7 +70,8 @@ AHLFORS_SPEC = MonographSpec(
         r"^\(a\) \(b\)$",
     ),
     normalize_headings=False,
-    footnote_marker="†",
+    footnote_style="symbol",
+    footnote_marks=("†", "‡"),
     equation_numbering="page",
     page_fixups={
         38: ((re.escape("as $x$ tends to $a$,"), "as $x$ tends to $a$,*"),),
