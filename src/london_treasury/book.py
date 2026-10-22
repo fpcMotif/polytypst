@@ -1,15 +1,14 @@
 from pathlib import Path
 
-from ..edition import OUTPUT, Book, Edition
-from .extractor import build_london_treasury
+from ..edition import OUTPUT, Book, Edition, report_build
+from .build import LONDON_FORMATS, build_london_treasury
 from .spec import LONDON_TREASURY_SPEC
 
 OUT_DIR = OUTPUT / "london_treasury"
 
 
-def _build(source: Path | None) -> None:
-    outputs = build_london_treasury(source_pdf=source, out_dir=OUT_DIR)
-    print(f"{outputs.pdf_path}: {outputs.total_pages} pages")
+def _build(source: Path | None, formats: frozenset[str], _footnotes: str) -> None:
+    report_build(build_london_treasury(source_pdf=source, out_dir=OUT_DIR, formats=formats))
 
 
 BOOK = Book(
@@ -21,6 +20,7 @@ BOOK = Book(
             build=_build,
             summary="bilingual guide + 53 extracted primary texts",
             spec=LONDON_TREASURY_SPEC,
+            formats=LONDON_FORMATS,
         )
     },
 )

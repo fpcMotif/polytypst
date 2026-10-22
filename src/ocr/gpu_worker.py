@@ -1,7 +1,7 @@
 """Self-contained GPU worker: transcribe page images with any model in `ocr_models`.
 
 Runs on a Colab VM as `python -m ocrpkg.gpu_worker` beside a copy of `ocr_models.py`, or
-locally through `LocalGPUWorkerEngine`. Each page becomes `p_NNN.md`; `_stats.json`
+locally through `LocalGpuTranscriber`. Each page becomes `p_NNN.md`; `_stats.json`
 records throughput.
 """
 
@@ -23,10 +23,12 @@ from typing import Any
 
 from PIL import Image
 
+from .blank import BLANK_TRANSCRIPT, blank_page_threshold, crop_and_measure_ink
 from .ocr_models import (
     DEEPSEEK_INFER_RUNTIME,
     DEFAULT_OCR_MODEL,
     JINA_RUNTIME,
+    UNIVERSAL_TEX_PROMPT,
     VLLM_CHAT_RUNTIME,
     OCRModel,
     ocr_model,
@@ -36,48 +38,16 @@ warnings.filterwarnings("ignore")
 logging.getLogger("transformers_modules").setLevel(logging.ERROR)
 
 STATS_NAME = "_stats.json"
-MIN_INK_AREA = 400
-# A blank sheet keeps dust and show-through under a thousandth of its area (measured
-# 5k dark pixels on a 17.4M-pixel scan); one line of type carries far more.
-BLANK_INK_RATIO = 0.001
+RENDER_SUFFIXES = (".png", ".jpg", ".jpeg")
+
+
+def worker_transcript_path(out_dir: Path, number: int) -> Path:
+    return out_dir / f"p_{number:03d}.md"
+
+
 VLLM_BATCH = 16
 
-UNIVERSAL_TEX_PROMPT = (
-    "Transcribe this document page into clean, high-fidelity Markdown resembling LaTeX source.\n"
-    "Rules:\n"
-    "1. Format all mathematical expressions, variables, and formulas in LaTeX syntax: use inline $...$ and display $$...$$.\n"
-    "2. Preserve all mathematical symbols, operators, superscripts, subscripts, fractions, integrals, sums, and limits exactly.\n"
-    "3. Format headings with Markdown (#, ##, ###) reflecting document structure.\n"
-    "4. Bold structural environments (e.g. **Theorem 1.**, **Lemma 2.**, **Definition.**, **Proposition.**, **Proof.**, **Example.**).\n"
-    "5. Label display equations with exact numbering if present (e.g. $$ f(x) = \\dots $$ (1)).\n"
-    "6. Convert tables into clean Markdown or HTML tables.\n"
-    "7. For diagrams and figures, transcribe any caption or figure title (e.g. FIG. 1, Figure 2, Fig. 1.1) as a standalone line and preserve natural reading order.\n"
-    "8. Preserve all body text, notes, and references without omitting content."
-)
-
 Transcriber = Callable[[list[Image.Image]], list[str]]
-
-
-def crop_and_measure_ink(
-    img: Image.Image, padding: int = 24
-) -> tuple[Image.Image, int]:
-    """Remove outer white margins and return (cropped_image, dark pixel count).
-
-    The count is ink, not the bounding box: dust specks in two corners make a blank
-    page's box span the sheet, and a blank page sent to the model comes back invented.
-    """
-    gray = img.convert("L")
-    bw = gray.point(lambda p: 255 if p < 200 else 0)
-    bbox = bw.getbbox()
-    if not bbox:
-        return img, 0
-    ink_pixels = bw.histogram()[255]
-    w, h = img.size
-    left = max(0, bbox[0] - padding)
-    top = max(0, bbox[1] - padding)
-    right = min(w, bbox[2] + padding)
-    bottom = min(h, bbox[3] + padding)
-    return img.crop((left, top, right, bottom)), ink_pixels
 
 
 def _torch() -> Any:
@@ -220,11 +190,6 @@ TRANSCRIBERS: dict[str, Callable[[OCRModel, str], Transcriber]] = {
 }
 
 
-def blank_page_threshold(img: Image.Image) -> int:
-    """Dark pixels below which a scan holds no text to transcribe."""
-    return max(MIN_INK_AREA, int(img.width * img.height * BLANK_INK_RATIO))
-
-
 def _load_page(item: tuple[int, str]) -> tuple[int, Image.Image | None]:
     p_num, path = item
     image = Image.open(path).convert("RGB")
@@ -263,8 +228,8 @@ def _shard_worker(
                 n: model.clean(t) for (n, _), t in zip(inked, texts, strict=True)
             }
             for n, _ in loaded:
-                _ = (out_dir / f"p_{n:03d}.md").write_text(
-                    by_page.get(n, ""), encoding="utf-8"
+                _ = worker_transcript_path(out_dir, n).write_text(
+                    by_page.get(n, BLANK_TRANSCRIPT), encoding="utf-8"
                 )
             completed += len(loaded)
             print(
@@ -277,10 +242,10 @@ def _shard_worker(
 def page_items(
     pages_dir: Path, page_list: Sequence[int] | None = None
 ) -> list[tuple[int, str]]:
-    """(page number, path) for each `*_NNN.png` render, limited to `page_list` when given."""
+    """(page number, path) for each `*_NNN` image render, limited to `page_list` when given."""
     items: list[tuple[int, str]] = []
-    for path in sorted(pages_dir.glob("*.png")):
-        if path.name.startswith("._"):
+    for path in sorted(pages_dir.iterdir()):
+        if path.suffix.lower() not in RENDER_SUFFIXES or path.name.startswith("._"):
             continue
         try:
             n = int(path.stem.split("_")[-1])
@@ -299,25 +264,17 @@ def _gpu_summary() -> tuple[str, float]:
     return props.name, props.total_memory / 2**30
 
 
-def _is_pending(out_dir: Path, n: int) -> bool:
-    out = out_dir / f"p_{n:03d}.md"
-    return not out.exists() or out.stat().st_size < 15
-
-
 def run_worker(
-    pages_dir: Path,
+    items: Sequence[tuple[int, str]],
     out_dir: Path,
-    page_list: Sequence[int] | None = None,
-    prompt: str = UNIVERSAL_TEX_PROMPT,
-    num_shards: int = 1,
-    model_key: str = DEFAULT_OCR_MODEL,
+    prompt: str,
+    num_shards: int,
+    model_key: str,
 ) -> None:
     model = ocr_model(model_key)
     out_dir.mkdir(parents=True, exist_ok=True)
     gpu_name, vram_gb = _gpu_summary()
-    pending = [
-        (n, p) for n, p in page_items(pages_dir, page_list) if _is_pending(out_dir, n)
-    ]
+    pending = list(items)
     shards = min(
         model.copies_per_gpu(vram_gb, num_shards) if vram_gb else 1,
         max(1, len(pending)),
@@ -360,7 +317,6 @@ def run_worker(
     }
     _ = (out_dir / STATS_NAME).write_text(json.dumps(stats) + "\n", encoding="utf-8")
     print(f"Worker stats: {stats}", flush=True)
-    _archive_output(out_dir)
 
 
 def _archive_output(out_dir: Path) -> None:
@@ -384,10 +340,13 @@ if __name__ == "__main__":
     _ = parser.add_argument("--prompt-file", type=str, default="")
     _ = parser.add_argument("--model", type=str, default=DEFAULT_OCR_MODEL)
     args, _ = parser.parse_known_args()
+    out = Path(args.out)
     run_worker(
-        Path(args.pages),
-        Path(args.out),
-        [int(x) for x in args.page_list.split(",") if x.strip()] or None,
+        page_items(
+            Path(args.pages),
+            [int(x) for x in args.page_list.split(",") if x.strip()] or None,
+        ),
+        out,
         prompt=(
             Path(args.prompt_file).read_text(encoding="utf-8")
             if args.prompt_file
@@ -396,3 +355,4 @@ if __name__ == "__main__":
         num_shards=args.shards,
         model_key=args.model,
     )
+    _archive_output(out)

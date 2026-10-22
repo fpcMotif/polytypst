@@ -11,14 +11,16 @@ from polytypst.compiler.monograph import (
     MonographCompiler,
     MonographSpec,
     compile_typst,
+    running_header_regexes,
 )
 from polytypst.fermat.spec import FERMAT_SPEC
+from polytypst.goursat.build import goursat_markdown
 from polytypst.goursat.figures import (
     GOURSAT_SVG_GENERATORS,
     normalize_goursat_markdown,
 )
 from polytypst.parity import FACSIMILE, SOURCE_PAGINATED, PageParity, compare, verdict
-from polytypst.tex_markdown import stitch_document
+from polytypst.tex_markdown import repair_page_math
 from polytypst.vision.figure_extractor import ExtractedFigure
 
 FERMAT_PAGE_29_MD = (
@@ -183,7 +185,7 @@ FERMAT_PAGE_38_41_56_SPECS: tuple[tuple[int, str, str], ...] = (
 )
 
 GOURSAT_RAW_PAGE = (
-    "CALCULUS BOOK\n"
+    "A COURSE IN MATHEMATICAL ANALYSIS\n"
     "II, § 20] IMPLICIT FUNCTIONS 87\n"
     "42\n"
     "Let $ f(x, y) = 0 $ and \\( P(x, y) \\) be *analytic* functions with y # 0.\n"
@@ -286,13 +288,13 @@ def _write_ocr_cache(source: Path, cache: Path) -> None:
 
 def test_fermat_lemma_bijections_and_hilbert_cases_typst_snapshot() -> None:
     compiler = MonographCompiler(FERMAT_SPEC)
-    body_29, _, _ = compiler.extract_page_parts(FERMAT_PAGE_29_MD, 29)
+    body_29, _, _ = compiler.cleaner.clean(FERMAT_PAGE_29_MD, 29)
     assert (
         _collapse_blank_lines(compiler.format_typst(body_29))
         == FERMAT_PAGE_29_TYPST_SNAPSHOT
     )
 
-    body_63, _, _ = compiler.extract_page_parts(FERMAT_PAGE_63_MD, 63)
+    body_63, _, _ = compiler.cleaner.clean(FERMAT_PAGE_63_MD, 63)
     assert (
         _collapse_blank_lines(compiler.format_typst(body_63))
         == FERMAT_PAGE_63_TYPST_SNAPSHOT
@@ -315,7 +317,7 @@ def test_fermat_mordell_proposition_and_conics_correspondence_typst_snapshot() -
         assert expected_rule in preamble
 
     for pno, raw_md, expected_typst in FERMAT_PAGE_38_41_56_SPECS:
-        body, _, _ = compiler.extract_page_parts(raw_md, pno)
+        body, _, _ = compiler.cleaner.clean(raw_md, pno)
         assert _collapse_blank_lines(compiler.format_typst(body)) == expected_typst
 
 
@@ -332,11 +334,7 @@ def test_goursat_differentials_delimiters_and_figure_grounding_snapshot(
         image_rel_path="figures/fig_1.png",
         source_page=1,
     )
-    stitched = stitch_document(
-        [(1, GOURSAT_RAW_PAGE)],
-        figures=[fig],
-        running_headers=["CALCULUS BOOK", "IMPLICIT FUNCTIONS"],
-    )
+    stitched = goursat_markdown([(1, GOURSAT_RAW_PAGE)], [fig])
     goursat_md = normalize_goursat_markdown("## CHAPTER I\n\n" + stitched)
     ch1_md = goursat_md.split("# CHAPTER I: DERIVATIVES AND DIFFERENTIALS\n\n", 1)[1]
     assert _collapse_blank_lines(ch1_md) == GOURSAT_MD_SNAPSHOT
@@ -350,7 +348,7 @@ def test_goursat_differentials_delimiters_and_figure_grounding_snapshot(
             chapters=[ChapterSpec(1, "Derivatives and Differentials", 1, 1)],
         )
     )
-    body, top_f, bot_f = compiler.extract_page_parts(ch1_md, 1)
+    body, top_f, bot_f = compiler.cleaner.clean(ch1_md, 1)
     stitched_ch = compiler.stitch_chapter([(1, body, top_f, bot_f)], fig_dir)
     assert (
         _collapse_blank_lines(compiler.format_typst(stitched_ch))
@@ -363,10 +361,6 @@ def test_goursat_differentials_delimiters_and_figure_grounding_snapshot(
 
 
 def test_serre_display_brackets_tags_operators_and_bars_typst_snapshot() -> None:
-    stitched = stitch_document(
-        [(92, SERRE_RAW_PAGE)],
-        running_headers=["CHAPITRE VII", "COURS D'ARITHMÉTIQUE"],
-    )
     compiler = MonographCompiler(
         MonographSpec(
             slug="serre_test",
@@ -375,9 +369,10 @@ def test_serre_display_brackets_tags_operators_and_bars_typst_snapshot() -> None
             lang="fr",
             equation_numbering="page",
             chapters=[ChapterSpec(7, "Formes modulaires", 92, 92)],
+            running_header_regexes=running_header_regexes("CHAPITRE VII|COURS D'ARITHMÉTIQUE"),
         )
     )
-    body, _, _ = compiler.extract_page_parts(stitched, 92)
+    body, _, _ = compiler.cleaner.clean(repair_page_math(SERRE_RAW_PAGE), 92)
     assert _collapse_blank_lines(compiler.format_typst(body)) == SERRE_TYPST_SNAPSHOT
 
 
@@ -399,7 +394,7 @@ def test_math_layout_compiled_page_scan_parity_snapshot(tmp_path: Path) -> None:
         "(1) *There exist mutually inverse maps between the sets preserving the differential $dy = 3 x dx$.*\n\n"
         "*Proof.* Direct substitution into the rational coordinates establishes the bijection for every point."
     )
-    body, _, _ = compiler.extract_page_parts(page_md, 1)
+    body, _, _ = compiler.cleaner.clean(page_md, 1)
     typ_src = (
         compiler.build_typst_preamble() + "\n" + compiler.format_typst(body) + "\n"
     )

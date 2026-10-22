@@ -2,7 +2,10 @@
 
 import functools
 import re
+import shutil
 import subprocess
+import tempfile
+from pathlib import Path
 from re import Pattern
 
 KNOWN_MATH_WORDS: set[str] = {
@@ -96,6 +99,7 @@ KNOWN_MATH_WORDS: set[str] = {
     "bb",
     "mat",
     "delim",
+    "none",
     "cases",
     "overline",
     "underline",
@@ -518,11 +522,7 @@ def convert_environments(code: str) -> str:
     def repl_matrix(m: re.Match[str]) -> str:
         env = m.group(1)
         body = m.group(2).strip()
-        delim = (
-            '"|"'
-            if env in ("vmatrix", "Vmatrix")
-            else ('"["' if env == "bmatrix" else '"("')
-        )
+        delim = {"vmatrix": '"|"', "Vmatrix": '"|"', "bmatrix": '"["', "matrix": "#none"}.get(env, '"("')
         rows = re.split(r"\\\\", body)
         out_rows: list[str] = []
         for r in rows:
@@ -595,7 +595,7 @@ SUB_GREEK_SPLIT_RE = re.compile(
     rf"(_[0-9a-zA-Z])(?!(?:beta|zeta|theta)(?![a-zA-Z]))({GREEK_WORDS})"
 )
 BARE_BRACES_RE = re.compile(r"(?<!\\)\{([^{}]*)\}")
-NON_MATH_CHARS_RE = re.compile(r"[^\x00-\x7Fα-ωΑ-Ωℂℝℤℕℚ℘≤≥≠±∓×·→⇒↔⇐⇔•—–\s]")
+NON_MATH_CHARS_RE = re.compile(r"[^\x00-\x7Fα-ωΑ-Ωℂℝℤℕℚ℘≤≥≠±∓×·→⇒↔⇐⇔⟶⟵⟷⟼⟹⟸⟺•—–§\s]")
 MULTI_TOK_RE = re.compile(r"(?<![a-zA-Z0-9])[a-zA-Z0-9]{2,}(?![a-zA-Z0-9])")
 
 DIFF_DERIV_FRAC_RE = re.compile(
@@ -960,10 +960,23 @@ LATEX_MACRO_REWRITES: tuple[tuple[Pattern[str], str], ...] = (
         "\\\\",
     ),
     (re.compile(r"[\"“”]"), r"\\text{”}"),
+    (re.compile(r"\\S(?![a-zA-Z])"), "§"),
+    (re.compile(r"(?<!\\)\$"), ""),
+    (re.compile(r"(?<!\\)#"), r"\\#"),
     (re.compile(r"(?<=[(\[|])\s*\\ \s*"), ""),
     (re.compile(r"\s*\\ \s*(?=[)\]|])"), ""),
 )
 _PANDOC_CACHE: dict[tuple[str, bool], str] = {}
+_DANGLING_OPERATOR_RE = re.compile(r"([\^_√])(?=\s*(?:$|[)\]},;&^_]))")
+_LEADING_SCRIPT_RE = re.compile(r"(?:^|[({\[])\s*(?=[\^_])")
+_EMPTY_CALL_RE = re.compile(r"\b([A-Za-z]{2,}(?:\.[A-Za-z]+)*)\(\s*\)")
+
+
+def _give_operands(body: str) -> str:
+    """Give an empty operand to a script, root, or function that the OCR left with nothing to attach to."""
+    body = _DANGLING_OPERATOR_RE.sub(r"\1()", body)
+    body = _LEADING_SCRIPT_RE.sub(lambda m: m.group(0) + '""', body)
+    return _EMPTY_CALL_RE.sub(r"\1(zws)", body)
 
 
 def _balance_left_right(row: str) -> str:
@@ -1078,6 +1091,8 @@ def _pair_escaped_bars(body: str) -> str:
 def polish_pandoc_math(body: str) -> str:
     """Prefer Typst operator and symbol spellings over Pandoc's literal choices."""
     body = re.sub(r"#hide\[\s*=", r"#hide[\\=", body)
+    body = body.replace("#h(0em) mod", "quad mod")
+    body = body.replace("square.stroked.tiny", "square.stroked")
     body = OPERATOR_STRING_RE.sub(r'op("\1")', body)
     body = UPRIGHT_LETTERS_RE.sub(
         lambda m: f'op("{m.group(1).replace(" ", "")}")', body
@@ -1137,21 +1152,168 @@ def convert_math_batch(items: list[tuple[str, bool]]) -> list[str]:
     """Convert (LaTeX, is_display) snippets to Typst math bodies in one Pandoc run.
 
     A snippet that Pandoc rejects falls back to the regex sanitizer.
+    A result that Typst rejects becomes the LaTeX source as a math string.
     """
     todo = list(dict.fromkeys(k for k in items if k not in _PANDOC_CACHE))
     if todo:
         for key, converted in zip(todo, _run_pandoc_math(todo), strict=True):
             if converted is None:
-                converted = sanitize_math_code(key[0], is_display=key[1])
+                code = key[0]
+                for pattern, repl in LATEX_MACRO_REWRITES:
+                    code = pattern.sub(repl, code)
+                try:
+                    converted = sanitize_math_code(code, is_display=key[1])
+                except RecursionError:
+                    converted = _as_math_string(key[0])
                 converted = converted.replace("plus.circle", "plus.o")
                 if converted.count('"') % 2:
                     converted = converted.replace('"', "")
-            _PANDOC_CACHE[key] = converted
+            _PANDOC_CACHE[key] = _give_operands(converted)
+        finished = [(finish_typst_math(normalize_typst_differentials(_PANDOC_CACHE[k])), k[1]) for k in todo]
+        for key in _typst_rejects(finished):
+            _PANDOC_CACHE[todo[key]] = _as_math_string(todo[key][0])
     return [_PANDOC_CACHE[k] for k in items]
 
 
+def _find_balanced_parens(s: str, start: int) -> int:
+    count = 0
+    for i in range(start, len(s)):
+        if s[i] == "(":
+            count += 1
+        elif s[i] == ")":
+            count -= 1
+            if count == 0:
+                return i
+    return -1
+
+
+def _fix_typst_single_arg_frac(text: str) -> str:
+    pos = 0
+    res: list[str] = []
+    while True:
+        idx = text.find("frac(", pos)
+        if idx == -1:
+            res.append(text[pos:])
+            break
+        res.append(text[pos:idx])
+        end1 = _find_balanced_parens(text, idx + 4)
+        if end1 != -1:
+            inner1 = text[idx + 5 : end1]
+            if "," not in inner1:
+                nxt = text[end1 + 1 :].lstrip()
+                if nxt.startswith("("):
+                    start2 = text.find("(", end1 + 1)
+                    end2 = _find_balanced_parens(text, start2)
+                    if end2 != -1:
+                        inner2 = text[start2 + 1 : end2]
+                        res.append(f"({inner1})/({inner2})")
+                        pos = end2 + 1
+                        continue
+        res.append("frac(")
+        pos = idx + 5
+    return "".join(res)
+
+
+def normalize_typst_differentials(t: str) -> str:
+    t = t.replace("upright(d)", "dif")
+    return re.sub(
+        r"(?<![a-zA-Z0-9_\^])d\s*([xyztrsuvwqp]|xi|alpha|beta|gamma|theta|phi|tau|lambda|mu)(?=[0-9\s\^_,.;!?\)]|$)",
+        r"dif \1",
+        t,
+    )
+
+
+def finish_typst_math(s: str) -> str:
+    """Rewrite symbol names and call shapes in converted math that Typst 0.15 rejects."""
+    s = re.sub(r'delim:\s*"\|\|"', 'delim: "|"', s)
+    s = s.replace("planck.reduce", "planck")
+    s = s.replace("times.circle", r"\u{2297}")
+    s = s.replace("plus.circle", r"\u{2295}")
+    s = s.replace("angle.l", "chevron.l")
+    s = s.replace("angle.r", "chevron.r")
+    s = re.sub(r"\bneq\b", "!=", s)
+    s = re.sub(r"\bprod(?=[^a-zA-Z]|$)", "product", s)
+    s = re.sub(r"\bs\s*u\s*b\s*s\s*t\s*a\s*c\s*k\b", "", s)
+    s = re.sub(r"o\s+p\s+e\s+r\s+a\s+t\s+o\s+r\s+n\s+a\s+m\s+e\s*\(\s*([a-zA-Z]+)\s*\)", r'op("\1")', s)
+    s = re.sub(r"t\s+e\s+x\s+t\s*\(\s*(\"[^\"]*\")\s*\)", r"upright(\1)", s)
+    s = re.sub(r"(?<=[(\s])\^([a-zA-Z0-9]+)", r'""^\1', s)
+    s = re.sub(r"(?<=[(\s])_([a-zA-Z0-9]+)", r'""_\1', s)
+    return _fix_typst_single_arg_frac(s)
+
+
+_TYPST_ERROR_LINE_RE = re.compile(r"\.typ:(\d+):\d+: error")
+
+
+def _as_math_string(latex: str) -> str:
+    """Show OCR math that no conversion makes valid Typst as its LaTeX source, so the text survives."""
+    escaped = " ".join(latex.split()).replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+@functools.cache
+def _typst_command() -> tuple[str, ...] | None:
+    if shutil.which("typst"):
+        return ("typst",)
+    if shutil.which("mise"):
+        return ("mise", "exec", "--", "typst")
+    return None
+
+
+def _typst_rejects(bodies: list[tuple[str, bool]]) -> set[int]:
+    """Return the indexes of Typst math bodies that fail to compile, one compile per rejected body.
+
+    Without a Typst binary every body counts as valid.
+    """
+    command = _typst_command()
+    if command is None or not bodies:
+        return set()
+    with tempfile.TemporaryDirectory() as tmp:
+        return _rejects_among(command, Path(tmp), bodies, list(range(len(bodies))))
+
+
+def _rejects_among(
+    command: tuple[str, ...], tmp: Path, bodies: list[tuple[str, bool]], indexes: list[int]
+) -> set[int]:
+    """Reject the body each Typst error names; split the batch when Typst crashes without naming one."""
+    rejected: set[int] = set()
+    remaining = list(indexes)
+    source = tmp / "math.typ"
+    while remaining:
+        lines: list[str] = []
+        owner: list[int] = []
+        for i in remaining:
+            body, is_display = bodies[i]
+            block = f"$ {body} $" if is_display else f"${body}$"
+            for line in [*block.splitlines(), ""]:
+                lines.append(line)
+                owner.append(i)
+        _ = source.write_text("\n".join(lines), encoding="utf-8")
+        res = subprocess.run(
+            [*command, "compile", "--diagnostic-format", "short", str(source), str(tmp / "math.pdf")],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode == 0:
+            break
+        match = _TYPST_ERROR_LINE_RE.search(res.stderr)
+        if match is not None:
+            bad = owner[min(int(match.group(1)), len(owner)) - 1]
+            rejected.add(bad)
+            remaining.remove(bad)
+        elif len(remaining) == 1:
+            rejected.add(remaining[0])
+            break
+        else:
+            mid = len(remaining) // 2
+            rejected |= _rejects_among(command, tmp, bodies, remaining[:mid])
+            rejected |= _rejects_among(command, tmp, bodies, remaining[mid:])
+            break
+    return rejected
+
+
 def clean_margin_and_inline_math(text: str) -> str:
-    parts = text.split("$")
+    parts = re.split(r"(?<!\\)\$", text)
     odd = list(range(1, len(parts), 2))
     converted = convert_math_batch([(parts[i], False) for i in odd])
     for i, body in zip(odd, converted, strict=True):

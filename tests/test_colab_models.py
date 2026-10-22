@@ -4,10 +4,9 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw
 
-from polytypst.ocr import colab, engines, gpu_worker
+from polytypst.ocr import colab, gpu_worker
 from polytypst.ocr.colab import COLAB_GPUS, account_usage, fit_problem
 from polytypst.ocr.colab_cli import sample_pages
-from polytypst.ocr.engines import LocalGPUWorkerEngine, ocr_engine
 from polytypst.ocr.ocr_models import JINA_RUNTIME, OCR_MODELS, ocr_model
 
 
@@ -101,24 +100,14 @@ def test_account_usage_reads_balance_and_burn_rate(
     )
 
 
-def test_colab_mode_falls_back_to_local_worker_without_cli(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(colab.shutil, "which", lambda _name: None)
-    engine = ocr_engine("colab", model="unlimited-ocr")
-    assert isinstance(engine, LocalGPUWorkerEngine)
-    assert engine.model == "unlimited-ocr"
-    assert engines.OCR_MODES[0] == "colab"
-
-
 def test_sample_pages_spread_across_the_book(tmp_path: Path) -> None:
     for n in range(1, 101):
         (tmp_path / f"p_{n:03d}.png").touch()
-    picked = [p.name for p in sample_pages(tmp_path, 4)]
+    picked = [p.path.name for p in sample_pages(tmp_path, 4)]
     assert picked == ["p_013.png", "p_038.png", "p_063.png", "p_088.png"]
 
 
-def test_shard_worker_writes_cleaned_text_and_empty_blank_pages(
+def test_shard_worker_writes_cleaned_text_and_marks_blank_pages(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     inked = Image.new("RGB", (400, 400), "white")
@@ -139,4 +128,4 @@ def test_shard_worker_writes_cleaned_text_and_empty_blank_pages(
     assert done == 2
     assert seen == ["book prompt"]
     assert (out / "p_001.md").read_text(encoding="utf-8") == "Text1"
-    assert (out / "p_002.md").read_text(encoding="utf-8") == ""
+    assert (out / "p_002.md").read_text(encoding="utf-8") == "<!-- blank page -->\n"

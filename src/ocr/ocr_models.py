@@ -16,6 +16,19 @@ _GROUNDING = re.compile(
 _FRONT_MATTER = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
 _END_TOKENS = ("<｜end▁of▁sentence｜>", "<|im_end|>", "<|endoftext|>")
 
+UNIVERSAL_TEX_PROMPT = (
+    "Transcribe this document page into clean, high-fidelity Markdown resembling LaTeX source.\n"
+    "Rules:\n"
+    "1. Format all mathematical expressions, variables, and formulas in LaTeX syntax: use inline $...$ and display $$...$$.\n"
+    "2. Preserve all mathematical symbols, operators, superscripts, subscripts, fractions, integrals, sums, and limits exactly.\n"
+    "3. Format headings with Markdown (#, ##, ###) reflecting document structure.\n"
+    "4. Bold structural environments (e.g. **Theorem 1.**, **Lemma 2.**, **Definition.**, **Proposition.**, **Proof.**, **Example.**).\n"
+    "5. Label display equations with exact numbering if present (e.g. $$ f(x) = \\dots $$ (1)).\n"
+    "6. Convert tables into clean Markdown or HTML tables.\n"
+    "7. For diagrams and figures, transcribe any caption or figure title (e.g. FIG. 1, Figure 2, Fig. 1.1) as a standalone line and preserve natural reading order.\n"
+    "8. Preserve all body text, notes, and references without omitting content."
+)
+
 
 @dataclass(frozen=True)
 class OCRModel:

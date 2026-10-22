@@ -16,6 +16,7 @@ RUNNING_HEADERS = (
 FERMAT_SPEC = MonographSpec(
     slug="fermat_dream",
     title="Number Theory 1: Fermat's Dream",
+    footnote_style="superscript",
     author="Kazuya Kato, Nobushige Kurokawa, Takeshi Saito",
     translator="Masato Kuwata",
     publisher="American Mathematical Society",

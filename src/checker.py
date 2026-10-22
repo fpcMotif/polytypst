@@ -2,8 +2,11 @@
 
 import re
 import unicodedata
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import cached_property
+from itertools import pairwise
 from pathlib import Path
 from typing import Literal
 
@@ -74,6 +77,15 @@ class AuditSpec:
     chapter_titles: dict[int, str] = field(default_factory=dict)
     bibliography_from_page: int | None = None
     language: str = "auto"
+    book_headers: tuple[str, ...] = ()
+    footnote_numbering: str = ""
+    footnote_marks: tuple[str, ...] = ()
+    footnote_reset: str = "page"
+
+    def footnote_label(self, n: int) -> str:
+        if n <= len(self.footnote_marks):
+            return self.footnote_marks[n - 1]
+        return str(n) if self.footnote_marks else self.footnote_numbering.replace("1", str(n))
 
     @classmethod
     def from_monograph(cls, spec: MonographSpec) -> "AuditSpec":
@@ -85,7 +97,15 @@ class AuditSpec:
             chapter_heading_regex=rf"^{heading}$",
             chapter_titles={ch.number: ch.title for ch in spec.chapters},
             figure_pages=spec.figure_pages,
+            book_headers=tuple(filter(None, (spec.author, spec.title))),
+            footnote_numbering=spec.footnote_numbering if spec.footnote_style else "",
+            footnote_marks=spec.footnote_marks,
+            footnote_reset=spec.footnote_reset,
         )
+
+
+def _letters(text: str) -> str:
+    return "".join(c for c in text.casefold() if c.isalpha())
 
 
 def _snippet(text: str, start: int, end: int, pad: int = 20) -> str:
@@ -160,6 +180,12 @@ _MASHED_TOKENS = (
     r",d[zxyrtuvs]\b",
     r"\(\d+\([a-zA-Z\s]+\)\d+\)",
 )
+_NOTE_MARK_RE = re.compile(r"^(?:\d{1,3}\)?|\*{1,3}|[†‡§¶]{1,2})$")
+_NOTE_MARK_START_RE = re.compile(r"^(\d{1,3}\)?|\*{1,3}|[†‡§¶]{1,2})(?=[^\s\d.,])")
+_FOLIO_RE = re.compile(r"^—?\s*\d+\s*—?$")
+_NAME_HYPHEN_RE = re.compile(r"\b([A-Z][a-z]{1,4})-[\s]*$")
+_TRAILING_WORD_RE = re.compile(r"\b[A-Za-z]+$")
+_LEADING_WORD_RE = re.compile(r"^[A-Za-z]+\b")
 _BOILERPLATE = (
     "raspberry",
     "temperature monitoring",
@@ -170,6 +196,11 @@ _BOILERPLATE = (
     "social media",
     "research questions",
     "smith, j.",
+    "problem statement",
+    "literature review",
+    "existing solutions",
+    "data preprocessing",
+    "model training",
 )
 _HYPHEN_PREFIXES = (
     "z-",
@@ -218,6 +249,7 @@ class DocumentQualityChecker:
                 self.check_inverted_partial_derivatives,
                 self.check_mangled_dots,
                 self.check_leaked_running_headers,
+                self.check_footnotes_left_in_body,
             ),
             LAYOUT_TIER: (
                 self.check_solo_pages,
@@ -226,7 +258,9 @@ class DocumentQualityChecker:
                 self.check_isolated_math_blocks,
                 self.check_orphaned_equation_numbers,
                 self.check_equation_margin_overflow,
+                self.check_shrunken_display_math,
                 self.check_visual_line_height_spikes,
+                self.check_footnote_mark_sequence,
             ),
             STRUCTURE_TIER: (
                 self.check_chapter_structural_integrity,
@@ -267,7 +301,7 @@ class DocumentQualityChecker:
                 continue
             for line in b[4].strip().splitlines():
                 l = line.strip()
-                if l and not re.match(r"^—?\s*\d+\s*—?$", l):
+                if l and not _FOLIO_RE.match(l):
                     body_lines.append(l)
         return body_lines
 
@@ -336,7 +370,7 @@ class DocumentQualityChecker:
         for pno in range(len(self.doc)):
             for l in self._extract_body_lines(self.doc[pno]):
                 # Check for hyphenated English names like "Ric-" or "Gene-"
-                m = re.search(r"\b([A-Z][a-z]{1,4})-[\s]*$", l)
+                m = _NAME_HYPHEN_RE.search(l)
                 if (
                     m
                     and not l.endswith(("—", "–"))
@@ -354,9 +388,8 @@ class DocumentQualityChecker:
     def check_cross_page_splits(self, report: CheckReport) -> None:
         """Rule 5: No unclosed parentheses or split English proper nouns across page breaks."""
         bib_from = self.spec.bibliography_from_page
-        for pno in range(len(self.doc) - 1):
-            cur_lines = self._extract_body_lines(self.doc[pno])
-            next_lines = self._extract_body_lines(self.doc[pno + 1])
+        body_lines = [self._extract_body_lines(page) for page in self.doc]
+        for pno, (cur_lines, next_lines) in enumerate(pairwise(body_lines)):
             if not cur_lines or not next_lines:
                 continue
 
@@ -389,8 +422,8 @@ class DocumentQualityChecker:
                 )
                 if (
                     not is_bib
-                    and re.search(r"\b[A-Za-z]+$", last_line)
-                    and re.search(r"^[A-Za-z]+\b", first_line)
+                    and _TRAILING_WORD_RE.search(last_line)
+                    and _LEADING_WORD_RE.search(first_line)
                 ):
                     self._issue(
                         report,
@@ -418,16 +451,18 @@ class DocumentQualityChecker:
         """Rule 6: Zero foreign boilerplate keywords from VLM hallucinations."""
         for pno, text in enumerate(self._texts):
             lowered = text.lower()
-            for kw in _BOILERPLATE:
-                if kw in lowered:
-                    self._issue(
-                        report,
-                        "ERROR",
-                        "HALLUCINATED_BOILERPLATE",
-                        pno + 1,
-                        f"Hallucinated template keyword '{kw}' detected",
-                        kw,
-                    )
+            found = [kw for kw in _BOILERPLATE if kw in lowered]
+            if len(found) < 2:
+                continue
+            for kw in found:
+                self._issue(
+                    report,
+                    "ERROR",
+                    "HALLUCINATED_BOILERPLATE",
+                    pno + 1,
+                    f"Hallucinated template keyword '{kw}' detected",
+                    kw,
+                )
 
     def check_isolated_math_blocks(self, report: CheckReport) -> None:
         """Rule 7: No single-letter isolated display equations breaking sentence flow."""
@@ -557,9 +592,24 @@ class DocumentQualityChecker:
         header_re = re.compile(
             r"(?:\[[IVXLCDM]+,\s*§\s*\d+[a-z]?|[IVXLCDM]+,\s*§\s*\d+[a-z]?\]\s+[A-Z]{4,})"
         )
+        book_headers = {_letters(h) for h in self.spec.book_headers}
+        # A scan sets its running header in capitals, which prose never does for its own author.
+        caps_headers = [" ".join(h.upper().split()) for h in self.spec.book_headers]
         for pno in range(len(self.doc)):
             for l in self._extract_body_lines(self.doc[pno]):
-                if header_re.search(l):
+                if pno >= self.spec.front_matter_pages and (
+                    _letters(l) in book_headers
+                    or any(h in " ".join(l.split()) for h in caps_headers)
+                ):
+                    self._issue(
+                        report,
+                        "ERROR",
+                        "LEAKED_RUNNING_HEADER",
+                        pno + 1,
+                        "Scanned running header with the book's author or title leaked into body text",
+                        l[:80],
+                    )
+                elif header_re.search(l):
                     self._issue(
                         report,
                         "ERROR",
@@ -570,13 +620,15 @@ class DocumentQualityChecker:
                     )
 
     def check_extracted_figures_purity(self, report: CheckReport) -> None:
+        from .ocr.lines import DEFAULT_OCR_LANGUAGES, line_reader
         from .vision.typesafe_jev import TypeSafeJevVision
 
         fig_dir = self.pdf_path.parent / "figures"
         if not fig_dir.exists():
             return
+        reader = line_reader(DEFAULT_OCR_LANGUAGES)
         for png_path in sorted(fig_dir.glob("fig_*.png")):
-            ok, reasons = TypeSafeJevVision.verify_cropped_diagram(png_path)
+            ok, reasons = TypeSafeJevVision.verify_cropped_diagram(png_path, reader)
             if not ok:
                 self._issue(
                     report,
@@ -758,6 +810,146 @@ class DocumentQualityChecker:
                     _snippet(t, m.start(), m.end(), pad=15),
                 )
 
+    @cached_property
+    def _page_dicts(self) -> list[dict]:
+        return [page.get_text("dict") for page in self.doc]
+
+    @cached_property
+    def _body_size(self) -> float | None:
+        sizes: Counter[float] = Counter()
+        for d in self._page_dicts:
+            for b in d["blocks"]:
+                for ln in b.get("lines", []):
+                    for s in ln["spans"]:
+                        sizes[round(s["size"], 1)] += len(s["text"].strip())
+        return sizes.most_common(1)[0][0] if sizes else None
+
+    def _footnote_entries(self, pno: int) -> list[str]:
+        """Marks of the note entries below the page's note rule, read from the first line of each note-size block.
+
+        A mark is a small span of its own, or a superscript glyph merged into the note text ("1First")."""
+        body = self._body_size
+        page = self.doc[pno]
+        blocks = [b for b in self._page_dicts[pno]["blocks"] if b.get("lines")]
+        body_tops = [
+            b["bbox"][1] for b in blocks
+            if any(s["size"] >= 0.95 * body and s["text"].strip() for s in b["lines"][0]["spans"])
+            and not _FOLIO_RE.match("".join(s["text"] for s in b["lines"][0]["spans"]).strip())
+        ]
+        rules = [
+            d["rect"].y0
+            for d in page.get_drawings()
+            if d["rect"].height < 2 and 0.15 * page.rect.width < d["rect"].width < 0.5 * page.rect.width
+            and d["rect"].y0 > 0.3 * page.rect.height
+            and not any(top > d["rect"].y0 for top in body_tops)
+        ]
+        if not rules:
+            return []
+        marks = []
+        for b in blocks:
+            lines = b["lines"]
+            if lines[0]["bbox"][1] < max(rules):
+                continue
+            spans = [s for s in lines[0]["spans"] if s["text"].strip()]
+            text_spans = [s for s in spans if s["size"] > 0.7 * body]
+            if not text_spans or not all(s["size"] < 0.95 * body for s in text_spans):
+                continue
+            if len(spans) > 1 and spans[0]["size"] < 0.75 * spans[1]["size"]:
+                mark = spans[0]["text"].strip()
+            else:
+                m = _NOTE_MARK_START_RE.match("".join(s["text"] for s in spans).strip())
+                mark = m.group(1) if m else ""
+            if _NOTE_MARK_RE.match(mark):
+                marks.append(mark)
+        return marks
+
+    def check_footnote_mark_sequence(self, report: CheckReport) -> None:
+        """Note marks on each page follow the scan's numbering: restart per page, per chapter, or run on."""
+        if not self.spec.footnote_numbering or self._body_size is None:
+            return
+        numbers = {self.spec.footnote_label(n): n for n in range(200, 0, -1)}
+        last = 0
+        for pno in range(len(self.doc)):
+            marks = self._footnote_entries(pno)
+            if not marks:
+                continue
+            found = [numbers.get(m, 0) for m in marks]
+            starts = {"page": {1}, "chapter": {1, last + 1}, "book": {last + 1}}[self.spec.footnote_reset]
+            if not any(found == list(range(s, s + len(found))) for s in starts):
+                expected = " ".join(self.spec.footnote_label(n) for n in range(min(starts), min(starts) + len(found)))
+                self._issue(
+                    report, "ERROR", "FOOTNOTE_MARK_SEQUENCE", pno + 1,
+                    f"Note marks {' '.join(marks)} where the scan's numbering gives {expected}",
+                )
+            last = found[-1]
+
+    def check_footnotes_left_in_body(self, report: CheckReport) -> None:
+        """A body-size paragraph that opens with a note mark ("*The …", "¹ Liouville …") is a note the splitter missed."""
+        if not self.spec.footnote_numbering or self._body_size is None:
+            return
+        marks = [*map(re.escape, sorted(self.spec.footnote_marks, key=len, reverse=True)), "[¹²³⁴⁵⁶⁷⁸⁹⁰]+"]
+        opener = re.compile(rf"^(?:{'|'.join(marks)})\s*\w+(?:\s+\S+){{3}}")
+        for pno, d in enumerate(self._page_dicts):
+            block_starts = [
+                (b["bbox"][3], "".join(s["text"] for s in b["lines"][0]["spans"]).strip())
+                for b in d["blocks"]
+                if b.get("lines") and b["lines"][0]["spans"]
+                and b["lines"][0]["spans"][0]["size"] >= 0.95 * self._body_size
+            ]
+            for _, text in block_starts:
+                if opener.match(text):
+                    self._issue(
+                        report, "WARNING", "FOOTNOTE_LEFT_IN_BODY", pno + 1,
+                        "A note line sits in the body text instead of the page's notes", text[:80],
+                    )
+
+    def check_shrunken_display_math(self, report: CheckReport) -> None:
+        """A math line whose largest glyph is far below body size was scaled down to fit the measure."""
+        body = self._body_size
+        if body is None:
+            return
+        pages = self._page_dicts
+        floor = 0.6 * body
+        script_sizes = (0.7 * body, 0.5 * body)
+        for pno, d in enumerate(pages):
+            if pno + 1 in self.spec.figure_pages:
+                continue
+            lines = [
+                [s for s in ln["spans"] if s["text"].strip()]
+                for b in d["blocks"]
+                for ln in b.get("lines", [])
+            ]
+            full_size = [pymupdf.Rect(s["bbox"]) for spans in lines for s in spans if s["size"] >= floor]
+            figures = [r for r in self.doc[pno].cluster_drawings() if r.width >= 40 and r.height >= 40]
+
+            def beside_full_size(spans: list[dict], full_size: list[pymupdf.Rect]) -> bool:
+                box = pymupdf.Rect(spans[0]["bbox"])
+                for s in spans[1:]:
+                    box |= s["bbox"]
+                box = box + (-floor, -floor, floor, floor)
+                return any(box.intersects(r) for r in full_size)
+
+            shrunk = [
+                spans
+                for spans in lines
+                if len("".join(s["text"] for s in spans).strip()) >= 3
+                and all("Math" in s["font"] for s in spans)
+                and max(s["size"] for s in spans) < floor
+                and not any(abs(max(s["size"] for s in spans) - size) < 0.1 for size in script_sizes)
+                and not beside_full_size(spans, full_size)
+                and not any(pymupdf.Rect(spans[0]["bbox"]) in r for r in figures)
+            ]
+            if shrunk:
+                size = max(s["size"] for s in shrunk[0])
+                self._issue(
+                    report,
+                    "WARNING",
+                    "SHRUNKEN_DISPLAY_MATH",
+                    pno + 1,
+                    f"Math set at {size:.1f}pt, below {floor:.1f}pt",
+                    "".join(s["text"] for s in shrunk[0]).strip()[:80],
+                )
+
     def check_visual_line_height_spikes(self, report: CheckReport) -> None:
         """Taste Rule 9: Body text lines must not exceed 2.2x font leading (detects crammed inline multiline formulas)."""
         for pno in range(self.spec.front_matter_pages, len(self.doc)):
@@ -783,12 +975,9 @@ def audit_pdf(
     tiers: frozenset[int] = ALL_TIERS,
 ) -> CheckReport:
     if spec is None:
-        import pymupdf
-
         from .books import find_known_book
 
-        with pymupdf.open(str(pdf_path)) as doc:
-            spec = find_known_book(pdf_path, len(doc))
+        spec = find_known_book(pdf_path)
     if isinstance(spec, MonographSpec):
         spec = AuditSpec.from_monograph(spec)
     report = DocumentQualityChecker(pdf_path, spec).run_all_checks(tiers)

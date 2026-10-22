@@ -2,7 +2,9 @@
 
 import json
 import re
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+from itertools import product
 from pathlib import Path
 from typing import Any, final
 
@@ -10,8 +12,9 @@ import numpy as np
 import pymupdf
 from PIL import Image
 
-from ..ocr.apple_vision import AppleVisionOCREngine
-from ..ocr.base import OCRLine, OCRPage
+from ..ocr.lines import DEFAULT_OCR_LANGUAGES, LineStore, line_reader
+from ..ocr.pages import LinePage, LineReader, OcrLine, PageImage, page_images
+from ..ocr.transcripts import TranscriptStore
 from .cropper import HighDPICropper
 
 FIGURES_MANIFEST_NAME = "figures_manifest.json"
@@ -70,6 +73,32 @@ def load_complete_figures_manifest(path: Path) -> list[ExtractedFigure] | None:
     if figures and all((path.parent / f.image_rel_path).exists() for f in figures):
         return figures
     return None
+
+
+def extract_book_figures(
+    pdf_path: Path,
+    out_dir: Path,
+    rendered_pages: list[PageImage],
+    transcripts_dir: Path,
+    ocr_languages: Sequence[str] = DEFAULT_OCR_LANGUAGES,
+) -> list[ExtractedFigure]:
+    """Find, crop and catalogue the figures of a PDF whose page N is `rendered_pages` page N, in `out_dir/figures`."""
+    figures_dir = out_dir / "figures"
+    figures_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = out_dir / FIGURES_MANIFEST_NAME
+    cached = load_complete_figures_manifest(manifest_path)
+    if cached is not None:
+        return cached
+    extractor = FigureExtractor(pdf_path, line_reader(ocr_languages))
+    print("Running the OCR line pass for figure grounding...")
+    figures = extractor.extract_whitespace_isolated_figures(out_dir / "page_renders", figures_dir, transcripts_dir)
+    if not figures and rendered_pages:
+        lines = LineStore(out_dir / "source_ocr").read(rendered_pages, extractor.reader)
+        ocr_pages = [LinePage(number, page_lines) for number, page_lines in lines.items()]
+        figures = extractor.extract_all(figures_dir, ocr_pages=ocr_pages, dpi=300)
+    write_figures_manifest(manifest_path, figures)
+    print(f"Extracted {len(figures)} figures into {figures_dir}.")
+    return figures
 
 
 def _text_layer_rows(
@@ -181,14 +210,15 @@ class FigureExtractor:
         re.IGNORECASE,
     )
 
-    def __init__(self, pdf_path: Path) -> None:
+    def __init__(self, pdf_path: Path, reader: LineReader | None = None) -> None:
         self.pdf_path: Path = Path(pdf_path)
         self.cropper: HighDPICropper = HighDPICropper(self.pdf_path)
+        self.reader: LineReader = reader or line_reader(DEFAULT_OCR_LANGUAGES)
 
     @staticmethod
     def detect_figure_box(
-        page_lines: list[OCRLine],
-        cap_line: OCRLine,
+        page_lines: Sequence[OcrLine],
+        cap_line: OcrLine,
     ) -> tuple[float, float, float, float]:
         """Determine normalized (left, top, right, bottom) bounding box for diagram from Apple Vision lines."""
         cap_cx = cap_line.x + cap_line.w / 2.0
@@ -285,6 +315,7 @@ class FigureExtractor:
         self,
         renders_dir: Path,
         out_dir: Path,
+        transcripts_dir: Path,
         pages: range | None = None,
     ) -> list[ExtractedFigure]:
         """Extract diagrams above standalone Fig. X.Y captions using whitespace band isolation."""
@@ -294,7 +325,6 @@ class FigureExtractor:
         doc = pymupdf.open(self.pdf_path)
         if pages is None:
             pages = range(1, len(doc) + 1)
-        vision_engine = AppleVisionOCREngine(languages=["en-US"])
         cap_re = re.compile(
             r"^(?:FIG|Fig|Figure)\.?\s*(\d+[\.\-]\d+[a-z]?)(?:\.?\s*$|\.\s+\S)",
             re.IGNORECASE,
@@ -303,11 +333,10 @@ class FigureExtractor:
         extracted: list[ExtractedFigure] = []
         seen_ids: set[str] = set()
         pages_to_scan: set[int] = set()
-        md_pages_dir = out_dir.parent / "markdown_pages"
+        transcripts = TranscriptStore(transcripts_dir)
         for pno in pages:
             t = doc[pno - 1].get_text()
-            md_path = md_pages_dir / f"p_{pno:03d}.md"
-            md_txt = md_path.read_text(encoding="utf-8") if md_path.exists() else ""
+            md_txt = transcripts.text(pno) or ""
             if (
                 "Fig" in t
                 or "fig" in t
@@ -317,11 +346,9 @@ class FigureExtractor:
             ):
                 pages_to_scan.update(p for p in (pno - 1, pno, pno + 1) if p in pages)
 
-        for pno in sorted(pages_to_scan):
-            png_path = renders_dir / f"p_{pno:03d}.png"
-            if not png_path.exists():
-                continue
-
+        renders = [page for page in page_images(renders_dir) if page.number in pages_to_scan]
+        page_lines = LineStore(out_dir.parent / "source_ocr").read(renders, self.reader)
+        for pno, png_path in ((page.number, page.path) for page in renders):
             with Image.open(png_path) as im:
                 w_px, h_px = im.size
 
@@ -339,8 +366,7 @@ class FigureExtractor:
                 elif (x1 - x0) > 0.48 * pw and len(txt) > 28 and y0 > 0.07 * ph:
                     prose_bottoms.append(y1 / ph)
 
-            ocr_page = vision_engine.recognize_page(png_path, pno)
-            for ol in ocr_page.lines:
+            for ol in page_lines.get(pno, ()):
                 txt = ol.text.strip()
                 m = cap_re.match(txt)
                 top_frac = 1.0 - (ol.y + ol.h)
@@ -410,7 +436,7 @@ class FigureExtractor:
 
     def extract_figures_from_ocr_pages(
         self,
-        ocr_pages: list[OCRPage],
+        ocr_pages: Sequence[LinePage],
         out_dir: Path,
         dpi: int = 300,
     ) -> list[ExtractedFigure]:
@@ -424,7 +450,7 @@ class FigureExtractor:
         jev = TypeSafeJevVision()
 
         for page in ocr_pages:
-            pno = page.page_number
+            pno = page.number
             for line in page.lines:
                 if line.w > 0.35:
                     continue
@@ -445,8 +471,8 @@ class FigureExtractor:
                 dest_path = out_dir / fig_filename
 
                 page_png: Path | None = None
-                for sub in ("page_renders", "pages", "renders"):
-                    cand = out_dir.parent / sub / f"p_{pno:03d}.png"
+                for sub, suffix in product(("page_renders", "pages", "renders"), (".png", ".jpg")):
+                    cand = out_dir.parent / sub / f"p_{pno:03d}{suffix}"
                     if cand.exists():
                         page_png = cand
                         break
@@ -459,7 +485,7 @@ class FigureExtractor:
                         if det.has_diagram and det.box:
                             box = det.box
                             _ = TypeSafeJevVision.crop_pure_diagram(
-                                page_png, det, dest_path, ocr_lines=list(page.lines)
+                                page_png, det, dest_path, ocr_lines=page.lines, reader=self.reader
                             )
                         else:
                             _ = self.cropper.crop_figure(
@@ -482,7 +508,7 @@ class FigureExtractor:
                         with Image.open(dest_path) as cim:
                             w_px, h_px = cim.size
                         ok, reasons = TypeSafeJevVision.verify_cropped_diagram(
-                            dest_path
+                            dest_path, self.reader
                         )
                         if not ok:
                             print(
@@ -507,7 +533,7 @@ class FigureExtractor:
     def extract_all(
         self,
         out_dir: Path,
-        ocr_pages: list[OCRPage] | None = None,
+        ocr_pages: Sequence[LinePage] | None = None,
         dpi: int = 300,
     ) -> list[ExtractedFigure]:
         """Universal figure extraction handler covering both digital and scanned documents."""

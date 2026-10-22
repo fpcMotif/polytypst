@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from .books import books
+from .books import book_by_key, books
 from .edition import Book, Edition
 from .new_book import scaffold_book
 from .parity import compare, verdict, write_report
@@ -30,11 +30,10 @@ def parse_pages(text: str) -> set[int]:
 
 
 def _pick(parser: argparse.ArgumentParser, key: str, edition: str | None) -> tuple[Book, str, Edition]:
-    known = books()
-    normalized = {**known, **{k.replace("_", "-"): v for k, v in known.items()}}
-    if key not in normalized:
-        parser.error(f"unknown book {key!r}; known: {', '.join(known)}")
-    book = normalized[key]
+    try:
+        book = book_by_key(key)
+    except KeyError as error:
+        parser.error(error.args[0])
     name = edition or next(iter(book.editions))
     if name not in book.editions:
         parser.error(f"{key} has no edition {name!r}; editions: {', '.join(book.editions)}")
@@ -54,7 +53,14 @@ def _build(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     book, _, edition = _pick(parser, args.book, args.edition)
     if book.figures is not None:
         _ = book.figures(book.out_dir)
-    edition.build(args.source)
+    formats = edition.formats
+    if args.formats is not None:
+        formats = frozenset(f for f in args.formats.split(",") if f)
+        if unknown := formats - edition.formats:
+            parser.error(f"{args.book} cannot make {', '.join(sorted(unknown))}; formats: {', '.join(sorted(edition.formats))}")
+    if args.footnotes == "running" and (edition.spec is None or not edition.spec.footnote_style):
+        parser.error(f"{args.book} has no footnotes to renumber; leave out --footnotes")
+    edition.build(args.source, formats, args.footnotes)
     return 0
 
 
@@ -66,7 +72,7 @@ def _parity(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     if not edition.rebuilt.exists():
         parser.error(f"{edition.rebuilt} is missing; run: polytypst build {args.book} --edition {name}")
     source = source_pdf(book.spec, args.source)
-    ensure_source_ocr(source, book.ocr)
+    ensure_source_ocr(source, book.ocr, book.spec.ocr_languages)
     page_map = edition.parity.page_map()
     if args.pages:
         wanted = parse_pages(args.pages)
@@ -112,6 +118,16 @@ def main(command: str, argv: list[str]) -> int:
         parser.add_argument("book", help="book key from `polytypst books`")
         parser.add_argument("--edition", help="edition name (default: the book's first)")
         parser.add_argument("--source", type=Path, help=f"source scan PDF (default: ${SOURCES_ENV}/<spec.source_pdf>)")
+    if command == "build":
+        parser.add_argument(
+            "--formats",
+            help="comma-separated slow formats to make, e.g. pdf or pdf,tex; empty writes only Markdown and Typst "
+            "(default: every format the edition makes)",
+        )
+        parser.add_argument(
+            "--footnotes", choices=("original", "running"), default="original",
+            help="original: the scan's marks (1), *, †) and restarts; running: 1, 2, 3 through the book",
+        )
     if command == "parity":
         parser.add_argument("--pages", help="source pages to check, e.g. 31-34,40 (default: all)")
         parser.add_argument("--out", type=Path, help="report folder (default: output/<book>/parity_<edition>)")

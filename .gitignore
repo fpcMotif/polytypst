@@ -3,6 +3,7 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.hypothesis/
 mise.local.toml
 .env
 .env.local

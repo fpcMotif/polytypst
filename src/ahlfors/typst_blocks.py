@@ -1,13 +1,6 @@
-"""Ahlfors 1979 McGraw-Hill Publisher Standard Compiler for Typst, XeLaTeX, and EPUB."""
+"""Typst preamble, title page and contents blocks of the Ahlfors 1979 McGraw-Hill edition."""
 
-import subprocess
-from pathlib import Path
-
-
-class AhlforsCompiler:
-    """Compiles Ahlfors Complex Analysis to 1979 McGraw-Hill publishing standards."""
-
-    TYPST_PREAMBLE = r"""// ==============================================================================
+TYPST_PREAMBLE = r"""// ==============================================================================
 // Lars V. Ahlfors — Complex Analysis (Third Edition, 1979)
 // McGraw-Hill International Series in Pure and Applied Mathematics
 // Reconstructed & Typeset via Polytypst (Authentic 1979 Publisher Standards)
@@ -130,25 +123,17 @@ class AhlforsCompiler:
   v(1.6em)
 }
 
-#show heading.where(level: 2): it => {
-  v(1.4em)
-  text(11.5pt, weight: "bold", font: "New Computer Modern")[#it.body]
-  v(0.55em)
-}
+#show heading.where(level: 2): it => block(above: 1.4em, below: 0.55em, sticky: true)[
+  #text(11.5pt, weight: "bold", font: "New Computer Modern")[#it.body]
+]
 
-#show heading.where(level: 3): it => {
-  v(1.1em)
-  text(10.5pt, weight: "bold", font: "New Computer Modern")[#it.body]
-  v(0.35em)
-}
+#show heading.where(level: 3): it => block(above: 1.1em, below: 0.35em, sticky: true)[
+  #text(10.5pt, weight: "bold", font: "New Computer Modern")[#it.body]
+]
 
-#show heading.where(level: 4): it => {
-  v(1.0em)
-  align(center)[
-    #text(9.5pt, weight: "bold", font: "New Computer Modern")[#smallcaps(it.body)]
-  ]
-  v(0.45em)
-}
+#show heading.where(level: 4): it => block(above: 1.0em, below: 0.45em, sticky: true, width: 100%)[
+  #align(center)[#text(9.5pt, weight: "bold", font: "New Computer Modern")[#smallcaps(it.body)]]
+]
 
 // Classical McGraw-Hill Figure Caption styling
 #show figure.caption: it => [
@@ -158,7 +143,7 @@ class AhlforsCompiler:
 
 """
 
-    TOC_BLOCK = r"""// ==============================================================================
+TOC_BLOCK = r"""// ==============================================================================
 // Authentic 1979 McGraw-Hill Table of Contents
 // ==============================================================================
 
@@ -168,6 +153,7 @@ class AhlforsCompiler:
   #v(2em)
 ]
 
+#[
 #set par(first-line-indent: 0pt, leading: 0.85em, spacing: 0.9em)
 
 #let toc-line(title, page-str, bold: false, indent: 0pt) = {
@@ -261,11 +247,12 @@ class AhlforsCompiler:
 #v(0.8em)
 
 #toc-line("INDEX", "313", bold: true)
+]
 
 #pagebreak()
 """
 
-    TITLE_PAGE_BLOCK: str = r"""
+TITLE_PAGE_BLOCK: str = r"""
 #align(center + horizon)[
   #text(10pt, font: "New Computer Modern")[#smallcaps("International Series in Pure and Applied Mathematics")]
   #v(2.5em)
@@ -284,115 +271,3 @@ class AhlforsCompiler:
 
 #pagebreak()
 """
-
-    def __init__(self, chapter_1_md: str) -> None:
-        self.chapter_1_md = chapter_1_md
-
-    def generate_typst(self, output_path: Path) -> str:
-        """Assemble the complete Typst source with McGraw-Hill styling and TOC."""
-        out = [
-            self.TYPST_PREAMBLE,
-            # Title Page (1979 McGraw-Hill Title Page)
-            self.TITLE_PAGE_BLOCK,
-            # Table of Contents
-            self.TOC_BLOCK,
-            # Chapter 1 Content
-            self.chapter_1_md,
-        ]
-
-        typ_code = "\n".join(out)
-        Path(output_path).write_text(typ_code, encoding="utf-8")
-        return typ_code
-
-    @staticmethod
-    def compile_pdf(typst_path: Path, pdf_path: Path) -> None:
-        """Compile Typst source to PDF via nix shell."""
-        cmd = [
-            "nix",
-            "shell",
-            "nixpkgs#typst",
-            "--command",
-            "typst",
-            "compile",
-            str(typst_path),
-            str(pdf_path),
-        ]
-        subprocess.run(cmd, check=True)
-
-    def generate_latex(self, output_path: Path) -> None:
-        """Generate master XeLaTeX document matching 1979 McGraw-Hill layout."""
-        out = [
-            r"\documentclass[10pt,twoside]{book}",
-            r"\usepackage{amsmath,amssymb,amsthm}",
-            r"\usepackage{graphicx}",
-            r"\usepackage[paperwidth=6in,paperheight=9in,margin=0.75in]{geometry}",
-            r"\usepackage{fancyhdr}",
-            r"\pagestyle{fancy}",
-            r"\fancyhf{}",
-            r"\fancyhead[LE]{\small\thepage\quad\textsc{Complex Analysis}}",
-            r"\fancyhead[RO]{\small\textsc{Complex Numbers}\quad\thepage}",
-            r"\renewcommand{\headrulewidth}{0.4pt}",
-            r"\begin{document}",
-            r"\begin{titlepage}",
-            r"\begin{center}",
-            r"\vspace*{2cm}",
-            r"{\small\textsc{International Series in Pure and Applied Mathematics}}\\[2cm]",
-            r"{\Huge\textbf{COMPLEX ANALYSIS}}\\[0.5cm]",
-            r"{\large\textit{An Introduction to the Theory of Analytic Functions of One Complex Variable}}\\[1cm]",
-            r"{\textbf{THIRD EDITION}}\\[2.5cm]",
-            r"{\Large\textsc{Lars V. Ahlfors}}\\[0.2cm]",
-            r"{\small\textit{Professor of Mathematics, Emeritus\\Harvard University}}\\[3cm]",
-            r"{\textbf{McGRAW-HILL BOOK COMPANY}}",
-            r"\end{center}",
-            r"\end{titlepage}",
-            r"\tableofcontents",
-            r"\chapter{Complex Numbers}",
-            r"\section{The Algebra of Complex Numbers}",
-            r"It is fundamental that real and complex numbers obey the same basic laws of arithmetic. We begin our study of complex function theory by stressing and implementing this analogy.",
-            r"\subsection{Arithmetic Operations}",
-            r"From elementary algebra the reader is acquainted with the imaginary unit $i$ with the property $i^2 = -1$. If the imaginary unit is combined with two real numbers $\alpha, \beta$ by the processes of addition and multiplication, we obtain a complex number $\alpha + i\beta$. $\alpha$ and $\beta$ are the real and imaginary part of the complex number. If $\alpha = 0$, the number is said to be purely imaginary; if $\beta = 0$, it is of course real. Zero is the only number which is at once real and purely imaginary. Two complex numbers are equal if and only if they have the same real part and the same imaginary part.",
-            r"\begin{equation}",
-            r"(\alpha + i\beta) + (\gamma + i\delta) = (\alpha + \gamma) + i(\beta + \delta)",
-            r"\label{eq:1}",
-            r"\end{equation}",
-            r"and",
-            r"\begin{equation}",
-            r"(\alpha + i\beta)(\gamma + i\delta) = (\alpha\gamma - \beta\delta) + i(\alpha\delta + \beta\gamma).",
-            r"\label{eq:2}",
-            r"\end{equation}",
-            r"In the second identity we have made use of the relation $i^2 = -1$.",
-            r"\subsection{Square Roots}",
-            r"We shall now show that the square root of any complex number exists and has two opposite values.",
-            r"Let $\alpha + i\beta$ be given. We are looking for a complex number $x + iy$ such that $(x + iy)^2 = \alpha + i\beta$. This condition is equivalent to the two equations",
-            r"\begin{equation}",
-            r"x^2 - y^2 = \alpha, \quad 2xy = \beta.",
-            r"\label{eq:4}",
-            r"\end{equation}",
-            r"\section{The Geometric Representation of Complex Numbers}",
-            r"\subsection{Geometric Addition and Multiplication}",
-            r"A complex number $z = x + iy$ can be represented as a point $(x, y)$ in the Cartesian plane, or as a vector with components $x$ and $y$ originating from the origin. The addition of complex numbers corresponds to the addition of vectors by the parallelogram law (Fig.~1-1).",
-            r"\begin{figure}[htbp]",
-            r"\centering",
-            r"\includegraphics[width=0.65\textwidth]{figures/fig_1_1_vector_addition.png}",
-            r"\caption{FIG. 1-1. Vector addition.}",
-            r"\end{figure}",
-            r"The geometric construction of $a_1 a_2$ is shown in Fig.~1-2. The triangles with vertices $(0, 1, a_1)$ and $(0, a_2, a_1 a_2)$ are directly similar.",
-            r"\begin{figure}[htbp]",
-            r"\centering",
-            r"\includegraphics[width=0.65\textwidth]{figures/fig_1_2_vector_multiplication.png}",
-            r"\caption{FIG. 1-2. Vector multiplication.}",
-            r"\end{figure}",
-            r"\subsection{The Spherical Representation}",
-            r"In complex analysis it is essential to consider the point at infinity, denoted by $\infty$. The extended complex plane $\mathbb{C} \cup \{\infty\}$ is homeomorphic to the unit sphere $S^2$ via stereographic projection (Fig.~1-3).",
-            r"\begin{figure}[htbp]",
-            r"\centering",
-            r"\includegraphics[width=0.70\textwidth]{figures/fig_1_3_stereographic_projection.png}",
-            r"\caption{FIG. 1-3. Stereographic projection.}",
-            r"\end{figure}",
-            r"The formulas relating $(x_1, x_2, x_3)$ and $z = x + iy$ are",
-            r"\begin{equation}",
-            r"x_1 = \frac{z + \bar{z}}{1 + |z|^2}, \quad x_2 = \frac{z - \bar{z}}{i(1 + |z|^2)}, \quad x_3 = \frac{|z|^2 - 1}{1 + |z|^2}.",
-            r"\end{equation}",
-            r"\end{document}",
-        ]
-        Path(output_path).write_text("\n".join(out), encoding="utf-8")

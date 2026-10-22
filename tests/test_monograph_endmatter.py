@@ -53,6 +53,33 @@ def test_normalize_html_tables_grid_style():
     assert "| -x | y | -z |" in cleaned
 
 
+def test_normalize_html_tables_keeps_empty_cells_in_their_columns():
+    raw_html = (
+        "<table>\n"
+        "  <tr><th>(26)</th><th>a_00</th><th>a_01</th></tr>\n"
+        "  <tr><th></th><th>a_10</th><th>a_11</th></tr>\n"
+        "  <tr><td>a_20</td><td></td><td>a_22</td></tr>\n"
+        "</table>"
+    )
+    cleaned = normalize_html_tables(raw_html)
+    assert "| (26) | a_00 | a_01 |" in cleaned
+    assert "|  | a_10 | a_11 |" in cleaned
+    assert "| a_20 |  | a_22 |" in cleaned
+
+
+def test_normalize_html_tables_counts_columns_from_the_widest_row():
+    raw_html = (
+        "<table>\n"
+        "  <tr><th></th><th>A/p</th></tr>\n"
+        "  <tr><td>PID</td><td>YES</td><td>NO</td></tr>\n"
+        "</table>"
+    )
+    cleaned = normalize_html_tables(raw_html)
+    assert "|  | A/p |  |" in cleaned
+    assert "| --- | --- | --- |" in cleaned
+    assert "| PID | YES | NO |" in cleaned
+
+
 def test_drop_line_regexes_never_delete_body_index_entries():
     spec = MonographSpec(
         slug="test_book",
@@ -76,7 +103,7 @@ def test_drop_line_regexes_never_delete_body_index_entries():
         "Böcher, 3, 25, 71, 110\n"
         "Boltzmann, 63\n"
     )
-    extracted, _, _ = compiler.extract_page_parts(body_text, pno=1)
+    extracted, _, _ = compiler.cleaner.clean(body_text, pno=1)
 
     assert "Abraham, 39, 43" in extracted
     assert "Aronhold, 147, 177" in extracted

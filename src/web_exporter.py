@@ -9,6 +9,7 @@ from typing import Any
 from .kerodon.compiler import KerodonCompiler
 from .kerodon.diagrams import KerodonDiagramCropper
 from .kerodon.extractor import KerodonExtractor
+from .ocr.transcripts import TranscriptStore
 
 HASH = chr(35)
 
@@ -317,7 +318,7 @@ def _kerodon_env_to_blocks(env) -> list[dict[str, Any]]:
 
 
 def convert_ahlfors_to_math_web_blocks(ahlfors_dir: Path) -> list[dict[str, Any]]:
-    md_dir = ahlfors_dir / "markdown"
+    transcripts = TranscriptStore(ahlfors_dir / "markdown")
     chapters_def = [
         (1, "Complex Numbers", 1, 36),
         (2, "Complex Functions", 37, 64),
@@ -332,10 +333,10 @@ def convert_ahlfors_to_math_web_blocks(ahlfors_dir: Path) -> list[dict[str, Any]
     for ch_num, ch_title, start_p, end_p in chapters_def:
         blocks: list[dict[str, Any]] = []
         for pno in range(start_p, end_p + 1):
-            p_file = md_dir / f"p_{pno:03d}.md"
-            if not p_file.exists():
+            page_text = transcripts.text(pno)
+            if page_text is None:
                 continue
-            text = p_file.read_text(encoding="utf-8").strip()
+            text = page_text.strip()
             paras = re.split(r"\n\s*\n", text)
             for p in paras:
                 p = p.strip()

@@ -35,12 +35,35 @@ def render_book_figures(slug: str, out_dir: Path) -> bool:
     return False
 
 
-def find_known_book(pdf_path: Path, total_pages: int) -> MonographSpec | None:
-    """Return the spec whose page count or file-name markers match the PDF."""
-    name = pdf_path.name.lower()
-    for spec in book_specs().values():
-        if spec.pdf_page_count == total_pages or any(
-            marker in name for marker in spec.pdf_name_markers
-        ):
-            return spec
+def _names(spec: MonographSpec, path: Path) -> bool:
+    name = path.name.lower()
+    return (
+        path.stem == spec.slug
+        or (bool(spec.source_pdf) and name == spec.source_pdf.lower())
+        or any(marker in name for marker in spec.pdf_name_markers)
+    )
+
+
+def find_known_book(path: Path) -> MonographSpec | None:
+    """The spec whose slug, scan file name or name markers match the file name; a page count is no match."""
+    return next((spec for spec in book_specs().values() if _names(spec, path)), None)
+
+
+def book_by_key(key: str) -> Book:
+    """The book with key `key`, which may spell underscores as hyphens; raises KeyError naming the keys."""
+    known = books()
+    normalized = {**known, **{k.replace("_", "-"): v for k, v in known.items()}}
+    if key not in normalized:
+        raise KeyError(f"unknown book {key!r}; known: {', '.join(known)}")
+    return normalized[key]
+
+
+def book_for_scan(source: Path, key: str | None = None) -> Book | None:
+    """The book named by `key`, else the book whose specs match the scan's file name."""
+    if key is not None:
+        return book_by_key(key)
+    for book in books().values():
+        specs = [book.spec, *(e.spec for e in book.editions.values() if e.spec is not None)]
+        if any(_names(spec, source) for spec in specs):
+            return book
     return None

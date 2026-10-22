@@ -75,24 +75,25 @@ uv pip install -e .
 ### CLI Usage
 
 ```bash
-# Compile PDF to Typst, PDF, EPUB, and LaTeX
-polytypst path/to/document.pdf \
-  --output output/book \
-  --formats typst,pdf,epub,latex \
-  --ocr-engine apple_vision \
-  --languages zh-Hans,en-US
+# Transcribe a scanned PDF with the Gemini API, then compile it
+polytypst path/to/document.pdf --output output/book --backend gemini
+
+# A folder of page photos, or a single image, works the same way
+polytypst path/to/photos/ --output output/book --backend gemini
 ```
 
 ### Options
 
 | Flag | Description | Default |
 |---|---|---|
-| `-o, --output` | Destination output directory | `output/` |
-| `--formats` | Comma-separated outputs (`typst`, `pdf`, `epub`, `latex`) | `typst,epub,latex` |
-| `--ocr-engine` | OCR engine (`apple_vision`, `mistral`, `tesseract`) | `apple_vision` |
-| `--languages` | OCR language codes | `zh-Hans,en-US` |
-| `--dpi` | Render resolution for scanned pages | `150` |
-| `--use-jev` | Enable TypeSafe Jev 1.14 Box primitive for diagrams | `True` |
+| `--book` | Key of the book in `src/KEY/` that the scan is | the book the file name matches, else a new book |
+| `-o, --output` | Output folder of a new book; a known book writes to `output/KEY/` | `output/<slug>/` |
+| `--backend` | OCR backend as `KIND[:MODEL][?KEY=VALUE&...]`: `gemini`, `openai`, `jina`, `mistral`, `local`, `colab` or `cached` | `colab` |
+| `--pages` | Transcribe only these pages, as in `3,7-9` | every page |
+| `--retranscribe` | Redo transcripts that another backend or prompt made | off |
+| `--publisher`, `--lang`, `--domain` | Composition presets of a new book; a known book refuses them | `cambridge`, `en`, `math` |
+
+`docs/scanned-books.md` describes each backend, its API key, and how the transcript store resumes a run.
 
 ---
 

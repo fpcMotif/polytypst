@@ -4,9 +4,10 @@ import json
 import os
 import subprocess
 import tempfile
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
-from .base import OCREngine, OCRLine, OCRPage
+from .pages import LinePage, OcrLine, PageImage
 
 SWIFT_HARNESS_CODE = """
 import Foundation
@@ -72,10 +73,14 @@ DispatchQueue.concurrentPerform(iterations: files.count) { idx in
 """
 
 
-class AppleVisionOCREngine(OCREngine):
-    def __init__(self, languages: list[str] | None = None):
-        self.languages = languages or ["zh-Hans", "en-US", "ja-JP", "fr-FR"]
+class AppleVisionReader:
+    def __init__(self, languages: Sequence[str]):
+        self.languages = tuple(languages)
         self._compiled_binary = None
+
+    @property
+    def provenance(self) -> str:
+        return "apple-vision:" + ",".join(self.languages)
 
     def _ensure_binary(self) -> Path:
         if self._compiled_binary and self._compiled_binary.exists():
@@ -95,39 +100,24 @@ class AppleVisionOCREngine(OCREngine):
         self._compiled_binary = bin_path
         return bin_path
 
-    def recognize_page(self, image_path: Path, page_number: int) -> OCRPage:
-        pages = self.recognize_document([image_path])
-        return pages[0] if pages else OCRPage(page_number, 0, 0, [])
-
-    def recognize_document(self, image_paths: list[Path]) -> list[OCRPage]:
+    def read(self, pages: Sequence[PageImage]) -> Iterator[LinePage]:
         bin_path = self._ensure_binary()
         with tempfile.TemporaryDirectory() as temp_in, tempfile.TemporaryDirectory() as temp_out:
             # Symlink or copy images
-            for idx, p in enumerate(image_paths):
-                target = Path(temp_in) / f"page_{idx+1:04d}{p.suffix}"
-                os.symlink(p.resolve(), target)
+            for idx, page in enumerate(pages):
+                target = Path(temp_in) / f"page_{idx + 1:04d}{page.path.suffix}"
+                os.symlink(page.path.resolve(), target)
 
             langs_arg = ",".join(self.languages)
             subprocess.run([str(bin_path), temp_in, temp_out, langs_arg], check=True)
 
-            out_pages = []
-            for idx, p in enumerate(image_paths):
-                json_path = Path(temp_out) / f"page_{idx+1:04d}.json"
-                if json_path.exists():
-                    with open(json_path) as f:
-                        data = json.load(f)
-                    lines = [
-                        OCRLine(
-                            text=l["text"],
-                            x=l["x"],
-                            y=l["y"],
-                            w=l["w"],
-                            h=l["h"],
-                            confidence=l.get("confidence", 1.0)
-                        )
-                        for l in data.get("lines", [])
-                    ]
-                    out_pages.append(OCRPage(idx + 1, data.get("width", 0), data.get("height", 0), lines))
-                else:
-                    out_pages.append(OCRPage(idx + 1, 0, 0, []))
-            return out_pages
+            for idx, page in enumerate(pages):
+                json_path = Path(temp_out) / f"page_{idx + 1:04d}.json"
+                if not json_path.exists():
+                    continue
+                data = json.loads(json_path.read_text(encoding="utf-8"))
+                lines = tuple(
+                    OcrLine(line["text"], line["x"], line["y"], line["w"], line["h"], line.get("confidence", 1.0))
+                    for line in data.get("lines", [])
+                )
+                yield LinePage(page.number, lines)
