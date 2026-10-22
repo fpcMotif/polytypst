@@ -49,7 +49,14 @@ def main() -> None:
         help="Export web catalog and static assets to polytypst/web/public",
     )
     parser.add_argument(
-        "-o", "--output", type=Path, default=Path("output"), help="Output directory"
+        "--book",
+        help="Key of the book in src/KEY/ that this scan is (default: the book whose scan name matches, else a new book)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        help="Output folder of a new book (default: output/<slug>); a known book writes to its own folder",
     )
     parser.add_argument(
         "--backend",
@@ -75,22 +82,19 @@ def main() -> None:
         "--publisher",
         type=str,
         choices=["cambridge", "springer", "mit", "harvard", "ams"],
-        default="cambridge",
-        help="Publisher house preset",
+        help="Publisher house preset of a new book (default: cambridge)",
     )
     parser.add_argument(
         "--lang",
         type=str,
         choices=["en", "ja", "fr", "zh"],
-        default="en",
-        help="Primary document language profile",
+        help="Primary document language profile of a new book (default: en)",
     )
     parser.add_argument(
         "--domain",
         type=str,
         choices=["math", "physics", "economics", "philosophy", "history", "novel"],
-        default="math",
-        help="Subject domain profile",
+        help="Subject domain profile of a new book (default: math)",
     )
     args = parser.parse_args()
 
@@ -108,27 +112,36 @@ def main() -> None:
         print(f"Error: File {args.source} does not exist.")
         sys.exit(1)
 
+    from .books import book_for_scan
+    from .edition import Book
     from .ocr.pages import OCRBackendError
     from .ocr.scan import SourceScanError
-    from .pipeline import UniversalPDFPipeline
 
-    pipeline = UniversalPDFPipeline(
-        source=args.source,
-        output_dir=args.output,
-        backend=args.backend,
-        publisher=args.publisher,
-        lang=args.lang,
-        domain=args.domain,
-        pages=args.pages,
-        retranscribe=args.retranscribe,
-    )
     try:
-        res = pipeline.process()
+        book = book_for_scan(args.source, args.book)
+        if book is None:
+            composition = {
+                k: v
+                for k, v in (("publisher_key", args.publisher), ("lang", args.lang), ("domain", args.domain))
+                if v is not None
+            }
+            book = Book.adhoc(args.source, args.output, **composition)
+        elif args.publisher or args.lang or args.domain:
+            parser.error(f"{book.spec.slug} is a known book; --publisher, --lang and --domain apply to a new book")
+        elif args.output is not None and args.output.resolve() != book.out_dir.resolve():
+            parser.error(f"{book.spec.slug} is a known book and writes to {book.out_dir}")
+        print(f"Book: {book.spec.title} -> {book.out_dir}")
+        _ = book.transcribe(args.source, args.backend, args.pages, args.retranscribe)
+    except KeyError as exc:
+        parser.error(exc.args[0])
     except OCRBackendError as exc:
         sys.exit(f"OCR backend {args.backend} failed: {exc}")
     except SourceScanError as exc:
         sys.exit(f"Cannot read the source scan: {exc}")
-    print(f"\n🎉 polytypst build complete! Master file: {res.master_markdown_path}")
+    if book.figures is not None:
+        _ = book.figures(book.out_dir)
+    edition = next(iter(book.editions.values()))
+    edition.build(args.source, edition.formats, "original")
 
 
 if __name__ == "__main__":

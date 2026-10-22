@@ -206,33 +206,15 @@ def running_header_regexes(pattern: str) -> tuple[str, ...]:
     )
 
 
-def resolve_monograph_spec(
+def adhoc_spec(
     pdf_path: Path,
     total_pages: int,
     publisher_key: str = "cambridge",
     lang: str = "en",
     domain: str = "math",
 ) -> MonographSpec:
-    """Return a known book's spec, or a one-chapter spec for an unknown PDF."""
-    from ..books import find_known_book
-
+    """A one-chapter spec for a source scan that no book in `src/<key>/` describes."""
     comp = resolve_composition(publisher=publisher_key, lang=lang, domain=domain)
-    known = find_known_book(pdf_path, total_pages)
-    if known is not None:
-        if (
-            comp.publisher.key == known.publisher_key
-            and comp.language.code == known.lang
-            and comp.domain.key == known.domain
-        ):
-            return known
-        return replace(
-            known,
-            publisher=comp.publisher.imprint_name,
-            series=comp.publisher.default_series,
-            publisher_key=comp.publisher.key,
-            lang=comp.language.code,
-            domain=comp.domain.key,
-        )
     slug = re.sub(r"[^a-z0-9]+", "_", pdf_path.stem.lower()).strip("_") or "book"
     return MonographSpec(
         slug=slug,

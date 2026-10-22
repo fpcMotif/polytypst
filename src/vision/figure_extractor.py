@@ -13,7 +13,7 @@ import pymupdf
 from PIL import Image
 
 from ..ocr.lines import DEFAULT_OCR_LANGUAGES, LineStore, line_reader
-from ..ocr.pages import LinePage, LineReader, OcrLine, page_images
+from ..ocr.pages import LinePage, LineReader, OcrLine, PageImage, page_images
 from ..ocr.transcripts import TranscriptStore
 from .cropper import HighDPICropper
 
@@ -73,6 +73,32 @@ def load_complete_figures_manifest(path: Path) -> list[ExtractedFigure] | None:
     if figures and all((path.parent / f.image_rel_path).exists() for f in figures):
         return figures
     return None
+
+
+def extract_book_figures(
+    pdf_path: Path,
+    out_dir: Path,
+    rendered_pages: list[PageImage],
+    transcripts_dir: Path,
+    ocr_languages: Sequence[str] = DEFAULT_OCR_LANGUAGES,
+) -> list[ExtractedFigure]:
+    """Find, crop and catalogue the figures of a PDF whose page N is `rendered_pages` page N, in `out_dir/figures`."""
+    figures_dir = out_dir / "figures"
+    figures_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = out_dir / FIGURES_MANIFEST_NAME
+    cached = load_complete_figures_manifest(manifest_path)
+    if cached is not None:
+        return cached
+    extractor = FigureExtractor(pdf_path, line_reader(ocr_languages))
+    print("Running the OCR line pass for figure grounding...")
+    figures = extractor.extract_whitespace_isolated_figures(out_dir / "page_renders", figures_dir, transcripts_dir)
+    if not figures and rendered_pages:
+        lines = LineStore(out_dir / "source_ocr").read(rendered_pages, extractor.reader)
+        ocr_pages = [LinePage(number, page_lines) for number, page_lines in lines.items()]
+        figures = extractor.extract_all(figures_dir, ocr_pages=ocr_pages, dpi=300)
+    write_figures_manifest(manifest_path, figures)
+    print(f"Extracted {len(figures)} figures into {figures_dir}.")
+    return figures
 
 
 def _text_layer_rows(
@@ -289,6 +315,7 @@ class FigureExtractor:
         self,
         renders_dir: Path,
         out_dir: Path,
+        transcripts_dir: Path,
         pages: range | None = None,
     ) -> list[ExtractedFigure]:
         """Extract diagrams above standalone Fig. X.Y captions using whitespace band isolation."""
@@ -306,7 +333,7 @@ class FigureExtractor:
         extracted: list[ExtractedFigure] = []
         seen_ids: set[str] = set()
         pages_to_scan: set[int] = set()
-        transcripts = TranscriptStore(out_dir.parent / "markdown_pages")
+        transcripts = TranscriptStore(transcripts_dir)
         for pno in pages:
             t = doc[pno - 1].get_text()
             md_txt = transcripts.text(pno) or ""

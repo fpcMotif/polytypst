@@ -211,7 +211,7 @@ def test_kodaira_svg_generators_complete():
 
 
 def test_three_axis_composition_presets():
-    from polytypst.compiler.monograph import MonographCompiler, resolve_monograph_spec
+    from polytypst.compiler.monograph import MonographCompiler, adhoc_spec
     from polytypst.compiler.presets import (
         DOMAIN_PROFILES,
         LANGUAGE_PROFILES,
@@ -221,7 +221,7 @@ def test_three_axis_composition_presets():
     for pub_key, pub in PUBLISHER_PRESETS.items():
         for lang_key, lang in LANGUAGE_PROFILES.items():
             for dom_key in DOMAIN_PROFILES:
-                spec = resolve_monograph_spec(
+                spec = adhoc_spec(
                     Path("sample.pdf"),
                     120,
                     publisher_key=pub_key,
@@ -238,9 +238,9 @@ def test_three_axis_composition_presets():
 
 
 def test_spec_less_book_names_no_invented_publisher_or_author():
-    from polytypst.compiler.monograph import MonographCompiler, resolve_monograph_spec
+    from polytypst.compiler.monograph import MonographCompiler, adhoc_spec
 
-    spec = resolve_monograph_spec(Path("Lectures on Moduli.pdf"), 7)
+    spec = adhoc_spec(Path("Lectures on Moduli.pdf"), 7)
     title_page = MonographCompiler(spec).build_typst_title_page()
     assert "LECTURES ON MODULI" in title_page
     for invented in ("Cambridge", "CAMBRIDGE", "Author", "New York"):

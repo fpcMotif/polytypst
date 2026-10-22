@@ -9,13 +9,19 @@ from .compiler.monograph import (
     MonographCompiler,
     MonographOutputs,
     MonographSpec,
+    adhoc_spec,
     running_footnotes,
 )
+from .ocr.backend import Backend
+from .ocr.scan import SourceScan
+from .ocr.transcripts import TranscriptStore
 from .parity.diagrams import DiagramText
 from .parity.report import Tolerance
 from .parity.source import source_ocr_dir
+from .vision.figure_extractor import extract_book_figures
 
 OUTPUT = Path("output")
+RENDER_DPI = 200
 
 
 @dataclass(frozen=True)
@@ -54,6 +60,40 @@ class Book:
     @property
     def ocr(self) -> Path:
         return source_ocr_dir(self.out_dir)
+
+    @property
+    def transcripts(self) -> Path:
+        return self.out_dir / self.spec.markdown_dir
+
+    @classmethod
+    def adhoc(
+        cls, source: Path, out_dir: Path | None = None, publisher_key: str = "cambridge", lang: str = "en",
+        domain: str = "math",
+    ) -> "Book":
+        """A one-chapter book for a source scan that no `src/<key>/book.py` describes, in `output/<slug>` by default."""
+        spec = adhoc_spec(Path(source), SourceScan(source).page_count, publisher_key, lang, domain)
+        out_dir = out_dir or OUTPUT / spec.slug
+        return cls(spec, out_dir, {"monograph": monograph_edition(spec, out_dir, "one chapter, generic rules")})
+
+    def transcribe(
+        self, source: Path, backend: Backend, pages: set[int] | None = None, retranscribe: bool = False
+    ) -> dict[int, str]:
+        """Render the scan into `page_renders/`, find its figures, and transcribe the pages the store lacks."""
+        scan = SourceScan(source)
+        if self.spec.pdf_page_count not in (None, scan.page_count):
+            print(f"Warning: {self.spec.slug} expects {self.spec.pdf_page_count} pages; {source} has {scan.page_count}")
+        split = " (2-up spreads split down the spine)" if scan.split else ""
+        print(f"Rendering {scan.page_count} pages from {Path(source).name}{split} at {RENDER_DPI} DPI...")
+        renders = scan.pages(self.out_dir / "page_renders", dpi=RENDER_DPI)
+        if scan.pdf is not None:
+            _ = extract_book_figures(scan.pdf, self.out_dir, renders, self.transcripts, self.spec.ocr_languages)
+        else:
+            print("Skipping figure extraction: it reads the PDF, and this scan's pages are not PDF pages.")
+        if pages:
+            renders = [p for p in renders if p.number in pages]
+        transcriber = backend.transcriber(self.spec.ocr_prompt)
+        print(f"Transcribing with {transcriber.provenance}")
+        return TranscriptStore(self.transcripts).transcribe(renders, transcriber, retranscribe=retranscribe)
 
 
 def report_build(outputs: MonographOutputs) -> None:

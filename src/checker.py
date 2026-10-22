@@ -975,12 +975,9 @@ def audit_pdf(
     tiers: frozenset[int] = ALL_TIERS,
 ) -> CheckReport:
     if spec is None:
-        import pymupdf
-
         from .books import find_known_book
 
-        with pymupdf.open(str(pdf_path)) as doc:
-            spec = find_known_book(pdf_path, len(doc))
+        spec = find_known_book(pdf_path)
     if isinstance(spec, MonographSpec):
         spec = AuditSpec.from_monograph(spec)
     report = DocumentQualityChecker(pdf_path, spec).run_all_checks(tiers)

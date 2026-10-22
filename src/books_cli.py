@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from .books import books
+from .books import book_by_key, books
 from .edition import Book, Edition
 from .new_book import scaffold_book
 from .parity import compare, verdict, write_report
@@ -30,11 +30,10 @@ def parse_pages(text: str) -> set[int]:
 
 
 def _pick(parser: argparse.ArgumentParser, key: str, edition: str | None) -> tuple[Book, str, Edition]:
-    known = books()
-    normalized = {**known, **{k.replace("_", "-"): v for k, v in known.items()}}
-    if key not in normalized:
-        parser.error(f"unknown book {key!r}; known: {', '.join(known)}")
-    book = normalized[key]
+    try:
+        book = book_by_key(key)
+    except KeyError as error:
+        parser.error(error.args[0])
     name = edition or next(iter(book.editions))
     if name not in book.editions:
         parser.error(f"{key} has no edition {name!r}; editions: {', '.join(book.editions)}")

@@ -8,14 +8,13 @@ import pymupdf
 import pytest
 from PIL import Image, ImageDraw
 
-from polytypst import pipeline as pipeline_module
 from polytypst.ocr.pages import LinePage, OcrLine, PageImage
-from polytypst.pipeline import UniversalPDFPipeline
 from polytypst.vision import figure_extractor
 from polytypst.vision.figure_extractor import (
     FIGURES_MANIFEST_NAME,
     ExtractedFigure,
     FigureExtractor,
+    extract_book_figures,
     find_whitespace_isolated_diagram,
     load_figures_manifest,
     write_figures_manifest,
@@ -227,11 +226,10 @@ class RecordingVision:
 @pytest.fixture
 def five_page_book(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(figure_extractor, "line_reader", RecordingVision)
-    monkeypatch.setattr(pipeline_module, "line_reader", RecordingVision)
     RecordingVision.calls = []
     pdf_path = tmp_path / "book.pdf"
     doc = pymupdf.open()
-    renders = tmp_path / "renders"
+    renders = tmp_path / "page_renders"
     renders.mkdir()
     for pno in range(1, 6):
         page = doc.new_page(width=612, height=792)
@@ -246,30 +244,30 @@ def five_page_book(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def test_whitespace_extraction_clamps_neighbors_to_pages(five_page_book: Path) -> None:
     out_dir = five_page_book.parent / "out" / "figures"
     _ = FigureExtractor(five_page_book).extract_whitespace_isolated_figures(
-        five_page_book.parent / "renders", out_dir, pages=range(2, 5)
+        five_page_book.parent / "page_renders", out_dir, five_page_book.parent / "markdown_pages", pages=range(2, 5)
     )
     assert RecordingVision.calls == [2, 3, 4]
 
 
-def test_pipeline_figure_cache_requires_every_listed_file(
+def test_book_figure_cache_requires_every_listed_file(
     five_page_book: Path,
 ) -> None:
-    pipeline = UniversalPDFPipeline(five_page_book, five_page_book.parent / "out")
-    pipeline.renders_dir = five_page_book.parent / "renders"
-    manifest = pipeline.output_dir / FIGURES_MANIFEST_NAME
-    pipeline.figures_dir.mkdir(parents=True)
-    _ = (pipeline.figures_dir / "fig_1_1.png").write_bytes(b"png")
+    out_dir = five_page_book.parent
+    transcripts = out_dir / "markdown_pages"
+    manifest = out_dir / FIGURES_MANIFEST_NAME
+    (out_dir / "figures").mkdir()
+    _ = (out_dir / "figures" / "fig_1_1.png").write_bytes(b"png")
     complete = [ExtractedFigure("1_1", "Fig. 1.1", "figures/fig_1_1.png", 2)]
     partial = [*complete, ExtractedFigure("1_2", "Fig. 1.2", "figures/fig_1_2.png", 4)]
 
     write_figures_manifest(manifest, partial)
-    assert pipeline.extract_figures(rendered_pages=[]) == []
+    assert extract_book_figures(five_page_book, out_dir, [], transcripts) == []
     assert RecordingVision.calls != []
     assert load_figures_manifest(manifest) == []
 
     write_figures_manifest(manifest, complete)
     RecordingVision.calls = []
-    assert pipeline.extract_figures(rendered_pages=[]) == complete
+    assert extract_book_figures(five_page_book, out_dir, [], transcripts) == complete
     assert RecordingVision.calls == []
 
 

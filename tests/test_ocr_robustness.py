@@ -16,7 +16,7 @@ from hypothesis.stateful import RuleBasedStateMachine, initialize, invariant, ru
 from polytypst.compiler.monograph import (
     REPO_FONTS_DIR,
     MonographCompiler,
-    resolve_monograph_spec,
+    adhoc_spec,
 )
 from polytypst.compiler.typst_math import (
     convert_math_batch,
@@ -145,7 +145,7 @@ def _compile(typ: Path) -> str:
 
 def _build_spec_less_book(out_dir: Path, pages: list[str], pdf_name: str = "Probe Book.pdf") -> str:
     """Write `pages` as OCR output for an unknown PDF, build it, and return the PDF text."""
-    spec = resolve_monograph_spec(Path(pdf_name), len(pages))
+    spec = adhoc_spec(Path(pdf_name), len(pages))
     md_dir = out_dir / spec.markdown_dir
     md_dir.mkdir(parents=True, exist_ok=True)
     for old in md_dir.glob("p_*.md"):
@@ -191,7 +191,7 @@ def test_math_nested_too_deep_for_the_fallback_converter_still_compiles(tmp_path
 )
 def test_a_title_that_can_wrap_keeps_its_full_size(tmp_path: Path, pdf_name: str) -> None:
     _ = _build_spec_less_book(tmp_path, [OPENING], pdf_name)
-    slug = resolve_monograph_spec(Path(pdf_name), 1).slug
+    slug = adhoc_spec(Path(pdf_name), 1).slug
     title_page = pymupdf.open(tmp_path / f"{slug}.pdf")[0]
     sizes = [span["size"] for block in title_page.get_text("dict")["blocks"] for line in block.get("lines", []) for span in line["spans"]]
     assert max(sizes) == pytest.approx(26)
@@ -330,7 +330,7 @@ class OCREngineMachine(RuleBasedStateMachine):
 
     @invariant()
     def pages_render(self) -> None:
-        spec = resolve_monograph_spec(Path("Probe Book.pdf"), len(self.pages))
+        spec = adhoc_spec(Path("Probe Book.pdf"), len(self.pages))
         _ = MonographCompiler(spec).format_typst(
             "\n\n".join("\n\n".join(page) for page in self.pages)
         )

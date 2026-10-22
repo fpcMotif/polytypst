@@ -86,11 +86,12 @@ polytypst path/to/photos/ --output output/book --backend gemini
 
 | Flag | Description | Default |
 |---|---|---|
-| `-o, --output` | Destination output directory | `output/` |
+| `--book` | Key of the book in `src/KEY/` that the scan is | the book the file name matches, else a new book |
+| `-o, --output` | Output folder of a new book; a known book writes to `output/KEY/` | `output/<slug>/` |
 | `--backend` | OCR backend as `KIND[:MODEL][?KEY=VALUE&...]`: `gemini`, `openai`, `jina`, `mistral`, `local`, `colab` or `cached` | `colab` |
 | `--pages` | Transcribe only these pages, as in `3,7-9` | every page |
 | `--retranscribe` | Redo transcripts that another backend or prompt made | off |
-| `--publisher`, `--lang`, `--domain` | Composition presets for a book without a spec | `cambridge`, `en`, `math` |
+| `--publisher`, `--lang`, `--domain` | Composition presets of a new book; a known book refuses them | `cambridge`, `en`, `math` |
 
 `docs/scanned-books.md` describes each backend, its API key, and how the transcript store resumes a run.
 

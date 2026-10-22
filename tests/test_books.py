@@ -71,7 +71,7 @@ def test_specs_come_from_the_editions():
     )
     assert set(book_specs()) == {s.slug for s in every}
     kodaira = books()["kodaira"].spec
-    assert find_known_book(Path("x.pdf"), kodaira.pdf_page_count) is not None
+    assert find_known_book(Path(f"{kodaira.slug}.pdf")) is kodaira
 
 
 def test_london_treasury_deliverables():

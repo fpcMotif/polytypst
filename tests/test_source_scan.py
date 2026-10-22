@@ -5,9 +5,8 @@ import pymupdf
 import pytest
 from PIL import Image
 
-from polytypst import pipeline as pipeline_module
+from polytypst.edition import Book
 from polytypst.ocr.scan import RENDERS_MANIFEST, SourceScan, SourceScanError
-from polytypst.pipeline import UniversalPDFPipeline
 
 
 def photo(path: Path, size: tuple[int, int] = (300, 400), color: str = "white") -> Path:
@@ -161,21 +160,9 @@ def test_bad_inputs_are_named(tmp_path: Path) -> None:
         )
 
 
-def test_pipeline_matches_books_by_their_page_count_after_the_split(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    seen: list[int] = []
-
-    def stop(source: Path, total_pages: int, **_: object) -> None:
-        seen.append(total_pages)
-        raise RuntimeError("stop after spec lookup")
-
-    monkeypatch.setattr(pipeline_module, "resolve_monograph_spec", stop)
-    with pytest.raises(RuntimeError, match="stop after spec lookup"):
-        _ = UniversalPDFPipeline(
-            spread_pdf(tmp_path / "spreads.pdf"), tmp_path / "out"
-        ).process()
-    assert seen == [6]
+def test_a_new_book_spans_the_pages_after_the_split(tmp_path: Path) -> None:
+    book = Book.adhoc(spread_pdf(tmp_path / "spreads.pdf"), tmp_path / "out")
+    assert [(c.start_page, c.end_page) for c in book.spec.chapters] == [(1, 6)]
 
 
 def _write(path: Path) -> Path:
