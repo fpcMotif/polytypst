@@ -1,9 +1,12 @@
 """`polytypst books`, `build`, `parity` and `new-book`: one entry point for every book in `src/<key>/book.py`."""
 
 import argparse
+import json
+from collections import Counter
 from pathlib import Path
 
 from .books import book_by_key, books
+from .checker import AuditSpec, DocumentQualityChecker
 from .edition import Book, Edition
 from .new_book import scaffold_book
 from .parity import compare, verdict, write_report
@@ -14,10 +17,14 @@ examples:
   polytypst books
   polytypst build bourbaki --edition vintage
   polytypst parity bourbaki --edition facsimile --pages 31-34
+  polytypst audit hecke
 
 The source scan is ${SOURCES_ENV}/<spec.source_pdf>, or --source PATH.
 docs/scanned-books.md explains the procedure and the report.
 """
+
+
+BASELINE = Path("quality/baseline.json")
 
 
 def parse_pages(text: str) -> set[int]:
@@ -88,6 +95,40 @@ def _parity(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def _audit(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    baseline = json.loads(args.baseline.read_text(encoding="utf-8")) if args.baseline.exists() else {}
+    if args.book:
+        targets = [(key, *_pick(parser, key, args.edition)[1:]) for key in args.book]
+    else:
+        targets = [(key, name, book_by_key(key).editions[name]) for key, editions in baseline.items() for name in editions]
+    ok = True
+    for key, name, edition in targets:
+        if not edition.rebuilt.exists():
+            print(f"{key} {name}: {edition.rebuilt} is missing; run: polytypst build {key} --edition {name}")
+            ok = False
+            continue
+        spec = AuditSpec.from_monograph(edition.spec) if edition.spec else AuditSpec()
+        counts = Counter(i.rule_name for i in DocumentQualityChecker(edition.rebuilt, spec).run_all_checks().issues)
+        if args.update:
+            baseline.setdefault(key, {})[name] = dict(sorted(counts.items()))
+            print(f"{key} {name}: recorded {counts.total()} issues")
+            continue
+        recorded = baseline.get(key, {}).get(name, {})
+        rose = [f"{rule} {n} > {recorded.get(rule, 0)}" for rule, n in sorted(counts.items()) if n > recorded.get(rule, 0)]
+        fell = [f"{rule} {counts[rule]} < {n}" for rule, n in sorted(recorded.items()) if counts[rule] < n]
+        print(f"{key} {name}: {'FAIL' if rose else 'ok'}, {counts.total()} issues")
+        for line in rose:
+            print(f"  rose: {line}")
+        for line in fell:
+            print(f"  fell: {line}; run with --update to lower the baseline")
+        ok = ok and not rose
+    if args.update:
+        args.baseline.parent.mkdir(parents=True, exist_ok=True)
+        text = json.dumps(baseline, indent=2, ensure_ascii=False, sort_keys=True)
+        args.baseline.write_text(f"{text}\n", encoding="utf-8")
+    return 0 if ok else 1
+
+
 def main(command: str, argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog=f"polytypst {command}", epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -95,6 +136,7 @@ def main(command: str, argv: list[str]) -> int:
             "books": "List every book and its editions; [parity] marks editions you can check against the scan.",
             "build": "Build one edition of a book. The default edition is the first one `polytypst books` lists.",
             "parity": "Check a rebuilt edition against its source scan. Writes a report and exits 1 when a page fails.",
+            "audit": "Count the checker's issues per rule in rebuilt editions. Exits 1 when a count rises above the baseline.",
             "new-book": "Write src/KEY/{__init__,spec,book}.py for a new book and add polytypst.KEY to pyproject.toml.",
         }[command],
     )
@@ -114,6 +156,12 @@ def main(command: str, argv: list[str]) -> int:
         print(f"next: fill in the chapters in src/{args.key}/spec.py, then run `polytypst books`")
         print("then: add the spec to test_specs_come_from_the_editions in tests/test_books.py")
         return 0
+    if command == "audit":
+        parser.add_argument("book", nargs="*", help="book keys from `polytypst books` (default: every edition in the baseline)")
+        parser.add_argument("--edition", help="edition name (default: the book's first)")
+        parser.add_argument("--baseline", type=Path, default=BASELINE, help=f"rule counts per book and edition (default: {BASELINE})")
+        parser.add_argument("--update", action="store_true", help="record the current counts in the baseline instead of comparing")
+        return _audit(parser, parser.parse_args(argv))
     if command != "books":
         parser.add_argument("book", help="book key from `polytypst books`")
         parser.add_argument("--edition", help="edition name (default: the book's first)")

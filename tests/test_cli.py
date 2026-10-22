@@ -1,3 +1,6 @@
+import json
+
+import pymupdf
 import pytest
 
 from polytypst import books as books_module
@@ -55,11 +58,63 @@ def test_build_rejects_running_footnotes_for_a_book_without_notes(built, capsys)
     assert built == []
 
 
+BODY = "This paragraph is ordinary body prose that fills a page with enough characters."
+
+
+def write_pdf(path, lines):
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+    for i, line in enumerate(lines):
+        _ = page.insert_text((72, 120 + 40 * i), line, fontsize=11)
+    doc.save(path)
+
+
+@pytest.fixture
+def audited(monkeypatch, tmp_path):
+    pdf = tmp_path / "x.pdf"
+    edition = Edition(pdf, lambda source, formats, footnotes: None)
+    book = Book(MonographSpec(slug="x", title="X", author="A"), tmp_path, {"monograph": edition})
+    monkeypatch.setattr(books_cli, "books", lambda: {"probe": book})
+    monkeypatch.setattr(books_module, "books", lambda: {"probe": book})
+    return pdf, tmp_path / "baseline.json"
+
+
+def test_audit_update_records_counts_that_the_next_audit_accepts(audited):
+    pdf, baseline = audited
+    write_pdf(pdf, [BODY, "Roy,~1952 wrote here"])
+    assert books_cli.main("audit", ["probe", "--baseline", str(baseline), "--update"]) == 0
+    assert json.loads(baseline.read_text())["probe"]["monograph"]["NO_LITERAL_TILDE"] == 1
+    assert books_cli.main("audit", ["probe", "--baseline", str(baseline)]) == 0
+
+
+def test_audit_of_every_baseline_edition_fails_on_a_rule_that_rose(audited, capsys):
+    pdf, baseline = audited
+    write_pdf(pdf, [BODY, BODY])
+    assert books_cli.main("audit", ["probe", "--baseline", str(baseline), "--update"]) == 0
+    write_pdf(pdf, [BODY, "Roy,~1952 wrote here"])
+    assert books_cli.main("audit", ["--baseline", str(baseline)]) == 1
+    assert "NO_LITERAL_TILDE 1 > 0" in capsys.readouterr().out
+
+
+def test_audit_counts_an_edition_with_no_baseline_against_zero(audited, capsys):
+    pdf, baseline = audited
+    write_pdf(pdf, [BODY, "Roy,~1952 wrote here"])
+    baseline.write_text("{}\n")
+    assert books_cli.main("audit", ["probe", "--baseline", str(baseline)]) == 1
+    assert "NO_LITERAL_TILDE 1 > 0" in capsys.readouterr().out
+
+
+def test_audit_fails_when_the_edition_is_not_built(audited, capsys):
+    _, baseline = audited
+    assert books_cli.main("audit", ["probe", "--baseline", str(baseline)]) == 1
+    assert "polytypst build probe" in capsys.readouterr().out
+
+
 def test_top_level_help_lists_the_book_commands(monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["polytypst", "--help"])
     with pytest.raises(SystemExit):
         cli.main()
     out = capsys.readouterr().out
-    for command in ("books", "build", "parity", "new-book"):
+    for command in ("books", "build", "parity", "audit", "new-book"):
         assert f"polytypst {command}" in out
     assert "modern-firm" not in out

@@ -1,0 +1,58 @@
+{
+  "ahlfors": {
+    "complete": {}
+  },
+  "bourbaki_lie": {
+    "monograph": {
+      "CROSS_PAGE_WORD_SPLIT": 1,
+      "MANGLED_ELLIPSIS_DOTS": 1,
+      "MANGLED_MATH_TOKEN": 3,
+      "SHRUNKEN_DISPLAY_MATH": 1,
+      "UNCLOSED_PARENTHESIS_PAGE_BREAK": 27,
+      "UNRENDERED_FRACTION": 2,
+      "UNRENDERED_MATH_ITALIC_WORD": 1
+    }
+  },
+  "hecke": {
+    "monograph": {
+      "UNCLOSED_PARENTHESIS_PAGE_BREAK": 2
+    }
+  },
+  "kashiwara": {
+    "monograph": {
+      "CORRUPTED_FIGURE_CROP": 11,
+      "ISOLATED_MATH_BLOCK": 1,
+      "LEAKED_RUNNING_HEADER": 1,
+      "SHRUNKEN_DISPLAY_MATH": 2,
+      "UNCLOSED_PARENTHESIS_PAGE_BREAK": 29
+    }
+  },
+  "klein": {
+    "en": {
+      "CROSS_PAGE_WORD_SPLIT": 2,
+      "HYPHENATED_PROPER_NOUN": 3,
+      "MARGIN_OVERFLOW": 1,
+      "UNCLOSED_PARENTHESIS_PAGE_BREAK": 23,
+      "UNRENDERED_MATH_ITALIC_WORD": 4
+    }
+  },
+  "kodaira": {
+    "monograph": {
+      "SHRUNKEN_DISPLAY_MATH": 1,
+      "UNCLOSED_PARENTHESIS_PAGE_BREAK": 15
+    }
+  },
+  "siegel_symplectic": {
+    "monograph": {}
+  },
+  "複素多様体論": {
+    "monograph": {
+      "EQUATION_NUMBER_COLLISION": 11,
+      "ISOLATED_MATH_BLOCK": 4,
+      "MANGLED_ELLIPSIS_DOTS": 2,
+      "NO_SOLO_PAGE": 1,
+      "SHRUNKEN_DISPLAY_MATH": 4,
+      "UNCLOSED_PARENTHESIS_PAGE_BREAK": 3
+    }
+  }
+}
