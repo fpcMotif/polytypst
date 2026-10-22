@@ -132,24 +132,22 @@ def normalize_html_tables(text: str) -> str:
                 re.sub(r"<[^>]+>", "", c).strip()
                 for c in re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", r, re.DOTALL)
             ]
-            cells = [c for c in cells if c]
+            while cells and not cells[-1]:
+                cells.pop()
             if cells:
                 parsed_rows.append(cells)
         if not parsed_rows:
             return ""
         max_cols = max(len(r) for r in parsed_rows)
         if max_cols <= 3 and all(r[-1].isdigit() for r in parsed_rows if len(r) >= 2):
-            return "\n\n" + "\n\n".join(" ".join(r) for r in parsed_rows) + "\n\n"
-        header = parsed_rows[0]
-        col_count = len(header)
-        sep = ["---"] * col_count
+            return "\n\n" + "\n\n".join(" ".join(c for c in r if c) for r in parsed_rows) + "\n\n"
+        padded = [row + [""] * (max_cols - len(row)) for row in parsed_rows]
         lines = [
-            "| " + " | ".join(header) + " |",
-            "| " + " | ".join(sep) + " |",
+            "| " + " | ".join(padded[0]) + " |",
+            "| " + " | ".join(["---"] * max_cols) + " |",
         ]
-        for row in parsed_rows[1:]:
-            padded = row + [""] * (col_count - len(row))
-            lines.append("| " + " | ".join(padded[:col_count]) + " |")
+        for row in padded[1:]:
+            lines.append("| " + " | ".join(row) + " |")
         return "\n\n" + "\n".join(lines) + "\n\n"
 
     return re.sub(r"<table>.*?</table>", repl_table, text, flags=re.DOTALL)
