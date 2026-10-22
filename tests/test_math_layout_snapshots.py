@@ -286,13 +286,13 @@ def _write_ocr_cache(source: Path, cache: Path) -> None:
 
 def test_fermat_lemma_bijections_and_hilbert_cases_typst_snapshot() -> None:
     compiler = MonographCompiler(FERMAT_SPEC)
-    body_29, _, _ = compiler.extract_page_parts(FERMAT_PAGE_29_MD, 29)
+    body_29, _, _ = compiler.cleaner.clean(FERMAT_PAGE_29_MD, 29)
     assert (
         _collapse_blank_lines(compiler.format_typst(body_29))
         == FERMAT_PAGE_29_TYPST_SNAPSHOT
     )
 
-    body_63, _, _ = compiler.extract_page_parts(FERMAT_PAGE_63_MD, 63)
+    body_63, _, _ = compiler.cleaner.clean(FERMAT_PAGE_63_MD, 63)
     assert (
         _collapse_blank_lines(compiler.format_typst(body_63))
         == FERMAT_PAGE_63_TYPST_SNAPSHOT
@@ -315,7 +315,7 @@ def test_fermat_mordell_proposition_and_conics_correspondence_typst_snapshot() -
         assert expected_rule in preamble
 
     for pno, raw_md, expected_typst in FERMAT_PAGE_38_41_56_SPECS:
-        body, _, _ = compiler.extract_page_parts(raw_md, pno)
+        body, _, _ = compiler.cleaner.clean(raw_md, pno)
         assert _collapse_blank_lines(compiler.format_typst(body)) == expected_typst
 
 
@@ -350,7 +350,7 @@ def test_goursat_differentials_delimiters_and_figure_grounding_snapshot(
             chapters=[ChapterSpec(1, "Derivatives and Differentials", 1, 1)],
         )
     )
-    body, top_f, bot_f = compiler.extract_page_parts(ch1_md, 1)
+    body, top_f, bot_f = compiler.cleaner.clean(ch1_md, 1)
     stitched_ch = compiler.stitch_chapter([(1, body, top_f, bot_f)], fig_dir)
     assert (
         _collapse_blank_lines(compiler.format_typst(stitched_ch))
@@ -377,7 +377,7 @@ def test_serre_display_brackets_tags_operators_and_bars_typst_snapshot() -> None
             chapters=[ChapterSpec(7, "Formes modulaires", 92, 92)],
         )
     )
-    body, _, _ = compiler.extract_page_parts(stitched, 92)
+    body, _, _ = compiler.cleaner.clean(stitched, 92)
     assert _collapse_blank_lines(compiler.format_typst(body)) == SERRE_TYPST_SNAPSHOT
 
 
@@ -399,7 +399,7 @@ def test_math_layout_compiled_page_scan_parity_snapshot(tmp_path: Path) -> None:
         "(1) *There exist mutually inverse maps between the sets preserving the differential $dy = 3 x dx$.*\n\n"
         "*Proof.* Direct substitution into the rational coordinates establishes the bijection for every point."
     )
-    body, _, _ = compiler.extract_page_parts(page_md, 1)
+    body, _, _ = compiler.cleaner.clean(page_md, 1)
     typ_src = (
         compiler.build_typst_preamble() + "\n" + compiler.format_typst(body) + "\n"
     )

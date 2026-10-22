@@ -1,4 +1,4 @@
-from polytypst.compiler.monograph import prose_displays_to_paragraphs
+from polytypst.compiler.page_cleaner import prose_displays_to_paragraphs
 
 KASHIWARA_P117 = (
     r"$$((x_1, x_2), \sqrt{-1}(\xi_1, \xi_2)\infty) \notin \overline{\mathrm{S.S.}} f_1(f_2 - \tilde{f}_2)"

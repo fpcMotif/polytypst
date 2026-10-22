@@ -8,8 +8,8 @@ from polytypst.compiler.monograph import (
     MonographCompiler,
     compile_typst,
     is_unnumbered_chapter,
-    normalize_run_in,
 )
+from polytypst.compiler.page_cleaner import normalize_run_in
 
 
 def test_theorem_note_before_the_closing_bold_leaves_no_stray_asterisks():
@@ -23,9 +23,9 @@ from polytypst.kodaira.spec import KODAIRA_SPEC
 def test_first_appearance_of_a_section_at_page_top_is_a_heading_not_a_running_head():
     compiler = MonographCompiler(KODAIRA_SPEC)
     line = "## 1.4 Properties of holomorphic functions"
-    assert not compiler._is_page_furniture(line, 58, 1)
-    assert compiler._normalized_heading(line, 58) == "## 1.4 Properties of holomorphic functions"
-    assert compiler._is_page_furniture(line, 60, 1)
+    assert not compiler.cleaner._is_page_furniture(line, 58, 1)
+    assert compiler.cleaner._normalized_heading(line, 58) == "## 1.4 Properties of holomorphic functions"
+    assert compiler.cleaner._is_page_furniture(line, 60, 1)
 
 
 @pytest.mark.parametrize(("level", "spacer"), [(2, 140), (3, 154), (4, 154)])
@@ -171,7 +171,7 @@ def test_body_chapters_keep_their_number() -> None:
 
 def test_paren_inline_math_delimiters_become_dollars():
     compiler = MonographCompiler(HECKE_SPEC)
-    text, _, _ = compiler.extract_page_parts("(2) implies \\( x = u + y \\), whence \\( \\varepsilon(x)\n= 0 \\).\n", 30)
+    text, _, _ = compiler.cleaner.clean("(2) implies \\( x = u + y \\), whence \\( \\varepsilon(x)\n= 0 \\).\n", 30)
     assert "\\(" not in text
     assert "$x = u + y$" in text
     assert "$\\varepsilon(x)\n= 0$" in text
@@ -179,7 +179,7 @@ def test_paren_inline_math_delimiters_become_dollars():
 
 def test_scanner_watermark_is_removed_from_page_text():
     compiler = MonographCompiler(HECKE_SPEC)
-    text, _, _ = compiler.extract_page_parts("Gauss wrote.\n\nClibPDF - www.fastio.com; for example the lemniscate.\n\nClibPDF - www.iasj.net\n", 30)
+    text, _, _ = compiler.cleaner.clean("Gauss wrote.\n\nClibPDF - www.fastio.com; for example the lemniscate.\n\nClibPDF - www.iasj.net\n", 30)
     assert "ClibPDF" not in text
     assert "for example the lemniscate." in text
 
@@ -187,14 +187,14 @@ def test_scanner_watermark_is_removed_from_page_text():
 def test_display_holding_a_sentence_is_set_as_a_paragraph():
     compiler = MonographCompiler(HECKE_SPEC)
     page = "$$a = 0 \\text{ holds; in a similar manner, one obtains the same bound for } b = 0.\n\nNext paragraph.\n"
-    text, _, _ = compiler.extract_page_parts(page, 30)
+    text, _, _ = compiler.cleaner.clean(page, 30)
     assert "$$" not in text
     assert "in a similar manner, one obtains the same bound for $b = 0.$" in text
 
 
 def test_first_section_on_a_chapter_start_page_is_kept():
     compiler = MonographCompiler(HECKE_SPEC)
-    text, _, _ = compiler.extract_page_parts("# CHAPTER I\n\n## §1 Factorization into Primes\n\nEvery integer is a product.\n", 11)
+    text, _, _ = compiler.cleaner.clean("# CHAPTER I\n\n## §1 Factorization into Primes\n\nEvery integer is a product.\n", 11)
     assert "## §1 Factorization into Primes" in text
 
 
@@ -212,22 +212,22 @@ def test_numbered_paragraph_is_run_in_text_but_a_short_list_stays_a_list():
 
 def test_unknown_short_heading_stays_a_heading_and_its_repeats_are_dropped():
     compiler = MonographCompiler(HECKE_SPEC)
-    assert compiler._normalized_heading("## 1. ALGEBRAS", 30) == "### 1. ALGEBRAS"
-    assert compiler._normalized_heading("## 1. ALGEBRAS", 31) == ""
-    assert compiler._normalized_heading("# R.H. Analytical Mechanics", 32) == ""
+    assert compiler.cleaner._normalized_heading("## 1. ALGEBRAS", 30) == "### 1. ALGEBRAS"
+    assert compiler.cleaner._normalized_heading("## 1. ALGEBRAS", 31) == ""
+    assert compiler.cleaner._normalized_heading("# R.H. Analytical Mechanics", 32) == ""
     long_line = "## " + "This paragraph was tagged as a heading by the OCR but is ordinary prose. " * 2
-    assert compiler._normalized_heading(long_line, 33) == long_line[3:].strip()
+    assert compiler.cleaner._normalized_heading(long_line, 33) == long_line[3:].strip()
 
 
 def test_section_sign_numbers_are_kept_per_chapter_and_in_full():
     compiler = MonographCompiler(HECKE_SPEC)
-    assert compiler._normalized_heading("## § 1. DEFINITION", 12) == "## § 1. DEFINITION"
-    assert compiler._normalized_heading("## § 1. GENERALITIES", 27) == "## § 1. GENERALITIES"
-    assert compiler._normalized_heading("## §1.1 First", 13) == "## §1.1 First"
-    assert compiler._normalized_heading("## §1.2 Second", 14) == "## §1.2 Second"
+    assert compiler.cleaner._normalized_heading("## § 1. DEFINITION", 12) == "## § 1. DEFINITION"
+    assert compiler.cleaner._normalized_heading("## § 1. GENERALITIES", 27) == "## § 1. GENERALITIES"
+    assert compiler.cleaner._normalized_heading("## §1.1 First", 13) == "## §1.1 First"
+    assert compiler.cleaner._normalized_heading("## §1.2 Second", 14) == "## §1.2 Second"
 
 
 def test_section_sign_heading_becomes_a_section_once():
     compiler = MonographCompiler(HECKE_SPEC)
-    assert compiler._normalized_heading("## §20 Generating Field Elements", 76) == "## §20 Generating Field Elements"
-    assert compiler._normalized_heading("## §20 Generating Field Elements", 77) == ""
+    assert compiler.cleaner._normalized_heading("## §20 Generating Field Elements", 76) == "## §20 Generating Field Elements"
+    assert compiler.cleaner._normalized_heading("## §20 Generating Field Elements", 77) == ""

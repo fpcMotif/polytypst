@@ -115,7 +115,7 @@ def test_cross_page_join_repairs_math_split_by_page_break():
 
 
 def test_double_backslash_before_macro_is_collapsed():
-    from polytypst.compiler.monograph import _DOUBLE_BACKSLASH_MACRO_RE
+    from polytypst.compiler.page_cleaner import _DOUBLE_BACKSLASH_MACRO_RE
 
     assert _DOUBLE_BACKSLASH_MACRO_RE.sub(r"\\", r"\\mathcal{A} \\ x") == r"\mathcal{A} \\ x"
 
@@ -257,15 +257,14 @@ def test_markdown_pages_merge_when_inline_math_straddles_pages():
 
 def test_missing_ocr_image_refs_are_dropped_but_real_ones_kept(tmp_path):
     from polytypst.books import book_specs
-    from polytypst.compiler.monograph import MonographCompiler
+    from polytypst.compiler.page_cleaner import PageCleaner
 
     spec = book_specs()["kodaira_complex_analysis"]
-    compiler = MonographCompiler(spec)
-    compiler._out_dir = tmp_path
+    cleaner = PageCleaner.for_spec(spec, tmp_path)
     (tmp_path / "figures").mkdir()
     (tmp_path / "figures" / "fig_1_1.png").write_bytes(b"x")
     text = "A\n\n![Diagram](image)\n\nB\n\n![real](figures/fig_1_1.png)\n"
-    out = compiler._drop_missing_images(text)
+    out = cleaner._drop_missing_images(text)
     assert "![Diagram](image)" not in out
     assert "![real](figures/fig_1_1.png)" in out
 

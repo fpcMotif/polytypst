@@ -8,9 +8,9 @@ from polytypst.compiler.monograph import (
     latex_footnote_header,
     markdown_footnotes,
     running_footnotes,
-    split_page_footnotes,
     typst_footnote_rules,
 )
+from polytypst.compiler.page_cleaner import split_page_footnotes
 from polytypst.hecke.spec import HECKE_SPEC
 from polytypst.kashiwara.spec import KASHIWARA_SPEC
 from polytypst.klein.spec import KLEIN_SPEC
@@ -30,7 +30,7 @@ def test_superscript_notes_attach_to_their_calls():
         "¹ Liouville, Sur des classes très étendues. *Journal de Mathématiques*.\n\n"
         "² Cantor, Über eine Eigenschaft.\n"
     )
-    text, _, _ = MonographCompiler(HECKE_SPEC).extract_page_parts(page, 77)
+    text, _, _ = MonographCompiler(HECKE_SPEC).cleaner.clean(page, 77)
     assert "*Liouville*" + note("Liouville, Sur des classes très étendues. *Journal de Mathématiques*.") in text
     assert "*George Cantor*" + note("Cantor, Über eine Eigenschaft.") in text
     assert "¹" not in text and "²" not in text
@@ -41,7 +41,7 @@ def test_paren_notes_attach_and_a_list_in_the_body_stays():
         "つぎにその概要を述べる$^{1)}$。\n\n1) 第一の場合.\n2) 第二の場合.\n\nしたがって $d$ コホモロジー群$^2)$ とよぶ.\n\n"
         "—\n\n1) たとえば A. Hurwitz-R. Courant: Funktionentheorie, 参照。\n\n2) 複素解析, 363 ページ参照.\n"
     )
-    text, _, _ = MonographCompiler(FUKUSO_SPEC).extract_page_parts(page, 58)
+    text, _, _ = MonographCompiler(FUKUSO_SPEC).cleaner.clean(page, 58)
     assert "述べる" + note("たとえば A. Hurwitz-R. Courant: Funktionentheorie, 参照。") + "。" in text
     assert "コホモロジー群" + note("複素解析, 363 ページ参照.") + " とよぶ" in text
     assert "1) 第一の場合." in text and "2) 第二の場合." in text
@@ -53,18 +53,18 @@ def test_lines_below_the_note_rule_continue_the_note():
         "族の理論$^{1)}$ が生れた.\n\n---\n\n1) W. Fisher und H. Grauert: Lokal-triviale Familien.\n\n"
         "この論文が発表されたのは 1965 年である.\n\n225\n"
     )
-    text, _, _ = MonographCompiler(FUKUSO_SPEC).extract_page_parts(page, 225)
+    text, _, _ = MonographCompiler(FUKUSO_SPEC).cleaner.clean(page, 225)
     assert "族の理論" + note("W. Fisher und H. Grauert: Lokal-triviale Familien. この論文が発表されたのは 1965 年である.") in text
     assert "---" not in text
 
 
 def test_paren_note_calls_in_other_ocr_spellings():
     page = "位相$^{(1)}$ を考える. 環¹)をなす.\n\n1) 本講座 “複素解析”, 279 ページ参照.\n\n2) 環論の初歩.\n"
-    text, _, _ = MonographCompiler(FUKUSO_SPEC).extract_page_parts(page, 8)
+    text, _, _ = MonographCompiler(FUKUSO_SPEC).cleaner.clean(page, 8)
     assert "位相" + note("本講座 “複素解析”, 279 ページ参照.") + " を考える" in text
     assert "環" + note("環論の初歩.") + "をなす" not in text
     page = "位相$^{(1)}$ を考える. 環²)をなす.\n\n1) 本講座 “複素解析”, 279 ページ参照.\n\n2) 環論の初歩.\n"
-    text, _, _ = MonographCompiler(FUKUSO_SPEC).extract_page_parts(page, 8)
+    text, _, _ = MonographCompiler(FUKUSO_SPEC).cleaner.clean(page, 8)
     assert "環" + note("環論の初歩.") + "をなす" in text
 
 
@@ -75,7 +75,7 @@ def test_star_notes_attach_after_punctuation_and_skip_italics():
         "* This assumes the validity of the Jordan Curve Theorem.\n\n"
         "** See the figure in Fricke.\n"
     )
-    text, _, _ = MonographCompiler(KODAIRA_SPEC).extract_page_parts(page, 79)
+    text, _, _ = MonographCompiler(KODAIRA_SPEC).cleaner.clean(page, 79)
     assert "*Nachlass*" in text and "*et al.*" in text and "**Lemma 2.**" in text
     assert "in common." + note("This assumes the validity of the Jordan Curve Theorem.") + " Therefore" in text
     assert "proved." + note("See the figure in Fricke.") + " Done." in text
@@ -83,13 +83,13 @@ def test_star_notes_attach_after_punctuation_and_skip_italics():
 
 def test_spaced_star_call_attaches_but_math_stars_do_not():
     page = "His *Werke*. ** Upon $a * b$ return he wrote.\n\n** This was not the first time.\n"
-    text, _, _ = MonographCompiler(KODAIRA_SPEC).extract_page_parts(page, 283)
+    text, _, _ = MonographCompiler(KODAIRA_SPEC).cleaner.clean(page, 283)
     assert "*Werke*. " + note("This was not the first time.") + " Upon $a * b$" in text
 
 
 def test_dagger_at_the_end_of_a_display_moves_after_it():
     page = "We have\n\n$$\nE_n = 0 \\quad \\text{for } n \\geq 0. \\dagger\n$$\n\nso on.\n\n† If $A$ and $B$ are submodules.\n"
-    text, _, _ = MonographCompiler(BOURBAKI_LIE_SPEC).extract_page_parts(page, 132)
+    text, _, _ = MonographCompiler(BOURBAKI_LIE_SPEC).cleaner.clean(page, 132)
     assert text.count("$$") == 2
     assert "\\dagger" not in text
     assert "We have" + note("If $A$ and $B$ are submodules.") in text
@@ -97,7 +97,7 @@ def test_dagger_at_the_end_of_a_display_moves_after_it():
 
 def test_dagger_note_attaches_to_its_call():
     page = "Let $\\mathfrak{g}_i$ for $i = n, \\ldots, 1$.† Let $G_i$ be the group.\n\n† Such a sequence exists by Chapter I.\n"
-    text, _, _ = MonographCompiler(BOURBAKI_LIE_SPEC).extract_page_parts(page, 370)
+    text, _, _ = MonographCompiler(BOURBAKI_LIE_SPEC).cleaner.clean(page, 370)
     assert "1$." + note("Such a sequence exists by Chapter I.") + " Let" in text
 
 
@@ -156,7 +156,7 @@ def test_section_mark_note_is_cut_and_attaches_to_its_call():
     )
     _, notes = split(page, BOURBAKI_LIE_SPEC)
     assert [k for k, _ in notes] == ["‡", "§", "†"]
-    text, _, _ = MonographCompiler(BOURBAKI_LIE_SPEC).extract_page_parts(page, 435)
+    text, _, _ = MonographCompiler(BOURBAKI_LIE_SPEC).cleaner.clean(page, 435)
     assert "F. Engel" + note("From 1886 to 1898, Lie occupied the chair at Leipzig.") + "; it is" in text
     assert "§5)" in text
 

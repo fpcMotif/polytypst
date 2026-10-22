@@ -76,7 +76,7 @@ def test_drop_line_regexes_never_delete_body_index_entries():
         "Böcher, 3, 25, 71, 110\n"
         "Boltzmann, 63\n"
     )
-    extracted, _, _ = compiler.extract_page_parts(body_text, pno=1)
+    extracted, _, _ = compiler.cleaner.clean(body_text, pno=1)
 
     assert "Abraham, 39, 43" in extracted
     assert "Aronhold, 147, 177" in extracted

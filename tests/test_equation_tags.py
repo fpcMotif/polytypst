@@ -1,4 +1,7 @@
-from polytypst.compiler.monograph import _label_page_equations, _label_section_equations
+from polytypst.compiler.page_cleaner import (
+    _label_page_equations,
+    _label_section_equations,
+)
 
 
 def test_section_tag_after_a_blank_line_labels_the_display():
