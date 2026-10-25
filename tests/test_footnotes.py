@@ -246,6 +246,45 @@ def test_note_entry_stays_on_the_page_of_its_call(tmp_path):
     assert apart == []
 
 
+def test_note_entry_stays_on_the_page_of_a_call_near_the_end_of_its_paragraph(tmp_path):
+    apart = []
+    for words in (*range(196, 208, 2), *range(322, 332, 2)):
+        typ = tmp_path / "w.typ"
+        typ.write_text(
+            "#set page(width: 300pt, height: 300pt)\n#set text(10pt)\n#set par(justify: true)\n"
+            + typst_footnote_rules(KLEIN_SPEC)
+            + f"#lorem({words})\n\n#lorem(40) Noether at Erlangen since 1875#footnote[Died 1922.] will occupy us.\n\n#lorem(60)\n",
+            encoding="utf-8",
+        )
+        compile_typst(typ, tmp_path / "w.pdf")
+        pages = [p.get_text() for p in pymupdf.open(tmp_path / "w.pdf")]
+        call = next(i for i, t in enumerate(pages) if "1875*" in t)
+        entry = next(i for i, t in enumerate(pages) if "*Died 1922." in t)
+        if call != entry:
+            apart.append(words)
+    assert apart == []
+
+
+def test_chinese_note_mark_never_starts_a_line(tmp_path):
+    spec = adhoc_spec(Path("Probe.pdf"), 1, lang="zh")
+    leading = []
+    for chars in range(10, 40):
+        typ = tmp_path / "m.typ"
+        typ.write_text(
+            '#set page(width: 200pt, height: 200pt)\n#set text(font: ("Songti SC", "New Computer Modern"), lang: "zh")\n'
+            "#set par(justify: true)\n"
+            + typst_footnote_rules(spec)
+            + "经" * chars + "济#footnote[注。]。考察以下两个时期中三个时间点。\n",
+            encoding="utf-8",
+        )
+        compile_typst(typ, tmp_path / "m.pdf")
+        page = pymupdf.open(tmp_path / "m.pdf")[0]
+        lines = ["".join(s["text"] for s in ln["spans"]) for b in page.get_text("dict")["blocks"] for ln in b.get("lines", [])]
+        if any(ln.startswith("1") or ln.startswith("①") for ln in lines if "注" not in ln):
+            leading.append(chars)
+    assert leading == []
+
+
 def test_each_book_keeps_the_marks_of_its_scan():
     marks = {
         spec.slug: (spec.footnote_marks, spec.footnote_numbering, spec.footnote_reset)

@@ -679,13 +679,16 @@ LATEX_CIRCLED_GLYPHS = (
 ) + r"\makeatother"
 
 
-TYPST_LATIN_SUPERSCRIPTS = '#show super: set text(font: "New Computer Modern")\n'
+TYPST_CJK_NOTE_MARKS = (
+    '#show super: set text(font: "New Computer Modern")\n'
+    "#show footnote: it => sym.wj + it\n"
+)
 
 
 def typst_footnote_rules(spec: MonographSpec) -> str:
-    latin_superscripts = TYPST_LATIN_SUPERSCRIPTS if spec.lang == "zh" else ""
+    cjk_note_marks = TYPST_CJK_NOTE_MARKS if spec.lang == "zh" else ""
     if not spec.footnote_style:
-        return latin_superscripts
+        return cjk_note_marks
     if spec.footnote_marks:
         marks = ", ".join(f'"{m}"' for m in spec.footnote_marks)
         numbering = f"n => ({marks},).at(n - 1, default: str(n))"
@@ -701,7 +704,8 @@ def typst_footnote_rules(spec: MonographSpec) -> str:
         "chapter": "#show heading.where(level: 1): it => { counter(footnote).update(0); it }\n",
         "book": "",
     }[spec.footnote_reset]
-    return f"{latin_superscripts}#set footnote(numbering: {numbering})\n{reset}"
+    notes_stay_with_calls = "#set text(costs: (widow: 0%, orphan: 0%))\n"
+    return f"{cjk_note_marks}#set footnote(numbering: {numbering})\n{notes_stay_with_calls}{reset}"
 
 
 LATEX_CHINESE_PARAGRAPHS = (
