@@ -21,7 +21,7 @@ The Markdown with TeX math that OCR makes from one source scan page. The compile
 _Avoid_: OCR page, markdown page, md
 
 **Transcript store**:
-The folder of a book's transcripts, one `p_NNN.md` file per page, plus `transcripts.json`. That file records which backend and prompt made each transcript. The store sends only the missing pages to a backend.
+The folder of a book's transcripts, one `p_NNN.md` file per page, plus `transcripts.json`. That file records which backend and prompt made each transcript. The store sends only the missing pages to a backend. It lives in `$POLYTYPST_BOOKS/<key>/`, outside the repository. A `markdown_pages/` folder under `output/<key>/` is an old copy that the build does not read.
 _Avoid_: markdown cache, markdown_pages, OCR cache
 
 **Backend**:

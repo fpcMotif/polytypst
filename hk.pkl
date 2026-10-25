@@ -1,6 +1,41 @@
-amends "package://github.com/jdx/hk/releases/download/v2.6.0/hk@2.6.0#/Config.pkl"
-import "package://github.com/jdx/hk/releases/download/v2.6.0/hk@2.6.0#/Builtins.pkl"
+amends "package://github.com/jdx/hk/releases/download/v2.8.0/hk@2.8.0#/Config.pkl"
 
-steps {
-    ["ruff"] = Builtins.ruff
+local linters = new Mapping {
+    ["ruff"] {
+        glob = "*.py"
+        check = "uv run ruff check {{files}}"
+        fix = "uv run ruff check --fix {{files}}"
+    }
+    ["pytest"] {
+        glob = List("*.py", "*.pkl", "quality/baseline.json")
+        check = "uv run pytest -q --deselect tests/test_ocr_robustness.py::TestOCREngineMachine::runTest"
+        depends = List("ruff")
+    }
+    ["canaries"] {
+        glob = List("src/compiler/**/*.py")
+        check = "scripts/canaries.sh"
+        depends = List("pytest")
+    }
+    ["audit"] {
+        glob = List("src/**/*.py", "quality/baseline.json")
+        check = "uv run polytypst audit"
+        depends = List("canaries")
+    }
+}
+
+steps = linters
+
+hooks {
+    ["pre-commit"] {
+        fix = true
+        stash = "git"
+        steps = linters
+    }
+    ["check"] {
+        steps = linters
+    }
+    ["fix"] {
+        fix = true
+        steps = linters
+    }
 }

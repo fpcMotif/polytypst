@@ -121,11 +121,29 @@ Pages with footnotes:
 rg -u -l '^[①②③④⑤⑥⑦⑧⑨⑩]' "FOLDER/markdown_pages"
 ```
 
+For a registered book, five scripts list defects that you would otherwise find page by page. Check each listed item first:
+
+```bash
+mise exec -- uv run python scripts/table_headers.py KEY
+uv run python scripts/lone_marks.py PDF
+mise exec -- uv run python scripts/figure_leaks.py KEY
+mise exec -- uv run python scripts/transcript_lint.py KEY
+uv run python scripts/figure_sheet.py --pdf PDF "output/review_evidence/BOOK/figures"
+```
+
+- `table_headers.py` lists the tables whose second row the build shifts one or more columns.
+- `lone_marks.py` lists the footnote marks that print alone on a line, usually after a title.
+- `figure_leaks.py` lists transcript lines that repeat text inside a figure crop.
+- `transcript_lint.py` lists panel titles near figures, body lines that the build reads as notes, and identical notes in a row.
+- `figure_sheet.py --pdf` sheets every rebuilt page that holds an image, so you can see each figure at its printed size.
+
+"Figures", "Tables" and "Notes" in `docs/scanned-books.md` give the fixes.
+
 For each scan page `S`, find its rebuilt page `R` in `FOLDER/review/pages.csv`. Run `rg -u "^S," "FOLDER/review/pages.csv"` with the page number for `S`, without leading zeros. The column after the PDF name `:page` is `R`. Then make a sheet as in step 3, and check:
 
 - **Table**: the same rows, the same columns, and the same number in each cell. The header cells are above the correct columns. A scan can show a table turned 90 degrees. Match its cells by their row and column labels, not by their position on the page.
 - **Figure**: the image is there, it is the correct image, and it is not cut. The caption has the same number and text.
-- **Footnote**: each marker in the text (①, ②, ...) points to the footnote with the same text as in the scan. A chart label is not a footnote.
+- **Footnote**: each marker in the text (①, ②, ...) points to the footnote with the same text as in the scan. A chart label is not a footnote. `scripts/note_bindings.py` lists the notes that can bind to an enumeration. "Notes" in `docs/scanned-books.md` gives the fix.
 - **Heading and equation numbers**: they are the same as in the scan, and they do not skip or repeat.
 
 Done when you checked 15 items and wrote down each difference.
@@ -161,6 +179,8 @@ Example line:
 ```
 
 Write a finding only when you saw the defect yourself. If the scan has the same defect, write no finding.
+
+For a wrong word or mark, make the evidence PNG with `polytypst evidence zoom`, and put the transcript line as `file:line:col` in `where`. The steps are in `.claude/skills/scan-evidence/SKILL.md`.
 
 Done when each defect from your notes is one line in the file.
 
@@ -227,4 +247,6 @@ Each run of `review` adds one line to `FOLDER/review/history.jsonl`. The next ru
 | `has bad lines` | A finding line is wrong. | Correct each line it names, then run the command again. |
 | `No such file or directory: scripts/review_sheet.py` | You are not in the repository root. | Run `cd /Users/martinfan/devv/polytypst`, then run the command again. |
 | `ModuleNotFoundError` or `command not found: polytypst` | The command did not use `uv run`. | Put `uv run` before the command. |
+| `SyntaxError` or `NameError` in another book's `src/<key>/` | The CLI imports every book, and another book's spec is broken. | Run `mise exec -- uv run python scripts/one_book.py KEY cli review "FOLDER" --scan "SCAN"`, which loads only book `KEY`. |
+| `BookStateError: set POLYTYPST_BOOKS` | The book state folder is not set. | Put `mise exec --` before the command, so `mise.local.toml` sets it. Without that file, export it to the folder that holds each book's state. |
 | `page ... out of range` or an empty sheet | `R` or `S` is wrong. | Look up `R` again in `pages.csv`. Pages count from 1. |

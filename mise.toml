@@ -1,5 +1,5 @@
 [tools]
-hk = "2.6.0"
+hk = "latest"
 typst = "0.15.1"
 uv = "0.13.0"
 
@@ -19,6 +19,15 @@ run = "uv run ruff check src tests scripts"
 description = "Lint, then run the full Python test suite"
 depends = ["lint"]
 run = "uv run pytest -q"
+
+[tasks.rebuild]
+description = "Rebuild one book (pdf,tex) and audit it, each step under REBUILD_TIMEOUT seconds; logs in output/logs"
+usage = 'arg "<key>" help="Book key, such as 6_劳动力市场与收入分配"'
+run = 'scripts/rebuild.sh {{usage.key}}'
+
+[tasks.canaries]
+description = "Rebuild and audit one math, one English economics, and one Chinese economics book; run after changing src/compiler"
+run = "scripts/canaries.sh"
 
 [tasks.export-web]
 description = "Export all three books and static PDF/SVG/PNG deliverables into web/public"
