@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
-import subprocess
 from pathlib import Path
 
 from polytypst.taocp.extractor import SpineSection
@@ -261,19 +259,7 @@ class TaocpBookCompiler:
 
     def compile_typst_pdf(self) -> Path:
         """Compile taocp_vol3.typ into taocp_vol3.pdf."""
-        typst_bin = shutil.which("typst")
-        if typst_bin is not None:
-            cmd = [typst_bin, "compile", str(self.typ_path), str(self.pdf_path)]
-        else:
-            cmd = [
-                "nix",
-                "shell",
-                "nixpkgs#typst",
-                "--command",
-                "typst",
-                "compile",
-                str(self.typ_path),
-                str(self.pdf_path),
-            ]
-        subprocess.run(cmd, check=True)
+        from ..compiler.typst_math import compile_typst
+
+        compile_typst(self.typ_path, self.pdf_path)
         return self.pdf_path

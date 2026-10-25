@@ -1,0 +1,22 @@
+#import "@preview/fletcher:0.5.8" as fletcher
+#fletcher.diagram(
+  spacing: (2.6em, 2.4em),
+  label-size: 0.85em,
+  fletcher.node((0, 0), $( caron(M)^Delta )^m$),
+  fletcher.node((1, 0), $( caron(M)^Delta )^n$),
+  fletcher.node((2, 0), $( op("Hom")_A ( M \, N ) )^Delta$),
+  fletcher.node((3, 0), $0$),
+  fletcher.node((0, 1), $cal(H) italic("om")_(cal(O)_(frak(X))) ( M^Delta \, cal(O)_(frak(X))^m )$),
+  fletcher.node((1, 1), $cal(H) italic("om")_(cal(O)_(frak(X))) ( M^Delta \, cal(O)_(frak(X))^n )$),
+  fletcher.node((2, 1), $cal(H) italic("om")_(cal(O)_(frak(X))) ( M^Delta \, N^Delta )$),
+  fletcher.node((3, 1), $0$),
+  fletcher.edge((0, 0), (1, 0), "->"),
+  fletcher.edge((1, 0), (2, 0), "->"),
+  fletcher.edge((2, 0), (3, 0), "->"),
+  fletcher.edge((0, 0), (0, 1), "->"),
+  fletcher.edge((1, 0), (1, 1), "->"),
+  fletcher.edge((2, 0), (2, 1), "->"),
+  fletcher.edge((0, 1), (1, 1), "->"),
+  fletcher.edge((1, 1), (2, 1), "->"),
+  fletcher.edge((2, 1), (3, 1), "->"),
+)

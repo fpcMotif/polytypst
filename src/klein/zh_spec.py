@@ -25,6 +25,7 @@ KLEIN_ZH_OCR_PROMPT = (
 )
 
 KLEIN_ZH_SPEC = MonographSpec(
+    domain="math",
     slug="klein_development_vol2_zh",
     title="数学在19世纪的发展（第二卷）",
     author="F. 克莱因",

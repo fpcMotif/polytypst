@@ -11,6 +11,7 @@ RUNNING_HEADERS = (
 )
 
 SIEGEL_SYMPLECTIC_SPEC = MonographSpec(
+    domain="math",
     slug="siegel_symplectic",
     title="Symplectic Geometry",
     footnote_style="symbol",

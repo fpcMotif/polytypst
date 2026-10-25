@@ -1,11 +1,10 @@
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-from ..compiler.monograph import REPO_FONTS_DIR
+from ..compiler.typst_math import compile_typst
 
 HARNESS = Path(__file__).parent / "diagram_harness.typ"
 INK_LEVEL = 140
@@ -27,10 +26,7 @@ def diagram_ink(snippet: Path, work: Path, dpi: int, text: DiagramText) -> tuple
     if not png.exists():
         inputs = {"snippet": str(snippet.resolve()), "font": text.font, "size": str(text.size), "weight": str(text.weight)}
         flags = [arg for k, v in inputs.items() for arg in ("--input", f"{k}={v}")]
-        subprocess.run(
-            ["typst", "compile", "--root", "/", "--font-path", str(REPO_FONTS_DIR), *flags, str(HARNESS), str(png), "--ppi", str(dpi)],
-            check=True, capture_output=True,
-        )
+        compile_typst(HARNESS, png, "--root", "/", *flags, "--ppi", str(dpi), capture_output=True)
     img = np.asarray(Image.open(png).convert("L")) < INK_LEVEL
     ys, xs = np.where(img)
     k = 72 / dpi

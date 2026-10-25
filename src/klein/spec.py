@@ -16,6 +16,7 @@ RUNNING_HEADERS = (
 )
 
 KLEIN_SPEC = MonographSpec(
+    domain="math",
     slug="klein_development_19th_century",
     title="Development of Mathematics in the 19th Century",
     footnote_style="symbol",

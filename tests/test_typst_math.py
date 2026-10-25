@@ -5,7 +5,11 @@ from polytypst.compiler.monograph import (
     MonographCompiler,
     MonographSpec,
 )
-from polytypst.compiler.typst_math import convert_environments, convert_math_batch
+from polytypst.compiler.typst_math import (
+    clean_margin_and_inline_math,
+    convert_environments,
+    convert_math_batch,
+)
 
 
 def convert(code: str, display: bool = False) -> str:
@@ -24,7 +28,7 @@ def test_regex_fallback_still_applies_the_macro_rewrites():
 
 
 def test_every_book_gets_the_circle_and_operator_name_rewrites():
-    bare = MonographSpec(slug="t", title="T", author="A")
+    bare = MonographSpec(domain="math", slug="t", title="T", author="A")
     explicit = replace(
         bare,
         pre_math_rewrites=(
@@ -68,3 +72,50 @@ def test_dollar_signs_nested_in_text_do_not_leak():
     out = convert(r"\omega_j e_j \quad \text{($\S 3$, formula (30))}", True)
     assert "$" not in out
     assert "§ 3, formula (30)" in out
+
+
+def test_convert_math_batch_and_margin_helper_return_finished_typst_math():
+    out = convert(r"\int f(x) dx \neq \prod_{i=1}^n a_i \unknownocrmacro")
+    assert "dif x" in out
+    assert "!=" in out
+    assert "product" in out
+    titled = clean_margin_and_inline_math(r"Section on $\int f(x) dx \neq 0 \unknownocrmacro$")
+    assert "dif x" in titled
+    assert "!=" in titled
+
+
+def test_run_typst_resolves_binary_once_without_triple_retry(monkeypatch, tmp_path):
+    import subprocess
+
+    import pytest
+
+    from polytypst.compiler import typst_math
+    from polytypst.compiler.monograph import compile_typst
+    from polytypst.compiler.typst_math import REPO_FONTS_DIR
+
+    calls = []
+
+    def fake_run(cmd, **_kwargs):
+        calls.append(cmd)
+        raise subprocess.CalledProcessError(1, cmd)
+
+    monkeypatch.setattr(typst_math, "typst_command", lambda fallback_nix=True: ("typst",))
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        compile_typst(tmp_path / "a.typ", tmp_path / "a.pdf", "--root", "/")
+
+    assert calls == [
+        [
+            "typst",
+            "compile",
+            "--font-path",
+            str(REPO_FONTS_DIR),
+            "--root",
+            "/",
+            str(tmp_path / "a.typ"),
+            str(tmp_path / "a.pdf"),
+        ]
+    ]
+
+

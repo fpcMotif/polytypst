@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
 from ..tex_markdown import normalize_html_tables
+from ..vision.figure_extractor import FIGURES_MANIFEST_NAME, ExtractedFigure, manifest_figures
 from .presets import resolve_composition
 
 if TYPE_CHECKING:
@@ -254,6 +255,11 @@ def has_circled_footnotes(md: str, folio_pattern: str) -> bool:
     return bool(notes) and all(key in CIRCLED_DIGITS and key in body for key, _ in notes)
 
 
+def _uncalled_circled(m: re.Match[str], above: list[str]) -> bool:
+    key = _note(m)[0]
+    return key in CIRCLED_DIGITS and key not in "\n".join(above)
+
+
 def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, list[tuple[str, str]]]:
     lines = md.splitlines()
     notes: list[tuple[str, str]] = []
@@ -268,7 +274,9 @@ def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, lis
             return "\n".join(lines[:i]), notes
     if style == "circled":
         for idx, (i, lt) in enumerate(kept):
-            if _note_line(lt, style, below_rule=True) and not any(
+            in_display = "\n".join(lines[:i]).count("$$") % 2 == 1
+            m_note = _note_line(lt, style, below_rule=True)
+            if not in_display and m_note and not _uncalled_circled(m_note, lines[:i]) and not any(
                 re.match(r"^(?:#+\s+|\d{1,3}\.\s+\S)", below) for _, below in kept[idx + 1 :]
             ):
                 for _, below in kept[idx:]:
@@ -290,7 +298,7 @@ def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, lis
         if not lt or re.match(folio_pattern, lt, re.IGNORECASE):
             continue
         m = _note_line(lt, style)
-        if not m:
+        if not m or (style == "circled" and _uncalled_circled(m, lines[:i])):
             if notes and FOOTNOTE_RULE_RE.match(lt):
                 end = i
             break
@@ -485,8 +493,9 @@ END_MATTER_HEADING_RE = re.compile(
 
 
 FIGURE_LABEL_RE = re.compile(
-    r"^(?![#*>]|\$\$|\\\[|\(\d+\.\d+\))[^\n]{1,60}(?<![.:;?!,])\s*$"
+    r"^(?![#*>]|\$\$|\\\[|\(\d+\.\d+\))[^\n]{1,60}(?<![.:;?!,。：；？！，])\s*$"
 )
+FIGURE_SOURCE_OR_NOTE_RE = re.compile(r"^\s*[（(]?\s*(?:资料来源|注)\s*[：:]")
 
 
 def _is_isolated(body_lines: list[str]) -> bool:
@@ -568,6 +577,9 @@ class PageCleaner:
         self._chapter_starts: frozenset[int] = frozenset(
             c.start_page for c in spec.chapters
         )
+        self._chapter_figures: dict[str, ExtractedFigure] = {
+            fid: f for fid, f in manifest_figures(asset_root / FIGURES_MANIFEST_NAME).items() if "-" in fid
+        }
 
     @classmethod
     def for_spec(cls, spec: "MonographSpec", asset_root: Path = Path()) -> "PageCleaner":
@@ -700,6 +712,13 @@ class PageCleaner:
         layout = spec.figures
         md_text = re.sub(r"<!--.*?-->", "", md_text, flags=re.DOTALL)
         md_text = SCANNER_WATERMARK_RE.sub("", md_text)
+        md_text = re.sub(r"(?<!\\)\${3,}", "", md_text)
+        if len(re.findall(r"(?<!\\)\$\$", md_text)) % 2:
+            tail = re.match(r"\s*\$?((?:(?!\n\s*\n)[^$])+)\$\$", md_text)
+            if tail and re.search(r"[\\&{}^_]", tail.group(1)):
+                md_text = "$$" + md_text[tail.start(1) :]
+            elif foot := re.search(r"(?:^|\n\s*\n)\s*\$\$\s*$", md_text):
+                md_text = md_text[: foot.start()]
         md_text = re.sub(r"\\\(\s*((?:(?!\n\n).)+?)\s*\\\)", r"$\1$", md_text, flags=re.DOTALL)
         md_text = prose_displays_to_paragraphs(md_text)
         md_text = normalize_html_tables(md_text)
@@ -710,12 +729,20 @@ class PageCleaner:
         top_figs: list[Figure] = []
         bot_figs: list[Figure] = []
         seen_figs_on_page: set[str] = set()
+        caption_rest = ""
 
         for line in md_text.splitlines():
             lt = line.strip()
             if not lt:
                 body_lines.append("")
                 continue
+            squeezed = re.sub(r"\s+", "", lt.replace("**", ""))
+            if caption_rest and caption_rest.startswith(squeezed):
+                caption_rest = caption_rest[len(squeezed):]
+                while body_lines and not body_lines[-1].strip():
+                    _ = body_lines.pop()
+                continue
+            caption_rest = ""
             if re.match(spec.folio_pattern, lt, re.IGNORECASE):
                 continue
             lines_so_far = len([b for b in body_lines if b.strip()])
@@ -723,10 +750,16 @@ class PageCleaner:
                 continue
 
             m_fig = self._caption_re.match(lt)
+            listed = None
             if m_fig:
                 title = m_fig.groupdict().get("title") or ""
-                if title and (
-                    len(title) > 50
+                chapter = m_fig.groupdict().get("chapter")
+                listed = self._chapter_figures.get(f"{chapter}-{m_fig.group('number')}") if chapter else None
+                manifest_page = listed.source_page if listed else None
+                if manifest_page is not None and manifest_page != pno:
+                    m_fig = None
+                elif title and (
+                    (manifest_page is None and len(title) > 50)
                     or any(w in title for w in ["所示为", "体现了", "表明", "可知", "指出", "解释为"])
                     or title.endswith("。")
                 ):
@@ -735,7 +768,9 @@ class PageCleaner:
                 while body_lines and (
                     not body_lines[-1].strip() or FIGURE_LABEL_RE.match(body_lines[-1])
                 ):
-                    if body_lines[-1].strip() and not _is_isolated(body_lines):
+                    if body_lines[-1].strip() and (
+                        not _is_isolated(body_lines) or FIGURE_SOURCE_OR_NOTE_RE.match(body_lines[-1])
+                    ):
                         break
                     _ = body_lines.pop()
                 while body_lines and (
@@ -764,6 +799,12 @@ class PageCleaner:
                     if tail:
                         sep = " " if cap.endswith((".", ":")) or cap.startswith("图") else ". "
                         cap = f"{cap}{sep}{tail}"
+                    whole = re.sub(r"\s+", "", listed.caption) if listed else ""
+                    if listed and len(whole) > len(squeezed) and whole.startswith(squeezed):
+                        cap = listed.caption
+                        caption_rest = whole[len(squeezed):]
+                    if spec.lang in ("zh", "ja"):
+                        cap = cap.replace("~", "～")
                     if lines_so_far <= layout.top_zone_lines or pno in layout.top_pages:
                         top_figs.append((fid, cap))
                     else:
@@ -820,4 +861,9 @@ class PageCleaner:
         elif spec.equation_numbering == "section":
             s = _label_section_equations(s, pno, deep=spec.cross_references)
         bot_figs.extend(spec.extra_figures.get(pno, ()))
+        bot_figs.extend(
+            (fid.replace("-", "_", 1), f.caption)
+            for fid, f in self._chapter_figures.items()
+            if f.source_page == pno and fid.replace("-", "_", 1) not in seen_figs_on_page
+        )
         return CleanPage(s.strip(), top_figs, bot_figs)

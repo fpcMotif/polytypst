@@ -142,11 +142,20 @@ class ColabSession:
         if not packages:
             return True
         self._log(f"Installing {' '.join(packages)}...")
-        res = colab_cli("install", "--session", self.name, *packages, timeout=900)
-        if res.returncode != 0:
-            self._log(f"Install error: {res.stderr.strip()[-400:]}")
-        return res.returncode == 0
-
+        for attempt in range(1, 4):
+            res = colab_cli("install", "--session", self.name, *packages, timeout=900)
+            if res.returncode == 0:
+                return True
+            self._log(f"Install attempt {attempt} failed: {res.stderr.strip()[-200:] or res.stdout.strip()[-200:]}")
+            time.sleep(5)
+            exec_res = self.exec(
+                f"import subprocess, sys\nsubprocess.run([sys.executable, '-m', 'pip', 'install', *{list(packages)!r}], check=True)\n",
+                timeout=600,
+            )
+            if exec_res.returncode == 0:
+                self._log("Install succeeded via pip fallback.")
+                return True
+        return False
     def exec(self, code: str, timeout: int = 60) -> subprocess.CompletedProcess[str]:
         return colab_cli(
             "exec",

@@ -1,4 +1,5 @@
 import hashlib
+import io
 import json
 import re
 import shutil
@@ -6,6 +7,7 @@ from collections.abc import Iterable
 from functools import cached_property
 from pathlib import Path
 
+import numpy as np
 import pymupdf
 from PIL import Image, ImageOps
 
@@ -195,7 +197,11 @@ class SourceScan:
             return None
         ext = str(image.get("ext", ""))
         if ext == "png":
-            return bytes(image["image"]), ".png"
+            data = bytes(image["image"])
+            with Image.open(io.BytesIO(data)) as im:
+                if np.array(im.convert("L")).mean() < 128:
+                    return None
+            return data, ".png"
         if ext in ("jpeg", "jpg") and int(image.get("colorspace", 0)) in (1, 3):
             return bytes(image["image"]), ".jpg"
         return None

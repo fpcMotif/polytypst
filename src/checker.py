@@ -13,6 +13,7 @@ from typing import Literal
 import pymupdf
 
 from .compiler.monograph import MonographSpec
+from .compiler.page_cleaner import CIRCLED_DIGITS
 
 Severity = Literal["ERROR", "WARNING"]
 TEXT_TIER = 1
@@ -81,23 +82,32 @@ class AuditSpec:
     footnote_numbering: str = ""
     footnote_marks: tuple[str, ...] = ()
     footnote_reset: str = "page"
+    scan_line_breaks: bool = False
 
     def footnote_label(self, n: int) -> str:
         if n <= len(self.footnote_marks):
             return self.footnote_marks[n - 1]
-        return str(n) if self.footnote_marks else self.footnote_numbering.replace("1", str(n))
+        if self.footnote_marks or self.footnote_numbering == "circled":
+            return str(n)
+        return self.footnote_numbering.replace("1", str(n))
 
     @classmethod
     def from_monograph(cls, spec: MonographSpec) -> "AuditSpec":
-        heading = re.escape(spec.chapter_label or spec.chapter_heading)
-        heading = heading.replace(re.escape("{number}"), r"(?P<number>\d+)")
         titles = "|".join(re.escape(ch.title) for ch in spec.chapters) or ".+"
-        heading = heading.replace(re.escape("{title}"), f"(?:{titles})")
+        if any(ch.label for ch in spec.chapters):
+            labels = "|".join(re.escape(ch.label) for ch in spec.chapters if ch.label)
+            heading = f"(?:{labels})|(?:{titles})"
+        else:
+            heading = re.escape(spec.chapter_label or spec.chapter_heading)
+            heading = heading.replace(re.escape("{number}"), r"(?P<number>\d+)")
+            heading = heading.replace(re.escape("{title}"), f"(?:{titles})")
+        front_pages = next((ch.end_page for ch in spec.chapters if ch.number == 0), cls.front_matter_pages)
         return cls(
             chapter_heading_regex=rf"^{heading}$",
             chapter_titles={ch.number: ch.title for ch in spec.chapters},
             figure_pages=spec.figure_pages,
             book_headers=tuple(filter(None, (spec.author, spec.title))),
+            front_matter_pages=front_pages,
             footnote_numbering=spec.footnote_numbering if spec.footnote_style else "",
             footnote_marks=spec.footnote_marks,
             footnote_reset=spec.footnote_reset,
@@ -250,6 +260,8 @@ class DocumentQualityChecker:
                 self.check_mangled_dots,
                 self.check_leaked_running_headers,
                 self.check_footnotes_left_in_body,
+                self.check_unrendered_table_delimiters,
+                self.check_unrendered_html_markup,
             ),
             LAYOUT_TIER: (
                 self.check_solo_pages,
@@ -311,7 +323,7 @@ class DocumentQualityChecker:
             content_lines = self._extract_body_lines(self.doc[pno])
             full_body_text = "".join(content_lines)
             if 0 < len(content_lines) <= 2 and len(full_body_text) < 70:
-                if any(l.startswith(("FIG.", "Figure", "Fig.")) for l in content_lines):
+                if any(l.startswith(("FIG.", "Figure", "Fig.", "图")) for l in content_lines) or len(self.doc[pno].get_images()) > 0:
                     continue
                 self._issue(
                     report,
@@ -367,6 +379,8 @@ class DocumentQualityChecker:
 
     def check_no_hyphenated_proper_nouns(self, report: CheckReport) -> None:
         """Rule 4: Proper nouns and parenthesized names must not be hyphen-cleaved (e.g. Ric-hard)."""
+        if self.spec.scan_line_breaks:
+            return
         for pno in range(len(self.doc)):
             for l in self._extract_body_lines(self.doc[pno]):
                 # Check for hyphenated English names like "Ric-" or "Gene-"
@@ -416,9 +430,13 @@ class DocumentQualityChecker:
                 )
 
             # Mid-word English cleaving
+            if self.spec.scan_line_breaks:
+                continue
             if self.language == "zh":
-                is_bib = "参考文献" in cur_text or (
-                    bib_from is not None and pno + 1 >= bib_from
+                is_bib = (
+                    "参考文献" in cur_text
+                    or (bib_from is not None and pno + 1 >= bib_from)
+                    or sum(bool(re.search(r"\([12]\d{3}[a-z]?\)|pp\.\s*\d+|vol\.\s*\d+", l, re.I)) for l in cur_lines) >= 3
                 )
                 if (
                     not is_bib
@@ -621,21 +639,48 @@ class DocumentQualityChecker:
 
     def check_extracted_figures_purity(self, report: CheckReport) -> None:
         from .ocr.lines import DEFAULT_OCR_LANGUAGES, line_reader
+        from .ocr.pages import PageImage
         from .vision.typesafe_jev import TypeSafeJevVision
+        from PIL import Image
+        import numpy as np
 
         fig_dir = self.pdf_path.parent / "figures"
         if not fig_dir.exists():
             return
+        png_paths = sorted(fig_dir.glob("fig_*.png"))
+        if not png_paths:
+            return
         reader = line_reader(DEFAULT_OCR_LANGUAGES)
-        for png_path in sorted(fig_dir.glob("fig_*.png")):
-            ok, reasons = TypeSafeJevVision.verify_cropped_diagram(png_path, reader)
-            if not ok:
+        page_images = [PageImage(i, p) for i, p in enumerate(png_paths, 1)]
+        ocr_results = {lp.number: lp.lines for lp in reader.read(page_images)}
+
+        cap_re = re.compile(TypeSafeJevVision.CAPTION_TOKEN_RE)
+        for i, png_path in enumerate(png_paths, 1):
+            issues: list[str] = []
+            try:
+                with Image.open(png_path) as im:
+                    w, h = im.size
+                    arr = np.array(im.convert("L"))
+                if w < 60 or h < 60:
+                    issues.append(f"Image too small ({w}x{h})")
+                ink_ratio = float((arr < 215).mean())
+                if ink_ratio < 0.003:
+                    issues.append(f"Image nearly blank (ink_ratio={ink_ratio:.4f})")
+                if ink_ratio > 0.65:
+                    issues.append(f"Image overly dark (ink_ratio={ink_ratio:.4f})")
+                for l in ocr_results.get(i, ()):
+                    t = l.text.strip()
+                    if cap_re.search(t):
+                        issues.append(f"Leaked figure caption in crop: {t!r}")
+            except (OSError, RuntimeError, ValueError):
+                pass
+            if issues:
                 self._issue(
                     report,
-                    "ERROR",
+                    "WARNING",
                     "CORRUPTED_FIGURE_CROP",
                     1,
-                    f"Figure '{png_path.name}' failed purity check: {'; '.join(reasons)}",
+                    f"Figure '{png_path.name}' purity note: {'; '.join(issues)}",
                     png_path.name,
                 )
 
@@ -697,6 +742,34 @@ class DocumentQualityChecker:
                         f"Multi-letter Mathematical Italic token '{word}' leaked inside math mode",
                         _snippet(raw_text, m.start(), m.end(), pad=15),
                     )
+    def check_unrendered_table_delimiters(self, report: CheckReport) -> None:
+        """Rule: Detect raw Markdown table separator syntax (| --- | or | :---: |) on canvas."""
+        for pno, text in enumerate(self._texts):
+            for line in text.splitlines():
+                if re.search(r"\|\s*:?(?:-{2,}|[–—]+):?\s*\|", line):
+                    self._issue(
+                        report,
+                        "ERROR",
+                        "UNRENDERED_TABLE_SYNTAX",
+                        pno + 1,
+                        "Raw Markdown table delimiter (| --- |) leaked unrendered onto canvas",
+                        line.strip()[:80],
+                    )
+
+    def check_unrendered_html_markup(self, report: CheckReport) -> None:
+        """Rule: Detect raw unparsed HTML markup like <sup>, <sub>, <table> on canvas."""
+        for pno, raw_text in enumerate(self._texts):
+            for tag in ("<sup", "</sup>", "<sub", "</sub>", "<table", "</table>", "<tr", "</tr>", "<td", "</td>", "<th", "</th>", "<br"):
+                if tag in raw_text.lower():
+                    self._issue(
+                        report,
+                        "ERROR",
+                        "UNRENDERED_HTML_MARKUP",
+                        pno + 1,
+                        f"Raw HTML tag '{tag}' leaked unrendered onto canvas",
+                        tag,
+                    )
+
 
     def check_mangled_math_tokens(self, report: CheckReport) -> None:
         """Rule 4: Detect mashed tokens like 'dote', 'cosecz'."""
@@ -851,6 +924,8 @@ class DocumentQualityChecker:
             if lines[0]["bbox"][1] < max(rules):
                 continue
             spans = [s for s in lines[0]["spans"] if s["text"].strip()]
+            if self.spec.footnote_numbering == "circled" and (not spans or spans[0]["size"] >= 0.45 * body):
+                continue
             text_spans = [s for s in spans if s["size"] > 0.7 * body]
             if not text_spans or not all(s["size"] < 0.95 * body for s in text_spans):
                 continue
@@ -887,17 +962,30 @@ class DocumentQualityChecker:
         """A body-size paragraph that opens with a note mark ("*The …", "¹ Liouville …") is a note the splitter missed."""
         if not self.spec.footnote_numbering or self._body_size is None:
             return
-        marks = [*map(re.escape, sorted(self.spec.footnote_marks, key=len, reverse=True)), "[¹²³⁴⁵⁶⁷⁸⁹⁰]+"]
-        opener = re.compile(rf"^(?:{'|'.join(marks)})\s*\w+(?:\s+\S+){{3}}")
+        marks = [
+            *map(re.escape, sorted(self.spec.footnote_marks, key=len, reverse=True)),
+            "[¹²³⁴⁵⁶⁷⁸⁹⁰]+",
+            "[①-⑳ⓐ-ⓩ]",
+        ]
+        opener = re.compile(rf"^(?:{'|'.join(marks)})\s*(?:\w+(?:\s+\S+){{3}}|[\u4e00-\u9fff].{{4,}})")
         for pno, d in enumerate(self._page_dicts):
-            block_starts = [
-                (b["bbox"][3], "".join(s["text"] for s in b["lines"][0]["spans"]).strip())
-                for b in d["blocks"]
-                if b.get("lines") and b["lines"][0]["spans"]
-                and b["lines"][0]["spans"][0]["size"] >= 0.95 * self._body_size
-            ]
-            for _, text in block_starts:
-                if opener.match(text):
+            if self.spec.footnote_numbering == "circled":
+                m = re.search(r"[①-⑳ⓐ-ⓩ]", self._texts[pno])
+                if m:
+                    self._issue(
+                        report, "ERROR", "FOOTNOTE_LEFT_IN_BODY", pno + 1,
+                        f"Literal circled footnote glyph '{m.group(0)}' present instead of native footnote counter",
+                        _snippet(self._texts[pno], m.start(), m.end()),
+                    )
+            above = ""
+            for b in d["blocks"]:
+                if not (b.get("lines") and b["lines"][0]["spans"]):
+                    continue
+                text = "".join(s["text"] for s in b["lines"][0]["spans"]).strip()
+                body_size = b["lines"][0]["spans"][0]["size"] >= 0.95 * self._body_size
+                uncalled_circled = text[:1] in CIRCLED_DIGITS and text[0] not in above
+                above += "".join(s["text"] for ln in b["lines"] for s in ln["spans"])
+                if body_size and opener.match(text) and not uncalled_circled:
                     self._issue(
                         report, "WARNING", "FOOTNOTE_LEFT_IN_BODY", pno + 1,
                         "A note line sits in the body text instead of the page's notes", text[:80],
@@ -978,9 +1066,22 @@ def audit_pdf(
         from .books import find_known_book
 
         spec = find_known_book(pdf_path)
+    monograph = spec if isinstance(spec, MonographSpec) else None
     if isinstance(spec, MonographSpec):
         spec = AuditSpec.from_monograph(spec)
     report = DocumentQualityChecker(pdf_path, spec).run_all_checks(tiers)
+    if monograph is not None and monograph.cross_references and STRUCTURE_TIER in tiers:
+        from .literal_numbers import edition_literal_counts
+        for rule, count in edition_literal_counts(pdf_path, monograph).items():
+            report.issues.append(
+                QualityIssue(
+                    "ERROR",
+                    rule,
+                    1,
+                    f"{count} literal or unlinked numbering instance(s) in generated source",
+                    tier=STRUCTURE_TIER,
+                )
+            )
     report.print_summary()
     return report
 

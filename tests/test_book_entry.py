@@ -1,10 +1,12 @@
 from pathlib import Path
 
 import pymupdf
+import pytest
 from conftest import PageRender
 
+from polytypst.book_state import BookStateError, book_state
 from polytypst.books import book_for_scan, books, find_known_book
-from polytypst.edition import Book
+from polytypst.edition import Book, Edition
 from polytypst.hecke.spec import HECKE_SPEC
 from polytypst.ocr.backend import Backend
 from polytypst.ocr.blank import BLANK_TRANSCRIPT
@@ -34,7 +36,7 @@ def test_adhoc_book_transcribes_a_photo_folder_into_its_own_store(
         1: "Cached transcript for page 1 of the book.\n",
         3: "Cached transcript for page 3 of the book.\n",
     }
-    assert book.transcripts == tmp_path / "out" / book.spec.markdown_dir
+    assert book.transcripts == tmp_path / "books" / "out" / book.spec.markdown_dir
     assert sorted(p.name for p in book.transcripts.glob("p_*.md")) == [
         "p_001.md",
         "p_003.md",
@@ -71,6 +73,64 @@ def test_a_scan_with_a_known_page_count_but_no_known_name_is_a_new_book(
 
     assert book_for_scan(path) is None
     assert find_known_book(path) is None
+
+
+def three_page_scan(path: Path) -> Path:
+    doc = pymupdf.open()
+    for _ in range(3):
+        page = doc.new_page(width=300, height=400)
+        page.draw_rect(pymupdf.Rect(40, 40, 260, 80), color=(0, 0, 0), fill=(0, 0, 0))
+    doc.save(path)
+    return path
+
+
+def test_build_renders_the_scan_pages_that_its_figures_read(tmp_path: Path) -> None:
+    scan = three_page_scan(tmp_path / "scan.pdf")
+    out_dir = tmp_path / "out"
+    seen: list[list[str]] = []
+    book = Book(
+        Book.adhoc(scan, out_dir).spec,
+        out_dir,
+        {"text": Edition(out_dir / "text.pdf", lambda _source, _formats, _footnotes: None)},
+        lambda out: seen.append(sorted(p.name for p in (out / "page_renders").glob("p_*.png"))),
+    )
+
+    _ = book.build(source=scan)
+
+    assert seen == [["p_001.png", "p_002.png", "p_003.png"]]
+
+
+def test_build_without_figures_needs_no_scan(tmp_path: Path) -> None:
+    out_dir = tmp_path / "out"
+    built: list[bool] = []
+    book = Book(
+        Book.adhoc(three_page_scan(tmp_path / "scan.pdf"), out_dir).spec,
+        out_dir,
+        {"text": Edition(out_dir / "text.pdf", lambda _source, _formats, _footnotes: built.append(True))},
+    )
+
+    _ = book.build(source=tmp_path / "missing.pdf")
+
+    assert built == [True]
+    assert not (out_dir / "page_renders").exists()
+
+
+def test_book_state_holds_the_transcripts_and_line_cache_apart_from_output(
+    tmp_path: Path,
+) -> None:
+    book = Book.adhoc(three_page_scan(tmp_path / "scan.pdf"), tmp_path / "out")
+
+    assert book.transcripts == tmp_path / "books" / "out" / book.spec.markdown_dir
+    assert book.ocr == tmp_path / "books" / "out" / "source_ocr"
+
+
+def test_book_state_names_its_variable_when_unset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("POLYTYPST_BOOKS")
+
+    with pytest.raises(BookStateError, match="POLYTYPST_BOOKS"):
+        _ = book_state(tmp_path / "out")
 
 
 def test_known_books_match_by_scan_name_slug_or_explicit_key(tmp_path: Path) -> None:

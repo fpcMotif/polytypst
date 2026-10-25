@@ -4,6 +4,8 @@ import json
 import re
 from pathlib import Path
 
+from .compiler.presets import domain_profile
+
 PACKAGES_RE = re.compile(r"^packages = \[\n(?P<body>(?:    \".*\",\n)*)\]", re.MULTILINE)
 
 
@@ -15,7 +17,7 @@ def _quote(text: str) -> str:
     return json.dumps(text, ensure_ascii=False)
 
 
-def _files(key: str, title: str, author: str, source_pdf: str, pages: int) -> dict[str, str]:
+def _files(key: str, title: str, author: str, source_pdf: str, pages: int, domain: str) -> dict[str, str]:
     spec = _spec_name(key)
     return {
         "__init__.py": f'"""{author}: {title}."""\n\nfrom .book import BOOK\nfrom .spec import {spec}\n\n__all__ = ["BOOK", "{spec}"]\n',
@@ -26,8 +28,10 @@ def _files(key: str, title: str, author: str, source_pdf: str, pages: int) -> di
             f"    slug={_quote(key)},\n"
             f"    title={_quote(title)},\n"
             f"    author={_quote(author)},\n"
+            f"    domain={_quote(domain)},\n"
             f"    source_pdf={_quote(source_pdf)},\n"
             f"    pdf_page_count={pages},\n"
+            "    cross_references=True,\n"
             f"    chapters=[ChapterSpec(1, {_quote(title)}, 1, {pages})],\n"
             ")\n"
         ),
@@ -50,16 +54,17 @@ def _list_package(pyproject: Path, package: str) -> None:
     pyproject.write_text(text[: match.start("body")] + body + text[match.end("body") :], encoding="utf-8")
 
 
-def scaffold_book(root: Path, key: str, title: str, author: str, source_pdf: str, pages: int) -> list[Path]:
+def scaffold_book(root: Path, key: str, title: str, author: str, source_pdf: str, pages: int, *, domain: str) -> list[Path]:
     """Write `src/<key>/{__init__,spec,book}.py` under `root` and add `polytypst.<key>` to its pyproject.toml."""
     if not key.isidentifier():
         raise ValueError(f"book key {key!r} must be a Python identifier; use underscores, not dashes")
+    domain_profile(domain)
     folder = root / "src" / key
     if folder.exists():
         raise ValueError(f"{folder} exists")
     folder.mkdir(parents=True)
     written = []
-    for name, text in _files(key, title, author, source_pdf, pages).items():
+    for name, text in _files(key, title, author, source_pdf, pages, domain).items():
         path = folder / name
         path.write_text(text, encoding="utf-8")
         written.append(path)

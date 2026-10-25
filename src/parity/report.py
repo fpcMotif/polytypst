@@ -37,6 +37,7 @@ class Tolerance:
     diagram_scale: float = 0.02
     same_line_count: bool = False
     one_page: bool = False
+    max_right_overflow_lines: int = 0
 
 
 FACSIMILE = Tolerance(word_pt=0.5, word_lines="all", baseline_pt=0.5, page_offset_pt=0.3)
@@ -81,6 +82,8 @@ def verdict(page: PageParity, tol: Tolerance) -> list[str]:
     for d in page.diagrams:
         if max(abs(d.dx), abs(d.dy)) > tol.diagram_pt or max(abs(d.sx - 1), abs(d.sy - 1)) > tol.diagram_scale:
             reasons.append(f"diagram {d.name} off {d.dx:+.1f},{d.dy:+.1f}pt x{d.sx:.3f},{d.sy:.3f}")
+    if page.right_overflow_lines > tol.max_right_overflow_lines:
+        reasons.append(f"{page.right_overflow_lines} lines cross the scan's right text edge")
     return reasons
 
 
@@ -129,6 +132,7 @@ def _row(page: PageParity, reasons: list[str], tol: Tolerance) -> dict[str, obje
         "bad_words": len(bad_words(page, tol)),
         "worst_word_pt": round(worst, 2),
         "worst_baseline_pt": max((abs(line.dy) for line in page.lines), default=0.0),
+        "right_overflow_lines": page.right_overflow_lines,
         "diagrams": " ".join(f"{d.name}:{d.dx:+.1f},{d.dy:+.1f},x{d.sx:.3f}" for d in page.diagrams),
     }
 
@@ -170,7 +174,7 @@ def write_report(results: list[PageParity], out_dir: Path, tolerance: Tolerance)
             writer.writeheader()
             writer.writerows(rows)
     failed = [r for r in rows if r["status"] == "fail"]
-    summary = {"pages": len(rows), "passed": len(rows) - len(failed), "failed": len(failed), "tolerance": asdict(tolerance)}
+    summary = {"pages": len(rows), "passed": len(rows) - len(failed), "failed": len(failed), "right_overflow_lines": sum(r.right_overflow_lines for r in results), "tolerance": asdict(tolerance)}
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=1), encoding="utf-8")
     (out_dir / "index.html").write_text(_page_html(summary, "".join(items)), encoding="utf-8")
     return not failed

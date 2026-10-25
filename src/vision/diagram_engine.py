@@ -15,6 +15,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from ..book_state import book_state
+
 LAYERS = ("grid", "region", "curve", "label")
 INK = "#0f172a"
 
@@ -521,6 +523,36 @@ class FigureBook:
     chapter_titles: dict[int, str] = field(default_factory=dict)
     scan_dir: str = ""
     search_hint: str = "Search figures..."
+
+    def verify_completeness(
+        self, out_dir: Path, caption_pattern: str | None = None
+    ) -> list[str]:
+        from ..compiler.monograph import FigureLayout
+
+        registered = {spec.fig_id for spec in self.figures}
+        expected: set[str] = set()
+        manifest_path = Path(out_dir) / "figures_manifest.json"
+        if manifest_path.exists():
+            for item in json.loads(manifest_path.read_text(encoding="utf-8")):
+                expected.add(str(item["figure_id"]))
+        md_dir = book_state(out_dir) / "markdown_pages"
+        if md_dir.exists():
+            pat = re.compile(
+                caption_pattern or FigureLayout.caption_pattern, re.IGNORECASE
+            )
+            for md_file in sorted(md_dir.glob("p_*.md")):
+                for line in md_file.read_text(encoding="utf-8").splitlines():
+                    m = pat.match(line.strip())
+                    if m:
+                        ch = m.groupdict().get("chapter")
+                        num = m.group("number")
+                        expected.add(f"{ch}_{num}" if ch else num)
+        missing = expected - registered
+        return sorted(
+            missing,
+            key=lambda s: [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", s)],
+        )
+
 
 
 @dataclass(frozen=True)

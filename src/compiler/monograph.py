@@ -6,6 +6,7 @@ It converts LaTeX math to Typst and writes the Typst preamble. It also runs
 Pandoc and Typst.
 """
 
+import html
 import re
 import shutil
 import subprocess
@@ -18,6 +19,7 @@ from typing import Literal
 
 from PIL import Image
 
+from ..book_state import book_state
 from ..ocr.lines import DEFAULT_OCR_LANGUAGES
 from ..ocr.transcripts import TranscriptStore
 from .diagrams import (
@@ -29,14 +31,13 @@ from .diagrams import (
     use_scan_diagrams,
 )
 from .page_cleaner import Figure, PageCleaner, has_circled_footnotes
-from .presets import CompositionConfig, resolve_composition
+from .presets import CompositionConfig, domain_profile, resolve_composition
 from .source_numbers import LATEX, link_citations, link_references, number_chapter
 from .source_numbers import LATEX_RULES as SOURCE_NUMBER_LATEX_RULES
 from .source_numbers import TYPST_EQUATION_LAYOUT as SOURCE_EQUATION_LAYOUT
 from .source_numbers import TYPST_RULES as SOURCE_NUMBER_RULES
 from .source_numbers import labels as source_labels
 from .typst_math import (
-    REPO_FONTS_DIR,
     clean_margin_and_inline_math,
     compile_typst,
     convert_math_batch,
@@ -71,8 +72,8 @@ class ChapterSpec:
 @dataclass(frozen=True)
 class FigureLayout:
     caption_pattern: str = (
-        r"^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Fig(?:ure)?\.?\s*(?P<chapter>\d+)[\.\-]"
-        r"(?P<number>\d+[a-z]?)\.?(?:\*\*)?\s*$"
+        r"^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?(?:Fig(?:ure)?\.?|(?P<cjk>图))\s*(?:(?P<chapter>\d+)[\.\-])?"
+        r"(?P<number>\d+[a-z]?)\.?(?:\*\*)?(?(cjk)(?:\s+(?P<title>.+?))?)\s*$"
     )
     caption_ignore_case: bool = True
     caption_format: str = "Fig. {chapter}.{number}"
@@ -80,6 +81,7 @@ class FigureLayout:
     top_pages: frozenset[int] = frozenset()
     svg_single_pct: int | None = None
     svg_paired_pct: int = 90
+    pair_figures: bool = True
     png_single_divisor: int = 1350
     png_single_range: tuple[int, int] = (26, 78)
     png_max_height_ratio: float = 0.38
@@ -102,7 +104,7 @@ class MonographSpec:
     year: int = 2007
     publisher_key: str = "cambridge"
     lang: str = "en"
-    domain: str = "math"
+    domain: str = field(kw_only=True)
     preface_page: int | None = None
     chapters: list[ChapterSpec] = field(default_factory=list)
     sections: dict[str, tuple[int, str]] = field(default_factory=dict)
@@ -154,6 +156,9 @@ class MonographSpec:
     source_pdf: str = ""
     ocr_prompt: str | None = None
     ocr_languages: tuple[str, ...] = DEFAULT_OCR_LANGUAGES
+
+    def __post_init__(self) -> None:
+        domain_profile(self.domain)
 
 
 @dataclass(frozen=True)
@@ -213,6 +218,10 @@ def escape_typst_text(text: str) -> str:
     return re.sub(r"^(\s*)([=+\-]|\d+\.)", r"\1\\\2", s)
 
 
+def _squeezed_source(text: str) -> str:
+    return re.sub(r"[\s（）()]", "", text)
+
+
 def _balanced_backticks(para: str) -> bool:
     """True when every backtick run opens and closes Typst raw text: runs of 1-3 that pair up."""
     runs = [len(r) for r in re.findall(r"`+", para)]
@@ -256,6 +265,8 @@ def adhoc_spec(
     cross_refs = False
     running_headers = ()
     header_zone = None
+    page_fixups: dict[int, tuple[Rewrite, ...]] = {}
+    full_width_figures = False
     if "国际经济环境的变化与日本经济" in pdf_path.stem:
         chapters = [
             ChapterSpec(0, "作者简介", 4, 5),
@@ -304,6 +315,20 @@ def adhoc_spec(
         cross_refs = True
         running_headers = _cjk_running_headers(("通缩经济与货币政策", "目录", "中文版序言", "中文版前言"), chapters)
         header_zone = 4
+        full_width_figures = True
+        page_fixups = {
+            69: ((r"\s*通货膨胀率：CPI，测算期：40个季度\n\n（1）产出缺口：BOJ缺口\n\n（2）产出缺口：HP缺口\n\n（横轴表示估算起始期，年）", ""),),
+            72: ((r"(?m)^(\|  \| BIS \|  \| FRB \|  \|)  \|", "\\1 ⁠ |"),),
+            73: ((r"(?m)^(\|  \| BIS \|  \| FRB \|  \|)  \|", "\\1 ⁠ |"),),
+            74: ((r"(?m)^(\|  \| FRB \|  \|)  \|", "\\1 ⁠ |"),),
+            76: ((r"(?m)^(\|  \| FRB \|  \|  \|  \|)  \|", "\\1 ⁠ |"),),
+            99: ((r"(?m)^(\|  \| 消费者物价指数<br>（剔除生鲜食品） \| 同比<br>（%） \|)  \|", "\\1 ⁠ |"),),
+            185: ((r"(?m)^(\|  \|  \| F 值 \| P 值 \|)  \|  \|", "\\1 ⁠ | ⁠ |"),),
+            251: ((r"\A.*\Z", "![](figures/fig_8-20-a.png)"),),
+            252: ((r"\A.*\Z", "![](figures/fig_8-20-b.png)"),),
+            253: ((r"(?m)^\|.*\|[ \t]*$\n?", ""),),
+            280: ((r"(?m)(\| C-CPI-U \|)  \|", "\\1 ⁠ |"),),
+        }
     elif "财政政策与社会保障" in pdf_path.stem:
         chapters = [
             ChapterSpec(0, "作者简介", 4, 5),
@@ -331,7 +356,9 @@ def adhoc_spec(
         header_zone = 4
     fig_layout = (
         FigureLayout(
-            caption_pattern=r"^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?(?:Fig(?:ure)?\.?|Abb\.|图)\s*(?:(?P<chapter>\d+)[\.\-])?(?P<number>\d+[a-z]?)\.?(?:\*\*)?(?:[:\s]+(?P<title>[^\n]+))?$"
+            caption_pattern=r"^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?(?:Fig(?:ure)?\.?|Abb\.|图)\s*(?:(?P<chapter>\d+)[\.\-])?(?P<number>\d+[a-z]?)\.?(?:\*\*)?(?:[:\s]+(?P<title>[^\n]+))?$",
+            svg_single_pct=100 if full_width_figures else None,
+            pair_figures=not full_width_figures,
         )
         if comp.language.code == "zh"
         else FigureLayout()
@@ -352,6 +379,7 @@ def adhoc_spec(
         running_header_regexes=running_headers,
         header_zone_lines=header_zone,
         figures=fig_layout,
+        page_fixups=page_fixups,
         chapter_heading="{title}" if cross_refs else "{number} {title}",
     )
 
@@ -522,7 +550,7 @@ def latex_safe_markdown(text: str) -> str:
     )
     def _escape_amp(m: re.Match[str]) -> str:
         blk = m.group(0)
-        if blk.startswith("$") or blk.startswith("|") or blk.startswith("\\"):
+        if blk.startswith(("$", "|", "\\")):
             return blk
         return re.sub(r"(?<!\\)&", r"\&", blk)
     return re.sub(r"\$\$[\s\S]*?\$\$|(?<!\\)\$(?:[^$\n\\]|\\.)+\$|^\|[^\n]+\|$|[^$|\n]+", _escape_amp, text, flags=re.MULTILINE)
@@ -562,7 +590,7 @@ def join_cross_page_text(prev: str, curr_first: str) -> str:
     last_line = prev_r.splitlines()[-1].strip() if prev_r else ""
     if len(_UNESCAPED_DOLLAR_RE.findall(prev_r)) % 2 == 1 and curr_l.startswith("$") and not curr_l.startswith("$$"):
         return prev_r + " " + curr_l[1:]
-    if last_line.endswith("|") or curr_l.startswith("|") or last_line.endswith("$$") or EQ_LABEL_END_RE.search(last_line):
+    if last_line.endswith(("|", "$$")) or curr_l.startswith("|") or EQ_LABEL_END_RE.search(last_line):
         return prev_r + "\n\n" + curr_l
     if prev_r.endswith("-"):
         m1 = re.search(r"\b([a-zA-Z\u00C0-\u017F]+)-$", prev_r)
@@ -685,8 +713,34 @@ TYPST_CJK_NOTE_MARKS = (
 )
 
 
+TYPST_HEADING_NOTES = (
+    '#let in-outline = state("in-outline", false)\n'
+    "#show outline: it => { in-outline.update(true); it; in-outline.update(false) }\n"
+    "#let heading-note(body) = context if not in-outline.get() { footnote(body) }\n"
+)
+
+
+TYPST_NOTE_PARAGRAPH_COSTS = "#set text(costs: (widow: 0%, orphan: 0%))"
+NOTE_PARAGRAPH_SKIP_STARTS = ("=", "- ", "+ ", "/ ", "#figure", "#table", "#set", "#show", "@@")
+
+
+def keep_note_paragraph_lines(s: str) -> str:
+    """Let only paragraphs that call a note break anywhere, so a note's call and entry share a page."""
+
+    def wrappable(block: str) -> bool:
+        body = block.strip()
+        return (
+            "#footnote[" in body
+            and not body.startswith(NOTE_PARAGRAPH_SKIP_STARTS)
+            and not re.search(r"^\s*(?:[-+/] |\d+\. )|#set |#show |@@", body, re.MULTILINE)
+            and body.count("[") == body.count("]")
+        )
+
+    return "\n\n".join(f"#[{TYPST_NOTE_PARAGRAPH_COSTS}\n{b}]" if wrappable(b) else b for b in s.split("\n\n"))
+
+
 def typst_footnote_rules(spec: MonographSpec) -> str:
-    cjk_note_marks = TYPST_CJK_NOTE_MARKS if spec.lang == "zh" else ""
+    cjk_note_marks = TYPST_HEADING_NOTES + (TYPST_CJK_NOTE_MARKS if spec.lang == "zh" else "")
     if not spec.footnote_style:
         return cjk_note_marks
     if spec.footnote_marks:
@@ -704,8 +758,7 @@ def typst_footnote_rules(spec: MonographSpec) -> str:
         "chapter": "#show heading.where(level: 1): it => { counter(footnote).update(0); it }\n",
         "book": "",
     }[spec.footnote_reset]
-    notes_stay_with_calls = "#set text(costs: (widow: 0%, orphan: 0%))\n"
-    return f"{cjk_note_marks}#set footnote(numbering: {numbering})\n{notes_stay_with_calls}{reset}"
+    return f"{cjk_note_marks}#set footnote(numbering: {numbering})\n{reset}"
 
 
 LATEX_CHINESE_PARAGRAPHS = (
@@ -722,7 +775,7 @@ def latex_footnote_header(spec: MonographSpec) -> str:
     if not spec.footnote_style:
         return ""
     header = {
-        "page": r"\usepackage[perpage]{footmisc}",
+        "page": r"\usepackage{footmisc}\usepackage{zref-perpage}\zmakeperpage{footnote}",
         "chapter": "",
         "book": r"\counterwithout{footnote}{chapter}",
     }[spec.footnote_reset]
@@ -743,6 +796,8 @@ def latex_footnote_header(spec: MonographSpec) -> str:
 
 UNNUMBERED_CHAPTER_PREFIXES = (
     "作者简介",
+    "（日本）内阁府经济社会综合研究所",
+    "编译委员会",
     "中文版前言",
     "中文版序言",
     "序",
@@ -844,6 +899,24 @@ def _merge_display_run(run: str, display_blocks: list[tuple[str, str]]) -> str:
     return f"@@DISPLAYBLOCK{ids[0]}@@"
 
 
+CELL_STYLE_TAGS = {"b": "strong", "i": "emph"}
+
+
+TYPST_MATH_SPAN = re.compile(r"((?<!\\)\$.*?(?<!\\)\$)")
+
+
+def _escape_table_cell_text(cell: str) -> str:
+    parts = TYPST_MATH_SPAN.split(cell)
+    for idx in range(0, len(parts), 2):
+        part = re.sub(r"<(?!eq-|fig-|sec-)", r"\<", parts[idx])
+        part = re.sub(r"(?<![@\\])@(?=[\w])(?!@)", r"\@", part)
+        part = re.sub(r"(?<!\\)\[", r"\[", part)
+        part = re.sub(r"(?<!\\)\]", r"\]", part)
+        part = re.sub(r"(?<!\\)\*", r"\*", part)
+        parts[idx] = re.sub(r"(?<!\\)_", r"\_", part)
+    return "".join(parts)
+
+
 def format_pipe_tables_as_typst(text: str) -> str:
     lines = text.split("\n")
     out: list[str] = []
@@ -876,7 +949,7 @@ def format_pipe_tables_as_typst(text: str) -> str:
                     items: list[str] = []
                     for r_idx, r in enumerate(parsed_rows):
                         first = r[0].strip()
-                        if first and all(not c.strip() for c in r[1:]) and (first.startswith(("#strong", "**")) or first.startswith(("一、", "二、", "三、", "四、", "A ", "B ", "A面板", "B面板", "A 面板", "B 面板"))):
+                        if first and all(not c.strip() for c in r[1:]) and first.startswith(("#strong", "**", "一、", "二、", "三、", "四、", "A ", "B ", "A面板", "B面板", "A 面板", "B 面板")):
                             title_text = re.sub(r"^\*\*(.*?)\*\*$", r"\1", first)
                             title_text = re.sub(r"^#strong\[(.*?)\]$", r"\1", title_text)
                             items.append(f"table.cell(colspan: {ncols}, fill: luma(245))[#strong[{title_text}]]")
@@ -884,13 +957,7 @@ def format_pipe_tables_as_typst(text: str) -> str:
                             col_idx = 0
                             while col_idx < len(r):
                                 c = r[col_idx]
-                                c_clean = c.replace("<br>", "\\ ").replace("<br/>", "\\ ")
-                                c_clean = re.sub(r"<(?!eq-|fig-|sec-)", r"\<", c_clean)
-                                c_clean = re.sub(r"(?<![@\\])@(?=[\w])(?!@)", r"\@", c_clean)
-                                c_clean = re.sub(r"(?<!\\)\[", r"\[", c_clean)
-                                c_clean = re.sub(r"(?<!\\)\]", r"\]", c_clean)
-                                c_clean = re.sub(r"(?<!\\)\*", r"\*", c_clean)
-                                c_clean = re.sub(r"(?<!\\)_", r"\_", c_clean)
+                                c_clean = _escape_table_cell_text(c.replace("<br>", "\\ ").replace("<br/>", "\\ "))
                                 span = 1
                                 if c.strip():
                                     while col_idx + span < len(r) and not r[col_idx + span].strip():
@@ -903,17 +970,20 @@ def format_pipe_tables_as_typst(text: str) -> str:
                                 col_idx += 1
                         else:
                             for c in r:
-                                c_clean = c.replace("<br>", "\\ ").replace("<br/>", "\\ ")
-                                c_clean = re.sub(r"<(?!eq-|fig-|sec-)", r"\<", c_clean)
-                                c_clean = re.sub(r"(?<![@\\])@(?=[\w])(?!@)", r"\@", c_clean)
-                                c_clean = re.sub(r"(?<!\\)\[", r"\[", c_clean)
-                                c_clean = re.sub(r"(?<!\\)\]", r"\]", c_clean)
-                                c_clean = re.sub(r"(?<!\\)\*", r"\*", c_clean)
-                                c_clean = re.sub(r"(?<!\\)_", r"\_", c_clean)
+                                shaded = re.fullmatch(r"<mark>(.*)</mark>", c)
+                                if shaded:
+                                    c = shaded.group(1)
+                                for tag, mark in CELL_STYLE_TAGS.items():
+                                    c = c.replace(f"<{tag}>", f"@@{mark}@@").replace(f"</{tag}>", "@@END@@")
+                                c_clean = _escape_table_cell_text(c.replace("<br>", "\\ ").replace("<br/>", "\\ "))
+                                for mark in CELL_STYLE_TAGS.values():
+                                    c_clean = c_clean.replace(f"@@{mark}@@", f"#{mark}[")
+                                c_clean = c_clean.replace("@@END@@", "]")
                                 if r_idx == 0 and c_clean.strip() and not c_clean.strip().startswith(("#strong", "**")):
-                                    items.append(f"[#strong[{c_clean}]]")
+                                    cell = f"[#strong[{c_clean}]]"
                                 else:
-                                    items.append(f"[{c_clean}]")
+                                    cell = f"[{c_clean}]"
+                                items.append(f"table.cell(fill: luma(215)){cell}" if shaded else cell)
                     body = ", ".join(items)
                     if ncols >= 10:
                         size_pt = "6.8pt"
@@ -967,6 +1037,7 @@ class MonographCompiler:
         self._out_dir: Path = Path()
         self.cleaner: PageCleaner = PageCleaner.for_spec(spec)
         self._figure_labels: set[str] = set()
+        self._sourced_figures: dict[str, str] = {}
 
     def build_typst_preamble(self) -> str:
         if self.spec.typst_preamble:
@@ -988,6 +1059,7 @@ class MonographCompiler:
         )
         heading_rules = self.composition.typst_heading_rules()
         header_style = "normal" if self.composition.language.code in ("zh", "ja") else "italic"
+        caption_separator = "#h(1em)" if self.composition.language.code in ("zh", "ja") else ": "
         return f"""#set document(
   title: "{escape_quoted(" — ".join(filter(None, (self.spec.title, self.spec.author))))}",
   author: "{self.spec.author}",
@@ -999,7 +1071,7 @@ class MonographCompiler:
   height: {pub.height_pt}pt,
   margin: (inside: {pub.margin_inside_pt}pt, outside: {pub.margin_outside_pt}pt, top: {pub.margin_top_pt}pt, bottom: {pub.margin_bottom_pt}pt),
   header: context {{
-    let strip-fn(it) = if type(it) == content and it.has("children") {{ it.children.filter(c => c.func() != footnote).join() }} else if type(it) == content and it.func() == footnote {{ [] }} else {{ it }}
+    let strip-fn(it) = if type(it) == content and it.has("children") {{ it.children.filter(c => c.func() not in (footnote, (context none).func())).join() }} else if type(it) == content and it.func() == footnote {{ [] }} else {{ it }}
     let page-number = counter(page).get().first()
     let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
     if page-number > 4 and not on-chapter-page [
@@ -1117,8 +1189,7 @@ class MonographCompiler:
   if w <= avail or w == 0pt {{
     eq
   }} else if avail / w >= 0.8 or not breakable {{
-    let sc = calc.max(0.62, avail / w)
-    scale(x: sc * 100%, y: sc * 100%, reflow: true, eq)
+    scale(x: avail / w * 100%, y: avail / w * 100%, reflow: true, eq)
   }} else {{
     block(width: avail, {{
       set align(center)
@@ -1159,7 +1230,7 @@ class MonographCompiler:
 #show figure: set block(above: 1.6em, below: 1.6em)
 #show figure.caption: it => [
   #v(0.45em)
-  #text(9pt, font: {font_expr})[#if it.supplement != none [#strong[#it.supplement #context it.counter.display(it.numbering)]#if it.body != [] [: ]]#it.body]
+  #text(9pt, font: {font_expr})[#if it.supplement != none [#strong[#it.supplement #context it.counter.display(it.numbering)]#if it.body != [] [{caption_separator}]]#it.body]
 ]
 """
 
@@ -1274,13 +1345,17 @@ class MonographCompiler:
         if asset is None:
             if self.spec.cross_references:
                 digits = re.sub(r"[.\_]", "-", fig_id)
-                cap_body = re.sub(r"^(?:(?:Fig(?:ure)?\.?|图)\s*(?:\d+[\.\-])?\d+[a-z]?\.?\s*:?\s*)", "", clean_cap, flags=re.IGNORECASE).strip()
+                cap_body = re.sub(r"^(?:(?:Fig(?:ure)?\.?|图)\s*\d+(?:[\.\-]\d+){0,2}[a-z]?\.?\s*:?\s*)", "", clean_cap, flags=re.IGNORECASE).strip()
                 raw_num = fig_id.replace("_", "-")
                 label = "" if digits in self._figure_labels else f" <fig-{digits}>"
                 self._figure_labels.add(digits)
                 return f'#align(center)[#figure(caption: [{cap_body}], numbering: _ => "{raw_num}")[]{label}]'
             return f"#emph[{clean_cap}]"
         width_pct = self._figure_width_pct(asset, paired)
+        if asset.suffix == ".svg" and "资料来源" in (svg := asset.read_text(encoding="utf-8")):
+            self._sourced_figures[f"{fig_dir.name}/{asset.name}"] = _squeezed_source(
+                html.unescape(re.sub(r"<[^>]+>", "", svg))
+            )
         supplement = (
             ",\n  supplement: none"
             if self.spec.figures.supplement_none and not self.spec.cross_references
@@ -1292,7 +1367,7 @@ class MonographCompiler:
         numbering = ""
         if self.spec.cross_references:
             cap_body = re.sub(
-                r"^(?:(?:Fig(?:ure)?\.?|图)\s*(?:\d+[\.\-])?\d+[a-z]?\.?\s*:?\s*)",
+                r"^(?:(?:Fig(?:ure)?\.?|图)\s*\d+(?:[\.\-]\d+){0,2}[a-z]?\.?\s*:?\s*)",
                 "",
                 clean_cap,
                 flags=re.IGNORECASE,
@@ -1324,7 +1399,7 @@ class MonographCompiler:
     def render_figure_group(self, figs: list[Figure], fig_dir: Path) -> str:
         if not figs:
             return ""
-        if len(figs) == 2 and all(
+        if self.spec.figures.pair_figures and len(figs) == 2 and all(
             self._resolve_figure_asset(fig_dir, fid) is not None for fid, _ in figs
         ):
             f1 = self.make_figure_typst(*figs[0], fig_dir, paired=True)
@@ -1400,6 +1475,23 @@ class MonographCompiler:
         return acc
 
 
+    def _printed_source(self, fig_block: str) -> str | None:
+        return next((text for path, text in self._sourced_figures.items() if f'"{path}"' in fig_block), None)
+
+    def _drop_printed_sources(self, blocks: list[str], sources: list[str]) -> list[str]:
+        unused = [self._printed_source(block) for block in blocks]
+        kept: list[str] = []
+        for i, line in enumerate(sources):
+            squeezed = _squeezed_source(line)
+            at = next((j for j, text in enumerate(unused) if text and squeezed in text), None)
+            if at is None and i == 0 and unused[-1]:
+                at = len(unused) - 1
+            if at is None:
+                kept.append(line)
+            else:
+                unused[at] = None
+        return kept
+
     def format_typst(self, s: str) -> str:
         spec = self.spec
         fig_blocks: list[str] = []
@@ -1409,6 +1501,16 @@ class MonographCompiler:
             return f"\n\n@@FIGBLOCK{len(fig_blocks) - 1}@@\n\n"
 
         s = re.sub(r"#align\(center\)\[\n.*?\n\]", save_fig, s, flags=re.DOTALL)
+        def keep_unprinted_sources(m: re.Match[str]) -> str:
+            blocks = [fig_blocks[int(i)] for i in re.findall(r"@@FIGBLOCK(\d+)@@", m.group(1))]
+            sources = [line.strip() for line in m.group(2).split("\n") if line.strip()]
+            return m.group(1) + "".join(f"{line}\n\n" for line in self._drop_printed_sources(blocks, sources))
+
+        s = re.sub(
+            r"((?:@@FIGBLOCK\d+@@\s*)+)((?:[（(]资料来源[：:][^\n]*\s*)+)",
+            keep_unprinted_sources,
+            s,
+        )
         s = re.sub(r"^(\s*)=", r"\1\\=", s, flags=re.MULTILINE)
         s = re.sub(r"^>\s?", "", s, flags=re.MULTILINE)
 
@@ -1618,6 +1720,9 @@ class MonographCompiler:
                 else:
                     fig_block = f"#align(center)[#block(breakable: false)[\n  #text(size: 10pt)[{clean_c}]\n  #v(0.4em)\n  #image(\"{path}\", {width_str})\n]]"
                 return f"\n\n{lead}{fig_block}{trail}\n\n"
+            if path.endswith(".png") and (self._out_dir / path).with_suffix(".svg").exists():
+                path = path.removesuffix(".png") + ".svg"
+                width_str = f"width: {spec.figures.svg_single_pct or 75}%"
             return f"\n\n{lead}#align(center)[#image(\"{path}\", {width_str})]{trail}\n\n"
         s = re.sub(r"@@IMAGE(\d+)@@", lambda m: images[int(m.group(1))], s)
         s = re.sub(
@@ -1629,15 +1734,16 @@ class MonographCompiler:
             flags=re.MULTILINE,
         )
         s = s.replace(r"\cdots", "...").replace(r"\ldots", "...").replace(r"\neq", r"\!=")
-        s = re.sub(
-            r"^\s*□\s*$",
-            r"#v(-0.35em, weak: true)\n#align(right)[$square.stroked$]",
-            s,
-            flags=re.MULTILINE,
-        )
-        s = re.sub(r"[ \t]*□", r"#qed", s)
+        if self.composition.domain.proof_end_mark:
+            s = re.sub(
+                r"^\s*□\s*$",
+                r"#v(-0.35em, weak: true)\n#align(right)[$square.stroked$]",
+                s,
+                flags=re.MULTILINE,
+            )
+            s = re.sub(r"[ \t]*□", r"#qed", s)
+            s = re.sub(r"(\n\n)(?=#emph\[Proof)", r"\1#sub-break\n", s)
         s = re.sub(r"(\n\n)(?=#strong\[)", r"\1#thm-break\n", s)
-        s = re.sub(r"(\n\n)(?=#emph\[Proof)", r"\1#sub-break\n", s)
         s = re.sub(
             r"(\n\n)(?=\((?:[1-9]\d?|[ivx]{1,4}|[1-9]-[1-9])\)\s+)",
             r"\1#item-break\n",
@@ -1689,21 +1795,6 @@ class MonographCompiler:
                 r"@fig-\1",
                 s,
             )
-            known_figs = {m.group(1) for m in re.finditer(r"<fig-([\w-]+)>", s)}
-            def _link_chinese_fig(m: re.Match[str]) -> str:
-                digits = re.sub(r"[.\-]", "-", m.group(1))
-                label = f"fig-{digits}"
-                if label not in known_figs:
-                    return m.group(0)
-                next_char = m.string[m.end():m.end()+1]
-                if re.match(r"[\w:\[-]", next_char):
-                    return f"@{label}#[]"
-                return f"@{label}"
-            s = re.sub(
-                r"(?<!<fig-)(?<!\[#strong\[)图\s*(\d+[-.]\d+[a-z]?)(?!>)",
-                _link_chinese_fig,
-                s,
-            )
         def _format_table_title(m: re.Match[str]) -> str:
             full_title = m.group(1).strip()
             if len(full_title) > 60 or "，" in full_title or "。" in full_title:
@@ -1729,7 +1820,7 @@ class MonographCompiler:
             trailing = m.group(3).strip()
             body = m.group(2).replace("\n\n", " ").strip()
             tail = f" {trailing}" if trailing else ""
-            return f"{heading}{tail}\n#footnote[{body}]"
+            return f"{heading}{tail}#heading-note[{body}]"
 
         s = re.sub(
             r"^([#=]+[^\n@]*?)@@FNSTART@@(.*?)@@FNEND@@([^\n]*)$",
@@ -1738,6 +1829,8 @@ class MonographCompiler:
             flags=re.MULTILINE,
         )
         s = FOOTNOTE_RE.sub(r"#footnote[\1]", s)
+        if spec.footnote_style:
+            s = keep_note_paragraph_lines(s)
         def _expand_table(m: re.Match[str]) -> str:
             raw_tbl = table_blocks[int(m.group(1))]
             if spec.lang in ("zh", "ja"):
@@ -1867,7 +1960,7 @@ class MonographCompiler:
         spec = self.spec
         self._figure_labels = set()
         out_dir = Path(out_dir)
-        md_dir = out_dir / spec.markdown_dir
+        md_dir = book_state(out_dir) / spec.markdown_dir
         store = TranscriptStore(md_dir)
         page_texts = [store.text(int(p.stem[2:])) or "" for p in sorted(md_dir.glob("p_*.md"))]
         if not spec.footnote_style and any(has_circled_footnotes(t, spec.folio_pattern) for t in page_texts):

@@ -277,3 +277,31 @@ def test_crop_ink_ratio_discriminates_blank_paper() -> None:
     drawn = ImageDraw.Draw(blank)
     drawn.rectangle((20, 60, 40, 140), fill="black")
     assert figure_extractor._crop_ink_ratio(blank) >= figure_extractor.MIN_FIGURE_INK_RATIO
+
+
+def test_whitespace_extraction_handles_single_number_and_cjk_captions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(figure_extractor, "line_reader", RecordingVision)
+    pdf_path = tmp_path / "cjk.pdf"
+    doc = pymupdf.open()
+    renders = tmp_path / "page_renders"
+    renders.mkdir()
+    transcripts = tmp_path / "markdown_pages"
+    transcripts.mkdir()
+    for pno, cap_text in ((1, "Fig. 7"), (2, "图 131")):
+        page = doc.new_page(width=600, height=800)
+        _ = page.insert_text((260, 520), cap_text, fontsize=11, fontname="china-s")
+        _ = (transcripts / f"p_{pno:04d}.md").write_text(f"Text.\n\n{cap_text}\n", encoding="utf-8")
+        img = Image.new("L", (600, 800), 255)
+        draw = ImageDraw.Draw(img)
+        draw.ellipse((200, 260, 400, 440), outline=0, width=4)
+        img.save(renders / f"p_{pno:03d}.png")
+    doc.save(pdf_path)
+    doc.close()
+
+    figs = FigureExtractor(pdf_path).extract_whitespace_isolated_figures(
+        renders, tmp_path / "figures", transcripts
+    )
+    assert [f.figure_id for f in figs] == ["7", "131"]
+

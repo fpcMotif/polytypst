@@ -7,6 +7,7 @@ are compared ink to ink, and their baseline is the glyph origin.
 """
 
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -16,6 +17,10 @@ from .source import SCAN_DPI, SourcePage
 
 PT_PER_PX = 72 / SCAN_DPI
 INK_LEVEL = 140
+EDGE_LINE_SHARE = 0.9
+EDGE_STRIP_SHARE = 0.02
+EDGE_GAP_PT = 4.0
+MEASURE_RANK = 3
 SEG_GAP_PT = 0.9
 WORD_GAP_PT = 1.8
 LINE_GAP_PT = 2.5
@@ -37,6 +42,30 @@ class InkWord:
 def page_ink(page: pymupdf.Page) -> np.ndarray:
     pix = page.get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csGRAY)
     return np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width) < INK_LEVEL
+
+
+def line_measure(starts: Sequence[int], ends: Sequence[int]) -> tuple[int, int]:
+    """The left and right edge of a text block from its lines' first and last ink columns: the
+    `MEASURE_RANK`-th furthest start and end, so a speck or two cannot widen it and short lines cannot narrow it."""
+    k = min(MEASURE_RANK, len(starts)) - 1
+    return sorted(starts)[k], sorted(ends, reverse=True)[k]
+
+
+def without_edge_lines(ink: np.ndarray) -> np.ndarray:
+    """The ink without a scan's page border: columns inked down more than `EDGE_LINE_SHARE` of the page,
+    and an ink run lying wholly in the outer `EDGE_STRIP_SHARE` of either side, apart from the rest by a gap."""
+    out = ink.copy()
+    out[:, ink.mean(axis=0) > EDGE_LINE_SHARE] = False
+    cols = np.flatnonzero(out.any(axis=0))
+    if not cols.size:
+        return out
+    runs = np.split(cols, np.flatnonzero(np.diff(cols) > EDGE_GAP_PT / PT_PER_PX) + 1)
+    strip = EDGE_STRIP_SHARE * ink.shape[1]
+    if len(runs) > 1 and runs[0][-1] < strip:
+        out[:, : runs[0][-1] + 1] = False
+    if len(runs) > 1 and runs[-1][0] >= ink.shape[1] - strip:
+        out[:, runs[-1][0] :] = False
+    return out
 
 
 def segments(ink: np.ndarray, x0: int, x1: int, y0: int, y1: int, gap_pt: float = SEG_GAP_PT) -> list[tuple[int, int]]:

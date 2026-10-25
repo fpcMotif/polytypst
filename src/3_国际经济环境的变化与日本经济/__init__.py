@@ -1,0 +1,4 @@
+from .book import BOOK
+from .spec import INTL_ECON_ILLUSTRATED_SPEC, INTL_ECON_SPEC
+
+__all__ = ["BOOK", "INTL_ECON_ILLUSTRATED_SPEC", "INTL_ECON_SPEC"]

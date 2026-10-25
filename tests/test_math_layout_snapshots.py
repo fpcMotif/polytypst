@@ -1,6 +1,5 @@
 import json
 import re
-import shutil
 from pathlib import Path
 
 import pymupdf
@@ -13,6 +12,7 @@ from polytypst.compiler.monograph import (
     compile_typst,
     running_header_regexes,
 )
+from polytypst.compiler.typst_math import typst_command
 from polytypst.fermat.spec import FERMAT_SPEC
 from polytypst.goursat.build import goursat_markdown
 from polytypst.goursat.figures import (
@@ -341,6 +341,7 @@ def test_goursat_differentials_delimiters_and_figure_grounding_snapshot(
 
     compiler = MonographCompiler(
         MonographSpec(
+            domain="math",
             slug="goursat_test",
             title="A Course in Mathematical Analysis",
             author="Edouard Goursat",
@@ -363,6 +364,7 @@ def test_goursat_differentials_delimiters_and_figure_grounding_snapshot(
 def test_serre_display_brackets_tags_operators_and_bars_typst_snapshot() -> None:
     compiler = MonographCompiler(
         MonographSpec(
+            domain="math",
             slug="serre_test",
             title="Cours d'arithmétique",
             author="Jean-Pierre Serre",
@@ -377,10 +379,11 @@ def test_serre_display_brackets_tags_operators_and_bars_typst_snapshot() -> None
 
 
 @pytest.mark.skipif(
-    shutil.which("typst") is None, reason="needs typst to compile layout page"
+    typst_command() is None, reason="needs typst to compile layout page"
 )
 def test_math_layout_compiled_page_scan_parity_snapshot(tmp_path: Path) -> None:
     spec = MonographSpec(
+        domain="math",
         slug="parity_math",
         title="Number Theory",
         author="Kato",

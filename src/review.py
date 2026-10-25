@@ -22,7 +22,7 @@ import pymupdf
 
 from .compiler.source_numbers import LATEX, TYPST
 from .literal_numbers import literal_numbering_counts
-from .ocr.lines import LineStore
+from .ocr.lines import LineStore, source_ocr_dir
 
 GRAM = 4
 CONTENT_BAND = (0.06, 0.9)
@@ -41,6 +41,7 @@ _SOURCE = {
         "footnotes": r"#footnote\[",
         "chained_footnotes": r"\]#footnote\[",
         "footnotes_in_headings": r"(?m)^=+ [^\n]*#footnote\[",
+        "tables": r"#table\(",
     },
     "latex": {
         "headings": r"\\(?:chapter|(?:sub)*section)\*?\{",
@@ -50,6 +51,7 @@ _SOURCE = {
         "chained_footnotes": r"\}\\footnote\{",
         "footnotes_in_headings": r"\\(?:chapter|(?:sub)*section)\{[^\n]*\\footnote",
         "unnumbered_display_math": r"\\\[|\$\$",
+        "tables": r"\\begin\{(?:longtable|tabular)\}",
     },
 }
 _LITERAL_REFS = {
@@ -199,6 +201,7 @@ def transcript_measures(text: str) -> Measures:
     return {
         "repeated_sentences": sum(n - 1 for n in sentences.values() if n > 1),
         "halfwidth_commas_after_han": len(re.findall(r"[\u4e00-\u9fff],", text)),
+        "tables": len(re.findall(r"(?m)^\|\s*:?-{3,}:?\s*\|", text)),
     }
 
 
@@ -244,7 +247,7 @@ def review_folder(
     """Measure every rebuilt PDF, source, LaTeX log and transcript in `folder`; write measures.json,
     pages.csv and history.jsonl to `out`, print the changes since the last run, and return the measures."""
     out.mkdir(parents=True, exist_ok=True)
-    scan_text = scan_grams(folder / "source_ocr")
+    scan_text = scan_grams(source_ocr_dir(folder))
     measures: dict[str, Measures] = {}
     columns: dict[int, dict[str, object]] = {
         n: {"scan_page": n} for n, g in scan_text.items() if g
@@ -279,9 +282,14 @@ def review_folder(
         log = path.read_text(encoding="utf-8", errors="replace")
         if "LaTeX2e" in log:
             measures[path.name] = latex_log_measures(log)
-    for stem in sorted({p.stem for p in sources if p.suffix == ".typ"}):
+    for stem in sorted({p.stem for p in sources}):
         if (md := folder / f"{stem}.md").exists():
             measures[md.name] = transcript_measures(md.read_text(encoding="utf-8"))
+            for source in (f"{stem}.typ", f"{stem}.tex"):
+                if source in measures:
+                    measures[source]["tables_missing"] = (
+                        measures[md.name]["tables"] - measures[source]["tables"]
+                    )
 
     rows = list(columns.values())
     names = [

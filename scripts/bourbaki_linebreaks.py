@@ -19,17 +19,19 @@ from collections import Counter
 import numpy as np
 import pymupdf
 
+from polytypst.book_state import book_state
 from polytypst.bourbaki import OUT_DIR
 from polytypst.bourbaki.marks import query_marks as query_typ_marks
 from polytypst.bourbaki.spec import BOURBAKI_1970_SPEC
-from polytypst.compiler.monograph import REPO_FONTS_DIR as FONTS
+from polytypst.compiler.typst_math import REPO_FONTS_DIR as FONTS
+from polytypst.ocr.lines import LineStore
 from polytypst.parity.source import read_source_page, source_ocr_dir, source_pdf
 
 ORIGINAL = source_pdf(BOURBAKI_1970_SPEC)
 TYP = OUT_DIR / f"{BOURBAKI_1970_SPEC.slug}.typ"
 OCR = source_ocr_dir(OUT_DIR)
 WORK = OUT_DIR / "linebreak_search"
-RESULTS = OUT_DIR / "linebreaks.json"
+RESULTS = book_state(OUT_DIR) / "linebreaks.json"
 BODY_TOP, BODY_BOTTOM = 60.0, 58.0
 TARGETS = OUT_DIR / "page_targets.json"
 BODY_HEIGHT = 609 - 74 - 66
@@ -134,7 +136,8 @@ DEFAULT_GRID = [
 
 def main(args: list[str]) -> None:
     orig = pymupdf.open(ORIGINAL)
-    scan = {p: scan_endings(p) for p in range(31, orig.page_count + 1) if (OCR / f"p{p:03d}.json").exists()}
+    store = LineStore(OCR)
+    scan = {p: scan_endings(p) for p in range(31, orig.page_count + 1) if store.lines(p) is not None}
     results = json.loads(RESULTS.read_text()) if RESULTS.exists() else []
     for arg in args or DEFAULT_GRID:
         name, inputs = parse(arg)

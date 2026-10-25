@@ -26,6 +26,13 @@ def sheet(paper: tuple[int, int, int], ink: tuple[int, int, int] | None) -> Imag
     return img
 
 
+@pytest.fixture(autouse=True)
+def book_state_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    root = tmp_path / "books"
+    monkeypatch.setenv("POLYTYPST_BOOKS", str(root))
+    return root
+
+
 @pytest.fixture
 def page_render(tmp_path: Path) -> PageRender:
     renders = tmp_path / "page_renders"

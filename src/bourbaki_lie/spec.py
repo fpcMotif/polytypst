@@ -22,6 +22,7 @@ CHAPTERS = [
 ]
 
 BOURBAKI_LIE_SPEC = MonographSpec(
+    domain="math",
     slug="bourbaki_lie_groups_and_lie_algebras",
     title="Lie Groups and Lie Algebras (Chapters 1–3)",
     footnote_style="symbol",

@@ -67,6 +67,34 @@ def test_normalize_html_tables_keeps_empty_cells_in_their_columns():
     assert "| a_20 |  | a_22 |" in cleaned
 
 
+def test_normalize_html_tables_tolerates_a_misspelled_closing_tag():
+    raw_html = (
+        "<table>\n"
+        "  <tr>\n"
+        "    <th>2. 障碍</th>\n"
+        "    <th>A<br>(n = 84)</th>\n"
+        "    <th>B<br>(n = 42)</the>\n"
+        "    <th>A-B</th>\n"
+        "  </tr>\n"
+        "  <tr><th>成本高</th><th>60.7</th><th>38.1</th><th>22.6</th></tr>\n"
+        "</table>"
+    )
+    cleaned = normalize_html_tables(raw_html)
+    assert "| 2. 障碍 | A<br>(n = 84) | B<br>(n = 42) | A-B |" in cleaned
+    assert "| 成本高 | 60.7 | 38.1 | 22.6 |" in cleaned
+
+
+def test_normalize_html_tables_joins_ocr_spaced_decimals():
+    raw_html = (
+        "<table>\n"
+        "  <tr><th>项目</th><th>A</th><th>B</th><th>A-B</th></tr>\n"
+        "  <tr><th>人才</th><th>3. 6</th><th>0</th><th>-4. 7</th></tr>\n"
+        "</table>"
+    )
+    cleaned = normalize_html_tables(raw_html)
+    assert "| 人才 | 3.6 | 0 | -4.7 |" in cleaned
+
+
 def test_normalize_html_tables_counts_columns_from_the_widest_row():
     raw_html = (
         "<table>\n"
@@ -76,12 +104,13 @@ def test_normalize_html_tables_counts_columns_from_the_widest_row():
     )
     cleaned = normalize_html_tables(raw_html)
     assert "|  | A/p |  |" in cleaned
-    assert "| --- | --- | --- |" in cleaned
+    assert "| :--- | :---: | :---: |" in cleaned
     assert "| PID | YES | NO |" in cleaned
 
 
 def test_drop_line_regexes_never_delete_body_index_entries():
     spec = MonographSpec(
+        domain="math",
         slug="test_book",
         title="Test Book",
         author="Author",
@@ -114,6 +143,7 @@ def test_drop_line_regexes_never_delete_body_index_entries():
 
 def test_index_chapter_formats_in_two_columns():
     spec = MonographSpec(
+        domain="math",
         slug="test_book",
         title="Test Book",
         author="Author",

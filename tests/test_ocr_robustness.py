@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import unicodedata
 from pathlib import Path
 
 import pymupdf
@@ -13,16 +14,12 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from hypothesis.stateful import RuleBasedStateMachine, initialize, invariant, rule
 
+from polytypst.book_state import book_state
 from polytypst.compiler.monograph import (
-    REPO_FONTS_DIR,
     MonographCompiler,
     adhoc_spec,
 )
-from polytypst.compiler.typst_math import (
-    convert_math_batch,
-    finish_typst_math,
-    normalize_typst_differentials,
-)
+from polytypst.compiler.typst_math import REPO_FONTS_DIR, convert_math_batch
 
 OCR_STATES: dict[str, str] = {
     "empty": "",
@@ -146,7 +143,7 @@ def _compile(typ: Path) -> str:
 def _build_spec_less_book(out_dir: Path, pages: list[str], pdf_name: str = "Probe Book.pdf") -> str:
     """Write `pages` as OCR output for an unknown PDF, build it, and return the PDF text."""
     spec = adhoc_spec(Path(pdf_name), len(pages))
-    md_dir = out_dir / spec.markdown_dir
+    md_dir = book_state(out_dir) / spec.markdown_dir
     md_dir.mkdir(parents=True, exist_ok=True)
     for old in md_dir.glob("p_*.md"):
         old.unlink()
@@ -434,10 +431,7 @@ LATEX_ATOMS = st.sampled_from(
 def test_any_ocr_math_converts_to_typst_that_compiles(
     tmp_path: Path, snippets: list[tuple[str, bool]]
 ) -> None:
-    converted = [
-        finish_typst_math(normalize_typst_differentials(t))
-        for t in convert_math_batch(snippets)
-    ]
+    converted = convert_math_batch(snippets)
     body = "\n\n".join(
         f"$ {typ} $" if display else f"${typ}$"
         for typ, (_, display) in zip(converted, snippets, strict=True)
@@ -445,3 +439,165 @@ def test_any_ocr_math_converts_to_typst_that_compiles(
     typ = tmp_path / "math.typ"
     _ = typ.write_text(body, encoding="utf-8")
     _ = _compile(typ)
+
+
+HOSTILE_UNICODE = [
+    *("1\ufe0f\u20e3", "2\u20e3", "#\ufe0f\u20e3", "*\ufe0f\u20e3"),
+    *("🎉", "🚀", "😀", "👍🏽", "👨\u200d👩\u200d👧", "🇫🇷", "🏴\U000e0067\U000e0062\U000e0073\U000e0063\U000e0074\U000e007f", "⭐", "✅", "❤\ufe0f", "☺\ufe0f", "✔\ufe0f"),
+    *("➕", "➖", "➗", "✖\ufe0f"),
+    *("\u200b", "\u200c", "\u200d", "\u2060", "\ufeff", "\u00ad", "\u200e", "\u200f"),
+    *("\u202a", "\u202e", "\u2066", "\u2069", "\x00", "\x07", "\x1b", "\x7f", "\x85", "\r"),
+    *("\ufe0f", "\ufe0e", "\U000e0100", "\ue000", "\uf8ff", "\U000f0001", "\U0010fffd", "\uffff", "�"),
+    *("①", "⑳", "⑴", "⒈", "Ⓐ", "ⓐ", "⓪", "❶", "❿"),
+    *("\\ud83d\\ude00", "\\ud83d", "\\U0001F600", "&#x1F600;", "&#128512;", "&#xE000;"),
+    *("\u0301", "\u20e3"),
+]
+FULLWIDTH_MATH = ["ｆ", "（", "）", "＝", "＋", "１", "\u3000"]
+HOSTILE = st.one_of(
+    st.sampled_from(HOSTILE_UNICODE),
+    st.characters(categories=["Cc", "Cf", "Co"]),
+    st.characters(min_codepoint=0x1F300, max_codepoint=0x1FAFF),
+)
+
+
+def _untypesettable(c: str) -> bool:
+    """A character no book font draws, by its Unicode class: controls, format, private-use,
+    unassigned, emoji and selectors, keycap marks, and fullwidth forms."""
+    n = ord(c)
+    return (
+        (unicodedata.category(c) in ("Cc", "Cf", "Co", "Cs", "Cn") and c not in "\t\n")
+        or 0x1F000 <= n <= 0x1FAFF
+        or 0xFE00 <= n <= 0xFE0F
+        or 0xE0100 <= n <= 0xE01EF
+        or n in (0x20E3, 0xFFFD)
+        or 0xFF01 <= n <= 0xFF5E
+    )
+
+
+def _compile_latex(tex: Path) -> str:
+    """Compile `tex` with XeLaTeX and return the log, failing on an error or a missing glyph.
+    XeLaTeX, not LuaLaTeX: the book loads xypic, whose PDF driver rejects LuaTeX."""
+    if not shutil.which("xelatex"):
+        pytest.skip("XeLaTeX is not installed")
+    res = subprocess.run(
+        ["xelatex", "-interaction=nonstopmode", "-halt-on-error", tex.name],
+        cwd=tex.parent,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=180,
+    )
+    log = tex.with_suffix(".log").read_text(encoding="utf-8", errors="replace")
+    assert res.returncode == 0, next((line for line in log.splitlines() if line.startswith("!")), log[-2000:])
+    missing = [line for line in log.splitlines() if line.startswith("Missing character")]
+    assert not missing, missing[:5]
+    return log
+
+
+@pytest.mark.parametrize(
+    "page",
+    [
+        "Steps ① and ⑳, cases Ⓐ and ⓩ, start ⓪.",
+        "In math $x^{②} + \\text{③} = ④$ and $$\n⑤ = a\n$$",
+    ],
+)
+def test_circled_numbers_compile_with_every_glyph_drawn(tmp_path: Path, page: str) -> None:
+    spec = adhoc_spec(Path("Probe Book.pdf"), 1)
+    md_dir = book_state(tmp_path) / spec.markdown_dir
+    md_dir.mkdir(parents=True)
+    _ = (md_dir / "p_001.md").write_text(page, encoding="utf-8")
+    built = MonographCompiler(spec).build_all(tmp_path, frozenset({"tex"}))
+    assert built.latex_path is not None
+    _ = _compile(built.typst_path)
+    _ = _compile_latex(built.latex_path)
+
+
+class BadMarkdownMachine(RuleBasedStateMachine):
+    """Plays an OCR engine that writes hostile Unicode into prose, inline math, display math and `\\text`.
+
+    Both the Typst and the LaTeX book must compile with every glyph drawn, keep every sentinel word,
+    and carry none of the untypesettable characters the pages held."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.pages: list[list[str]] = []
+        self.sentinels: list[str] = []
+        self.inserted: set[str] = set()
+
+    @initialize()
+    def open_book(self) -> None:
+        self.pages.append([OPENING])
+
+    def _sentinel(self, letters: str) -> str:
+        word = "zq" + letters + SENTINEL_LETTERS[len(self.sentinels) % len(SENTINEL_LETTERS)]
+        self.sentinels.append(word)
+        return word
+
+    def _add(self, fragment: str, *hostile: str) -> None:
+        self.inserted.update(hostile)
+        self.pages[-1].append(fragment)
+
+    @rule(letters=st.text(SENTINEL_LETTERS, min_size=4, max_size=8))
+    def new_page_of_prose(self, letters: str) -> None:
+        self.pages.append([f"The word {self._sentinel(letters)} is plain prose."])
+
+    @rule(letters=st.text(SENTINEL_LETTERS, min_size=4, max_size=8), h=HOSTILE, glued=st.booleans())
+    def hostile_beside_a_sentinel(self, letters: str, h: str, glued: bool) -> None:
+        word = self._sentinel(letters)
+        gap = "" if glued else " "
+        self._add(f"The {h}{gap}word {word}{gap}{h} is prose.", h)
+
+    @rule(h=HOSTILE, at_start=st.booleans())
+    def hostile_in_inline_math(self, h: str, at_start: bool) -> None:
+        self._add(f"Let ${h}x + 1$ hold." if at_start else f"Let $x {h}+ 1$ hold.", h)
+
+    @rule(h=HOSTILE)
+    def hostile_in_display_math(self, h: str) -> None:
+        self._add(f"$$\n{h}a = b {h}\n$$", h)
+
+    @rule(h=HOSTILE)
+    def hostile_in_math_text(self, h: str) -> None:
+        self._add(f"Then $\\text{{for all {h} x}}$ holds.", h)
+
+    @rule(
+        call=st.text(SENTINEL_LETTERS, min_size=4, max_size=8),
+        body=st.text(SENTINEL_LETTERS, min_size=4, max_size=8),
+        n=st.integers(min_value=1, max_value=20),
+        in_math=st.booleans(),
+    )
+    def page_with_a_circled_note(self, call: str, body: str, n: int, in_math: bool) -> None:
+        mark = chr(0x245F + n)
+        called = f"$^{{{mark}}}$" if in_math else mark
+        self.pages.append([f"The word {self._sentinel(call)}{called} has a note.", f"{mark} The note says {self._sentinel(body)}."])
+
+    @rule(fw=st.lists(st.sampled_from(FULLWIDTH_MATH), min_size=1, max_size=6).map("".join))
+    def fullwidth_math(self, fw: str) -> None:
+        self._add(f"Here $a {fw} b$ is fullwidth.", fw)
+
+    def teardown(self) -> None:
+        with tempfile.TemporaryDirectory() as out_dir:
+            spec = adhoc_spec(Path("Probe Book.pdf"), len(self.pages))
+            md_dir = book_state(Path(out_dir)) / spec.markdown_dir
+            md_dir.mkdir(parents=True)
+            for pno, page in enumerate(self.pages, start=1):
+                _ = (md_dir / f"p_{pno:03d}.md").write_text("\n\n".join(page), encoding="utf-8")
+            built = MonographCompiler(spec).build_all(Path(out_dir), frozenset({"tex"}))
+            assert built.latex_path is not None
+            pdf_text = _flat(_compile(built.typst_path))
+            _ = _compile_latex(built.latex_path)
+            typst = built.typst_path.read_text(encoding="utf-8")
+            latex = built.latex_path.read_text(encoding="utf-8")
+        bad = {c for h in self.inserted for c in h if _untypesettable(c)}
+        assert not [c for c in bad if c in typst], f"untypesettable in Typst: {[c for c in bad if c in typst]}"
+        assert not [c for c in bad if c in latex], f"untypesettable in LaTeX: {[c for c in bad if c in latex]}"
+        missing = [word for word in self.sentinels if word not in pdf_text or word not in latex]
+        assert not missing, f"sentinel prose lost: {missing}"
+
+
+BadMarkdownMachine.TestCase.settings = settings(
+    max_examples=FUZZ_EXAMPLES,
+    stateful_step_count=8,
+    deadline=None,
+    suppress_health_check=[HealthCheck.too_slow],
+)
+TestBadMarkdownMachine = BadMarkdownMachine.TestCase

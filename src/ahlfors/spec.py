@@ -15,6 +15,7 @@ RUNNING_HEADERS = (
 )
 
 AHLFORS_SPEC = MonographSpec(
+    domain="math",
     slug="ahlfors_complete",
     title="Complex Analysis",
     author="Lars V. Ahlfors",
@@ -110,6 +111,7 @@ AHLFORS_ILLUSTRATED_SPEC = replace(
     AHLFORS_SPEC,
     slug="ahlfors_illustrated",
     figure_dir="figures_color",
+    require_vector_figures=True,
     typst_front_matter=TITLE_PAGE_BLOCK.replace(
         "THIRD EDITION", "THIRD EDITION — COLORFUL ILLUSTRATED EDITION"
     )

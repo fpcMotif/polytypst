@@ -12,7 +12,12 @@ from polytypst.checker import (
     DocumentQualityChecker,
     audit_pdf,
 )
-from polytypst.compiler.monograph import compile_typst, typst_footnote_rules
+from polytypst.compiler.monograph import (
+    ChapterSpec,
+    compile_typst,
+    typst_footnote_rules,
+)
+from polytypst.hecke.spec import HECKE_SPEC
 from polytypst.kashiwara.spec import KASHIWARA_SPEC
 from polytypst.klein.spec import KLEIN_SPEC
 from polytypst.kodaira.spec import KODAIRA_SPEC
@@ -40,6 +45,17 @@ def test_text_tier_catches_leaked_markup(tmp_path: Path) -> None:
     assert {"NO_LITERAL_TILDE", "UNRENDERED_LATEX_MACRO"} <= report.rules()
     assert all(issue.tier == TEXT_TIER for issue in report.issues)
     assert not report.is_clean
+
+
+def test_text_tier_catches_a_pipe_table_typst_set_as_prose(tmp_path: Path) -> None:
+    doc = pymupdf.open()
+    page = doc.new_page()
+    for i, line in enumerate([BODY, "| 已开展<br>(n = 84) | B | | :— | :—: | :—: |"]):
+        _ = page.insert_text((72, 120 + 40 * i), line, fontsize=11, fontname="china-s")
+    pdf = tmp_path / "book.pdf"
+    doc.save(pdf)
+    report = DocumentQualityChecker(pdf).run_all_checks(frozenset({TEXT_TIER}))
+    assert {"UNRENDERED_TABLE_SYNTAX", "UNRENDERED_HTML_MARKUP"} <= report.rules()
 
 
 def test_text_tier_catches_an_invented_thesis_outline(tmp_path: Path) -> None:
@@ -276,3 +292,30 @@ def test_text_tier_flags_a_note_left_at_the_foot_of_the_body(tmp_path: Path) -> 
     pdf = _notes_pdf(tmp_path, typst_footnote_rules(KLEIN_SPEC), left)
     report = audit_pdf(pdf, KLEIN_SPEC, frozenset({TEXT_TIER}))
     assert _note_pages(report, "FOOTNOTE_LEFT_IN_BODY") == [1]
+
+
+ZH_PROSE = "日本政府关于外国劳动者问题的基本方针是明确的，根据内阁决议的基本计划进行调整。" * 8
+ZH_NOTE_SPEC = AuditSpec(footnote_numbering="1")
+
+
+def test_text_tier_accepts_a_circled_body_list_that_nothing_calls(tmp_path: Path) -> None:
+    listed = f"{ZH_PROSE}内容如下：\n\n①从谋求日本经济社会的振兴及进一步国际化的观点出发。\n\n②对于单纯劳动者的问题需要慎重地进行研究。\n"
+    pdf = _notes_pdf(tmp_path, "", listed)
+    report = audit_pdf(pdf, ZH_NOTE_SPEC, frozenset({TEXT_TIER}))
+    assert _note_pages(report, "FOOTNOTE_LEFT_IN_BODY") == []
+
+
+def test_text_tier_flags_a_circled_note_that_the_body_calls(tmp_path: Path) -> None:
+    called = f"{ZH_PROSE}也可以观察到相同的结果①。\n\n①但因为未就业者占整体就业者比率小，所以影响更大。\n"
+    pdf = _notes_pdf(tmp_path, "", called)
+    report = audit_pdf(pdf, ZH_NOTE_SPEC, frozenset({TEXT_TIER}))
+    assert _note_pages(report, "FOOTNOTE_LEFT_IN_BODY") == [1]
+
+
+def test_a_book_without_a_chapter_0_keeps_the_default_front_matter() -> None:
+    assert AuditSpec.from_monograph(HECKE_SPEC).front_matter_pages == AuditSpec().front_matter_pages == 4
+
+
+def test_a_chapter_0_sets_the_front_matter() -> None:
+    spec = replace(HECKE_SPEC, chapters=[ChapterSpec(0, "Preface", 1, 9), *HECKE_SPEC.chapters])
+    assert AuditSpec.from_monograph(spec).front_matter_pages == 9

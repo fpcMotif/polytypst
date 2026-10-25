@@ -3,6 +3,7 @@ from pathlib import Path
 import pymupdf
 
 from polytypst.ahlfors.spec import AHLFORS_SPEC
+from polytypst.book_state import book_state
 from polytypst.bourbaki_lie.spec import BOURBAKI_LIE_SPEC
 from polytypst.compiler.monograph import (
     MonographCompiler,
@@ -107,6 +108,31 @@ def test_dagger_note_attaches_to_its_call():
 
 def split(page: str, spec=KLEIN_SPEC):
     return split_page_footnotes(page, spec.footnote_style, spec.folio_pattern)
+
+
+def test_a_circled_mark_opening_a_line_of_display_math_is_not_a_note():
+    page = "Here $a f b$ is fullwidth.\n\n$$\n①a = b ①\n$$"
+    assert split_page_footnotes(page, "circled", KLEIN_SPEC.folio_pattern) == (page, [])
+
+
+def test_a_list_closing_a_page_with_circled_items_that_the_body_never_calls_stays_in_the_body():
+    page = (
+        "主要结论如下：\n\n"
+        "①自20世纪80年代后半期实施根本性税制改革以来，所得税制度的累进程度开始逐步下降。\n\n"
+        "②降低所得税的累进程度削弱了所得税的收入再分配功能。\n"
+    )
+    assert split_page_footnotes(page, "circled", KLEIN_SPEC.folio_pattern) == (page.rstrip("\n"), [])
+
+
+def test_a_circled_note_that_the_body_calls_is_cut_after_a_circled_list():
+    body, notes = split_page_footnotes(
+        "三种方法：①泡沫项存在检验；②单位根检验。各种情况下的可持续性均被否定。①\n\n"
+        "① 感谢井堀利宏等与会人士提出的宝贵意见。\n",
+        "circled",
+        KLEIN_SPEC.folio_pattern,
+    )
+    assert body.strip() == "三种方法：①泡沫项存在检验；②单位根检验。各种情况下的可持续性均被否定。①"
+    assert notes == [("①", "感谢井堀利宏等与会人士提出的宝贵意见。")]
 
 
 def test_star_notes_with_no_space_after_the_mark_are_cut():
@@ -246,14 +272,24 @@ def test_note_entry_stays_on_the_page_of_its_call(tmp_path):
     assert apart == []
 
 
+LOREM_40 = (
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore"
+    " magnam aliquam quaerat voluptatem. Ut enim aeque doleamus animo, cum corpore dolemus, fieri tamen permagna"
+    " accessio potest, si aliquod aeternum et infinitum impendere."
+)
+
+
 def test_note_entry_stays_on_the_page_of_a_call_near_the_end_of_its_paragraph(tmp_path):
+    paragraph = MonographCompiler(KLEIN_SPEC).format_typst(
+        f"{LOREM_40} Noether at Erlangen since 1875" + note("Died 1922.") + " will occupy us."
+    )
     apart = []
     for words in (*range(196, 208, 2), *range(322, 332, 2)):
         typ = tmp_path / "w.typ"
         typ.write_text(
             "#set page(width: 300pt, height: 300pt)\n#set text(10pt)\n#set par(justify: true)\n"
             + typst_footnote_rules(KLEIN_SPEC)
-            + f"#lorem({words})\n\n#lorem(40) Noether at Erlangen since 1875#footnote[Died 1922.] will occupy us.\n\n#lorem(60)\n",
+            + f"#lorem({words})\n\n{paragraph}\n\n#lorem(60)\n",
             encoding="utf-8",
         )
         compile_typst(typ, tmp_path / "w.pdf")
@@ -263,6 +299,23 @@ def test_note_entry_stays_on_the_page_of_a_call_near_the_end_of_its_paragraph(tm
         if call != entry:
             apart.append(words)
     assert apart == []
+
+
+def test_a_paragraph_without_notes_never_leaves_one_line_on_the_next_page(tmp_path):
+    alone = []
+    for words in range(200, 300, 3):
+        typ = tmp_path / "o.typ"
+        typ.write_text(
+            "#set page(width: 300pt, height: 300pt)\n#set text(10pt)\n#set par(justify: true)\n"
+            + typst_footnote_rules(HECKE_SPEC) + f"#lorem({words})\n",
+            encoding="utf-8",
+        )
+        compile_typst(typ, tmp_path / "o.pdf")
+        pages = pymupdf.open(tmp_path / "o.pdf")
+        lines = [ln for b in pages[-1].get_text("dict")["blocks"] for ln in b.get("lines", [])]
+        if len(pages) > 1 and len(lines) == 1:
+            alone.append(words)
+    assert alone == []
 
 
 def test_chinese_note_mark_never_starts_a_line(tmp_path):
@@ -304,18 +357,20 @@ def test_each_book_keeps_the_marks_of_its_scan():
 
 def test_latex_header_follows_footmisc():
     assert latex_footnote_header(BOURBAKI_LIE_SPEC) == (
-        r"\usepackage[perpage]{footmisc}"
+        r"\usepackage{footmisc}\usepackage{zref-perpage}\zmakeperpage{footnote}"
         r"\DefineFNsymbols{original}{{\textdagger}{\textdaggerdbl}{\textsection}}\setfnsymbol{original}"
         r"\renewcommand\thefootnote{\fnsymbol{footnote}}"
     )
-    assert latex_footnote_header(FUKUSO_SPEC) == r"\usepackage[perpage]{footmisc}\renewcommand\thefootnote{\arabic{footnote})}"
+    assert latex_footnote_header(FUKUSO_SPEC) == (
+        r"\usepackage{footmisc}\usepackage{zref-perpage}\zmakeperpage{footnote}\renewcommand\thefootnote{\arabic{footnote})}"
+    )
     assert latex_footnote_header(HECKE_SPEC) == ""
     assert latex_footnote_header(running_footnotes(HECKE_SPEC)) == r"\counterwithout{footnote}{chapter}"
 
 
 def rendered_book(tmp_path: Path, *pages: str, lang: str = "zh") -> tuple[MonographCompiler, RenderedMonograph]:
     spec = adhoc_spec(Path("Probe.pdf"), len(pages), lang=lang)
-    md_dir = tmp_path / spec.markdown_dir
+    md_dir = book_state(tmp_path) / spec.markdown_dir
     md_dir.mkdir(parents=True)
     for pno, page in enumerate(pages, start=1):
         _ = (md_dir / f"p_{pno:03d}.md").write_text(page, encoding="utf-8")
@@ -363,3 +418,19 @@ def test_circled_numbers_that_are_not_notes_are_drawn_as_circles(tmp_path):
     text = page.get_text()
     assert "sort" in text and "①" not in text and "Ⓑ" not in text
     assert len(page.get_drawings()) >= 2
+
+
+def test_a_note_on_a_heading_prints_its_mark_on_the_heading_line(tmp_path):
+    _, rendered = rendered_book(
+        tmp_path,
+        "## 4 本文的研究分析①\n\n基于以上现有研究，本节进行实证检验。\n\n① 关于本节实证分析，在此致谢。",
+    )
+    typ = tmp_path / "heading.typ"
+    _ = typ.write_text(rendered.typst, encoding="utf-8")
+    compile_typst(typ, tmp_path / "heading.pdf")
+    doc = pymupdf.open(tmp_path / "heading.pdf")
+    lines = [line.strip() for line in doc[-1].get_text().splitlines() if line.strip()]
+    heading = next(i for i, line in enumerate(lines) if "本文的研究分析" in line)
+    assert lines[heading].endswith("本文的研究分析①")
+    assert lines[heading + 1].startswith("基于以上")
+    assert all("致谢" not in title for _, title, _ in doc.get_toc())

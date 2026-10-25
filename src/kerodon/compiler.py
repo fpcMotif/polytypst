@@ -322,8 +322,9 @@ class KerodonCompiler:
 
     def compile_pdf(self, typst_path: Path, pdf_path: Path):
         """Compile Typst source to PDF via nix shell."""
-        cmd = ["nix", "shell", "nixpkgs#typst", "--command", "typst", "compile", str(typst_path), str(pdf_path)]
-        subprocess.run(cmd, check=True)
+        from ..compiler.typst_math import compile_typst
+
+        compile_typst(typst_path, pdf_path)
 
     def generate_latex(self, output_path: Path) -> str:
         """Generate master XeLaTeX document with native xypic and tikz-cd support."""

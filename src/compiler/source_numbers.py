@@ -50,7 +50,7 @@ TYPST_RULES = r"""
 #set math.equation(numbering: none)
 #show heading: it => {
   counter(math.equation).update(0)
-  if it.level == 3 and it.has("label") and str(it.label).starts-with("art-") {
+  if it.level == 3 and it.numbering == source-article-number {
     source-article.step()
   }
   it
@@ -114,7 +114,7 @@ _SECTION_RE = re.compile(r"^(?:§\s*)?(\d+)\.?\s+(\D.*)$")
 _SUBSECTION_RE = re.compile(r"^(\d+)\.(\d+)\.?\s+(.*)$")
 _PARAGRAPH_HEADING_RE = re.compile(rf"^\(({_NUMBER})\.?\)\s*(.*)$")
 _REF_RE = re.compile(rf"\((?:(?P<chapter>0|I{{1,3}}|IV|VI{{0,3}}|IX|X), ?)?(?P<number>{_NUMBER})\.?\)")
-_FIG_REF_RE = re.compile(r"(?i)(?:\bFig(?:ure)?(?:\.|\b)|图)\s*(?P<fig>\d+(?:[.\-]\d+)?[a-z]?)(?![\d\-])")
+_FIG_REF_RE = re.compile(r"(?i)(?:\bFig(?:ure)?(?:\.|\b)|图)\s*(?P<fig>\d+(?:[.\-]\d+){0,2}[a-z]?)(?![\d\-]|\.\d)")
 _ART_EQ_RE = re.compile(
     r"(?<![(\w§\d\-])(?<!,\s)(?P<art>\d{1,3})(?P<sep>\s*(?:,\s*|\s+目的|\s+)?(?:公式\s*)?)\((?P<eq>\d+[a-z*]?)\)"
 )
@@ -135,11 +135,11 @@ _PROSE_EQ_RE = re.compile(
 )
 _TYPST_FIG_RE = re.compile(
     r"#figure\(\n(?P<img>  image\([^\n]+\),\n)"
-    r"  caption: \[(?:#strong\[)?(?i:Fig(?:ure)?(?:\.|\b)|图)\s*(?P<fig>\d+(?:[.\-]\d+)?[a-z]?)\.?(?:\])?[ \t]*(?P<cap>[^\n]*)\]"
+    r"  caption: \[(?:#strong\[)?(?i:Fig(?:ure)?(?:\.|\b)|图)\s*(?P<fig>\d+(?:[.\-]\d+){0,2}[a-z]?)\.?(?:\])?[ \t]*(?P<cap>[^\n]*)\]"
     r"(?:,\n  supplement: none)?\n\)(?!\s*<fig-)"
 )
 _LATEX_FIG_RE = re.compile(
-    r"!\[(?:\*\*)?(?P<sup>(?i:Fig(?:ure)?(?:\.|\b)|图))\s*(?P<fig>\d+(?:[.\-]\d+)?[a-z]?)\.?(?:\*\*)?[ \t]*(?P<cap>.*?)\s*\]\((?P<path>[^)]+)\)"
+    r"!\[(?:\*\*)?(?P<sup>(?i:Fig(?:ure)?(?:\.|\b)|图))\s*(?P<fig>\d+(?:[.\-]\d+){0,2}[a-z]?)\.?(?:\*\*)?[ \t]*(?P<cap>.*?)\s*\]\((?P<path>[^)]+)\)"
 )
 _PAGE_MARK = r"(?:#src-top\(\d+\);)?"
 _BIB_ENTRY_RE = re.compile(rf"(?m)^{_PAGE_MARK}\\?\[(?P<key>\d+(?: bis)?|[A-Z]{{2,4}})\\?\] ")
@@ -346,7 +346,7 @@ class _Numbering:
         self.equation = 0
         if self.article is None:
             self.article = n
-            return self.writer.set_article(n - 1) if n != 1 else ""
+            return self.writer.set_article(n - 1)
         computed = self.article + 1
         self.article = n
         if n == computed:
@@ -481,7 +481,7 @@ def number_chapter(text: str, chapter: int, writer: _Writer = TYPST, seen: set[s
         if label in state.seen:
             return m.group(0)
         state.seen.add(label)
-        cap = m.group("cap").strip()
+        cap = re.sub(r"(?<!\\)([%&#])", r"\\\1", m.group("cap").strip())
         num_tail = raw_num.split(".")[-1].split("-")[-1]
         num_int = int(re.match(r"\d+", num_tail).group(0)) if re.match(r"\d+", num_tail) else 1
         return (

@@ -118,3 +118,45 @@ def test_tesseract_reads_a_rendered_line(tmp_path: Path) -> None:
     assert page.number == 1
     assert "HELLO WORLD" in [line.text for line in page.lines]
     assert all(0 <= line.y <= 1 for line in page.lines)
+
+
+def test_line_store_page_and_verifier_reuse_line_cache(tmp_path: Path) -> None:
+    import pymupdf
+
+    from polytypst.ocr.lines import LineStore, source_ocr_dir
+    from polytypst.ocr.scan import SourceScanError
+    from polytypst.ocr.transcripts import TranscriptStore
+    from polytypst.ocr.verifier import OCRVerifier
+
+    pdf = tmp_path / "scan.pdf"
+    doc = pymupdf.open()
+    doc.new_page(width=300, height=500)
+    doc.save(pdf)
+
+    store = LineStore(source_ocr_dir(tmp_path))
+    img_dir = tmp_path / "page_renders"
+    img_dir.mkdir()
+    img_path = img_dir / "p_001.png"
+    Image.new("L", (300, 500), 255).save(img_path)
+
+    reader = FakeReader("fake:vision")
+    store.ensure_pdf(pdf, ("en-US",), reader=reader)
+    page = store.page(1)
+    assert (page.width, page.height) == (300.0, 500.0)
+    assert [line.text for line in page.lines] == ["line 1"]
+    assert reader.seen == [1]
+
+    with pytest.raises(SourceScanError):
+        store.page(2)
+
+    tx_dir = tmp_path / "markdown_pages"
+    tx_dir.mkdir()
+    (tx_dir / "p_001.md").write_text("line 1", encoding="utf-8")
+    _ = TranscriptStore(tx_dir)
+
+    second_reader = FakeReader("fake:second")
+    verifier = OCRVerifier(("en-US",), reader=second_reader)
+    report = verifier.verify_pages(img_dir, tx_dir)
+    assert report.total_pages_verified == 1
+    assert second_reader.seen == []
+

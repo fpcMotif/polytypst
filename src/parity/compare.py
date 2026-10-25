@@ -12,6 +12,9 @@ from .source import SCAN_DPI, read_source_page
 from .words import PT_PER_PX, InkWord, page_ink, rebuilt_words, scan_words, token
 
 LINE_MERGE_PT = 2.5
+OVERFLOW_PT = 2.0
+OVERFLOW_ROW_GAP_PX = 3
+OVERFLOW_COLUMN_INK_PX = 2
 
 
 @dataclass(frozen=True)
@@ -64,6 +67,19 @@ class PageParity:
     words: tuple[WordOffset, ...] = ()
     lines: tuple[LineOffset, ...] = ()
     diagrams: tuple[DiagramOffset, ...] = ()
+    right_overflow_lines: int = 0
+
+
+def right_overflow_lines(source: np.ndarray, rebuilt: np.ndarray, page_dx: float = 0.0) -> int:
+    """Lines of rebuilt ink that reach more than `OVERFLOW_PT` past the right edge of the scan's text block,
+    once the whole page is moved back by its offset `page_dx` (pt)."""
+    cols = np.flatnonzero(source.sum(axis=0) > OVERFLOW_COLUMN_INK_PX)
+    if cols.size == 0:
+        return 0
+    past = rebuilt[:, max(0, cols[-1] + round((OVERFLOW_PT + page_dx) / PT_PER_PX)) :]
+    rows = np.flatnonzero(past.any(axis=1))
+    bands = np.split(rows, np.flatnonzero(np.diff(rows) > OVERFLOW_ROW_GAP_PX) + 1) if rows.size else []
+    return sum(int(past[band[0] : band[-1] + 1].sum(axis=0).max() > OVERFLOW_COLUMN_INK_PX) for band in bands)
 
 
 def _count_lines(baselines: list[float]) -> int:
@@ -177,12 +193,13 @@ def compare(
             WordOffset(s.text, s.line, round(o.left - s.left, 2), round(o.right - s.right, 2), round(o.baseline - s.baseline, 2))
             for s, o in pairs
         )
+        page_dx = round(float(np.median([w.dx_left for w in words])), 2) if words else 0.0
         results.append(PageParity(
             source=Path(source),
             rebuilt=Path(rebuilt),
             source_page=pno,
             rebuilt_pages=tuple(ours),
-            page_dx=round(float(np.median([w.dx_left for w in words])), 2) if words else 0.0,
+            page_dx=page_dx,
             page_dy=round(float(np.median([w.dy for w in words])), 2) if words else 0.0,
             ink_iou=round(ink_iou(a, b), 3),
             lines_source=_count_lines([src_page.top_pt(line) for line in src_page.lines]),
@@ -191,6 +208,7 @@ def compare(
             words=words,
             lines=_line_offsets(pairs, src, our),
             diagrams=_diagram_offsets(snippets.get(pno, []), a, b, work, diagram_text) if diagram_text else (),
+            right_overflow_lines=right_overflow_lines(a, b, page_dx),
         ))
         print(f"parity page {pno}: {len(words)}/{len(src)} words matched", flush=True)
     return results

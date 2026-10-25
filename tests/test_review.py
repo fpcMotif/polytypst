@@ -4,6 +4,7 @@ from pathlib import Path
 import pymupdf
 
 from polytypst import books_cli
+from polytypst.ocr.lines import source_ocr_dir
 from polytypst.review import (
     Finding,
     changes,
@@ -23,7 +24,7 @@ LINES = {
 
 
 def write_ocr(folder: Path) -> Path:
-    ocr = folder / "source_ocr"
+    ocr = source_ocr_dir(folder)
     ocr.mkdir(parents=True)
     for number, lines in LINES.items():
         rows = [
@@ -160,6 +161,7 @@ def test_review_writes_measures_pages_and_history_and_reports_changes(
     tmp_path: Path, capsys
 ) -> None:
     folder = tmp_path / "1_Book Title"
+    folder.mkdir()
     write_ocr(folder)
     write_pdf(
         folder / "1.pdf",
@@ -182,6 +184,31 @@ def test_review_writes_measures_pages_and_history_and_reports_changes(
     out_text = capsys.readouterr().out
     assert "1.typ literal_figure_refs: 1 -> 2" in out_text
     assert "lowest coverage: scan 3 -> none (0.0), scan 1 -> 1 (1.0), scan 2 -> 2 (1.0)" in out_text
+
+
+def test_a_transcript_table_that_the_source_sets_as_prose_is_missing(
+    tmp_path: Path,
+) -> None:
+    folder = tmp_path / "1_Book Title"
+    folder.mkdir()
+    write_ocr(folder)
+    write_pdf(folder / "1.pdf", ["alpha bravo charlie delta echo foxtrot"])
+    table = "| 项目 | A |\n| :--- | :---: |\n| 成本 | 60.7 |\n"
+    broken = "| 项目 | A\nB |\n| :--- | :---: |\n| 成本 | 60.7 |\n"
+    (folder / "1.md").write_text(f"{table}\n正文。\n\n{broken}", encoding="utf-8")
+    (folder / "1.typ").write_text(
+        "#table(columns: 2)[项目][A]\n| 项目 | A B | | :— | :—: |\n", encoding="utf-8"
+    )
+    (folder / "1.tex").write_text(
+        "\\begin{longtable}{ll}\n\\end{longtable}\n\\begin{longtable}{ll}\n\\end{longtable}\n",
+        encoding="utf-8",
+    )
+    scan = write_pdf(tmp_path / "scan.pdf", ["x", "y", "z"])
+    assert books_cli.main("review", [str(folder), "--scan", str(scan)]) == 0
+    measures = json.loads((folder / "review" / "measures.json").read_text(encoding="utf-8"))
+    assert measures["1.md"]["tables"] == 2
+    assert (measures["1.typ"]["tables"], measures["1.typ"]["tables_missing"]) == (1, 1)
+    assert (measures["1.tex"]["tables"], measures["1.tex"]["tables_missing"]) == (2, 0)
 
 
 def test_checklist_command_renders_markdown_beside_the_findings(tmp_path: Path) -> None:

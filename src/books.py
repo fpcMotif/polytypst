@@ -26,15 +26,6 @@ def book_specs() -> dict[str, MonographSpec]:
     }
 
 
-def render_book_figures(slug: str, out_dir: Path) -> bool:
-    """Draw the code-reproduced figures of the book that owns the spec `slug` into `out_dir`."""
-    for book in books().values():
-        if book.figures and any(e.spec and e.spec.slug == slug for e in book.editions.values()):
-            _ = book.figures(out_dir)
-            return True
-    return False
-
-
 def _names(spec: MonographSpec, path: Path) -> bool:
     name = path.name.lower()
     return (
@@ -52,10 +43,18 @@ def find_known_book(path: Path) -> MonographSpec | None:
 def book_by_key(key: str) -> Book:
     """The book with key `key`, which may spell underscores as hyphens; raises KeyError naming the keys."""
     known = books()
+    aliases = {
+        "sga4half": "sga4_5",
+        "sga4_half": "sga4_5",
+        "sga4-half": "sga4_5",
+        "sga-4-5": "sga4_5",
+        "sga45": "sga4_5",
+    }
+    resolved_key = aliases.get(key, key)
     normalized = {**known, **{k.replace("_", "-"): v for k, v in known.items()}}
-    if key not in normalized:
+    if resolved_key not in normalized:
         raise KeyError(f"unknown book {key!r}; known: {', '.join(known)}")
-    return normalized[key]
+    return normalized[resolved_key]
 
 
 def book_for_scan(source: Path, key: str | None = None) -> Book | None:

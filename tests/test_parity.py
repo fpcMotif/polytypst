@@ -1,10 +1,11 @@
 import json
-import shutil
 from pathlib import Path
 
+import numpy as np
 import pymupdf
 import pytest
 
+from polytypst.compiler.typst_math import typst_command
 from polytypst.parity import (
     FACSIMILE,
     SOURCE_PAGINATED,
@@ -13,6 +14,7 @@ from polytypst.parity import (
     verdict,
     write_report,
 )
+from polytypst.parity.compare import right_overflow_lines
 from polytypst.parity.diagrams import DiagramText
 
 W, H = 388.0, 609.0
@@ -110,7 +112,34 @@ def test_one_moved_word_is_reported_and_fails_the_facsimile_tolerance(source: Pa
     assert "1 words off by more than 0.5pt" in verdict(page, FACSIMILE)
 
 
-@pytest.mark.skipif(shutil.which("typst") is None, reason="needs typst to render the diagram snippet")
+def test_a_word_past_the_scan_text_edge_counts_as_one_overflowing_line(source: Path, tmp_path: Path) -> None:
+    rebuilt = tmp_path / "rebuilt.pdf"
+    write_page(rebuilt, word_shift={"injective": 60.0})
+    page = run(source, rebuilt)
+    assert page.right_overflow_lines == 1
+    assert "1 lines cross the scan's right text edge" in verdict(page, FACSIMILE)
+    assert verdict(page, SOURCE_PAGINATED)[-1] == "1 lines cross the scan's right text edge"
+
+
+def test_a_whole_page_shifted_right_is_a_page_offset_not_an_overflow(source: Path, tmp_path: Path) -> None:
+    rebuilt = tmp_path / "rebuilt.pdf"
+    write_page(rebuilt, dx=6.0)
+    page = run(source, rebuilt)
+    assert page.right_overflow_lines == 0
+    assert any(r.startswith("page offset") for r in verdict(page, FACSIMILE))
+
+
+def test_overflow_counts_rebuilt_ink_by_the_same_column_rule_as_the_scan_edge() -> None:
+    scan = np.zeros((200, 300), bool)
+    scan[20:180, 10:200] = True
+    speck, stroke = np.zeros_like(scan), np.zeros_like(scan)
+    speck[50, 230] = True
+    stroke[100:106, 230] = True
+    assert right_overflow_lines(scan, speck) == 0
+    assert right_overflow_lines(scan, stroke) == 1
+
+
+@pytest.mark.skipif(typst_command() is None, reason="needs typst to render the diagram snippet")
 def test_a_diagram_moved_sideways_reports_its_offset_and_scale(source: Path, tmp_path: Path) -> None:
     write_page(source, rect_dx=0.0)
     snippets = tmp_path / "diagrams"

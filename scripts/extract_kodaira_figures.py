@@ -6,6 +6,7 @@ above each caption using horizontal whitespace band isolation and tight ink boun
 
 from pathlib import Path
 
+from polytypst.book_state import book_state
 from polytypst.kodaira.spec import KODAIRA_SPEC
 from polytypst.parity.source import sources_dir
 from polytypst.vision.figure_extractor import (
@@ -26,7 +27,7 @@ def extract_all_kodaira_figures(
     figs_dir: Path,
 ) -> list[ExtractedFigure]:
     extracted = FigureExtractor(pdf_path).extract_whitespace_isolated_figures(
-        renders_dir, figs_dir, renders_dir.parent / KODAIRA_SPEC.markdown_dir, pages=KODAIRA_BODY_PAGES
+        renders_dir, figs_dir, book_state(renders_dir.parent) / KODAIRA_SPEC.markdown_dir, pages=KODAIRA_BODY_PAGES
     )
     write_figures_manifest(figs_dir.parent / FIGURES_MANIFEST_NAME, extracted)
     print(f"Extracted {len(extracted)} figures to {figs_dir}")
