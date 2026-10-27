@@ -15,7 +15,7 @@ from polytypst.compiler.monograph import (
     running_footnotes,
     typst_footnote_rules,
 )
-from polytypst.compiler.page_cleaner import split_page_footnotes
+from polytypst.compiler.page_cleaner import attach_footnotes, split_page_footnotes
 from polytypst.hecke.spec import HECKE_SPEC
 from polytypst.kashiwara.spec import KASHIWARA_SPEC
 from polytypst.klein.spec import KLEIN_SPEC
@@ -133,6 +133,22 @@ def test_a_circled_note_that_the_body_calls_is_cut_after_a_circled_list():
     )
     assert body.strip() == "三种方法：①泡沫项存在检验；②单位根检验。各种情况下的可持续性均被否定。①"
     assert notes == [("①", "感谢井堀利宏等与会人士提出的宝贵意见。")]
+
+
+def test_circled_run_in_heads_are_not_calls_for_later_circled_heads():
+    page = (
+        "（2）潜在资本投入量的估算\n\n①制造业潜在资本利用率\n\n制造业资本利用率被回归。\n\n"
+        "②非制造业潜在资本利用率\n\n非制造业资本利用率被回归。\n\n（2）潜在劳动投入量\n\n"
+        "①潜在劳动时间\n\n用 HP 滤波器平滑处理。\n\n②潜在就业人数\n\n根据以下公式进行估算。\n"
+    )
+    assert split_page_footnotes(page, "circled", KLEIN_SPEC.folio_pattern) == (page.rstrip("\n"), [])
+
+
+def test_a_circled_call_wins_over_a_parenthesized_exponent_earlier_in_math():
+    body = "均值为 $\\mu^{(1)}$，其中 $\\theta_1^{(1)}$ 为初值。它在两期之间转换①，表达式如下。"
+    text = attach_footnotes(body, [("①", "不仅是均值。")], "circled")
+    assert "转换" + note("不仅是均值。") + "，表达式" in text
+    assert "$\\mu^{(1)}$" in text and "$\\theta_1^{(1)}$" in text
 
 
 def test_star_notes_with_no_space_after_the_mark_are_cut():

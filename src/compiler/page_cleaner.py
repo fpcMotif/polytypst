@@ -257,7 +257,7 @@ def has_circled_footnotes(md: str, folio_pattern: str) -> bool:
 
 def _uncalled_circled(m: re.Match[str], above: list[str]) -> bool:
     key = _note(m)[0]
-    return key in CIRCLED_DIGITS and key not in "\n".join(above)
+    return key in CIRCLED_DIGITS and not any(key in line.lstrip()[1:] for line in above)
 
 
 def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, list[tuple[str, str]]]:
@@ -328,11 +328,9 @@ def _footnote_call(s: str, key: str, style: str) -> re.Match[str] | None:
             rf"\s?\$(?!\$)(?:\^\{{?(?:\\text\{{)?|\\text\{{)?{re.escape(k_char)}\}}?\}}?\$(?!\$)"
             rf"|\s?\^\{{?(?:\\text\{{)?{re.escape(k_char)}\}}?\}}?"
             rf"|\s?\\text\{{{re.escape(k_char)}\}}"
-            rf"|\s?\$(?!\$)\^\{{?\({num}\)\}}?\$(?!\$)"
-            rf"|\^\{{?\({num}\)\}}?"
             rf"|{re.escape(k_char)}",
             s,
-        )
+        ) or re.search(rf"\s?\$(?!\$)\^\{{?\({num}\)\}}?\$(?!\$)|\^\{{?\({num}\)\}}?", s)
         if exact:
             return exact
         return re.search(
