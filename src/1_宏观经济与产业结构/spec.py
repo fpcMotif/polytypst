@@ -253,6 +253,7 @@ BASE_SPEC = MonographSpec(
     figure_dir="figures",
     figures=FIGURE_LAYOUT,
     cross_references=True,
+    circled_items=True,
     chapter_heading="{title}",
     latex_preamble=SCAN_NUMBER_STYLE_LATEX,
     page_fixups=PAGE_FIXUPS | TABLE_EMPTY_CELL_FIXUPS | FIGURE_TEXT_FIXUPS,

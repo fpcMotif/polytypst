@@ -133,6 +133,7 @@ class MonographSpec:
     footnote_reset: Literal["page", "chapter", "book"] = "page"
     equation_numbering: Literal["section", "page", "none"] = "section"
     cross_references: bool = False
+    circled_items: bool = False
     citation_abbreviations: dict[str, str] = field(default_factory=dict)
     commutative_diagrams: bool = False
     page_fixups: dict[int, tuple[Rewrite, ...]] = field(default_factory=dict)
@@ -2074,11 +2075,13 @@ class MonographCompiler:
                 else ("索引" not in title and "Index" not in title and "校订后记" not in title)
             )
             if should_number:
-                formatted, chapter_resyncs = number_chapter(formatted, chap.number, seen=seen_typst)
+                formatted, chapter_resyncs = number_chapter(
+                    formatted, chap.number, seen=seen_typst, circled=spec.circled_items
+                )
                 resyncs += [r.line() for r in chapter_resyncs]
                 numbered_chapters.append((len(typst_sections), chap.number))
                 latex_chapters[len(md_sections) - 1] = (
-                    number_chapter(md_sections[-1], chap.number, LATEX, seen=seen_latex)[0],
+                    number_chapter(md_sections[-1], chap.number, LATEX, seen=seen_latex, circled=spec.circled_items)[0],
                     chap.number,
                 )
             if "索引" in title or "Index" in title:

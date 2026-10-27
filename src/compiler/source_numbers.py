@@ -14,6 +14,7 @@ from typing import Protocol
 TYPST_RULES = r"""
 #let source-article = counter("source-article")
 #let source-roman = counter("source-roman")
+#let source-circled = counter("source-circled")
 #let source-heading-number(..nums) = {
   let n = nums.pos().slice(1)
   if n.len() == 1 { "§ " + str(n.first()) + "." }
@@ -42,6 +43,10 @@ TYPST_RULES = r"""
   source-roman.step()
   context strong(source-roman.display("I."))
   h(0.5em)
+}
+#let source-circled-item = {
+  source-circled.step()
+  context str.from-unicode(0x2460 + source-circled.get().first() - 1)
 }
 #set heading(numbering: source-heading-number)
 #show heading.where(level: 1): set heading(numbering: none)
@@ -91,7 +96,7 @@ TYPST_EQUATION_LAYOUT = r"""
 
 LATEX_RULES = (
     r"\newcounter{sourcesection}\newcounter{sourcesubsection}[sourcesection]"
-    r"\newcounter{sourceparagraph}[sourcesubsection]\newcounter{sourcearticle}\newcounter{sourceroman}"
+    r"\newcounter{sourceparagraph}[sourcesubsection]\newcounter{sourcearticle}\newcounter{sourceroman}\newcounter{sourcecircled}"
     r"\renewcommand\thesourcesubsection{\arabic{sourcesection}.\arabic{sourcesubsection}}"
     r"\renewcommand\thesourceparagraph{\thesourcesubsection.\arabic{sourceparagraph}}"
     r"\counterwithin*{equation}{sourceparagraph}"
@@ -105,6 +110,7 @@ LATEX_RULES = (
     r"\textbf{#1(\thesourceparagraph)}\enspace\ignorespaces}"
     r"\newcommand\sourceitem{\refstepcounter{equation}\textbf{(\theequation)}\enspace\ignorespaces}"
     r"\newcommand\sourceroman{\refstepcounter{sourceroman}\textbf{\Roman{sourceroman}.}\enspace\ignorespaces}"
+    r"\newcommand\sourcecircled{\refstepcounter{sourcecircled}\textcircled{\arabic{sourcecircled}}}"
 )
 
 _NUMBER = r"\d+(?:\.\d+)+"
@@ -164,6 +170,8 @@ class _Writer(Protocol):
     def paragraph(self, kind: str, label: str) -> str: ...
     def item(self, kind: str, label: str) -> str: ...
     def roman_item(self, prefix: str) -> str: ...
+    def set_circled(self, n: int) -> str: ...
+    def circled_item(self) -> str: ...
     def equation(self, body: str, label: str, simple: bool = False) -> str: ...
     def label(self, name: str) -> str: ...
     def ref(self, name: str, chapter: str | None) -> str: ...
@@ -177,6 +185,7 @@ class TypstWriter:
         rf"|#strong\[(?:(?P<kind>{_KINDS})\s+)?\((?P<bold>{_NUMBER})\.?\)\.?\]"
         rf"|^(?:#h\([^)]*\);)?(?P<top>#src-top\(\d+\);)?\((?P<plain>{_NUMBER})\.?\)(?= )"
         r"|^(?P<rtop>(?:#h\([^)]*\);)?(?:#src-top\(\d+\);)?)(?P<rprefix>#strong\[附注\.?\]\s+)?(?:#strong\[)?(?P<roman>I{1,3}|IV|VI{0,3}|IX|X)\.(?:\])?(?= )"
+        r"|^(?P<ctop>(?:#h\([^)]*\);)?(?:#src-top\(\d+\);)?)(?P<circled>[①-⑳])(?=\S)"
         r"|\$ (?P<body>#fletcher\.diagram\((?s:.*?)\n\)"
         r"|(?:[^$\\]|\\.)*?) \$ <eq-(?P<eq>\d+(?:-\d+)*)>"
     )
@@ -217,6 +226,12 @@ class TypstWriter:
     def roman_item(self, prefix: str) -> str:
         return f"{prefix}#source-roman-item"
 
+    def set_circled(self, n: int) -> str:
+        return f"#source-circled.update({n})\n"
+
+    def circled_item(self) -> str:
+        return "#source-circled-item;"
+
     def equation(self, body: str, label: str, simple: bool = False) -> str:
         numbering = '"(1)"' if simple else "source-equation-number"
         return f"#math.equation(block: true, numbering: {numbering}, $ {body} $){label}"
@@ -240,6 +255,7 @@ class LatexWriter:
         rf"|\*\*(?:(?P<kind>{_KINDS})\s+)?\((?P<bold>{_NUMBER})\.?\)\.?\*\*"
         rf"|^\((?P<plain>{_NUMBER})\.?\)(?= )"
         r"|^(?P<rprefix>\*\*附注\.?\*\*\s+)?(?:\*\*)?(?P<roman>I{1,3}|IV|VI{0,3}|IX|X)\.(?:\*\*)?(?= )"
+        r"|^(?P<circled>[①-⑳])(?=\S)"
         r"|(?s:\$\$\n(?P<body>(?:(?!\$\$).)*?)\n\$\$) <eq-(?P<eq>\d+(?:-\d+)*)>"
     )
     math = re.compile(r"(?s:\\begin\{equation\}.*?\\end\{equation\}|\$\$.*?\$\$)|(?<!\\)\$(?:[^$\\]|\\.)*\$")
@@ -278,6 +294,12 @@ class LatexWriter:
 
     def roman_item(self, prefix: str) -> str:
         return rf"{prefix}\sourceroman"
+
+    def set_circled(self, n: int) -> str:
+        return rf"\setcounter{{sourcecircled}}{{{n}}}"
+
+    def circled_item(self) -> str:
+        return r"\sourcecircled{}"
 
     def equation(self, body: str, label: str, simple: bool = False) -> str:
         return f"\\begin{{equation}}\n{body}\n{label}\\end{{equation}}"
@@ -327,6 +349,7 @@ class _Numbering:
         self.levels: tuple[int, ...] = ()
         self.article: int | None = None
         self.roman = 0
+        self.circled = 0
         self.equation = 0
         self.resyncs: list[Resync] = []
         self.seen: set[str] = seen if seen is not None else set()
@@ -373,6 +396,17 @@ class _Numbering:
         self.resyncs.append(Resync(self.chapter, "roman", str(n), str(computed)))
         return self.writer.set_roman(n - 1)
 
+    def circled_number(self, n: int) -> str:
+        if n == 1:
+            self.circled = 1
+            return self.writer.set_circled(0)
+        computed = self.circled + 1
+        self.circled = n
+        if n == computed:
+            return ""
+        self.resyncs.append(Resync(self.chapter, "circled", str(n), str(computed)))
+        return self.writer.set_circled(n - 1)
+
     def unnumbered_heading(self) -> None:
         self.equation = 0
 
@@ -413,7 +447,9 @@ def _parse(number: str) -> tuple[int, ...]:
     return tuple(int(n) for n in number.split("."))
 
 
-def number_chapter(text: str, chapter: int, writer: _Writer = TYPST, seen: set[str] | None = None) -> tuple[str, list[Resync]]:
+def number_chapter(
+    text: str, chapter: int, writer: _Writer = TYPST, seen: set[str] | None = None, circled: bool = False
+) -> tuple[str, list[Resync]]:
     """Replace the scan's typed numbers in one chapter with counter-numbered headings, paragraphs and equations."""
     state = _Numbering(chapter, writer, seen)
 
@@ -453,6 +489,11 @@ def number_chapter(text: str, chapter: int, writer: _Writer = TYPST, seen: set[s
             rprefix = m.groupdict().get("rprefix") or ""
             update = state.roman_number(_ROMAN_VALUES[roman])
             return rtop + update + writer.roman_item(rprefix)
+        if mark := m.groupdict().get("circled"):
+            if not circled:
+                return m.group(0)
+            ctop = m.groupdict().get("ctop") or ""
+            return ctop + state.circled_number(ord(mark) - ord("①") + 1) + writer.circled_item()
         top = m.groupdict().get("top") or ""
         return top + paragraph(_parse(m.group("bold") or m.group("plain")), m.group("kind") or "")
 

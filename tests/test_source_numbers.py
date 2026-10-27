@@ -247,6 +247,22 @@ def test_articles_roman_items_figures_and_references_use_counters_in_typst_and_l
     assert literal_numbering_counts(linked_tex, LATEX) == {}
 
 
+def test_circled_run_in_labels_use_a_counter_that_restarts_with_each_run():
+    raw = "==== （1） 实际\n\n①实际资本存量\n\n文本。\n\n②制造业\n\n④实际周转\n\n==== （2） 潜在\n\n①制造业潜在\n\n③潜在周转\n\n设 ①在句中。"
+    out, resyncs = number_chapter(raw, 1, TYPST, circled=True)
+    assert "#source-circled.update(0)\n#source-circled-item;实际资本存量" in out
+    assert "#source-circled-item;制造业潜在" in out
+    assert "#source-circled.update(3)\n#source-circled-item;实际周转" in out
+    assert "#source-circled.update(0)\n#source-circled-item;制造业潜在" in out
+    assert "#source-circled.update(2)\n#source-circled-item;潜在周转" in out
+    assert "设 ①在句中" in out
+    assert [r.kind for r in resyncs] == ["circled", "circled"]
+    assert set(literal_numbering_counts(out.replace("设 ①在句中。", ""), TYPST)) == set()
+    tex, _ = number_chapter(raw.replace("====", "####"), 1, LATEX, circled=True)
+    assert "\\sourcecircled{}实际资本存量" in tex and "①" not in tex.replace("设 ①在句中", "")
+    assert number_chapter(raw, 1, TYPST)[0].count("①") == 3
+
+
 def test_latex_figures_fit_the_text_block():
     raw = "### 1. 前言\n\n![**图 1-1** 进口渗透和就业](figures/fig_1-1.png)"
     numbered, _ = number_chapter(raw, 1, LATEX)
