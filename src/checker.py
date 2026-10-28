@@ -20,6 +20,9 @@ TEXT_TIER = 1
 LAYOUT_TIER = 2
 STRUCTURE_TIER = 3
 ALL_TIERS = frozenset({TEXT_TIER, LAYOUT_TIER, STRUCTURE_TIER})
+CHART_REACH_PT = 60
+CHART_MIN_PATHS = 10
+CHART_MIN_STROKES = 3
 
 
 @dataclass
@@ -436,7 +439,7 @@ class DocumentQualityChecker:
                 is_bib = (
                     "参考文献" in cur_text
                     or (bib_from is not None and pno + 1 >= bib_from)
-                    or sum(bool(re.search(r"\([12]\d{3}[a-z]?\)|pp\.\s*\d+|vol\.\s*\d+", l, re.I)) for l in cur_lines) >= 3
+                    or sum(bool(re.search(r"\([12]\d{3}[a-z]?\)|pp\.\s*\d+|vol\.\s*\d+", l, re.IGNORECASE)) for l in cur_lines) >= 3
                 )
                 if (
                     not is_bib
@@ -490,6 +493,7 @@ class DocumentQualityChecker:
             page = self.doc[pno]
             H = page.rect.height
             blocks = page.get_text("blocks")
+            paths = [d["rect"] for d in page.get_drawings()] if blocks else []
             for b in blocks:
                 x0, y0, x1, y1, text = b[0], b[1], b[2], b[3], b[4].strip()
                 if y0 < 0.10 * H or y1 > 0.90 * H:
@@ -507,6 +511,15 @@ class DocumentQualityChecker:
                         for other in blocks
                     )
                     if is_fraction:
+                        continue
+                    reach = CHART_REACH_PT
+                    near = [
+                        r
+                        for r in paths
+                        if r.x0 <= x1 + reach and r.x1 >= x0 - reach and r.y0 <= y1 + reach and r.y1 >= y0 - reach
+                    ]
+                    strokes = sum(r.height > 1 for r in near)
+                    if len(near) >= CHART_MIN_PATHS or strokes >= CHART_MIN_STROKES:
                         continue
                     self._issue(
                         report,
@@ -612,7 +625,7 @@ class DocumentQualityChecker:
         )
         book_headers = {_letters(h) for h in self.spec.book_headers}
         # A scan sets its running header in capitals, which prose never does for its own author.
-        caps_headers = [" ".join(h.upper().split()) for h in self.spec.book_headers]
+        caps_headers = [" ".join(h.upper().split()) for h in self.spec.book_headers if h.upper() != h.lower()]
         for pno in range(len(self.doc)):
             for l in self._extract_body_lines(self.doc[pno]):
                 if pno >= self.spec.front_matter_pages and (
@@ -638,11 +651,12 @@ class DocumentQualityChecker:
                     )
 
     def check_extracted_figures_purity(self, report: CheckReport) -> None:
-        from .ocr.lines import DEFAULT_OCR_LANGUAGES, line_reader
-        from .ocr.pages import PageImage
-        from .vision.typesafe_jev import TypeSafeJevVision
-        from PIL import Image
         import numpy as np
+        from PIL import Image
+
+        from .ocr import lines as ocr_lines
+        from .ocr.pages import OcrStalled
+        from .vision.typesafe_jev import TypeSafeJevVision
 
         fig_dir = self.pdf_path.parent / "figures"
         if not fig_dir.exists():
@@ -650,9 +664,13 @@ class DocumentQualityChecker:
         png_paths = sorted(fig_dir.glob("fig_*.png"))
         if not png_paths:
             return
-        reader = line_reader(DEFAULT_OCR_LANGUAGES)
-        page_images = [PageImage(i, p) for i, p in enumerate(png_paths, 1)]
-        ocr_results = {lp.number: lp.lines for lp in reader.read(page_images)}
+        reader = ocr_lines.line_reader(ocr_lines.DEFAULT_OCR_LANGUAGES)
+        store = ocr_lines.ImageLineStore(ocr_lines.FIGURE_OCR_DIR)
+        try:
+            store.read(png_paths, reader)
+        except OcrStalled as stall:
+            self._issue(report, "WARNING", "FIGURE_OCR_STALLED", 1, str(stall), fig_dir.name)
+        ocr_results = {i: store.lines(p, reader.provenance) or () for i, p in enumerate(png_paths, 1)}
 
         cap_re = re.compile(TypeSafeJevVision.CAPTION_TOKEN_RE)
         for i, png_path in enumerate(png_paths, 1):
