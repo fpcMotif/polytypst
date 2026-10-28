@@ -8,6 +8,8 @@ so it works for any edition whose pages map onto the scan's.
 import csv
 import html
 import json
+import os
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
@@ -186,11 +188,30 @@ def layout_check(source: Path, rebuilt: Path, page_map: dict[int, list[int]]) ->
 
 def visual_check(source: Path, rebuilt: Path, page_map: dict[int, list[int]]) -> list[PageVisual]:
     """Optical parity of every mapped page, on the first rebuilt page each source page maps to."""
-    src, ours = pymupdf.open(source), pymupdf.open(rebuilt)
-    out = []
-    for pno, pages in sorted(page_map.items()):
-        out.append(page_visual(page_ink(src[pno - 1]), page_ink(ours[pages[0] - 1]), pno, pages[0]))
-    return out
+    pairs = [(pno, pages[0]) for pno, pages in sorted(page_map.items())]
+    with _pool(source, rebuilt, len(pairs)) as pool:
+        return list(pool.map(_visual_job, pairs, chunksize=4))
+
+
+_WORKER: dict[str, pymupdf.Document] = {}
+
+
+def _start_worker(source: Path, rebuilt: Path) -> None:
+    _WORKER.update(scan=pymupdf.open(source), rebuilt=pymupdf.open(rebuilt))
+
+
+def _pool(source: Path, rebuilt: Path, jobs: int) -> ProcessPoolExecutor:
+    return ProcessPoolExecutor(min(os.cpu_count() or 1, max(jobs, 1)), initializer=_start_worker, initargs=(source, rebuilt))
+
+
+def _visual_job(pair: tuple[int, int]) -> PageVisual:
+    pno, ours = pair
+    return page_visual(page_ink(_WORKER["scan"][pno - 1]), page_ink(_WORKER["rebuilt"][ours - 1]), pno, ours)
+
+
+def _overlay_job(job: tuple[int, int, Path]) -> None:
+    pno, ours, path = job
+    write_overlay(_gray(_WORKER["scan"], pno), _gray(_WORKER["rebuilt"], ours), path)
 
 
 def compare_runs(new: list[PageVisual], old: list[PageVisual]) -> dict[str, list[int]]:
@@ -260,12 +281,12 @@ def write_visual_report(
             f'<div class="region {r.kind}"><b>#{n + 1} {r.kind}</b> source page {p.source_page}, '
             f'{r.area_pt2}pt² at {r.box}{"".join(cells)}</div>'
         )
+    shown = [p for p in sorted(results, key=lambda p: -p.score) if p.regions or p.source_page in old]
+    with _pool(source, rebuilt, len(shown)) as pool:
+        list(pool.map(_overlay_job, [(p.source_page, p.rebuilt_page, img / f"p{p.source_page:03d}_overlay.png") for p in shown], chunksize=4))
     rows = []
-    for p in sorted(results, key=lambda p: -p.score):
-        if not p.regions and p.source_page not in old:
-            continue
+    for p in shown:
         stem = f"p{p.source_page:03d}"
-        write_overlay(_gray(docs["scan"], p.source_page), _gray(docs["rebuilt"], p.rebuilt_page), img / f"{stem}_overlay.png")
         change = f" (before {old[p.source_page].score:.4f})" if p.source_page in old else ""
         tag = "regressed" if p.source_page in changes.get("regressed", []) else "improved" if p.source_page in changes.get("improved", []) else ""
         rows.append(

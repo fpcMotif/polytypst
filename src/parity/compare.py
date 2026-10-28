@@ -1,6 +1,8 @@
 """Scan parity: how far a rebuilt PDF's words, lines and diagrams sit from the same ink on the source scan."""
 
 import difflib
+import os
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -177,38 +179,60 @@ def compare(
     """
     if diagrams is not None and diagram_text is None:
         raise ValueError("compare needs the book's diagram_text to render its diagram snippets")
-    src_doc, our_doc = pymupdf.open(source), pymupdf.open(rebuilt)
-    snippets = diagram_snippets(diagrams)
+    pages = sorted(page_map.items())
     work = work or Path(rebuilt).parent / "parity_work"
     results = []
-    for pno, ours in sorted(page_map.items()):
-        a = page_ink(src_doc[pno - 1])
-        page = our_doc[ours[0] - 1]
-        b = page_ink(page)
-        src_page = read_source_page(ocr, pno)
-        src = scan_words(a, src_page)
-        our = rebuilt_words(page, b)
-        pairs = match_words(src, our)
-        words = tuple(
-            WordOffset(s.text, s.line, round(o.left - s.left, 2), round(o.right - s.right, 2), round(o.baseline - s.baseline, 2))
-            for s, o in pairs
-        )
-        page_dx = round(float(np.median([w.dx_left for w in words])), 2) if words else 0.0
-        results.append(PageParity(
-            source=Path(source),
-            rebuilt=Path(rebuilt),
-            source_page=pno,
-            rebuilt_pages=tuple(ours),
-            page_dx=page_dx,
-            page_dy=round(float(np.median([w.dy for w in words])), 2) if words else 0.0,
-            ink_iou=round(ink_iou(a, b), 3),
-            lines_source=_count_lines([src_page.top_pt(line) for line in src_page.lines]),
-            lines_rebuilt=_count_lines([w.baseline for w in our]),
-            words_source=len(src),
-            words=words,
-            lines=_line_offsets(pairs, src, our),
-            diagrams=_diagram_offsets(snippets.get(pno, []), a, b, work, diagram_text) if diagram_text else (),
-            right_overflow_lines=right_overflow_lines(a, b, page_dx),
-        ))
-        print(f"parity page {pno}: {len(words)}/{len(src)} words matched", flush=True)
+    with ProcessPoolExecutor(
+        min(os.cpu_count() or 1, max(len(pages), 1)), initializer=_start_worker,
+        initargs=(Path(source), Path(rebuilt), ocr, diagram_snippets(diagrams), work, diagram_text),
+    ) as pool:
+        for result in pool.map(_parity_job, pages, chunksize=4):
+            results.append(result)
+            print(f"parity page {result.source_page}: {len(result.words)}/{result.words_source} words matched", flush=True)
     return results
+
+
+_WORKER: dict = {}
+
+
+def _start_worker(
+    source: Path, rebuilt: Path, ocr: Path, snippets: dict[int, list[Path]], work: Path, diagram_text: DiagramText | None,
+) -> None:
+    _WORKER.update(
+        source=source, rebuilt=rebuilt, src_doc=pymupdf.open(source), our_doc=pymupdf.open(rebuilt),
+        ocr=ocr, snippets=snippets, work=work, diagram_text=diagram_text,
+    )
+
+
+def _parity_job(item: tuple[int, list[int]]) -> PageParity:
+    pno, ours = item
+    state = _WORKER
+    a = page_ink(state["src_doc"][pno - 1])
+    page = state["our_doc"][ours[0] - 1]
+    b = page_ink(page)
+    src_page = read_source_page(state["ocr"], pno)
+    src = scan_words(a, src_page)
+    our = rebuilt_words(page, b)
+    pairs = match_words(src, our)
+    words = tuple(
+        WordOffset(s.text, s.line, round(o.left - s.left, 2), round(o.right - s.right, 2), round(o.baseline - s.baseline, 2))
+        for s, o in pairs
+    )
+    page_dx = round(float(np.median([w.dx_left for w in words])), 2) if words else 0.0
+    text = state["diagram_text"]
+    return PageParity(
+        source=state["source"],
+        rebuilt=state["rebuilt"],
+        source_page=pno,
+        rebuilt_pages=tuple(ours),
+        page_dx=page_dx,
+        page_dy=round(float(np.median([w.dy for w in words])), 2) if words else 0.0,
+        ink_iou=round(ink_iou(a, b), 3),
+        lines_source=_count_lines([src_page.top_pt(line) for line in src_page.lines]),
+        lines_rebuilt=_count_lines([w.baseline for w in our]),
+        words_source=len(src),
+        words=words,
+        lines=_line_offsets(pairs, src, our),
+        diagrams=_diagram_offsets(state["snippets"].get(pno, []), a, b, state["work"], text) if text else (),
+        right_overflow_lines=right_overflow_lines(a, b, page_dx),
+    )
