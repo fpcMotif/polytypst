@@ -34,6 +34,7 @@ from .review import (
     review_folder,
 )
 from .rules import all_rules
+from .step_profile import as_json, profile_step, render, run_cold, time_typst
 
 LAYOUT_SAMPLE_EVERY = 10
 
@@ -43,6 +44,7 @@ examples:
   polytypst build bourbaki --edition vintage
   polytypst parity bourbaki --edition facsimile --pages 31-34
   polytypst audit hecke
+  polytypst profile bourbaki --edition facsimile --step build
 
 The source scan is ${SOURCES_ENV}/<spec.source_pdf>, or --source PATH.
 docs/scanned-books.md explains the procedure and the report.
@@ -341,6 +343,30 @@ def _rules() -> int:
     return 0
 
 
+PROFILE_STEPS = ("build", "parity", "audit")
+
+
+def _profile(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    _, name, edition = _pick(parser, args.book, args.edition)
+    step_argv = [args.book, "--edition", name]
+    if args.source is not None:
+        if args.step == "audit":
+            parser.error("audit reads no scan; leave out --source")
+        step_argv += ["--source", str(args.source)]
+
+    def step() -> int:
+        return main(args.step, step_argv)
+
+    typ = edition.rebuilt.with_suffix(".typ")
+    before = typ.stat().st_mtime_ns if typ.exists() else None
+    title = f"{args.book} {name} {args.step}{' --cold' if args.cold else ''}"
+    profile = profile_step(title, (lambda: run_cold(step)) if args.cold else step)
+    if args.step == "build" and typ.exists() and typ.stat().st_mtime_ns != before:
+        profile = replace(profile, typst=time_typst(typ))
+    print(json.dumps(as_json(profile), indent=2, ensure_ascii=False) if args.json else render(profile))
+    return profile.exit_code
+
+
 def main(command: str, argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog=f"polytypst {command}", epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -359,6 +385,9 @@ def main(command: str, argv: list[str]) -> int:
             "text past the page edge, LaTeX log warnings, literal numbers, links, footnotes and leaked running heads. "
             "Writes FOLDER/review/ and prints what changed since the last review.",
             "checklist": "Render a findings JSONL file as a Markdown checklist beside it, and count findings by status.",
+            "profile": "Run one build step of one edition under cProfile. Prints its time by owner (Python bytecode, each "
+            "native library, subprocess waits) and its top functions by own time. After a build, also times the "
+            "generated .typ cold, edited and repeat, beside the Typst CLI. Exits with the step's exit code.",
         }[command],
     )
     if command == "review":
@@ -426,6 +455,14 @@ def main(command: str, argv: list[str]) -> int:
             help="scan pages to set again, e.g. 229 or 200-210; every other page reuses its last built Typst "
             "(strict facsimile editions only)",
         )
+    if command == "profile":
+        parser.description = f"{parser.description} steps: {', '.join(PROFILE_STEPS)}; books: {', '.join(books())}."
+        parser.add_argument("--step", choices=PROFILE_STEPS, required=True, help="the build step to run under the profiler")
+        parser.add_argument(
+            "--cold", action="store_true",
+            help="draw scan ink into an empty scratch folder, as a first build does; the real ink cache stays as it is",
+        )
+        parser.add_argument("--json", action="store_true", help="print the profile as JSON instead of text tables")
     if command == "measure":
         parser.add_argument("--pages", help="source pages to measure, e.g. 229 or 200-210 (default: all)")
         parser.add_argument(
@@ -470,4 +507,6 @@ def main(command: str, argv: list[str]) -> int:
         return _list()
     if command == "measure":
         return _measure(parser, args)
+    if command == "profile":
+        return _profile(parser, args)
     return _build(parser, args) if command == "build" else _parity(parser, args)
