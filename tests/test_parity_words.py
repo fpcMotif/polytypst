@@ -19,6 +19,20 @@ def test_page_ink_ignores_a_readers_red_pen_but_keeps_black_print_under_it():
     assert not ink[round(38 * px), round(150 * px)]
 
 
+def test_page_ink_on_a_page_without_color_matches_mupdfs_gray_render():
+    import pymupdf
+
+    from polytypst.parity.words import INK_LEVEL, SCAN_DPI, page_ink
+
+    doc = pymupdf.open()
+    page = doc.new_page(width=200, height=100)
+    for i, v in enumerate([0.2, 0.5, 0.54, 0.8]):
+        page.insert_text((10, 20 + 20 * i), "gray ink abc", fontsize=14, color=(v, v, v))
+    pix = page.get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csGRAY)
+    gray = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width)
+    assert np.array_equal(page_ink(page), gray < INK_LEVEL)
+
+
 def test_align_words_merges_a_word_split_by_a_wide_letter_gap():
     segs = [(0, 10), (13, 20), (22, 33)]
     assert align_words([10, 20], 3, segs) == [(0, 10), (13, 33)]

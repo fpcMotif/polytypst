@@ -31,6 +31,28 @@ fn ink_mask<'py>(
     Array2::from_shape_vec((h, w), out).expect("shape").into_pyarray(py)
 }
 
+// MuPDF's gray render equals the RGB render's R channel only where the page has no color at all,
+// so a page with any colored pixel returns None and the caller renders gray as well.
+#[pyfunction]
+fn neutral_ink_mask<'py>(py: Python<'py>, rgb: PyReadonlyArray3<'py, u8>, ink_level: u8) -> Option<Bound<'py, PyArray2<bool>>> {
+    let (h, w, _) = rgb.as_array().dim();
+    let rgb = rgb.as_slice().expect("contiguous rgb");
+    let mut out = vec![false; h * w];
+    let neutral = py.detach(|| {
+        out.par_chunks_mut(w).enumerate().all(|(y, row)| {
+            let crow = &rgb[y * w * 3..(y + 1) * w * 3];
+            for (cell, [r, g, b]) in row.iter_mut().zip(crow.as_chunks::<3>().0) {
+                if r != g || g != b {
+                    return false;
+                }
+                *cell = *r < ink_level;
+            }
+            true
+        })
+    });
+    neutral.then(|| Array2::from_shape_vec((h, w), out).expect("shape").into_pyarray(py))
+}
+
 #[pyfunction]
 fn regions(grid: PyReadonlyArray2<'_, bool>) -> Vec<(usize, usize, usize, usize, usize)> {
     let grid = grid.as_array();
@@ -70,6 +92,7 @@ fn regions(grid: PyReadonlyArray2<'_, bool>) -> Vec<(usize, usize, usize, usize,
 #[pymodule(gil_used = false)]
 fn polytypst_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(ink_mask, m)?)?;
+    m.add_function(wrap_pyfunction!(neutral_ink_mask, m)?)?;
     m.add_function(wrap_pyfunction!(regions, m)?)?;
     m.add_class::<typst_world::Typst>()?;
     m.add("TypstError", m.py().get_type::<typst_world::TypstError>())?;

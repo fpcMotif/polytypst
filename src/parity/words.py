@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pymupdf
-from polytypst_native import ink_mask
+from polytypst_native import ink_mask, neutral_ink_mask
 
 from .source import SCAN_DPI, SourcePage
 
@@ -47,10 +47,12 @@ def page_ink(page: pymupdf.Page) -> np.ndarray:
 
 
 def uncolored_ink(page: pymupdf.Page, level: int) -> np.ndarray:
-    pix = page.get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csGRAY)
-    gray = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width)
     color = page.get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csRGB, alpha=False)
     rgb = np.frombuffer(color.samples, np.uint8).reshape(color.height, color.width, 3)
+    if (ink := neutral_ink_mask(rgb, level)) is not None:
+        return ink
+    pix = page.get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csGRAY)
+    gray = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width)
     return ink_mask(gray, rgb, level, PEN_CHROMA)
 
 
