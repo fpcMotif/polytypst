@@ -1,12 +1,17 @@
 """LaTeX-to-Typst math conversion shared by every monograph build."""
 
 import functools
+import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from re import Pattern
+
+from polytypst_native import Typst, TypstError
 
 KNOWN_MATH_WORDS: set[str] = {
     "sin",
@@ -1314,12 +1319,72 @@ def run_typst(
     )
 
 
+@functools.cache
+def _embedded_typst() -> Typst | None:
+    return Typst([str(REPO_FONTS_DIR)])
+
+
+def _embedded_options(target: Path, extra_args: tuple[str, ...]) -> dict[str, object] | None:
+    fmt = {".pdf": "pdf", ".png": "png"}.get(target.suffix)
+    if fmt is None:
+        return None
+    inputs: dict[str, str] = {}
+    options: dict[str, object] = {"format": fmt, "inputs": inputs}
+    args = iter(extra_args)
+    for arg in args:
+        if arg == "--no-pdf-tags":
+            options["pdf_tags"] = False
+        elif arg in ("--root", "--input", "--ppi") and (value := next(args, None)) is not None:
+            if arg == "--root":
+                options["root"] = value
+            elif arg == "--ppi":
+                options["ppi"] = float(value)
+            else:
+                key, _, inputs[key] = value.partition("=")
+        else:
+            return None
+    return options
+
+
+def _run_embedded[T](call: Callable[[Typst], T], command: list[str], capture_output: bool) -> T | None:
+    typst = _embedded_typst()
+    if typst is None:
+        return None
+    try:
+        return call(typst)
+    except TypstError as e:
+        if "offline:" in str(e):
+            return None
+        if not capture_output:
+            print(e, end="", file=sys.stderr)
+        raise subprocess.CalledProcessError(1, command, output="", stderr=str(e)) from e
+
+
+def query_typst(typ: Path, selector: str, field: str, inputs: dict[str, str]) -> list:
+    command = ["typst", "query", str(typ), selector]
+    found = _run_embedded(lambda t: t.query(str(typ), selector, field=field, inputs=inputs), command, True)
+    if found is None:
+        flags = [arg for k, v in inputs.items() for arg in ("--input", f"{k}={v}")]
+        found = run_typst("query", *flags, str(typ), selector, "--field", field, capture_output=True).stdout
+    return json.loads(found)
+
+
 def compile_typst(
     typ_path: Path,
     pdf_path: Path,
     *extra_args: str,
     capture_output: bool = False,
 ) -> None:
+    options = _embedded_options(pdf_path, extra_args)
+    if options is not None:
+        command = ["typst", "compile", *extra_args, str(typ_path), str(pdf_path)]
+        built = _run_embedded(lambda t: t.compile(str(typ_path), **options), command, capture_output)
+        if built is not None:
+            data, warnings = built
+            pdf_path.write_bytes(data)
+            if warnings and not capture_output:
+                print(warnings, end="", file=sys.stderr)
+            return
     _ = run_typst(
         "compile",
         *extra_args,

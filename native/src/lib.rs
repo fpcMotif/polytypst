@@ -3,6 +3,8 @@ use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2, PyReadonlyArray3};
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
+mod typst_world;
+
 #[pyfunction]
 fn ink_mask<'py>(
     py: Python<'py>,
@@ -15,7 +17,7 @@ fn ink_mask<'py>(
     let gray = gray.as_slice().expect("contiguous gray");
     let rgb = rgb.as_slice().expect("contiguous rgb");
     let mut out = vec![false; h * w];
-    py.allow_threads(|| {
+    py.detach(|| {
         out.par_chunks_mut(w).enumerate().for_each(|(y, row)| {
             let grow = &gray[y * w..(y + 1) * w];
             let crow = &rgb[y * w * 3..(y + 1) * w * 3];
@@ -26,7 +28,7 @@ fn ink_mask<'py>(
             }
         });
     });
-    Array2::from_shape_vec((h, w), out).expect("shape").into_pyarray_bound(py)
+    Array2::from_shape_vec((h, w), out).expect("shape").into_pyarray(py)
 }
 
 #[pyfunction]
@@ -65,9 +67,11 @@ fn regions(grid: PyReadonlyArray2<'_, bool>) -> Vec<(usize, usize, usize, usize,
     found
 }
 
-#[pymodule]
+#[pymodule(gil_used = false)]
 fn polytypst_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(ink_mask, m)?)?;
     m.add_function(wrap_pyfunction!(regions, m)?)?;
+    m.add_class::<typst_world::Typst>()?;
+    m.add("TypstError", m.py().get_type::<typst_world::TypstError>())?;
     Ok(())
 }

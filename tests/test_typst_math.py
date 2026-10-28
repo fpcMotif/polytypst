@@ -103,6 +103,7 @@ def test_run_typst_resolves_binary_once_without_triple_retry(monkeypatch, tmp_pa
         raise subprocess.CalledProcessError(1, cmd)
 
     monkeypatch.setattr(typst_math, "typst_command", lambda fallback_nix=True: ("typst",))
+    monkeypatch.setattr(typst_math, "_embedded_typst", lambda: None)
     monkeypatch.setattr(subprocess, "run", fake_run)
 
     with pytest.raises(subprocess.CalledProcessError):

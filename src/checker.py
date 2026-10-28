@@ -95,7 +95,7 @@ class AuditSpec:
         return self.footnote_numbering.replace("1", str(n))
 
     @classmethod
-    def from_monograph(cls, spec: MonographSpec) -> "AuditSpec":
+    def from_monograph(cls, spec: MonographSpec) -> AuditSpec:
         titles = "|".join(re.escape(ch.title) for ch in spec.chapters) or ".+"
         if any(ch.label for ch in spec.chapters):
             labels = "|".join(re.escape(ch.label) for ch in spec.chapters if ch.label)

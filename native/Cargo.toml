@@ -8,9 +8,18 @@ name = "polytypst_native"
 crate-type = ["cdylib"]
 
 [dependencies]
-numpy = "0.22"
-pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"] }
+numpy = "0.30"
+pyo3 = { version = "0.30", features = ["extension-module"] }
 rayon = "1.10"
+comemo = "0.5"
+serde_json = "1"
+termcolor = "1"
+typst = "0.15.1"
+typst-eval = "0.15.1"
+typst-kit = { version = "0.15.1", default-features = false, features = ["datetime", "embedded-fonts", "emit-diagnostics", "scan-fonts", "system-packages"] }
+typst-layout = "0.15.1"
+typst-pdf = "0.15.1"
+typst-render = "0.15.1"
 
 [profile.release]
 lto = true

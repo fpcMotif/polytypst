@@ -98,7 +98,7 @@ class Book:
     def adhoc(
         cls, source: Path, out_dir: Path | None = None, publisher_key: str = "cambridge", lang: str = "en",
         domain: str = "math",
-    ) -> "Book":
+    ) -> Book:
         """A one-chapter book for a source scan that no `src/<key>/book.py` describes, in `output/<slug>` by default."""
         spec = adhoc_spec(Path(source), SourceScan(source).page_count, publisher_key, lang, domain)
         out_dir = out_dir or OUTPUT / spec.slug

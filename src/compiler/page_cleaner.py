@@ -584,7 +584,7 @@ class CleanPage(NamedTuple):
 
 
 class PageCleaner:
-    def __init__(self, spec: "MonographSpec", theorem_heads: tuple[str, ...], asset_root: Path) -> None:
+    def __init__(self, spec: MonographSpec, theorem_heads: tuple[str, ...], asset_root: Path) -> None:
         self.spec: MonographSpec = spec
         self.theorem_heads: tuple[str, ...] = theorem_heads
         self.asset_root: Path = asset_root
@@ -602,7 +602,7 @@ class PageCleaner:
         }
 
     @classmethod
-    def for_spec(cls, spec: "MonographSpec", asset_root: Path = Path()) -> "PageCleaner":
+    def for_spec(cls, spec: MonographSpec, asset_root: Path = Path()) -> PageCleaner:
         domain = resolve_composition(publisher=spec.publisher_key, lang=spec.lang, domain=spec.domain).domain
         return cls(spec, domain.theorem_heads, asset_root)
 

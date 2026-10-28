@@ -3,7 +3,7 @@ name = "polytypst"
 version = "0.1.0"
 description = "Universal tool to turn complex PDFs into beautiful Typst, LaTeX, and EPUB with neural OCR and Jev 1.14 vision grounding."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.15"
 dependencies = [
     "pymupdf>=1.24",
     "pypdfium2>=4.30",

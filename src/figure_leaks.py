@@ -61,7 +61,7 @@ def in_top_down_box(line: OcrLine, box: tuple[float, float, float, float]) -> bo
     return x0 <= line.x + line.w / 2 <= x1 and y0 <= 1 - bottom_up_center <= y1
 
 
-def figure_text_leaks(book: "Book", ratio: float = 0.8) -> list[tuple[int, str, int, float, str]]:
+def figure_text_leaks(book: Book, ratio: float = 0.8) -> list[tuple[int, str, int, float, str]]:
     """Every leaked line of a book, once per page line, as (scan page, figure id, line index, ratio, text)."""
     manifest = book.out_dir / "figures_manifest.json"
     if not manifest.exists() or not isinstance(json.loads(manifest.read_text(encoding="utf-8")), list):
