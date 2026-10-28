@@ -1,0 +1,20 @@
+#import "@preview/fletcher:0.5.8": diagram, node, edge
+#diagram(
+  spacing: (2.2em, 2.2em),
+  node-inset: 3pt,
+  label-size: 0.7em,
+  label-sep: 0.15em,
+  node((0, 0), [T(M′#h(-0.22em)#sub[1])]),
+  node((1, 0), [T(M′)]),
+  node((2, 0), [T(M′#h(-0.22em)#sub[2])]),
+  node((0, 1), [T(M#sub[1])]),
+  node((1, 1), [T(M)]),
+  node((2, 1), [T(M#sub[2])]),
+  edge((0, 0), (1, 0), "->", [T(_i_′)]),
+  edge((1, 0), (2, 0), "->", [T(_p_′)]),
+  edge((0, 1), (1, 1), "->", [T(_i_)], label-side: right),
+  edge((1, 1), (2, 1), "->", [T(_p_)], label-side: right),
+  edge((0, 0), (0, 1), "->", [T(_v_#sub[1])], label-side: right),
+  edge((1, 0), (1, 1), "->", [T(_v_)], label-side: right),
+  edge((2, 0), (2, 1), "->", [T(_v_#sub[2])], label-side: right),
+)
