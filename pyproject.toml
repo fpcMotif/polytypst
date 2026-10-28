@@ -12,7 +12,11 @@ dependencies = [
     "numpy>=1.26",
     "httpx>=0.27",
     "matplotlib>=3.11.2",
+    "polytypst-native",
 ]
+
+[tool.uv.sources]
+polytypst-native = { path = "native" }
 
 [project.scripts]
 polytypst = "polytypst.cli:main"

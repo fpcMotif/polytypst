@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pymupdf
+from polytypst_native import ink_mask
 
 from .source import SCAN_DPI, SourcePage
 
@@ -42,11 +43,15 @@ class InkWord:
 
 def page_ink(page: pymupdf.Page) -> np.ndarray:
     """Dark pixels, less any strongly coloured ones such as a reader's pen marks over the print."""
+    return uncolored_ink(page, INK_LEVEL)
+
+
+def uncolored_ink(page: pymupdf.Page, level: int) -> np.ndarray:
     pix = page.get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csGRAY)
-    ink = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width) < INK_LEVEL
+    gray = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width)
     color = page.get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csRGB, alpha=False)
-    rgb = np.frombuffer(color.samples, np.uint8).reshape(color.height, color.width, 3).astype(np.int16)
-    return ink & (rgb.max(axis=2) - rgb.min(axis=2) < PEN_CHROMA)
+    rgb = np.frombuffer(color.samples, np.uint8).reshape(color.height, color.width, 3)
+    return ink_mask(gray, rgb, level, PEN_CHROMA)
 
 
 def line_measure(starts: Sequence[int], ends: Sequence[int]) -> tuple[int, int]:

@@ -164,14 +164,20 @@ class Measure:
         except TTLibError:
             self.cmap = set(TTFont(str(style.font_file), fontNumber=0).getBestCmap())
         self.space = self.font.getlength(" ")
+        self._ink_boxes: dict[str, tuple[float, float, float, float]] = {}
 
     def covers(self, text: str) -> bool:
         return all(ord(c) in self.cmap for c in text)
 
+    def ink_box(self, text: str) -> tuple[float, float, float, float]:
+        if (box := self._ink_boxes.get(text)) is None:
+            box = self._ink_boxes[text] = self.font.getbbox(text, anchor="ls")
+        return box
+
     def width(self, text: str) -> float:
         if not self.covers(text):
             return self.space * 2 * len(text)
-        l, _, r, _ = self.font.getbbox(text, anchor="ls")
+        l, _, r, _ = self.ink_box(text)
         return r - l
 
 
@@ -600,7 +606,7 @@ def placement_typst(p: Placement, measure: Measure) -> str:
     """A placed word: ink-fitted when the face has every glyph, else advance-fitted."""
     s = measure.size / 100
     if measure.covers(p.text):
-        l, _, r, _ = measure.font.getbbox(p.text, anchor="ls")
+        l, _, r, _ = measure.ink_box(p.text)
         if r > l:
             sx = min(MAX_SCALE, (p.right - p.left) / ((r - l) * s))
             return (

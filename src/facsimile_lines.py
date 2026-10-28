@@ -20,7 +20,7 @@ from PIL import ImageFont
 
 from .facsimile_text import Chunk, Piece
 from .ocr.pages import OcrLine
-from .parity.words import PEN_CHROMA, PT_PER_PX, SCAN_DPI
+from .parity.words import PT_PER_PX, uncolored_ink
 
 FIT_TOLERANCE = 0.06
 TRACKING_LIMIT = 0.15
@@ -193,11 +193,7 @@ def _merged(runs: list[tuple[int, int, int]]) -> list[tuple[float, float, int, i
 
 def faint_ink(page: pymupdf.Page) -> np.ndarray:
     """Pixels darker than `RULE_LEVEL`, less strongly coloured ones: the scan's ink with its light gray rules."""
-    gray = page.get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csGRAY)
-    ink = np.frombuffer(gray.samples, np.uint8).reshape(gray.height, gray.width) < RULE_LEVEL
-    color = page.get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csRGB, alpha=False)
-    rgb = np.frombuffer(color.samples, np.uint8).reshape(color.height, color.width, 3).astype(np.int16)
-    return ink & (rgb.max(axis=2) - rgb.min(axis=2) < PEN_CHROMA)
+    return uncolored_ink(page, RULE_LEVEL)
 
 
 def rules_typst(ink: np.ndarray, skip: Sequence[tuple[float, float, float, float]]) -> list[str]:
