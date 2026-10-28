@@ -3,8 +3,12 @@ from itertools import pairwise
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from ..tex_markdown import normalize_html_tables
-from ..vision.figure_extractor import FIGURES_MANIFEST_NAME, ExtractedFigure, manifest_figures
+from ..tex_markdown import normalize_html_tables, repair_page_math
+from ..vision.figure_extractor import (
+    FIGURES_MANIFEST_NAME,
+    ExtractedFigure,
+    manifest_figures,
+)
 from .presets import resolve_composition
 
 if TYPE_CHECKING:
@@ -708,6 +712,8 @@ class PageCleaner:
     def clean(self, md_text: str, pno: int) -> CleanPage:
         spec = self.spec
         layout = spec.figures
+        if spec.repair_math:
+            md_text = repair_page_math(md_text)
         md_text = re.sub(r"<!--.*?-->", "", md_text, flags=re.DOTALL)
         md_text = SCANNER_WATERMARK_RE.sub("", md_text)
         md_text = re.sub(r"(?<!\\)\${3,}", "", md_text)
@@ -754,9 +760,7 @@ class PageCleaner:
                 chapter = m_fig.groupdict().get("chapter")
                 listed = self._chapter_figures.get(f"{chapter}-{m_fig.group('number')}") if chapter else None
                 manifest_page = listed.source_page if listed else None
-                if manifest_page is not None and manifest_page != pno:
-                    m_fig = None
-                elif title and (
+                if manifest_page is not None and manifest_page != pno or title and (
                     (manifest_page is None and len(title) > 50)
                     or any(w in title for w in ["所示为", "体现了", "表明", "可知", "指出", "解释为"])
                     or title.endswith("。")

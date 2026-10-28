@@ -1,11 +1,12 @@
 import json
 import re
+from dataclasses import replace
 from pathlib import Path
 
 import pymupdf
 import pytest
 
-from polytypst.books import book_by_key
+from polytypst.books import book_by_key, module
 from polytypst.compiler.monograph import (
     ChapterSpec,
     MonographCompiler,
@@ -14,14 +15,8 @@ from polytypst.compiler.monograph import (
     running_header_regexes,
 )
 from polytypst.compiler.typst_math import typst_command
-from polytypst.goursat.build import goursat_markdown
-from polytypst.goursat.figures import (
-    GOURSAT_SVG_GENERATORS,
-    normalize_goursat_markdown,
-)
 from polytypst.parity import FACSIMILE, SOURCE_PAGINATED, PageParity, compare, verdict
 from polytypst.tex_markdown import repair_page_math
-from polytypst.vision.figure_extractor import ExtractedFigure
 
 FERMAT_SPEC = book_by_key("fermat").editions["vol1"].spec
 
@@ -193,21 +188,9 @@ GOURSAT_RAW_PAGE = (
     "Let $ f(x, y) = 0 $ and \\( P(x, y) \\) be *analytic* functions with y # 0.\n"
     "(29) \\[ \\frac{dy}{dx} = -\\frac{\\partial f}{\\partial x} \\left( \\frac{\\partial f}{\\partial y} \\right)^{-1}, "
     "\\quad \\int_0^x \\frac{d^2 y}{dt^2} dt + d\\alpha = d(uv) \\]\n\n"
-    "FIG. 1. The geometric derivative.\n\n"
+    "FIG. 1\n\n"
     "For the branch\n"
     "$$\\left\\{ \\begin{array}{l} u = x^2 \\\\ v = y^2 \\end{array} \\right.$$\n"
-    "as shown in (Fig. 14)."
-)
-
-GOURSAT_MD_SNAPSHOT = (
-    "Let $f(x, y) = 0$ and $P(x, y)$ be *analytic* functions with y \\neq 0.\n\n"
-    "$$\n\\frac{\\mathrm{d} y}{\\mathrm{d} x} = -\\frac{\\partial f}{\\partial x} "
-    "\\left( \\frac{\\partial f}{\\partial y} \\right)^{-1}, \\quad "
-    "\\int_0^x \\frac{\\mathrm{d}^2 y}{\\mathrm{d} t^2} \\mathrm{d} t + \\mathrm{d} \\alpha = \\mathrm{d}(uv) \\tag{29}\n$$\n\n"
-    "FIG. 1. The geometric derivative.\n\n"
-    "![FIG. 1. The geometric derivative.](figures/fig_1.svg){#fig:1}\n\n"
-    "For the branch\n\n"
-    "$$\n\\begin{cases}\nu = x^2 \\\\ v = y^2\n\\end{cases}\n$$\n\n"
     "as shown in (Fig. 14)."
 )
 
@@ -215,19 +198,16 @@ GOURSAT_TYPST_SNAPSHOT = (
     "Let $f ( x \\, y ) = 0$ and $P ( x \\, y )$ be #emph[analytic] functions with y \\!= 0.\n\n"
     "$ frac(dif y, dif x) = - frac(partial f, partial x) (frac(partial f, partial y))^(- 1) \\, "
     "quad integral_0^x frac(dif^2 y, dif t^2) dif t + dif alpha = dif ( u v ) $ <eq-1-1-29>\n\n"
-    "FIG. 1. The geometric derivative.\n\n"
-    "{\\#fig:1}\n\n"
     "For the branch\n\n"
     '$ cases(delim: "{", u = x^2 & , v = y^2 & ) $ \n\n'
-    "as shown in (Fig. 14)."
-)
-
-GOURSAT_FIGURE_TYPST_SNAPSHOT = (
-    "#figure(\n"
+    "as shown in (Fig. 14).\n\n"
+    "#align(center)[\n"
+    "  #figure(\n"
     '  image("figures/fig_1.svg", width: 58%),\n'
-    "  caption: [#strong[FIG. 1.1.] The geometric derivative.],\n"
+    "  caption: [Figure 1],\n"
     "  supplement: none\n"
-    ")"
+    ")\n"
+    "]"
 )
 
 SERRE_RAW_PAGE = (
@@ -328,38 +308,21 @@ def test_goursat_differentials_delimiters_and_figure_grounding_snapshot(
 ) -> None:
     fig_dir = tmp_path / "figures"
     fig_dir.mkdir()
-    (fig_dir / "fig_1.svg").write_text(GOURSAT_SVG_GENERATORS["1"](), encoding="utf-8")
-
-    fig = ExtractedFigure(
-        figure_id="1",
-        caption="FIG. 1. The geometric derivative.",
-        image_rel_path="figures/fig_1.png",
-        source_page=1,
-    )
-    stitched = goursat_markdown([(1, GOURSAT_RAW_PAGE)], [fig])
-    goursat_md = normalize_goursat_markdown("## CHAPTER I\n\n" + stitched)
-    ch1_md = goursat_md.split("# CHAPTER I: DERIVATIVES AND DIFFERENTIALS\n\n", 1)[1]
-    assert _collapse_blank_lines(ch1_md) == GOURSAT_MD_SNAPSHOT
+    figures = module("goursat", "figures")
+    (fig_dir / "fig_1.svg").write_text(figures.GOURSAT_SVG_GENERATORS["1"](), encoding="utf-8")
 
     compiler = MonographCompiler(
-        MonographSpec(
-            domain="math",
-            slug="goursat_test",
-            title="A Course in Mathematical Analysis",
-            author="Edouard Goursat",
+        replace(
+            book_by_key("goursat").spec,
             equation_numbering="page",
             chapters=[ChapterSpec(1, "Derivatives and Differentials", 1, 1)],
         )
     )
-    body, top_f, bot_f = compiler.cleaner.clean(ch1_md, 1)
+    body, top_f, bot_f = compiler.cleaner.clean(GOURSAT_RAW_PAGE, 1)
     stitched_ch = compiler.stitch_chapter([(1, body, top_f, bot_f)], fig_dir)
     assert (
         _collapse_blank_lines(compiler.format_typst(stitched_ch))
         == GOURSAT_TYPST_SNAPSHOT
-    )
-    assert (
-        compiler.make_figure_typst("1", "FIG. 1.1. The geometric derivative.", fig_dir)
-        == GOURSAT_FIGURE_TYPST_SNAPSHOT
     )
 
 

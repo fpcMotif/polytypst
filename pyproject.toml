@@ -50,7 +50,6 @@ package-dir = { "polytypst" = "src" }
 packages = [
     "polytypst",
     "polytypst.compiler",
-    "polytypst.goursat",
     "polytypst.kerodon",
     "polytypst.ocr",
     "polytypst.parity",
