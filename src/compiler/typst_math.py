@@ -1347,7 +1347,7 @@ def _rejects_among(
                 owner.append(i)
         _ = source.write_text("\n".join(lines), encoding="utf-8")
         res = subprocess.run(
-            [*command, "compile", "--diagnostic-format", "short", str(source), str(tmp / "math.pdf")],
+            [*command, "compile", "--ignore-system-fonts", "--diagnostic-format", "short", str(source), str(tmp / "math.pdf")],
             capture_output=True,
             text=True,
             check=False,
