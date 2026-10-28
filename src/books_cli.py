@@ -15,6 +15,8 @@ from .literal_numbers import edition_literal_counts
 from .new_book import scaffold_book
 from .ocr.scan import SourceScanError
 from .parity import FACSIMILE, compare, verdict, write_report
+from .parity.ink_cache import InkCache
+from .parity.measure import measure_pages, read_measures, worse, write_measures
 from .parity.source import SOURCES_ENV, ensure_source_ocr, source_ocr_dir, source_pdf
 from .parity.visual import (
     LAYOUT_LIMIT,
@@ -23,6 +25,7 @@ from .parity.visual import (
     visual_check,
     write_visual_report,
 )
+from .parity.words import page_ink
 from .review import (
     default_running_heads,
     lowest_pages,
@@ -99,7 +102,9 @@ def _build(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
             parser.error(f"{args.book} cannot make {', '.join(sorted(unknown))}; formats: {', '.join(sorted(edition.formats))}")
     if args.footnotes == "running" and (edition.spec is None or not edition.spec.footnote_style):
         parser.error(f"{args.book} has no footnotes to renumber; leave out --footnotes")
-    _ = book.build(name, args.source, formats, args.footnotes)
+    if args.pages and edition.build_pages is None:
+        parser.error(f"{args.book} {name} cannot rebuild only some pages; leave out --pages")
+    _ = book.build(name, args.source, formats, args.footnotes, parse_pages(args.pages) if args.pages else None)
     if edition.spec is None:
         return 0
     baseline = json.loads(BASELINE.read_text(encoding="utf-8")) if BASELINE.exists() else {}
@@ -108,6 +113,38 @@ def _build(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     for line in rose:
         print(f"numbering: {line}; run: polytypst audit {args.book} --edition {name}")
     return 1 if rose else 0
+
+
+def _measure(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    book, name, edition = _pick(parser, args.book, args.edition)
+    if edition.parity is None:
+        parser.error(f"{args.book} {name} maps no scan pages to rebuilt pages; measure a facsimile edition")
+    if not edition.rebuilt.exists():
+        parser.error(f"{edition.rebuilt} is missing; run: polytypst build {args.book} --edition {name}")
+    source = source_pdf(book.spec, args.source)
+    page_map = {p: v[0] for p, v in edition.parity.page_map().items() if v}
+    if args.pages:
+        wanted = parse_pages(args.pages)
+        page_map = {p: v for p, v in page_map.items() if p in wanted}
+    measures = measure_pages(InkCache(source, book.out_dir / "facsimile" / "ink", page_ink), edition.rebuilt, page_map)
+    review = book.out_dir / "review"
+    report, baseline = review / f"measure_{name}.json", review / f"measure_{name}_baseline.json"
+    write_measures(report, {**read_measures(report), **{m.page: m for m in measures}}.values())
+    coverage = sorted(m.coverage for m in measures)
+    print(f"{len(measures)} pages, coverage median {coverage[len(coverage) // 2] if coverage else 0}; report: {report}")
+    recorded = read_measures(baseline)
+    if args.update:
+        write_measures(baseline, {**recorded, **{m.page: m for m in measures}}.values())
+        print(f"baseline: {baseline}")
+        return 0
+    if not recorded:
+        print(f"no baseline yet; record one: polytypst measure {args.book} --edition {name} --update")
+        return 1
+    failed = [(m.page, why) for m in measures if m.page in recorded and (why := worse(m, recorded[m.page]))]
+    for page, why in failed:
+        print(f"p{page} got worse: {', '.join(why)}")
+    print(f"{len(failed)} of {len(measures)} pages got worse than {baseline}")
+    return 1 if failed else 0
 
 
 def _rose(counts: Counter[str], recorded: dict[str, int]) -> list[str]:
@@ -308,6 +345,9 @@ def main(command: str, argv: list[str]) -> int:
             "build": "Build one edition of a book. The default edition is the first one `polytypst books` lists. "
             "Exits 1 when the built Typst or LaTeX has more literal numbers than quality/baseline.json records.",
             "parity": "Check a rebuilt edition against its source scan. Writes a report and exits 1 when a page fails.",
+            "measure": "Measure each page of a rebuilt facsimile against its scan: coverage of the scan's ink cells and "
+            "the extra, missing and layout shares. Writes output/<book>/review/measure_<edition>.json and exits 1 "
+            "when a page got worse than measure_<edition>_baseline.json beside it.",
             "audit": "Count the checker's issues per rule in every format a rebuilt edition declares. Exits 1 when a count rises above the baseline, a declared format has no output, or a built edition has no baseline.",
             "rules": "List every rule a book is checked against: its stage, severity, the command that enforces it, and where it is written.",
             "new-book": "Write src/KEY/{__init__,spec,book}.py for a new book and add polytypst.KEY to pyproject.toml.",
@@ -377,6 +417,17 @@ def main(command: str, argv: list[str]) -> int:
             "--footnotes", choices=("original", "running"), default="original",
             help="original: the scan's marks (1), *, †) and restarts; running: 1, 2, 3 through the book",
         )
+        parser.add_argument(
+            "--pages",
+            help="scan pages to set again, e.g. 229 or 200-210; every other page reuses its last built Typst "
+            "(strict facsimile editions only)",
+        )
+    if command == "measure":
+        parser.add_argument("--pages", help="source pages to measure, e.g. 229 or 200-210 (default: all)")
+        parser.add_argument(
+            "--update", action="store_true",
+            help="record the measured pages in the baseline instead of comparing; other pages keep their record",
+        )
     if command == "parity":
         parser.add_argument("--pages", help="source pages to check, e.g. 31-34,40 (default: all)")
         parser.add_argument("--out", type=Path, help="report folder (default: output/<book>/parity_<edition>, or visual_<edition>)")
@@ -413,4 +464,6 @@ def main(command: str, argv: list[str]) -> int:
     args = parser.parse_args(argv)
     if command == "books":
         return _list()
+    if command == "measure":
+        return _measure(parser, args)
     return _build(parser, args) if command == "build" else _parity(parser, args)

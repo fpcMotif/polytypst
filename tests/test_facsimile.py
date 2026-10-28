@@ -112,6 +112,13 @@ def test_unread_ink_that_merges_with_read_lines_keeps_only_its_own_rows_and_colu
     assert (unread.top, unread.bottom) == pytest.approx((425 * PT_PER_PX, 465 * PT_PER_PX))
 
 
+def test_a_caption_label_glued_to_its_number_reads_as_two_words() -> None:
+    ink = np.zeros((1000, 800), bool)
+    ink[400:440, 40:600] = True
+    line = OcrLine("图6-4 经常账户顺差", x=0.05, y=0.56, w=0.7, h=0.04)
+    assert [w.text for w in page_words(ink, (line,), [], Measure(FACSIMILE_STYLE))] == ["图", "6-4", "经常账户顺差"]
+
+
 def test_a_sliver_of_ink_just_outside_a_read_line_is_not_a_textless_word() -> None:
     ink = np.zeros((1000, 800), bool)
     ink[400:440, 40:200] = True
@@ -258,6 +265,22 @@ def test_a_word_hyphenated_over_two_lines_is_cut_where_the_scan_cuts_it() -> Non
     assert [p.text for p in split_across_lines("(Bourbaki,", parts)] == ["(Bour-", "baki,"]
 
 
+def test_a_chinese_word_broken_over_two_lines_takes_no_hyphen() -> None:
+    parts = [
+        Placement("增长方", 200.0, 260.0, 22.0, 32.0, 30.0, 0),
+        Placement("式", 40.0, 60.0, 72.0, 82.0, 80.0, 1),
+    ]
+    assert [p.text for p in split_across_lines("增长方式", parts)] == ["增长方", "式"]
+
+
+def test_a_chinese_line_is_cut_after_the_characters_that_end_the_scan_line() -> None:
+    parts = [
+        Placement("甲乙丙与现金和", 40.0, 110.0, 22.0, 32.0, 30.0, 0),
+        Placement("存款相比", 40.0, 80.0, 72.0, 82.0, 80.0, 1),
+    ]
+    assert [p.text for p in split_across_lines("甲的乙的丙与现金和存款相比", parts)] == ["甲的乙的丙与现金和", "存款相比"]
+
+
 def test_the_transcript_word_is_cut_at_the_fragment_the_scan_shows_on_each_line() -> None:
     words = [
         Placement("(Bour-", 200.0, 260.0, 22.0, 32.0, 30.0, 0),
@@ -268,6 +291,20 @@ def test_the_transcript_word_is_cut_at_the_fragment_the_scan_shows_on_each_line(
     )
     assert any('"(Bour-"' in b for b in body)
     assert any('"baki,"' in b for b in body)
+
+
+def test_a_styled_run_over_two_scan_lines_is_set_on_both_lines() -> None:
+    words = [
+        Placement("甲乙丙丁戊", 40.0, 95.0, 22.0, 32.0, 30.0, 0),
+        Placement("己庚辛", 40.0, 73.0, 72.0, 82.0, 80.0, 1),
+    ]
+    body = transcript_typst(
+        words, chunks("甲乙丙丁**戊己**庚辛"), {}, Measure(FACSIMILE_STYLE), np.zeros((px(H), px(W)), bool)
+    )
+    first = [b for b in body if "dy: 30.00pt" in b]
+    second = [b for b in body if "dy: 80.00pt" in b]
+    assert first and second
+    assert "己" not in "".join(first) and "己" in "".join(second)
 
 
 def test_a_word_with_math_hyphenated_over_two_lines_puts_its_tail_on_the_second_line() -> None:

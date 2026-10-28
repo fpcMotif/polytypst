@@ -13,6 +13,7 @@ book commands (see `polytypst COMMAND --help`):
   polytypst books                         list every book and its editions
   polytypst build BOOK [--edition E]      build one edition of a book
   polytypst parity BOOK --edition E       check a rebuilt edition against its scan
+  polytypst measure BOOK --edition E      measure each page against the scan; exits 1 when a page got worse
   polytypst audit [BOOK ...] [--update]   compare checker issue counts with quality/baseline.json
   polytypst rules                         list every rule, its stage, severity, enforcer and file:line
   polytypst new-book KEY --title T ...    write src/KEY/ for a new book and list its package
@@ -23,7 +24,7 @@ book commands (see `polytypst COMMAND --help`):
 
 
 def main() -> None:
-    if sys.argv[1:2] in (["books"], ["build"], ["parity"], ["audit"], ["rules"], ["new-book"], ["review"], ["checklist"]):
+    if sys.argv[1:2] in (["books"], ["build"], ["parity"], ["measure"], ["audit"], ["rules"], ["new-book"], ["review"], ["checklist"]):
         from .books_cli import main as books_main
 
         sys.exit(books_main(sys.argv[1], sys.argv[2:]))
