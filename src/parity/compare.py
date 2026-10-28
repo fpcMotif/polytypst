@@ -10,6 +10,7 @@ import numpy as np
 import pymupdf
 
 from .diagrams import DiagramText, diagram_box, diagram_ink
+from .ink_cache import InkCache
 from .source import SCAN_DPI, read_source_page
 from .words import PT_PER_PX, InkWord, page_ink, rebuilt_words, scan_words, token
 
@@ -164,7 +165,7 @@ def diagram_snippets(diagrams: Path | None) -> dict[int, list[Path]]:
 
 
 def compare(
-    source: Path,
+    scan: InkCache,
     rebuilt: Path,
     page_map: dict[int, list[int]],
     *,
@@ -184,7 +185,7 @@ def compare(
     results = []
     with ProcessPoolExecutor(
         min(os.cpu_count() or 1, max(len(pages), 1)), initializer=_start_worker,
-        initargs=(Path(source), Path(rebuilt), ocr, diagram_snippets(diagrams), work, diagram_text),
+        initargs=(scan, Path(rebuilt), ocr, diagram_snippets(diagrams), work, diagram_text),
     ) as pool:
         for result in pool.map(_parity_job, pages, chunksize=4):
             results.append(result)
@@ -196,10 +197,10 @@ _WORKER: dict = {}
 
 
 def _start_worker(
-    source: Path, rebuilt: Path, ocr: Path, snippets: dict[int, list[Path]], work: Path, diagram_text: DiagramText | None,
+    scan: InkCache, rebuilt: Path, ocr: Path, snippets: dict[int, list[Path]], work: Path, diagram_text: DiagramText | None,
 ) -> None:
     _WORKER.update(
-        source=source, rebuilt=rebuilt, src_doc=pymupdf.open(source), our_doc=pymupdf.open(rebuilt),
+        scan=scan, rebuilt=rebuilt, our_doc=pymupdf.open(rebuilt),
         ocr=ocr, snippets=snippets, work=work, diagram_text=diagram_text,
     )
 
@@ -207,7 +208,7 @@ def _start_worker(
 def _parity_job(item: tuple[int, list[int]]) -> PageParity:
     pno, ours = item
     state = _WORKER
-    a = page_ink(state["src_doc"][pno - 1])
+    a = state["scan"](pno)
     page = state["our_doc"][ours[0] - 1]
     b = page_ink(page)
     src_page = read_source_page(state["ocr"], pno)
@@ -221,7 +222,7 @@ def _parity_job(item: tuple[int, list[int]]) -> PageParity:
     page_dx = round(float(np.median([w.dx_left for w in words])), 2) if words else 0.0
     text = state["diagram_text"]
     return PageParity(
-        source=state["source"],
+        source=state["scan"].source,
         rebuilt=state["rebuilt"],
         source_page=pno,
         rebuilt_pages=tuple(ours),

@@ -261,13 +261,15 @@ def review_folder(
                 f"{pdf.name}:coverage": m.coverage,
             }
         if visual and scan is not None:
+            from .parity.ink_cache import InkCache
             from .parity.visual import visual_check, write_visual_report
+            from .parity.words import page_ink
 
             page_map = {
                 m.scan_page: [m.rebuilt_page] for m in matches if m.rebuilt_page
             }
             summary = write_visual_report(
-                visual_check(scan, pdf, page_map), out / f"visual_{pdf.stem}", scan, pdf
+                visual_check(InkCache(scan, out / "ink", page_ink), pdf, page_map), out / f"visual_{pdf.stem}", scan, pdf
             )
             measures[pdf.name] |= {
                 k: summary[k] for k in ("mean_missing", "mean_extra", "mean_layout")

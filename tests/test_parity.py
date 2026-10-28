@@ -16,6 +16,8 @@ from polytypst.parity import (
 )
 from polytypst.parity.compare import right_overflow_lines
 from polytypst.parity.diagrams import DiagramText, find_diagram
+from polytypst.parity.ink_cache import InkCache
+from polytypst.parity.words import page_ink
 
 W, H = 388.0, 609.0
 FONT, SIZE, LEAD = "tiro", 10.0, 14.0
@@ -80,7 +82,8 @@ def source(tmp_path: Path) -> Path:
 
 def run(source: Path, rebuilt: Path, diagrams: Path | None = None) -> PageParity:
     text = DiagramText(font="Libertinus Serif", size=10.0, weight=400) if diagrams else None
-    return compare(source, rebuilt, {1: [1]}, ocr=source.parent / "ocr", diagrams=diagrams, diagram_text=text, work=source.parent / "work")[0]
+    scan = InkCache(source, source.parent / "ink", page_ink)
+    return compare(scan, rebuilt, {1: [1]}, ocr=source.parent / "ocr", diagrams=diagrams, diagram_text=text, work=source.parent / "work")[0]
 
 
 def test_an_identical_page_matches_every_word_in_place_and_passes(source: Path, tmp_path: Path) -> None:

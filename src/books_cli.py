@@ -126,7 +126,7 @@ def _measure(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     if args.pages:
         wanted = parse_pages(args.pages)
         page_map = {p: v for p, v in page_map.items() if p in wanted}
-    measures = measure_pages(InkCache(source, book.out_dir / "facsimile" / "ink", page_ink), edition.rebuilt, page_map)
+    measures = measure_pages(_scan_ink(book, source), edition.rebuilt, page_map)
     review = book.out_dir / "review"
     report, baseline = review / f"measure_{name}.json", review / f"measure_{name}_baseline.json"
     write_measures(report, {**read_measures(report), **{m.page: m for m in measures}}.values())
@@ -151,6 +151,10 @@ def _rose(counts: Counter[str], recorded: dict[str, int]) -> list[str]:
     return [f"{rule} {n} > {recorded.get(rule, 0)}" for rule, n in sorted(counts.items()) if n > recorded.get(rule, 0)]
 
 
+def _scan_ink(book: Book, source: Path) -> InkCache:
+    return InkCache(source, book.out_dir / "facsimile" / "ink", page_ink)
+
+
 def _parity(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     book, name, edition = _pick(parser, args.book, args.edition)
     if edition.parity is None:
@@ -173,11 +177,11 @@ def _parity(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         "offset": args.max_offset if args.max_offset is not None else preset.offset,
     }
     if args.visual or args.against or edition.parity.visual or any(v is not None for v in limits.values()):
-        return _visual(args, source, edition.rebuilt, page_map, args.out or book.out_dir / f"visual_{name}", limits)
+        return _visual(args, _scan_ink(book, source), edition.rebuilt, page_map, args.out or book.out_dir / f"visual_{name}", limits)
     ensure_source_ocr(source, book.ocr, book.spec.ocr_languages)
     out = args.out or book.out_dir / f"parity_{name}"
     results = compare(
-        source, edition.rebuilt, page_map, ocr=book.ocr,
+        _scan_ink(book, source), edition.rebuilt, page_map, ocr=book.ocr,
         diagrams=edition.parity.diagrams, diagram_text=edition.parity.diagram_text, work=out / "work",
     )
     ok = write_report(results, out, edition.parity.tolerance)
@@ -219,12 +223,12 @@ def _review(parser: argparse.ArgumentParser, argv: list[str]) -> int:
 
 
 def _visual(
-    args: argparse.Namespace, source: Path, rebuilt: Path, page_map: dict[int, list[int]], out: Path,
+    args: argparse.Namespace, scan: InkCache, rebuilt: Path, page_map: dict[int, list[int]], out: Path,
     limits: dict[str, float | None],
 ) -> int:
-    results = visual_check(source, rebuilt, page_map)
-    against = (args.against, visual_check(source, args.against, page_map)) if args.against else None
-    summary = write_visual_report(results, out, source, rebuilt, against, args.top)
+    results = visual_check(scan, rebuilt, page_map)
+    against = (args.against, visual_check(scan, args.against, page_map)) if args.against else None
+    summary = write_visual_report(results, out, scan.source, rebuilt, against, args.top)
     regions = summary["regions"]
     print(f"{summary['pages_with_regions']}/{summary['pages']} pages differ from the scan: "
           f"{regions['extra']} extra, {regions['missing']} missing regions; report: {out / 'index.html'}")

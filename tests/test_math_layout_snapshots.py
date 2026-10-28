@@ -20,6 +20,8 @@ from polytypst.goursat.figures import (
     normalize_goursat_markdown,
 )
 from polytypst.parity import FACSIMILE, SOURCE_PAGINATED, PageParity, compare, verdict
+from polytypst.parity.ink_cache import InkCache
+from polytypst.parity.words import page_ink
 from polytypst.tex_markdown import repair_page_math
 from polytypst.vision.figure_extractor import ExtractedFigure
 
@@ -411,8 +413,9 @@ def test_math_layout_compiled_page_scan_parity_snapshot(tmp_path: Path) -> None:
 
     rebuilt_pdf = tmp_path / "rebuilt.pdf"
     compile_typst(typ_file, rebuilt_pdf)
+    scan = InkCache(src_pdf, tmp_path / "ink", page_ink)
     page_ok: PageParity = compare(
-        src_pdf, rebuilt_pdf, {1: [1]}, ocr=tmp_path / "ocr", work=tmp_path / "work"
+        scan, rebuilt_pdf, {1: [1]}, ocr=tmp_path / "ocr", work=tmp_path / "work"
     )[0]
     assert (
         page_ok.lines_source,
@@ -434,7 +437,7 @@ def test_math_layout_compiled_page_scan_parity_snapshot(tmp_path: Path) -> None:
     broken_typ.write_text(broken_src, encoding="utf-8")
     compile_typst(broken_typ, broken_pdf)
     page_broken: PageParity = compare(
-        src_pdf, broken_pdf, {1: [1]}, ocr=tmp_path / "ocr", work=tmp_path / "work"
+        scan, broken_pdf, {1: [1]}, ocr=tmp_path / "ocr", work=tmp_path / "work"
     )[0]
     assert verdict(page_broken, SOURCE_PAGINATED) == [
         "page offset +14.88,+0.06pt",

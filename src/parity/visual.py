@@ -19,6 +19,7 @@ import pymupdf
 from PIL import Image, ImageDraw
 
 from .compare import _dilate, common_crop
+from .ink_cache import InkCache
 from .report import write_overlay
 from .words import EDGE_GAP_PT, PT_PER_PX, line_measure, page_ink, without_edge_lines
 
@@ -186,27 +187,27 @@ def layout_check(source: Path, rebuilt: Path, page_map: dict[int, list[int]]) ->
     }
 
 
-def visual_check(source: Path, rebuilt: Path, page_map: dict[int, list[int]]) -> list[PageVisual]:
+def visual_check(scan: InkCache, rebuilt: Path, page_map: dict[int, list[int]]) -> list[PageVisual]:
     """Optical parity of every mapped page, on the first rebuilt page each source page maps to."""
     pairs = [(pno, pages[0]) for pno, pages in sorted(page_map.items())]
-    with _pool(source, rebuilt, len(pairs)) as pool:
+    with _pool(scan, rebuilt, len(pairs)) as pool:
         return list(pool.map(_visual_job, pairs, chunksize=4))
 
 
-_WORKER: dict[str, pymupdf.Document] = {}
+_WORKER: dict = {}
 
 
-def _start_worker(source: Path, rebuilt: Path) -> None:
-    _WORKER.update(scan=pymupdf.open(source), rebuilt=pymupdf.open(rebuilt))
+def _start_worker(scan: InkCache | Path, rebuilt: Path) -> None:
+    _WORKER.update(scan=pymupdf.open(scan) if isinstance(scan, Path) else scan, rebuilt=pymupdf.open(rebuilt))
 
 
-def _pool(source: Path, rebuilt: Path, jobs: int) -> ProcessPoolExecutor:
-    return ProcessPoolExecutor(min(os.cpu_count() or 1, max(jobs, 1)), initializer=_start_worker, initargs=(source, rebuilt))
+def _pool(scan: InkCache | Path, rebuilt: Path, jobs: int) -> ProcessPoolExecutor:
+    return ProcessPoolExecutor(min(os.cpu_count() or 1, max(jobs, 1)), initializer=_start_worker, initargs=(scan, rebuilt))
 
 
 def _visual_job(pair: tuple[int, int]) -> PageVisual:
     pno, ours = pair
-    return page_visual(page_ink(_WORKER["scan"][pno - 1]), page_ink(_WORKER["rebuilt"][ours - 1]), pno, ours)
+    return page_visual(_WORKER["scan"](pno), page_ink(_WORKER["rebuilt"][ours - 1]), pno, ours)
 
 
 def _overlay_job(job: tuple[int, int, Path]) -> None:
