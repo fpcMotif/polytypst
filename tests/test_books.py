@@ -149,3 +149,24 @@ def test_goursat_pages_get_math_repairs_and_lose_the_scans_chapter_lines():
     assert "=== 20." not in typst
 
 
+def test_goursat_keeps_the_break_between_two_titles_the_scan_sets_apart():
+    compiler = MonographCompiler(book_by_key("goursat").spec)
+    raw = {
+        275: "## II. CHANGE OF VARIABLES AREA OF A SURFACE",
+        303: "### I. MULTIPLE INTEGRALS CHANGE OF VARIABLES",
+        357: "## II. SERIES OF COMPLEX TERMS MULTIPLE SERIES",
+    }
+    typst = "\n".join(compiler.format_typst(compiler.cleaner.clean(md, pno).body) for pno, md in raw.items())
+    assert "== II. CHANGE OF VARIABLES, AREA OF A SURFACE" in typst
+    assert "== I. MULTIPLE INTEGRALS, CHANGE OF VARIABLES" in typst
+    assert "== II. SERIES OF COMPLEX TERMS, MULTIPLE SERIES" in typst
+
+
+def test_goursat_drops_the_scan_speck_read_as_a_dot_before_an_equation():
+    compiler = MonographCompiler(book_by_key("goursat").spec)
+    raw = "$$\n\\cdot f(x, y, a) = 0, \\quad \\frac{f(x, y, a + h) - f(x, y, a)}{h} = 0,\n$$"
+    body = compiler.cleaner.clean(raw, 435).body
+    assert "\\cdot" not in body
+    assert "f(x, y, a) = 0, \\quad" in body
+
+

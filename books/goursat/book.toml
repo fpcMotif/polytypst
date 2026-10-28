@@ -44,6 +44,14 @@ heading_rewrites = [
   ['''## III\. GENERALIZATIONS OF DOUBLE INTEGRALS\s+### IMPROPER INTEGRALS SURFACE INTEGRALS''', '## III. GENERALIZATIONS OF DOUBLE INTEGRALS, IMPROPER INTEGRALS, SURFACE INTEGRALS'],
   ['''## III\. IMPLICIT FUNCTIONS\s+### ANALYTIC CURVES AND SURFACES''', '## III. IMPLICIT FUNCTIONS, ANALYTIC CURVES AND SURFACES'],
   ['''## IV\. CONTACT BETWEEN SKEW CURVES\s+### CONTACT BETWEEN CURVES AND SURFACES''', '## IV. CONTACT BETWEEN SKEW CURVES, CONTACT BETWEEN CURVES AND SURFACES'],
+  ['''^#+ (II\. CHANGE OF VARIABLES) (AREA OF A SURFACE)$''', '## \1, \2'],
+  ['''^#+ (I\. MULTIPLE INTEGRALS) (CHANGE OF VARIABLES)$''', '## \1, \2'],
+  ['''^#+ (II\. SERIES OF COMPLEX TERMS) (MULTIPLE SERIES)$''', '## \1, \2'],
+  ['''^#+ (IV\. GENERALIZATIONS OF THE IDEA OF AN INTEGRAL) (IMPROPER INTEGRALS) (LINE INTEGRALS\*?)$''', '## \1, \2, \3'],
+  ['''^#+ (II\. DEFINITE INTEGRALS) (ALLIED GEOMETRICAL CONCEPTS)$''', '## \1, \2'],
+  ['''^#+ (I\. DOUBLE INTEGRALS) (METHODS OF EVALUATION) (GREEN'S THEOREM)$''', '## \1, \2, \3'],
+  ['''^#+ (III\. CHANGE OF VARIABLE) (INTEGRATION BY PARTS)$''', '## \1, \2'],
+  ['''^#+ (III\. SERIES OF VARIABLE TERMS) (UNIFORM CONVERGENCE)$''', '## \1, \2'],
   ['''^### The series\s*$''', 'The series'],
   ['''([^\n])\n\n+(\[[A-Z]{2,}[^\n]+\.\])''', '\1 \2'],
   ['''^#+\s*(\d+\*?\.?)\s+([^.\n]+\.)(.*)$''', '**\1 \2**\3'],
@@ -54,6 +62,7 @@ heading_rewrites = [
 ]
 
 [page_fixups]
+435 = [['''\\cdot (f\(x, y, a\) = 0, \\quad \\frac)''', '\1']]
 503 = [['''\*\*11\\\*\*\*\.''', '**11*.**']]
 
 [extra_figures]
