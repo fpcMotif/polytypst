@@ -86,7 +86,7 @@ polytypst path/to/photos/ --output output/book --backend gemini
 
 | Flag | Description | Default |
 |---|---|---|
-| `--book` | Key of the book in `src/KEY/` that the scan is | the book the file name matches, else a new book |
+| `--book` | Key of the book in `books/KEY/` that the scan is | the book the file name matches, else a new book |
 | `-o, --output` | Output folder of a new book; a known book writes to `output/KEY/` | `output/<slug>/` |
 | `--backend` | OCR backend as `KIND[:MODEL][?KEY=VALUE&...]`: `gemini`, `openai`, `jina`, `mistral`, `local`, `colab` or `cached` | `colab` |
 | `--pages` | Transcribe only these pages, as in `3,7-9` | every page |

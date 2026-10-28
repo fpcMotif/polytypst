@@ -1,0 +1,301 @@
+legacy_state = 'fermat3'
+slug = 'number_theory_3_iwasawa_theory_and_modular_forms'
+title = 'Number Theory 3: Iwasawa Theory and Modular Forms'
+author = 'Nobushige Kurokawa, Masato Kurihara, Takeshi Saito'
+translator = 'Masato Kuwata'
+publisher = 'American Mathematical Society'
+series = 'Translations of Mathematical Monographs, Volume 242'
+year = 2012
+publisher_key = 'ams'
+domain = 'math'
+preface_page = 10
+chapters = [
+  { number = 9, title = 'Modular Forms', start_page = 16, end_page = 101, label = 'Chapter 9' },
+  { number = 10, title = 'Iwasawa Theory', start_page = 102, end_page = 181, label = 'Chapter 10' },
+  { number = 11, title = 'Modular forms (II)', start_page = 182, end_page = 203, label = 'Chapter 11' },
+  { number = 12, title = 'Elliptic curves (II)', start_page = 204, end_page = 225, label = 'Chapter 12' },
+  { number = 13, title = 'Bibliography', start_page = 226, end_page = 231 },
+  { number = 14, title = 'Answers to Questions', start_page = 232, end_page = 233 },
+  { number = 15, title = 'Answers to Exercises', start_page = 234, end_page = 239 },
+  { number = 16, title = 'Index', start_page = 240, end_page = 242 },
+]
+figure_pages = [107, 108, 156]
+running_header_regexes = [
+  '^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:MODULAR FORMS|IWASAWA THEORY|ELLIPTIC CURVES|BIBLIOGRAPHY|ANSWERS TO QUESTIONS|ANSWERS TO EXERCISES|INDEX|CONTENTS|PREFACE|OBJECTIVES AND OUTLINE)(?:\s+\d{1,3})?$',
+  '^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:MODULAR FORMS|IWASAWA THEORY|ELLIPTIC CURVES|BIBLIOGRAPHY|ANSWERS TO QUESTIONS|ANSWERS TO EXERCISES|INDEX|CONTENTS|PREFACE|OBJECTIVES AND OUTLINE)$',
+]
+drop_line_regexes = [
+  '^[ivxlcdm]+\s+[A-Z\s\$\-\.\,\?]+$',
+  '^[A-Z\s\$\-\.\,\?]+\s+[ivxlcdm]+$',
+  '^\d+\s+[A-Z\s\$\-\.\,\?]+$',
+  '^[A-Z\s\$\-\.\,\?]+\s+\d+$',
+]
+pdf_name_markers = ['number theory 3', 'iwasawa theory', 'modular forms']
+pdf_page_count = 242
+
+[sections]
+"9.1" = [19, '''Ramanujan's discoveries''']
+"9.2" = [32, '''Ramanujan's $\Delta$ and holomorphic Eisenstein series''']
+"9.3" = [40, 'Automorphy and functional equations']
+"9.4" = [46, 'Real analytic Eisenstein series']
+"9.5" = [62, '''Kronecker's limit formula and regularized products''']
+"9.6" = [79, 'Modular forms for $SL_2(\mathbb{Z})$']
+"9.7" = [89, 'Classical modular forms']
+"10.0" = [103, 'What is Iwasawa theory?']
+"10.1" = [112, 'Analytic $p$-adic zeta functions']
+"10.2" = [141, 'Ideal class groups and cyclotomic $\mathbb{Z}_p$-extensions']
+"10.3" = [162, 'Iwasawa main conjecture']
+"11.1" = [183, 'Automorphic forms and representation theory']
+"11.2" = [189, 'Poisson summation formula']
+"11.3" = [195, 'Selberg trace formula']
+"11.4" = [200, 'Langlands conjectures']
+"12.1" = [204, 'Elliptic curves over the rational number field']
+"12.2" = [216, '''Fermat's Last Theorem''']
+
+[editions.monograph]
+summary = 'monograph'
+
+[editions.vol3]
+summary = 'volume 3'
+
+[editions.vol2]
+legacy_state = 'fermat2'
+summary = 'volume 2'
+
+[editions.vol2.spec]
+slug = 'number_theory_2_class_field_theory'
+title = 'Number Theory 2: Introduction to Class Field Theory'
+author = 'Kazuya Kato, Nobushige Kurokawa, Takeshi Saito'
+translator = 'Masato Kuwata and Katsumi Nomizu'
+series = 'Translations of Mathematical Monographs, Volume 240'
+year = 2011
+preface_page = 8
+chapters = [
+  { number = 5, title = 'What is Class Field Theory?', start_page = 10, end_page = 41 },
+  { number = 6, title = 'Local and Global Fields', start_page = 42, end_page = 119 },
+  { number = 7, title = 'Zeta Functions and L-Functions', start_page = 120, end_page = 159 },
+  { number = 8, title = 'Class Field Theory', start_page = 160, end_page = 235 },
+  { number = 9, title = 'Answers to Questions and Exercises', start_page = 236, end_page = 246 },
+  { number = 10, title = 'Index', start_page = 247, end_page = 250 },
+]
+figure_pages = []
+running_header_regexes = [
+  '^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:WHAT IS CLASS FIELD THEORY\?|LOCAL AND GLOBAL FIELDS|ZETA FUNCTIONS|CLASS FIELD THEORY|ANSWERS|INDEX|CONTENTS|PREFACE)(?:\s+\d{1,3})?$',
+  '^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:WHAT IS CLASS FIELD THEORY\?|LOCAL AND GLOBAL FIELDS|ZETA FUNCTIONS|CLASS FIELD THEORY|ANSWERS|INDEX|CONTENTS|PREFACE)$',
+]
+drop_line_regexes = [
+  '^Translations of MATHEMATICAL MONOGRAPHS.*$',
+  '^Volume 240.*$',
+  '^American Mathematical Society.*$',
+  '^\d+\s+[A-Z\s\$\-\.\,\?]+$',
+  '^[A-Z\s\$\-\.\,\?]+\s+\d+$',
+]
+pdf_name_markers = ['number theory 2', 'class field theory']
+pdf_page_count = 250
+
+[editions.vol2.spec.sections]
+"5.1" = [10, 'Examples of class field theoretic phenomena']
+"5.2" = [22, 'Cyclotomic fields and quadratic fields']
+"5.3" = [34, 'An outline of class field theory']
+"6.1" = [42, 'A curious analogy between numbers and functions']
+"6.2" = [49, 'Places and local fields']
+"7.1" = [120, 'Zeta functions and L-functions']
+"8.1" = [160, 'Cohomology of groups']
+
+[editions.vol2.spec.figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Table\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[a-z]?)\.?(?:\*\*)?\s*(?P<tail>.*)$'
+caption_format = 'Table {chapter}.{number}'
+
+[editions.vol1]
+legacy_state = 'fermat'
+summary = 'volume 1'
+
+[editions.vol1.spec]
+slug = 'fermat_dream'
+title = '''Number Theory 1: Fermat's Dream'''
+author = 'Kazuya Kato, Nobushige Kurokawa, Takeshi Saito'
+series = 'Translations of Mathematical Monographs, Volume 186'
+year = 2000
+publisher_key = 'springer'
+preface_page = 4
+chapters = [
+  { number = 0, title = 'Introduction — Fermat and Number Theory', start_page = 10, end_page = 24 },
+  { number = 1, title = 'Rational Points on Elliptic Curves', start_page = 25, end_page = 52 },
+  { number = 2, title = 'Conics and $p$-adic Numbers', start_page = 53, end_page = 87 },
+  { number = 3, title = 'The $\zeta$ Function', start_page = 88, end_page = 108 },
+  { number = 4, title = 'Algebraic Number Theory', start_page = 109, end_page = 139 },
+  { number = 5, title = 'Rudiments on Dedekind Domains', start_page = 140, end_page = 142, label = 'Appendix A' },
+  { number = 6, title = 'Answers to Questions and Exercises', start_page = 143, end_page = 155, label = '' },
+]
+index_pages = [156, 157]
+index_title = 'INDEX'
+figure_pages = []
+running_header_regexes = [
+  '''^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:INTRODUCTION|RATIONAL POINTS ON ELLIPTIC CURVES|CONICS AND [Pp]-ADIC NUMBERS|THE ZETA FUNCTION|\s*ZETA\s*|ALGEBRAIC NUMBER THEORY|FERMAT AND NUMBER THEORY|FERMAT'S DREAM|PREFACE|CONTENTS|NOTATION|INDEX)(?:\s+\d{1,3})?$''',
+  '''^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:INTRODUCTION|RATIONAL POINTS ON ELLIPTIC CURVES|CONICS AND [Pp]-ADIC NUMBERS|THE ZETA FUNCTION|\s*ZETA\s*|ALGEBRAIC NUMBER THEORY|FERMAT AND NUMBER THEORY|FERMAT'S DREAM|PREFACE|CONTENTS|NOTATION|INDEX)$''',
+]
+drop_line_regexes = [
+  '^FUDAN\b.*$',
+  '^[0-9A-Z\s]{10,}图书馆.*$',
+  '^Translations of MATHEMATICAL MONOGRAPHS.*$',
+  '^Volume \d+.*$',
+  '^American Mathematical Society.*$',
+  '^\d+\s+[A-Z\s\$\-\.\,]+$',
+  '^[A-Z\s\$\-\.\,]+\s+\d+$',
+]
+theorem_heads_upper = true
+footnote_style = 'superscript'
+pre_math_rewrites = [['C\$_p\$', '$C_p$'], ['\(C\$_p\$\)', '($C_p$)']]
+chapter_label = 'Chapter {number}'
+pdf_name_markers = ['fermat', 'kurokawa', 'number theory 1']
+pdf_page_count = 157
+
+[editions.vol1.spec.sections]
+"0.1" = [12, 'Before Fermat']
+"0.2" = [14, 'Prime numbers and the sum of two squares']
+"0.3" = [15, '$p = x^2 + 2y^2$, $p = x^2 + 3y^2, \ldots$']
+"0.4" = [16, '''Pell's equations''']
+"0.5" = [18, 'Triangular numbers, quadrangular numbers, pentagonal numbers']
+"0.6" = [19, 'Triangular numbers, squares, cubes']
+"0.7" = [20, 'Right triangles and elliptic curves']
+"0.8" = [22, '''Fermat's Last Theorem''']
+"1.1" = [26, 'Fermat and elliptic curves']
+"1.2" = [33, 'Group structure of an elliptic curve']
+"1.3" = [39, '''Mordell's theorem''']
+"2.1" = [54, 'Conics']
+"2.2" = [58, 'Congruence']
+"2.3" = [62, 'Conics and quadratic residue symbols']
+"2.4" = [67, '$p$-adic number fields']
+"2.5" = [78, 'Multiplicative structure of the $p$-adic number field']
+"2.6" = [83, 'Rational points on conics']
+"3.1" = [89, 'Three wonders of the values of the $\zeta$ function']
+"3.2" = [92, 'Values at positive integers']
+"3.3" = [97, 'Values at negative integers']
+"4.1" = [110, 'Method of algebraic number theory']
+"4.2" = [119, 'The heart of algebraic number theory']
+"4.3" = [130, 'The class number formula for imaginary quadratic fields']
+"4.4" = [133, '''Fermat's Last Theorem and Kummer''']
+"A.1" = [140, 'Definition of a Dedekind domain']
+"A.2" = [141, 'Fractional ideal']
+
+[editions.vol1.spec.figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?FIGURE\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[a-z]?)\.?(?:\*\*)?\s*(?P<tail>.*)$'
+caption_format = 'FIGURE {chapter}.{number}'
+
+[editions.vol1.spec.page_fixups]
+29 = [
+  [
+  'Then there exist bijections between any two of \$A_d\$, \$B_d\$, and \$C_d\$\.',
+  '*Then there exist bijections between any two of $A_d$, $B_d$, and $C_d$.*',
+],
+  [
+  '\$\$\s*A_d \\to B_d;\s*\\quad \(x, y, z\) \\longmapsto \\left\( \\frac\{y - x\}\{2\}, \\frac\{z\}\{2\}, \\frac\{x \+ y\}\{2\} \\right\),\s*\$\$\s*\$\$\s*B_d \\to A_d;\s*\\quad \(u, v, w\) \\longmapsto \(w - u, w \+ u, 2v\),\s*\$\$',
+  '''
+$$
+\begin{aligned}
+A_d \to B_d; \quad (x, y, z) &\longmapsto \left( \frac{y - x}{2}, \frac{z}{2}, \frac{x + y}{2} \right), \\
+B_d \to A_d; \quad (u, v, w) &\longmapsto (w - u, w + u, 2v),
+\end{aligned}
+$$''',
+],
+  [
+  '\nThen\n',
+  '''
+
+*Then*
+''',
+],
+  [
+  '\(1\) There exist mutually inverse maps \$f : B \\to C\$ and \$g : C \\to B\$ given by',
+  '(1) *There exist mutually inverse maps $f : B \to C$ and $g : C \to B$ given by*',
+],
+  [
+  '\$\$\s*f\(u, v, w\) = \(u\^2 \+ a \+ uv \+ vw \+ wu, \(u \+ v\)\(v \+ w\)\(w \+ u\)\),\s*\$\$\s*\$\$\s*g\(x, y\) = \\left\( \\frac\{1\}\{2y\} \\left\( \(x - a\)\^2 - \(b - a\)\(c - a\) \\right\), \\right\.\s*\$\$\s*\$\$\s*\\left\. \\frac\{1\}\{2y\} \\left\( \(x - b\)\^2 - \(a - b\)\(c - b\) \\right\), \\frac\{1\}\{2y\} \\left\( \(x - c\)\^2 - \(a - c\)\(b - c\) \\right\) \\right\)\.\s*\$\$',
+  '''
+$$
+\begin{aligned}
+f(u, v, w) &= \bigl(u^2 + a + uv + vw + wu,\ (u + v)(v + w)(w + u)\bigr), \\
+g(x, y) &= \Bigl( \frac{1}{2y}((x - a)^2 - (b - a)(c - a)), \\
+&\qquad \frac{1}{2y}((x - b)^2 - (a - b)(c - b)),\ \frac{1}{2y}((x - c)^2 - (a - c)(b - c)) \Bigr).
+\end{aligned}
+$$''',
+],
+  [
+  '\(2\) There is a map \$h : B \\to \\tilde\{C\}\$ given by \$h\(u, v, w\) = \(u\^2 \+ a, uvw\)\$\.',
+  '(2) *There is a map $h : B \to \tilde{C}$ given by $h(u, v, w) = (u^2 + a, uvw)$.*',
+],
+]
+36 = [
+  [
+  'X = \\\{\\text\{ratio\}\(x : y : z\) \\mid x, y, z \\in K, \(x, y, z\) \\neq \(0, 0, 0\) \\\\ y\^2 z = ax\^3 \+ bx\^2 z \+ cx z\^2 \+ dz\^3\\\}',
+  '\begin{aligned} X = \bigl\{\,\text{ratio}(x : y : z) \mid &x, y, z \in K,\ (x, y, z) \neq (0, 0, 0), \\ &y^2 z = ax^3 + bx^2 z + cx z^2 + dz^3\,\bigr\} \end{aligned}',
+],
+]
+38 = [
+  [
+  '\(1\.5\) \$\\mathbb\{Z\}\^\{\\oplus r\} \\oplus\$ finite abelian group \$\(r \\geq 0\)\$,',
+  '$$\mathbb{Z}^{\oplus r} \oplus (\text{finite abelian group}) \quad (r \geq 0),$$ (1.5)',
+],
+]
+41 = [
+  [
+  '\\overline\{\(x - a, \\overline\{x - b, \\overline\{x - c\}\)\}',
+  '(\overline{x - a},\ \overline{x - b},\ \overline{x - c})',
+],
+  [
+  '\\overline\{\(\(a - b\)\(a - c\), \\overline\{a - b, \\overline\{a - c\}\)\}\}',
+  '((\overline{a - b})(\overline{a - c}),\ \overline{a - b},\ \overline{a - c})',
+],
+  [
+  '\\overline\{\(b - a, \\overline\{\(b - a\)\(b - c\), \\overline\{b - c\}\)\}\}',
+  '(\overline{b - a},\ (\overline{b - a})(\overline{b - c}),\ \overline{b - c})',
+],
+  [
+  '\\overline\{\(c - a, \\overline\{c - b\}, \\overline\{\(c - a\)\(c - b\)\}\)\}',
+  '(\overline{c - a},\ \overline{c - b},\ (\overline{c - a})(\overline{c - b}))',
+],
+]
+56 = [
+  [
+  '\\begin\{cases\}\s*\\text\{rational points on \} x\^2 \+ y\^2 = 1 \\\\ \\text\{different from \} \(-1, 0\)\s*\\end\{cases\}\s*\\longleftrightarrow\s*\\begin\{cases\}\s*1:1 & \\\{\\text\{rational numbers\}\\\}, \\\\\s*\(x, y\) & \\longmapsto \\frac\{y\}\{x \+ 1\}, \\\\\s*\\left\(\\frac\{1 - t\^2\}\{1 \+ t\^2\}, \\frac\{2t\}\{1 \+ t\^2\}\\right\) & \\longleftrightarrow t\.\s*\\end\{cases\}',
+  '\begin{aligned} \left\{ \begin{array}{c} \text{rational points on } x^2 + y^2 = 1 \\ \text{different from } (-1, 0) \end{array} \right\} &\underset{1:1}{\longleftrightarrow} \{\text{rational numbers}\} \\ (x, y) &\longmapsto \frac{y}{x + 1} \\ \left(\frac{1 - t^2}{1 + t^2}, \frac{2t}{1 + t^2}\right) &\longleftrightarrow t. \end{aligned}',
+],
+]
+63 = [
+  [
+  '\(5-1\) \$\(a, b\)_2 = \\begin\{cases\} 1 & \\text\{if \} a \\equiv 1 \\bmod 4 \\text\{ or \} b \\equiv 1 \\bmod 4, \\\\ -1 & \\text\{if \} a \\equiv b \\equiv -1 \\bmod 4\. \\end\{cases\}\$\s*\(5-2\) \$\(a, 2b\)_2\$\s*\$\$= \\begin\{cases\} 1 & \\text\{if \} a \\equiv 1 \\bmod 8 \\text\{ or \} a \\equiv 1 - 2b \\bmod 8, \\\\ -1 & \\text\{otherwise\.\} \\end\{cases\}\$\$',
+  '$$\begin{aligned} \text{(5-1)}\quad (a, b)_2 &= \begin{cases} 1 & \text{if } a \equiv 1 \bmod 4 \text{ or } b \equiv 1 \bmod 4, \\ -1 & \text{if } a \equiv b \equiv -1 \bmod 4, \end{cases} \\ \text{(5-2)}\quad (a, 2b)_2 &= \begin{cases} 1 & \text{if } a \equiv 1 \bmod 8 \text{ or } a \equiv 1 - 2b \bmod 8, \\ -1 & \text{otherwise.} \end{cases} \end{aligned}$$',
+],
+]
+78 = [
+  [
+  'additive group \$p\^m\\mathbb\{Z\}_p\$\s*\$\$\\cong \\text\{multiplicative group \} 1 \+ p\^m\\mathbb\{Z\}_p = \\\{1 \+ p\^m a \\mid a \\in \\mathbb\{Z\}_p\\\}\.\$\$',
+  '$$\text{additive group } p^m\mathbb{Z}_p \cong \text{multiplicative group } 1 + p^m\mathbb{Z}_p = \{1 + p^m a \mid a \in \mathbb{Z}_p\}.$$',
+],
+]
+83 = [
+  [
+  '\$\$\\exists x, y \\in \\mathbb\{Q\}_p \\text\{ such that \} -ab\^\{-1\}x\^2 \+ by\^2 = 1\$\$\s*\$\$\\Longleftrightarrow \\exists x, y, z \\in \\mathbb\{Q\}_p \\text\{ such that \} -ab\^\{-1\}x\^2 \+ by\^2 = z\^2\$\$\s*and \$\(x, y, z\) \\neq \(0, 0, 0\)\$\s*\$\$\\Longleftrightarrow \\exists x, y, z \\in \\mathbb\{Q\}_p \\text\{ such that \} \(by\)\^2 = ax\^2 \+ bz\^2\$\$\s*and \$\(x, y, z\) \\neq \(0, 0, 0\)\$\s*\$\$\\Longleftrightarrow \\exists x, y \\in \\mathbb\{Q\}_p \\text\{ such that \} ax\^2 \+ by\^2 = 1\.\$\$',
+  '$$\begin{aligned} &\exists x, y \in \mathbb{Q}_p \text{ such that } -ab^{-1}x^2 + by^2 = 1 \\ \Longleftrightarrow\;& \exists x, y, z \in \mathbb{Q}_p \text{ such that } -ab^{-1}x^2 + by^2 = z^2 \text{ and } (x, y, z) \neq (0, 0, 0) \\ \Longleftrightarrow\;& \exists x, y, z \in \mathbb{Q}_p \text{ such that } (by)^2 = ax^2 + bz^2 \text{ and } (x, y, z) \neq (0, 0, 0) \\ \Longleftrightarrow\;& \exists x, y \in \mathbb{Q}_p \text{ such that } ax^2 + by^2 = 1. \end{aligned}$$',
+],
+]
+90 = [
+  [
+  'the value of a \$\\zeta\$ function at \$s =\$ integer\s*\$\$\s*= \\text\{\(rational number\)\}\s*\$\$\s*\$\$\s*\\times \\text\{\(the power of \} \\pi \\text\{ or something similar to \} \\log\(1 \+ \\sqrt\{2\}\)\)\.\s*\$\$',
+  '$$\begin{aligned} &\text{the value of a } \zeta \text{ function at } s = \text{integer} \\ &\quad = \text{(rational number)} \times \bigl(\text{the power of } \pi \text{ or something similar to } \log(1 + \sqrt{2})\bigr). \end{aligned}$$',
+],
+  [
+  'For example, if \$r\$ is a positive even integer, Euler proved the formula\s*\$\$\s*\\zeta\(r\) = \\text\{\(rational number\)\} \\times \\\s*pi\^r \\quad \\text\{\(§3\.2, Corollary 3\.9\)\.\}\s*\$\$',
+  '',
+],
+]
+92 = [
+  [
+  'left-hand side of \(3\.7\) = \$1 - \\dfrac\{\\pi\^2\}\{3!\}x\^2\$ \+ terms of degree 4 or higher\.',
+  '$$\text{left-hand side of (3.7)} = 1 - \frac{\pi^2}{3!}x^2 + \text{terms of degree 4 or higher}.$$',
+],
+  [
+  'right-hand side of \(3\.7\)\s*\$\$= 1 - \\left\(\\sum_\{n=1\}\^\{\\infty\} \\frac\{1\}\{n\^2\}\\right\) x\^2 \+ \\text\{terms of degree 4 or higher\}\.\$\$',
+  '$$\text{right-hand side of (3.7)} = 1 - \left(\sum_{n=1}^{\infty} \frac{1}{n^2}\right) x^2 + \text{terms of degree 4 or higher}.$$',
+],
+]

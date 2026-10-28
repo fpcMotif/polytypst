@@ -1,5 +1,11 @@
+"""Measure transcript word coverage of every page of a book, and draw redshift overlays of sample pages.
+
+Usage: uv run python scripts/redshift_sweep.py KEY [PAGE ...]
+"""
+
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -7,7 +13,8 @@ import numpy as np
 import pymupdf
 from PIL import Image
 
-from polytypst.book_state import book_state
+from polytypst.books import book_by_key
+from polytypst.parity.source import sources_dir
 
 
 def write_redshift_overlay(source_img: Image.Image, rebuilt_img: Image.Image, out_path: Path) -> float:
@@ -31,18 +38,19 @@ def write_redshift_overlay(source_img: Image.Image, rebuilt_img: Image.Image, ou
     common_ink = int(np.sum(s_arr & r_arr))
     return float(common_ink) / float(total_ink) if total_ink else 1.0
 
-def main() -> None:
-    source_renders = Path("output/functional_analysis/page_renders")
-    md_dir = book_state(Path("output/functional_analysis")) / "markdown_pages"
-    source_ocr_dir = book_state(Path("output/functional_analysis")) / "source_ocr"
-    rebuilt_pdf = Path("output/functional_analysis/book.pdf")
-    redshift_dir = Path("output/functional_analysis/redshift")
+def main(key: str, sample_pages: list[int]) -> None:
+    book = book_by_key(key)
+    source_renders = book.out_dir / "page_renders"
+    md_dir = book.transcripts
+    source_ocr_dir = book.ocr
+    rebuilt_pdf = next(iter(book.editions.values())).rebuilt
+    redshift_dir = book.out_dir / "redshift"
     redshift_dir.mkdir(parents=True, exist_ok=True)
-    
+
     doc = pymupdf.open(rebuilt_pdf)
-    total_scan_pages = 478
-    
-    print("=== FULL 478-PAGE SCAN PARITY & COVERAGE SWEEP ===")
+    total_scan_pages = book.spec.pdf_page_count
+
+    print(f"=== FULL {total_scan_pages}-PAGE SCAN PARITY & COVERAGE SWEEP ===")
     print(f"Rebuilt PDF pages: {len(doc)}")
     print(f"Source scan pages: {total_scan_pages}")
     
@@ -84,10 +92,10 @@ def main() -> None:
     for pno, cov, reason in discrepancies:
         print(f"  Page {pno:03d}: {reason}")
         
-    sample_pages = [1, 9, 15, 41, 85, 154, 185, 206, 250, 320, 391, 426, 450, 457, 478]
+    sample_pages = sample_pages or sorted({1 + round(i * (total_scan_pages - 1) / 14) for i in range(15)})
     print(f"\nGenerating redshift ink overlays for {len(sample_pages)} landmark pages in {redshift_dir}...")
     
-    scan_doc = pymupdf.open(Path.home() / "Downloads" / "Functional analysis (Riesz, Frigyes, Sz.-Nagy).pdf")
+    scan_doc = pymupdf.open(sources_dir(book.spec.source_pdf) / book.spec.source_pdf)
     for pno in sample_pages:
         scan_pix = scan_doc[pno - 1].get_pixmap(dpi=150)
         s_img = Image.frombytes("RGB", (int(scan_pix.width), int(scan_pix.height)), bytes(scan_pix.samples))
@@ -101,7 +109,7 @@ def main() -> None:
         iou = write_redshift_overlay(s_img, r_img, overlay_path)
         print(f"  Written {overlay_path.name} (scan p.{pno} vs rebuilt p.{r_pno}, IoU={iou:.3f})")
         
-    print("\n=== AUDIT COMPLETE: 478/478 PAGES VERIFIED ===")
+    print(f"\n=== AUDIT COMPLETE: {total_scan_pages}/{total_scan_pages} PAGES VERIFIED ===")
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1], [int(p) for p in sys.argv[2:]])

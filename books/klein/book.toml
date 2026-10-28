@@ -1,0 +1,114 @@
+slug = 'klein_development_19th_century'
+title = 'Development of Mathematics in the 19th Century'
+author = 'Felix Klein'
+translator = 'M. Ackerman'
+editor = 'Robert Hermann'
+publisher = 'Math Sci Press'
+series = 'Lie Groups: History, Frontiers and Applications, Volume IX'
+year = 1979
+publisher_key = 'springer'
+domain = 'math'
+preface_page = 4
+chapters = [
+  { number = 0, title = 'Introduction', start_page = 10, end_page = 14 },
+  { number = 1, title = 'Gauss', start_page = 15, end_page = 66 },
+  { number = 2, title = 'France and the École Polytechnique in the First Decades of the 19th Century', start_page = 67, end_page = 91 },
+  { number = 3, title = '''The Founding of Crelle's Journal and the Rise of Pure Mathematics in Germany''', start_page = 92, end_page = 126 },
+  { number = 4, title = 'The Development of Algebraic Geometry after Möbius, Plücker and Steiner', start_page = 127, end_page = 184 },
+  { number = 5, title = 'Mechanics and Mathematical Physics in Germany and England until about 1880', start_page = 185, end_page = 238 },
+  { number = 6, title = 'The General Theory of Functions of Complex Variables according to Riemann and Weierstrass', start_page = 239, end_page = 284 },
+  { number = 7, title = 'Deeper Insight into the Nature of Algebraic Varieties and Structures', start_page = 285, end_page = 322 },
+  { number = 8, title = 'Group Theory and Function Theory; Automorphic Functions', start_page = 323, end_page = 370 },
+  { number = 9, title = 'Appendices: Kleinian Mathematics from an Advanced Standpoint', start_page = 371, end_page = 634 },
+]
+running_header_regexes = [
+  '''^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:DEVELOPMENT OF MATHEMATICS|GAUSS|APPLIED MATHEMATICS|PURE MATHEMATICS|FRANCE AND THE ECOLE POLYTECHNIQUE|CRELLE'S JOURNAL|ALGEBRAIC GEOMETRY|MECHANICS AND MATHEMATICAL PHYSICS|RIEMANN AND WEIERSTRASS|ALGEBRAIC VARIETIES|GROUP THEORY|AUTOMORPHIC FUNCTIONS|INTRODUCTION|PREFACE|CONTENTS|KLEINIAN MATHEMATICS|APPENDIX|APPENDICES)(?:\s+\d{1,3})?$''',
+  '''^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:DEVELOPMENT OF MATHEMATICS|GAUSS|APPLIED MATHEMATICS|PURE MATHEMATICS|FRANCE AND THE ECOLE POLYTECHNIQUE|CRELLE'S JOURNAL|ALGEBRAIC GEOMETRY|MECHANICS AND MATHEMATICAL PHYSICS|RIEMANN AND WEIERSTRASS|ALGEBRAIC VARIETIES|GROUP THEORY|AUTOMORPHIC FUNCTIONS|INTRODUCTION|PREFACE|CONTENTS|KLEINIAN MATHEMATICS|APPENDIX|APPENDICES)$''',
+]
+drop_line_regexes = [
+  '^Lie Groups: History, Frontiers and Applications.*$',
+  '^Volume IX.*$',
+  '^\d+\s+[A-Z\s\$\-\.\,]+$',
+  '^[A-Z\s\$\-\.\,]+\s+\d+$',
+]
+footnote_style = 'symbol'
+footnote_marks = ['*', '**', '***']
+pre_math_rewrites = [
+  ['\bGaus\s+s\b', 'Gauss'],
+  ['\bGoettingen\b', 'Göttingen'],
+  ['\bPluecker\b', 'Plücker'],
+  ['\bMoebius\b', 'Möbius'],
+  ['\bBraunschweig\b', 'Brunswick'],
+]
+pdf_name_markers = ['development of mathematics', 'felix klein', 'klein']
+pdf_page_count = 634
+
+[sections]
+"0.1" = [10, 'Introduction']
+"1.1" = [15, 'Biographical Data and General Characterization']
+"1.2" = [16, 'Applied Mathematics']
+"1.3" = [39, 'Pure Mathematics']
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Figure\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[a-z]?)\.?(?:\*\*)?\s*(?P<tail>.*)$'
+caption_format = 'Figure {chapter}.{number}'
+
+[editions.en]
+summary = 'English'
+
+[editions.zh]
+legacy_state = 'klein_zh'
+summary = 'Chinese'
+
+[editions.zh.spec]
+slug = 'klein_development_vol2_zh'
+title = '数学在19世纪的发展（第二卷）'
+author = 'F. 克莱因'
+translator = '李培廉'
+editor = '丘成桐'
+publisher = '高等教育出版社'
+series = '数学翻译丛书'
+year = 2010
+publisher_key = 'cambridge'
+lang = 'zh'
+preface_page = 5
+chapters = [
+  { number = 0, title = '引言', start_page = 11, end_page = 12 },
+  { number = 1, title = '第一章 线性不变量理论的基本概念初步', start_page = 13, end_page = 58 },
+  { number = 2, title = '第二章 力学与数学物理中的狭义相对论', start_page = 59, end_page = 134 },
+  { number = 3, title = '第三章 以二次微分形式为基础的解析点变换群', start_page = 135, end_page = 196 },
+  { number = 4, title = '附录 I 对新近以来几何学研究的比较考察（埃尔朗根纲领）', start_page = 197, end_page = 224 },
+  { number = 5, title = '附录 II 单复变量函数一般理论基础（黎曼）', start_page = 225, end_page = 270 },
+  { number = 6, title = '附录 III 黎曼关于几何学基础的假设', start_page = 271, end_page = 303 },
+  { number = 7, title = '人名索引', start_page = 304, end_page = 308 },
+  { number = 8, title = '专业名词索引 (Stichwortverzeichnis)', start_page = 309, end_page = 314 },
+  { number = 9, title = '译后记', start_page = 315, end_page = 330 },
+]
+running_header_regexes = [
+  '^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:数学在19世纪的发展|线性不变量理论|狭义相对论|解析点变换群|埃尔朗根纲领|单复变量函数|几何学基础|附录|编者前言|目录|引言|人名索引|专业名词索引|译后记|DEVELOPMENT OF MATHEMATICS)(?:\s+\d{1,3})?$',
+  '^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:数学在19世纪的发展|线性不变量理论|狭义相对论|解析点变换群|埃尔朗根纲领|单复变量函数|几何学基础|附录|编者前言|目录|引言|人名索引|专业名词索引|译后记|DEVELOPMENT OF MATHEMATICS)$',
+]
+drop_line_regexes = ['^高等教育出版社.*$', '^数学翻译丛书.*$', '^丘成桐主编.*$', '^PDG\b.*$', '^\d+\s*■\s*[^\n]+$', '^■\s*[^\n]+\s*\d*$']
+footnote_style = ''
+footnote_marks = []
+pre_math_rewrites = [['\bUrvariabie\b', 'Urvariable'], ['\bkontragredicnt\b', 'kontragredient']]
+pdf_name_markers = ['数学在19世纪的发展', '第二卷']
+pdf_page_count = 330
+ocr_prompt = '''
+将此文档页面转录为精确、高保真的 Markdown 格式（符合 LaTeX 语法标准）。
+规则：
+1. 所有数学表达式、变量、公式均使用精确的 LaTeX 语法：行内公式用 $...$，独立公式用 $$...$$。
+2. 忠实保留所有中文字符、数学专业术语（如不变量、逆步、同步、李代数、黎曼度量等）及全角标点符号。
+3. 文档标题、章节、节标题用 Markdown (#, ##, ###) 清晰分级（如 # 第一章，## A 一般线性不变量理论，### §1 线性代换）。
+4. 定理、引理、定义、命题、证明等数学环境加粗（如 **定理 1.**, **定义 1.1.**, **证明.**, **注.**）。
+5. 独立公式如有编号请准确保留（如 (1), (2), (1.1)）。
+6. 完整保留正文、脚注及作者注释，不得遗漏任何内容。'''
+
+[editions.zh.spec.sections]
+"1.1" = [13, '线性代换、不变量的概念']
+"2.1" = [59, '经典天体力学与 Galilei-Newton 群的相对论']
+"3.1" = [135, '经典力学的一般 Lagrange 方程']
+
+[editions.zh.spec.figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[a-z]?)\.?(?:\*\*)?\s*(?P<tail>.*)$'
+caption_format = '图 {chapter}.{number}'

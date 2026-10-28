@@ -3,9 +3,8 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from polytypst.ahlfors.spec import AHLFORS_SPEC
 from polytypst.book_state import book_state
-from polytypst.bourbaki_lie.spec import BOURBAKI_LIE_SPEC
+from polytypst.books import book_by_key, module
 from polytypst.compiler.monograph import (
     MonographCompiler,
     RenderedMonograph,
@@ -17,12 +16,15 @@ from polytypst.compiler.monograph import (
     typst_footnote_rules,
 )
 from polytypst.compiler.page_cleaner import attach_footnotes, split_page_footnotes
-from polytypst.hecke.spec import HECKE_SPEC
-from polytypst.kashiwara.spec import KASHIWARA_SPEC
-from polytypst.klein.spec import KLEIN_SPEC
-from polytypst.kodaira.spec import KODAIRA_SPEC
-from polytypst.siegel_symplectic.spec import SIEGEL_SYMPLECTIC_SPEC
-from polytypst.複素多様体論.spec import FUKUSO_SPEC
+
+AHLFORS_SPEC = module("ahlfors", "spec").AHLFORS_SPEC
+BOURBAKI_LIE_SPEC = book_by_key("bourbaki_lie").spec
+HECKE_SPEC = book_by_key("hecke").spec
+KASHIWARA_SPEC = book_by_key("kashiwara").spec
+KLEIN_SPEC = book_by_key("klein").spec
+KODAIRA_SPEC = module("kodaira", "spec").KODAIRA_SPEC
+SIEGEL_SYMPLECTIC_SPEC = book_by_key("siegel_symplectic").spec
+FUKUSO_SPEC = book_by_key("複素多様体論").spec
 
 
 def note(text: str) -> str:
@@ -354,7 +356,7 @@ def test_chinese_note_mark_never_starts_a_line(tmp_path):
         compile_typst(typ, tmp_path / "m.pdf")
         page = pymupdf.open(tmp_path / "m.pdf")[0]
         lines = ["".join(s["text"] for s in ln["spans"]) for b in page.get_text("dict")["blocks"] for ln in b.get("lines", [])]
-        if any(ln.startswith("1") or ln.startswith("①") for ln in lines if "注" not in ln):
+        if any(ln.startswith(("1", "①")) for ln in lines if "注" not in ln):
             leading.append(chars)
     assert leading == []
 

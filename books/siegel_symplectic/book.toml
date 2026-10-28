@@ -1,0 +1,964 @@
+legacy_state = 'siegel-symplectic'
+slug = 'siegel_symplectic'
+title = 'Symplectic Geometry'
+author = 'Carl Ludwig Siegel'
+publisher = 'Academic Press'
+series = ''
+year = 1943
+domain = 'math'
+preface_page = 9
+chapters = [
+  { number = 1, title = 'Introduction', start_page = 13, end_page = 19 },
+  { number = 2, title = 'The Symplectic Group', start_page = 20, end_page = 27 },
+  { number = 3, title = 'The Symplectic Metric', start_page = 28, end_page = 36 },
+  { number = 4, title = 'Discontinuous Groups', start_page = 37, end_page = 41 },
+  { number = 5, title = 'Hermitian Forms', start_page = 42, end_page = 47 },
+  { number = 6, title = 'The Fundamental Domain of the Modular Group', start_page = 48, end_page = 55 },
+  { number = 7, title = 'The Fundamental Domain of the Group Lambda(G, S)', start_page = 56, end_page = 61 },
+  { number = 8, title = 'The Volume of the Fundamental Domain of the Modular Group', start_page = 62, end_page = 76 },
+  { number = 9, title = 'Commensurable Groups', start_page = 77, end_page = 85 },
+  { number = 10, title = 'Unit Groups of Quinary Quadratic Forms', start_page = 86, end_page = 98 },
+]
+running_header_regexes = [
+  '^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:(?:Symplectic Geometry|Carl Ludwig Siegel|Introduction|The Symplectic Group|The Symplectic Metric|Discontinuous Groups|Hermitian Forms|The Fundamental Domain of the Modular Group|The Fundamental Domain of the Group|The Volume of the Fundamental Domain of the Modular Group|Commensurable Groups|Unit Groups of Quinary Quadratic Forms|Preface|Contents|Errata)\.?)(?:\s+\d{1,3})?$',
+  '^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:(?:Symplectic Geometry|Carl Ludwig Siegel|Introduction|The Symplectic Group|The Symplectic Metric|Discontinuous Groups|Hermitian Forms|The Fundamental Domain of the Modular Group|The Fundamental Domain of the Group|The Volume of the Fundamental Domain of the Modular Group|Commensurable Groups|Unit Groups of Quinary Quadratic Forms|Preface|Contents|Errata)\.?)$',
+]
+drop_line_regexes = [
+  '^#+\s*(?:Symplectic Geometry|Carl Ludwig Siegel|Introduction|The Symplectic Group|The Symplectic Metric|Discontinuous Groups|Hermitian Forms|The Fundamental Domain of the Modular Group|The Fundamental Domain of the Group|The Volume of the Fundamental Domain of the Modular Group|Commensurable Groups|Unit Groups of Quinary Quadratic Forms|Preface|Contents|Errata)(?:\s+\d{1,3})?\s*$',
+]
+footnote_style = 'symbol'
+footnote_marks = ['*', '**', '***']
+latex_preamble = '''
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE]{\small\thepage\quad\textsc{Carl Ludwig Siegel}}
+\fancyhead[RO]{\small\textsc{Symplectic Geometry}\quad\thepage}
+\renewcommand{\headrulewidth}{0pt}'''
+pdf_name_markers = ['siegel', 'symplectic']
+pdf_page_count = 104
+source_pdf = 'SYMPLECTIC GEOMETRY. Reprinted from American Journal of Mathematics, Vol . LXV, No. 1, January, 1943. (Carl Ludwig Siegel).pdf'
+
+[editions.monograph]
+summary = 'monograph'
+
+[editions.journal]
+summary = '1943 offprint layout, Modern type on cream'
+
+[editions.journal.spec]
+slug = 'siegel_symplectic_journal'
+chapters = [
+  { number = 1, title = 'I. Introduction.', start_page = 13, end_page = 19 },
+  { number = 2, title = 'II. The Symplectic Group.', start_page = 20, end_page = 27 },
+  { number = 3, title = 'III. The Symplectic Metric.', start_page = 28, end_page = 36 },
+  { number = 4, title = 'IV. Discontinuous Groups.', start_page = 37, end_page = 41 },
+  { number = 5, title = 'V. Hermitian Forms.', start_page = 42, end_page = 47 },
+  { number = 6, title = 'VI. The Fundamental Domain of the Modular Group.', start_page = 48, end_page = 55 },
+  { number = 7, title = 'VII. The Fundamental Domain of the Group Lambda(G, S).', start_page = 56, end_page = 61 },
+  { number = 8, title = 'VIII. The Volume of the Fundamental Domain of the Modular Group.', start_page = 62, end_page = 76 },
+  { number = 9, title = 'IX. Commensurable Groups.', start_page = 77, end_page = 85 },
+  { number = 10, title = 'X. Unit Groups of Quinary Quadratic Forms.', start_page = 86, end_page = 98 },
+]
+drop_line_regexes = [
+  '^#+\s*(?:Symplectic Geometry|Carl Ludwig Siegel|Introduction|The Symplectic Group|The Symplectic Metric|Discontinuous Groups|Hermitian Forms|The Fundamental Domain of the Modular Group|The Fundamental Domain of the Group|The Volume of the Fundamental Domain of the Modular Group|Commensurable Groups|Unit Groups of Quinary Quadratic Forms|Preface|Contents|Errata)(?:\s+\d{1,3})?\s*$',
+  '^By\s+CARL\s+LUDWIG\s+SIEGEL\.?\s*$',
+]
+chapter_heading = '{title}'
+typst_preamble = '''
+#set document(
+  title: "Symplectic Geometry — Carl Ludwig Siegel",
+  author: "Carl Ludwig Siegel",
+  date: auto
+)
+
+#set page(
+  width: 442pt,
+  height: 663pt,
+  margin: (inside: 56pt, outside: 56pt, top: 56pt, bottom: 62pt),
+  header: context {
+    let strip-fn(it) = if type(it) == content and it.has("children") { it.children.filter(c => c.func() not in (footnote, (context none).func())).join() } else if type(it) == content and it.func() == footnote { [] } else { it }
+    let page-number = counter(page).get().first()
+    let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
+    if page-number > 4 and not on-chapter-page [
+      #if calc.odd(page-number) [
+        #let chaps = query(heading.where(level: 1).before(here()))
+        #let in-chapter = if chaps == () { heading.where(level: 2) } else { heading.where(level: 2).after(chaps.last().location()) }
+        #let secs = query(in-chapter).filter(h => h.location().page() <= here().page())
+        #let on-page = secs.filter(h => h.location().page() == here().page())
+        #let title = strip-fn(if on-page != () { on-page.first().body } else if secs != () { secs.last().body } else if chaps != () { chaps.last().body } else { "Symplectic Geometry" })
+        #grid(
+          columns: (1fr, auto),
+          align(left)[#text(8.5pt, font: "New Computer Modern", style: "italic")[#title]],
+          align(right)[#text(9.5pt, font: "New Computer Modern")[#page-number]]
+        )
+      ] else [
+        #let chaps = query(heading.where(level: 1).before(here()))
+        #let title = strip-fn(if chaps != () { chaps.last().body } else { "Symplectic Geometry" })
+        #grid(
+          columns: (auto, 1fr),
+          align(left)[#text(9.5pt, font: "New Computer Modern")[#page-number]],
+          align(right)[#text(8.5pt, font: "New Computer Modern", style: "italic")[#title]]
+        )
+      ]
+      #v(-0.35em)
+      #line(length: 100%, stroke: 0.35pt + luma(120))
+    ]
+  },
+  footer: none
+)
+
+#set text(
+  font: "New Computer Modern",
+  size: 10pt,
+  lang: "en",
+  hyphenate: true
+)
+
+#set par(
+  leading: 0.78em,
+  spacing: 1.05em,
+  justify: true,
+  first-line-indent: 1.5em,
+  linebreaks: "optimized"
+)
+
+#show math.equation: set text(font: ("New Computer Modern Math",))
+#set math.equation(numbering: "(1.1)")
+#set math.mat(row-gap: 0.55em, column-gap: 0.8em)
+#set math.cases(gap: 0.55em)
+#show math.equation.where(block: false): it => {
+  show math.frac: set text(size: 0.85em)
+  it
+}
+#show math.equation.where(block: true): set block(above: 1.3em, below: 1.3em)
+#show math.equation.where(block: true): set par(leading: 0.88em)
+#let thm-break = block(above: 1.65em, below: 0pt, sticky: true)[]
+#let sub-break = block(above: 1.35em, below: 0pt, sticky: true)[]
+#let item-break = block(above: 1.0em, below: 0pt)[]
+#let qed = { h(0.6em); box(width: 1fr, align(right)[$square.stroked$]) }
+#let dd = math.dif
+#let dv(f, x, deg: none) = if deg == none { $(dif f)/(dif x)$ } else { $(dif^deg f)/(dif x^deg)$ }
+#let pdv(f, x, deg: none) = if deg == none { $(partial f)/(partial x)$ } else { $(partial^deg f)/(partial x^deg)$ }
+#let const = math.op("const")
+#let ord = math.op("ord")
+#let grad = math.op("grad")
+#let rot = math.op("rot")
+#let div = math.op("div")
+#let rank = math.op("rank")
+#show ref: it => {
+  let target = str(it.target)
+  if target.starts-with("eq-") {
+    let raw = target.trim("eq-", at: start)
+    let parts = raw.split("-")
+    let disp = if parts.len() >= 2 { parts.at(-2) + "." + parts.last() } else { parts.last() }
+    link(it.target)[(#disp)]
+  } else {
+    it
+  }
+}
+#let display-break-after = ("=", "<", ">", "+", "−", "≤", "≥", "≠", "≈", "≡", "→", "∈", "⊂", "⊆")
+#let display-pieces(body) = {
+  let kids = if body.has("children") { body.children } else { (body,) }
+  if kids.any(k => k.func() == linebreak) {
+    return ()
+  }
+  let pieces = ((),)
+  for k in kids {
+    pieces.at(-1).push(k)
+    if k.has("text") and k.text in display-break-after {
+      pieces.push(())
+    }
+  }
+  pieces.filter(p => p.len() > 0).map(p => p.join())
+}
+#let display-rows(body) = {
+  let kids = if body.has("children") { body.children } else { (body,) }
+  let rows = ((),)
+  for k in kids {
+    if k.func() == linebreak {
+      rows.push(())
+    } else if repr(k.func()) != "align-point" {
+      rows.at(-1).push(k)
+    }
+  }
+  rows.filter(r => r.any(k => k.func() != [ ].func())).map(r => r.join())
+}
+#let fit-display(body, avail) = {
+  let eq = math.equation(body, block: true, numbering: none)
+  let w = measure(eq).width
+  let rows = display-rows(body)
+  if w > avail and avail / w < 0.8 and rows.len() > 1 {
+    return stack(spacing: 0.9em, ..rows.map(r => align(center, fit-display(r, avail))))
+  }
+  let pieces = display-pieces(body)
+  let breakable = pieces.len() > 1 and pieces.all(p => measure(math.equation(math.display(p), block: false)).width <= avail)
+  if w <= avail or w == 0pt {
+    eq
+  } else if avail / w >= 0.8 or not breakable {
+    scale(x: avail / w * 100%, y: avail / w * 100%, reflow: true, eq)
+  } else {
+    block(width: avail, {
+      set align(center)
+      set par(justify: false, first-line-indent: 0pt)
+      math.equation(math.display(body), block: false)
+    })
+  }
+}
+#show math.equation.where(block: true): it => {
+  if it.numbering == none {
+    return it
+  }
+  layout(size => {
+    if not it.has("label") {
+      align(center, fit-display(it.body, size.width))
+    } else {
+      let lbl = str(it.label).trim("eq-", at: start)
+      let parts = lbl.split("-")
+      let disp = if parts.len() >= 2 { parts.at(-2) + "." + parts.last() } else { parts.last() }
+      let num-box = [(#disp)]
+      let fitted = fit-display(it.body, size.width - measure(num-box).width - 12pt)
+      grid(
+        columns: (1fr, auto),
+        column-gutter: 0.8em,
+        align: (center + horizon, right + horizon),
+        fitted,
+        num-box
+      )
+    }
+  })
+}
+
+#show heading: set par(justify: false, first-line-indent: 0pt)
+#let chapter-label = state("chapter-label", none)
+
+#show heading.where(level: 1): it => {
+  v(2.4em)
+  align(left)[
+    #text(16pt, weight: "bold", font: "New Computer Modern")[#it.body]
+  ]
+  v(0.6em)
+  line(length: 100%, stroke: 0.6pt + black)
+  v(1.4em)
+}
+
+#show heading.where(level: 2): it => block(above: 1.75em, below: 0.75em, sticky: true)[
+  #text(12.5pt, weight: "bold", font: "New Computer Modern")[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+]
+
+#show heading.where(level: 3): it => block(above: 1.3em, below: 0.5em, sticky: true)[
+  #text(10.5pt, weight: "bold", style: "italic", font: "New Computer Modern")[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+]
+
+#show heading.where(level: 4): it => block(above: 1.1em, below: 0.45em, sticky: true)[
+  #text(10pt, weight: "bold", font: "New Computer Modern")[#smallcaps(it.body)]
+]
+
+#show figure: set block(above: 1.6em, below: 1.6em)
+#show figure.caption: it => [
+  #v(0.45em)
+  #text(9pt, font: "New Computer Modern")[#if it.supplement != none [#strong[#it.supplement #context it.counter.display(it.numbering)]#if it.body != [] [: ]]#it.body]
+]
+
+#let paper = rgb("#f6f0e1")
+#let ink = rgb("#1f1b16")
+#let accent = rgb("#1f1b16")
+#let body-font = "New Computer Modern"
+#let head-font = ("Gill Sans", "Source Sans 3")
+#let ornament = align(center, line(length: 20%, stroke: 0.5pt + accent))
+#let chapter-page(n) = query(heading.where(level: 1)).any(h => h.location().page() == n)
+
+#set page(
+  width: 381pt,
+  height: 608pt,
+  margin: (inside: 46pt, outside: 40pt, top: 56pt, bottom: 54pt),
+  fill: paper,
+  header: context {
+    let n = here().page()
+    if n > 2 and not chapter-page(n) {
+      set text(8pt, fill: ink, tracking: 0.1em, number-type: "lining")
+      grid(
+        columns: (3em, 1fr, 3em),
+        align(left, if calc.even(n) { text(9.5pt, tracking: 0pt)[#n] }),
+        align(center, text(fill: accent, if calc.odd(n) [SYMPLECTIC GEOMETRY.] else [CARL LUDWIG SIEGEL.])),
+        align(right, if calc.odd(n) { text(9.5pt, tracking: 0pt)[#n] }),
+      )
+    }
+  },
+  footer: context {
+    let n = here().page()
+    if chapter-page(n) { align(center, text(9.5pt, fill: ink, number-type: "lining")[#n]) }
+  },
+)
+
+#set text(font: body-font, size: 10pt, fill: ink, number-type: "lining")
+#show math.equation: set text(font: "New Computer Modern Math")
+#set par(leading: 0.62em, spacing: 0.62em, first-line-indent: 1.2em, justify: true)
+#show math.equation.where(block: true): set block(above: 0.9em, below: 0.9em)
+
+#show heading.where(level: 1): it => {
+  v(1.8em)
+  align(center, text(font: head-font, size: 11pt, weight: "bold", tracking: 0.05em, fill: accent, upper(it.body)))
+  v(0.7em)
+  ornament
+  v(1.3em)
+}
+
+#show strong: it => {
+  let t = if it.body.has("text") { it.body.text } else { "" }
+  if t.match(regex("^\d+\.$")) != none {
+    text(weight: "bold", fill: accent, number-type: "lining", it.body)
+  } else if t.match(regex("^(Theorem|Lemma|Corollary|Proposition|Definition)\b")) != none {
+    text(tracking: 0.04em, fill: accent, smallcaps(t))
+  } else {
+    it
+  }
+}
+
+#show enum: it => {
+  for (i, item) in it.children.enumerate() {
+    let number = if item.number == auto { i + 1 } else { item.number }
+    par[#text(weight: "bold", fill: accent, number-type: "lining")[#number.]#h(0.45em)#item.body]
+  }
+}
+
+#show outline.entry.where(level: 1): it => {
+  v(0.35em)
+  it
+}
+'''
+typst_front_matter = '''
+
+#page(header: none, footer: none)[
+  #v(22%)
+  #align(center)[
+    #text(font: head-font, size: 15pt, weight: "bold", tracking: 0.06em, fill: accent)[SYMPLECTIC GEOMETRY.]
+    #v(1.3em)
+    #text(11pt)[By #smallcaps[Carl Ludwig Siegel.]]
+    #v(1.6em)
+    #ornament
+    #v(2.4em)
+    #text(9pt, style: "italic")[Reprinted from the American Journal of Mathematics,]
+    #linebreak()
+    #text(9pt, style: "italic")[Vol. LXV, No. 1, January, 1943.]
+  ]
+]
+
+#page(header: none, footer: none)[
+  #v(3em)
+  #outline(title: align(center, text(font: head-font, size: 11pt, weight: "bold", tracking: 0.08em, fill: accent)[CONTENTS]), indent: 1.2em, depth: 1)
+]
+'''
+
+[editions.oxblood]
+summary = 'offprint layout, Baskerville with oxblood heads'
+
+[editions.oxblood.spec]
+slug = 'siegel_symplectic_oxblood'
+chapters = [
+  { number = 1, title = 'I. Introduction.', start_page = 13, end_page = 19 },
+  { number = 2, title = 'II. The Symplectic Group.', start_page = 20, end_page = 27 },
+  { number = 3, title = 'III. The Symplectic Metric.', start_page = 28, end_page = 36 },
+  { number = 4, title = 'IV. Discontinuous Groups.', start_page = 37, end_page = 41 },
+  { number = 5, title = 'V. Hermitian Forms.', start_page = 42, end_page = 47 },
+  { number = 6, title = 'VI. The Fundamental Domain of the Modular Group.', start_page = 48, end_page = 55 },
+  { number = 7, title = 'VII. The Fundamental Domain of the Group Lambda(G, S).', start_page = 56, end_page = 61 },
+  { number = 8, title = 'VIII. The Volume of the Fundamental Domain of the Modular Group.', start_page = 62, end_page = 76 },
+  { number = 9, title = 'IX. Commensurable Groups.', start_page = 77, end_page = 85 },
+  { number = 10, title = 'X. Unit Groups of Quinary Quadratic Forms.', start_page = 86, end_page = 98 },
+]
+drop_line_regexes = [
+  '^#+\s*(?:Symplectic Geometry|Carl Ludwig Siegel|Introduction|The Symplectic Group|The Symplectic Metric|Discontinuous Groups|Hermitian Forms|The Fundamental Domain of the Modular Group|The Fundamental Domain of the Group|The Volume of the Fundamental Domain of the Modular Group|Commensurable Groups|Unit Groups of Quinary Quadratic Forms|Preface|Contents|Errata)(?:\s+\d{1,3})?\s*$',
+  '^By\s+CARL\s+LUDWIG\s+SIEGEL\.?\s*$',
+]
+chapter_heading = '{title}'
+typst_preamble = '''
+#set document(
+  title: "Symplectic Geometry — Carl Ludwig Siegel",
+  author: "Carl Ludwig Siegel",
+  date: auto
+)
+
+#set page(
+  width: 442pt,
+  height: 663pt,
+  margin: (inside: 56pt, outside: 56pt, top: 56pt, bottom: 62pt),
+  header: context {
+    let strip-fn(it) = if type(it) == content and it.has("children") { it.children.filter(c => c.func() not in (footnote, (context none).func())).join() } else if type(it) == content and it.func() == footnote { [] } else { it }
+    let page-number = counter(page).get().first()
+    let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
+    if page-number > 4 and not on-chapter-page [
+      #if calc.odd(page-number) [
+        #let chaps = query(heading.where(level: 1).before(here()))
+        #let in-chapter = if chaps == () { heading.where(level: 2) } else { heading.where(level: 2).after(chaps.last().location()) }
+        #let secs = query(in-chapter).filter(h => h.location().page() <= here().page())
+        #let on-page = secs.filter(h => h.location().page() == here().page())
+        #let title = strip-fn(if on-page != () { on-page.first().body } else if secs != () { secs.last().body } else if chaps != () { chaps.last().body } else { "Symplectic Geometry" })
+        #grid(
+          columns: (1fr, auto),
+          align(left)[#text(8.5pt, font: "New Computer Modern", style: "italic")[#title]],
+          align(right)[#text(9.5pt, font: "New Computer Modern")[#page-number]]
+        )
+      ] else [
+        #let chaps = query(heading.where(level: 1).before(here()))
+        #let title = strip-fn(if chaps != () { chaps.last().body } else { "Symplectic Geometry" })
+        #grid(
+          columns: (auto, 1fr),
+          align(left)[#text(9.5pt, font: "New Computer Modern")[#page-number]],
+          align(right)[#text(8.5pt, font: "New Computer Modern", style: "italic")[#title]]
+        )
+      ]
+      #v(-0.35em)
+      #line(length: 100%, stroke: 0.35pt + luma(120))
+    ]
+  },
+  footer: none
+)
+
+#set text(
+  font: "New Computer Modern",
+  size: 10pt,
+  lang: "en",
+  hyphenate: true
+)
+
+#set par(
+  leading: 0.78em,
+  spacing: 1.05em,
+  justify: true,
+  first-line-indent: 1.5em,
+  linebreaks: "optimized"
+)
+
+#show math.equation: set text(font: ("New Computer Modern Math",))
+#set math.equation(numbering: "(1.1)")
+#set math.mat(row-gap: 0.55em, column-gap: 0.8em)
+#set math.cases(gap: 0.55em)
+#show math.equation.where(block: false): it => {
+  show math.frac: set text(size: 0.85em)
+  it
+}
+#show math.equation.where(block: true): set block(above: 1.3em, below: 1.3em)
+#show math.equation.where(block: true): set par(leading: 0.88em)
+#let thm-break = block(above: 1.65em, below: 0pt, sticky: true)[]
+#let sub-break = block(above: 1.35em, below: 0pt, sticky: true)[]
+#let item-break = block(above: 1.0em, below: 0pt)[]
+#let qed = { h(0.6em); box(width: 1fr, align(right)[$square.stroked$]) }
+#let dd = math.dif
+#let dv(f, x, deg: none) = if deg == none { $(dif f)/(dif x)$ } else { $(dif^deg f)/(dif x^deg)$ }
+#let pdv(f, x, deg: none) = if deg == none { $(partial f)/(partial x)$ } else { $(partial^deg f)/(partial x^deg)$ }
+#let const = math.op("const")
+#let ord = math.op("ord")
+#let grad = math.op("grad")
+#let rot = math.op("rot")
+#let div = math.op("div")
+#let rank = math.op("rank")
+#show ref: it => {
+  let target = str(it.target)
+  if target.starts-with("eq-") {
+    let raw = target.trim("eq-", at: start)
+    let parts = raw.split("-")
+    let disp = if parts.len() >= 2 { parts.at(-2) + "." + parts.last() } else { parts.last() }
+    link(it.target)[(#disp)]
+  } else {
+    it
+  }
+}
+#let display-break-after = ("=", "<", ">", "+", "−", "≤", "≥", "≠", "≈", "≡", "→", "∈", "⊂", "⊆")
+#let display-pieces(body) = {
+  let kids = if body.has("children") { body.children } else { (body,) }
+  if kids.any(k => k.func() == linebreak) {
+    return ()
+  }
+  let pieces = ((),)
+  for k in kids {
+    pieces.at(-1).push(k)
+    if k.has("text") and k.text in display-break-after {
+      pieces.push(())
+    }
+  }
+  pieces.filter(p => p.len() > 0).map(p => p.join())
+}
+#let display-rows(body) = {
+  let kids = if body.has("children") { body.children } else { (body,) }
+  let rows = ((),)
+  for k in kids {
+    if k.func() == linebreak {
+      rows.push(())
+    } else if repr(k.func()) != "align-point" {
+      rows.at(-1).push(k)
+    }
+  }
+  rows.filter(r => r.any(k => k.func() != [ ].func())).map(r => r.join())
+}
+#let fit-display(body, avail) = {
+  let eq = math.equation(body, block: true, numbering: none)
+  let w = measure(eq).width
+  let rows = display-rows(body)
+  if w > avail and avail / w < 0.8 and rows.len() > 1 {
+    return stack(spacing: 0.9em, ..rows.map(r => align(center, fit-display(r, avail))))
+  }
+  let pieces = display-pieces(body)
+  let breakable = pieces.len() > 1 and pieces.all(p => measure(math.equation(math.display(p), block: false)).width <= avail)
+  if w <= avail or w == 0pt {
+    eq
+  } else if avail / w >= 0.8 or not breakable {
+    scale(x: avail / w * 100%, y: avail / w * 100%, reflow: true, eq)
+  } else {
+    block(width: avail, {
+      set align(center)
+      set par(justify: false, first-line-indent: 0pt)
+      math.equation(math.display(body), block: false)
+    })
+  }
+}
+#show math.equation.where(block: true): it => {
+  if it.numbering == none {
+    return it
+  }
+  layout(size => {
+    if not it.has("label") {
+      align(center, fit-display(it.body, size.width))
+    } else {
+      let lbl = str(it.label).trim("eq-", at: start)
+      let parts = lbl.split("-")
+      let disp = if parts.len() >= 2 { parts.at(-2) + "." + parts.last() } else { parts.last() }
+      let num-box = [(#disp)]
+      let fitted = fit-display(it.body, size.width - measure(num-box).width - 12pt)
+      grid(
+        columns: (1fr, auto),
+        column-gutter: 0.8em,
+        align: (center + horizon, right + horizon),
+        fitted,
+        num-box
+      )
+    }
+  })
+}
+
+#show heading: set par(justify: false, first-line-indent: 0pt)
+#let chapter-label = state("chapter-label", none)
+
+#show heading.where(level: 1): it => {
+  v(2.4em)
+  align(left)[
+    #text(16pt, weight: "bold", font: "New Computer Modern")[#it.body]
+  ]
+  v(0.6em)
+  line(length: 100%, stroke: 0.6pt + black)
+  v(1.4em)
+}
+
+#show heading.where(level: 2): it => block(above: 1.75em, below: 0.75em, sticky: true)[
+  #text(12.5pt, weight: "bold", font: "New Computer Modern")[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+]
+
+#show heading.where(level: 3): it => block(above: 1.3em, below: 0.5em, sticky: true)[
+  #text(10.5pt, weight: "bold", style: "italic", font: "New Computer Modern")[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+]
+
+#show heading.where(level: 4): it => block(above: 1.1em, below: 0.45em, sticky: true)[
+  #text(10pt, weight: "bold", font: "New Computer Modern")[#smallcaps(it.body)]
+]
+
+#show figure: set block(above: 1.6em, below: 1.6em)
+#show figure.caption: it => [
+  #v(0.45em)
+  #text(9pt, font: "New Computer Modern")[#if it.supplement != none [#strong[#it.supplement #context it.counter.display(it.numbering)]#if it.body != [] [: ]]#it.body]
+]
+
+#let paper = rgb("#f3ead6")
+#let ink = rgb("#2a2118")
+#let accent = rgb("#7a1f1d")
+#let body-font = ("Baskervville", "STIX Two Text")
+#let head-font = ("Baskervville", "STIX Two Text")
+#let ornament = align(center, stack(spacing: 2pt, line(length: 26%, stroke: 0.8pt + accent), line(length: 26%, stroke: 0.3pt + accent)))
+#let chapter-page(n) = query(heading.where(level: 1)).any(h => h.location().page() == n)
+
+#set page(
+  width: 381pt,
+  height: 608pt,
+  margin: (inside: 46pt, outside: 40pt, top: 56pt, bottom: 54pt),
+  fill: paper,
+  header: context {
+    let n = here().page()
+    if n > 2 and not chapter-page(n) {
+      set text(8pt, fill: ink, tracking: 0.1em, number-type: "lining")
+      grid(
+        columns: (3em, 1fr, 3em),
+        align(left, if calc.even(n) { text(9.5pt, tracking: 0pt)[#n] }),
+        align(center, text(fill: accent, if calc.odd(n) [SYMPLECTIC GEOMETRY.] else [CARL LUDWIG SIEGEL.])),
+        align(right, if calc.odd(n) { text(9.5pt, tracking: 0pt)[#n] }),
+      )
+    }
+  },
+  footer: context {
+    let n = here().page()
+    if chapter-page(n) { align(center, text(9.5pt, fill: ink, number-type: "lining")[#n]) }
+  },
+)
+
+#set text(font: body-font, size: 10pt, fill: ink, number-type: "old-style")
+#show math.equation: set text(font: "STIX Two Math")
+#set par(leading: 0.62em, spacing: 0.62em, first-line-indent: 1.2em, justify: true)
+#show math.equation.where(block: true): set block(above: 0.9em, below: 0.9em)
+
+#show heading.where(level: 1): it => {
+  v(1.8em)
+  align(center, text(font: head-font, size: 11pt, weight: "bold", tracking: 0.05em, fill: accent, upper(it.body)))
+  v(0.7em)
+  ornament
+  v(1.3em)
+}
+
+#show strong: it => {
+  let t = if it.body.has("text") { it.body.text } else { "" }
+  if t.match(regex("^\d+\.$")) != none {
+    text(weight: "bold", fill: accent, number-type: "lining", it.body)
+  } else if t.match(regex("^(Theorem|Lemma|Corollary|Proposition|Definition)\b")) != none {
+    text(tracking: 0.04em, fill: accent, smallcaps(t))
+  } else {
+    it
+  }
+}
+
+#show enum: it => {
+  for (i, item) in it.children.enumerate() {
+    let number = if item.number == auto { i + 1 } else { item.number }
+    par[#text(weight: "bold", fill: accent, number-type: "lining")[#number.]#h(0.45em)#item.body]
+  }
+}
+
+#show outline.entry.where(level: 1): it => {
+  v(0.35em)
+  it
+}
+'''
+typst_front_matter = '''
+
+#page(header: none, footer: none)[
+  #v(22%)
+  #align(center)[
+    #text(font: head-font, size: 15pt, weight: "bold", tracking: 0.06em, fill: accent)[SYMPLECTIC GEOMETRY.]
+    #v(1.3em)
+    #text(11pt)[By #smallcaps[Carl Ludwig Siegel.]]
+    #v(1.6em)
+    #ornament
+    #v(2.4em)
+    #text(9pt, style: "italic")[Reprinted from the American Journal of Mathematics,]
+    #linebreak()
+    #text(9pt, style: "italic")[Vol. LXV, No. 1, January, 1943.]
+  ]
+]
+
+#page(header: none, footer: none)[
+  #v(3em)
+  #outline(title: align(center, text(font: head-font, size: 11pt, weight: "bold", tracking: 0.08em, fill: accent)[CONTENTS]), indent: 1.2em, depth: 1)
+]
+'''
+
+[editions.indigo]
+summary = 'offprint layout, Libertinus with indigo heads'
+
+[editions.indigo.spec]
+slug = 'siegel_symplectic_indigo'
+chapters = [
+  { number = 1, title = 'I. Introduction.', start_page = 13, end_page = 19 },
+  { number = 2, title = 'II. The Symplectic Group.', start_page = 20, end_page = 27 },
+  { number = 3, title = 'III. The Symplectic Metric.', start_page = 28, end_page = 36 },
+  { number = 4, title = 'IV. Discontinuous Groups.', start_page = 37, end_page = 41 },
+  { number = 5, title = 'V. Hermitian Forms.', start_page = 42, end_page = 47 },
+  { number = 6, title = 'VI. The Fundamental Domain of the Modular Group.', start_page = 48, end_page = 55 },
+  { number = 7, title = 'VII. The Fundamental Domain of the Group Lambda(G, S).', start_page = 56, end_page = 61 },
+  { number = 8, title = 'VIII. The Volume of the Fundamental Domain of the Modular Group.', start_page = 62, end_page = 76 },
+  { number = 9, title = 'IX. Commensurable Groups.', start_page = 77, end_page = 85 },
+  { number = 10, title = 'X. Unit Groups of Quinary Quadratic Forms.', start_page = 86, end_page = 98 },
+]
+drop_line_regexes = [
+  '^#+\s*(?:Symplectic Geometry|Carl Ludwig Siegel|Introduction|The Symplectic Group|The Symplectic Metric|Discontinuous Groups|Hermitian Forms|The Fundamental Domain of the Modular Group|The Fundamental Domain of the Group|The Volume of the Fundamental Domain of the Modular Group|Commensurable Groups|Unit Groups of Quinary Quadratic Forms|Preface|Contents|Errata)(?:\s+\d{1,3})?\s*$',
+  '^By\s+CARL\s+LUDWIG\s+SIEGEL\.?\s*$',
+]
+chapter_heading = '{title}'
+typst_preamble = '''
+#set document(
+  title: "Symplectic Geometry — Carl Ludwig Siegel",
+  author: "Carl Ludwig Siegel",
+  date: auto
+)
+
+#set page(
+  width: 442pt,
+  height: 663pt,
+  margin: (inside: 56pt, outside: 56pt, top: 56pt, bottom: 62pt),
+  header: context {
+    let strip-fn(it) = if type(it) == content and it.has("children") { it.children.filter(c => c.func() not in (footnote, (context none).func())).join() } else if type(it) == content and it.func() == footnote { [] } else { it }
+    let page-number = counter(page).get().first()
+    let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
+    if page-number > 4 and not on-chapter-page [
+      #if calc.odd(page-number) [
+        #let chaps = query(heading.where(level: 1).before(here()))
+        #let in-chapter = if chaps == () { heading.where(level: 2) } else { heading.where(level: 2).after(chaps.last().location()) }
+        #let secs = query(in-chapter).filter(h => h.location().page() <= here().page())
+        #let on-page = secs.filter(h => h.location().page() == here().page())
+        #let title = strip-fn(if on-page != () { on-page.first().body } else if secs != () { secs.last().body } else if chaps != () { chaps.last().body } else { "Symplectic Geometry" })
+        #grid(
+          columns: (1fr, auto),
+          align(left)[#text(8.5pt, font: "New Computer Modern", style: "italic")[#title]],
+          align(right)[#text(9.5pt, font: "New Computer Modern")[#page-number]]
+        )
+      ] else [
+        #let chaps = query(heading.where(level: 1).before(here()))
+        #let title = strip-fn(if chaps != () { chaps.last().body } else { "Symplectic Geometry" })
+        #grid(
+          columns: (auto, 1fr),
+          align(left)[#text(9.5pt, font: "New Computer Modern")[#page-number]],
+          align(right)[#text(8.5pt, font: "New Computer Modern", style: "italic")[#title]]
+        )
+      ]
+      #v(-0.35em)
+      #line(length: 100%, stroke: 0.35pt + luma(120))
+    ]
+  },
+  footer: none
+)
+
+#set text(
+  font: "New Computer Modern",
+  size: 10pt,
+  lang: "en",
+  hyphenate: true
+)
+
+#set par(
+  leading: 0.78em,
+  spacing: 1.05em,
+  justify: true,
+  first-line-indent: 1.5em,
+  linebreaks: "optimized"
+)
+
+#show math.equation: set text(font: ("New Computer Modern Math",))
+#set math.equation(numbering: "(1.1)")
+#set math.mat(row-gap: 0.55em, column-gap: 0.8em)
+#set math.cases(gap: 0.55em)
+#show math.equation.where(block: false): it => {
+  show math.frac: set text(size: 0.85em)
+  it
+}
+#show math.equation.where(block: true): set block(above: 1.3em, below: 1.3em)
+#show math.equation.where(block: true): set par(leading: 0.88em)
+#let thm-break = block(above: 1.65em, below: 0pt, sticky: true)[]
+#let sub-break = block(above: 1.35em, below: 0pt, sticky: true)[]
+#let item-break = block(above: 1.0em, below: 0pt)[]
+#let qed = { h(0.6em); box(width: 1fr, align(right)[$square.stroked$]) }
+#let dd = math.dif
+#let dv(f, x, deg: none) = if deg == none { $(dif f)/(dif x)$ } else { $(dif^deg f)/(dif x^deg)$ }
+#let pdv(f, x, deg: none) = if deg == none { $(partial f)/(partial x)$ } else { $(partial^deg f)/(partial x^deg)$ }
+#let const = math.op("const")
+#let ord = math.op("ord")
+#let grad = math.op("grad")
+#let rot = math.op("rot")
+#let div = math.op("div")
+#let rank = math.op("rank")
+#show ref: it => {
+  let target = str(it.target)
+  if target.starts-with("eq-") {
+    let raw = target.trim("eq-", at: start)
+    let parts = raw.split("-")
+    let disp = if parts.len() >= 2 { parts.at(-2) + "." + parts.last() } else { parts.last() }
+    link(it.target)[(#disp)]
+  } else {
+    it
+  }
+}
+#let display-break-after = ("=", "<", ">", "+", "−", "≤", "≥", "≠", "≈", "≡", "→", "∈", "⊂", "⊆")
+#let display-pieces(body) = {
+  let kids = if body.has("children") { body.children } else { (body,) }
+  if kids.any(k => k.func() == linebreak) {
+    return ()
+  }
+  let pieces = ((),)
+  for k in kids {
+    pieces.at(-1).push(k)
+    if k.has("text") and k.text in display-break-after {
+      pieces.push(())
+    }
+  }
+  pieces.filter(p => p.len() > 0).map(p => p.join())
+}
+#let display-rows(body) = {
+  let kids = if body.has("children") { body.children } else { (body,) }
+  let rows = ((),)
+  for k in kids {
+    if k.func() == linebreak {
+      rows.push(())
+    } else if repr(k.func()) != "align-point" {
+      rows.at(-1).push(k)
+    }
+  }
+  rows.filter(r => r.any(k => k.func() != [ ].func())).map(r => r.join())
+}
+#let fit-display(body, avail) = {
+  let eq = math.equation(body, block: true, numbering: none)
+  let w = measure(eq).width
+  let rows = display-rows(body)
+  if w > avail and avail / w < 0.8 and rows.len() > 1 {
+    return stack(spacing: 0.9em, ..rows.map(r => align(center, fit-display(r, avail))))
+  }
+  let pieces = display-pieces(body)
+  let breakable = pieces.len() > 1 and pieces.all(p => measure(math.equation(math.display(p), block: false)).width <= avail)
+  if w <= avail or w == 0pt {
+    eq
+  } else if avail / w >= 0.8 or not breakable {
+    scale(x: avail / w * 100%, y: avail / w * 100%, reflow: true, eq)
+  } else {
+    block(width: avail, {
+      set align(center)
+      set par(justify: false, first-line-indent: 0pt)
+      math.equation(math.display(body), block: false)
+    })
+  }
+}
+#show math.equation.where(block: true): it => {
+  if it.numbering == none {
+    return it
+  }
+  layout(size => {
+    if not it.has("label") {
+      align(center, fit-display(it.body, size.width))
+    } else {
+      let lbl = str(it.label).trim("eq-", at: start)
+      let parts = lbl.split("-")
+      let disp = if parts.len() >= 2 { parts.at(-2) + "." + parts.last() } else { parts.last() }
+      let num-box = [(#disp)]
+      let fitted = fit-display(it.body, size.width - measure(num-box).width - 12pt)
+      grid(
+        columns: (1fr, auto),
+        column-gutter: 0.8em,
+        align: (center + horizon, right + horizon),
+        fitted,
+        num-box
+      )
+    }
+  })
+}
+
+#show heading: set par(justify: false, first-line-indent: 0pt)
+#let chapter-label = state("chapter-label", none)
+
+#show heading.where(level: 1): it => {
+  v(2.4em)
+  align(left)[
+    #text(16pt, weight: "bold", font: "New Computer Modern")[#it.body]
+  ]
+  v(0.6em)
+  line(length: 100%, stroke: 0.6pt + black)
+  v(1.4em)
+}
+
+#show heading.where(level: 2): it => block(above: 1.75em, below: 0.75em, sticky: true)[
+  #text(12.5pt, weight: "bold", font: "New Computer Modern")[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+]
+
+#show heading.where(level: 3): it => block(above: 1.3em, below: 0.5em, sticky: true)[
+  #text(10.5pt, weight: "bold", style: "italic", font: "New Computer Modern")[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+]
+
+#show heading.where(level: 4): it => block(above: 1.1em, below: 0.45em, sticky: true)[
+  #text(10pt, weight: "bold", font: "New Computer Modern")[#smallcaps(it.body)]
+]
+
+#show figure: set block(above: 1.6em, below: 1.6em)
+#show figure.caption: it => [
+  #v(0.45em)
+  #text(9pt, font: "New Computer Modern")[#if it.supplement != none [#strong[#it.supplement #context it.counter.display(it.numbering)]#if it.body != [] [: ]]#it.body]
+]
+
+#let paper = rgb("#f7f4ec")
+#let ink = rgb("#1c2230")
+#let accent = rgb("#23395d")
+#let body-font = "Libertinus Serif"
+#let head-font = "Libertinus Serif"
+#let ornament = align(center, text(9pt, fill: accent)[#sym.diamond.filled.small #h(0.6em) #sym.diamond.filled.small #h(0.6em) #sym.diamond.filled.small])
+#let chapter-page(n) = query(heading.where(level: 1)).any(h => h.location().page() == n)
+
+#set page(
+  width: 381pt,
+  height: 608pt,
+  margin: (inside: 46pt, outside: 40pt, top: 56pt, bottom: 54pt),
+  fill: paper,
+  header: context {
+    let n = here().page()
+    if n > 2 and not chapter-page(n) {
+      set text(8pt, fill: ink, tracking: 0.1em, number-type: "lining")
+      grid(
+        columns: (3em, 1fr, 3em),
+        align(left, if calc.even(n) { text(9.5pt, tracking: 0pt)[#n] }),
+        align(center, text(fill: accent, if calc.odd(n) [SYMPLECTIC GEOMETRY.] else [CARL LUDWIG SIEGEL.])),
+        align(right, if calc.odd(n) { text(9.5pt, tracking: 0pt)[#n] }),
+      )
+    }
+  },
+  footer: context {
+    let n = here().page()
+    if chapter-page(n) { align(center, text(9.5pt, fill: ink, number-type: "lining")[#n]) }
+  },
+)
+
+#set text(font: body-font, size: 10pt, fill: ink, number-type: "old-style")
+#show math.equation: set text(font: "STIX Two Math")
+#set par(leading: 0.62em, spacing: 0.62em, first-line-indent: 1.2em, justify: true)
+#show math.equation.where(block: true): set block(above: 0.9em, below: 0.9em)
+
+#show heading.where(level: 1): it => {
+  v(1.8em)
+  align(center, text(font: head-font, size: 11pt, weight: "bold", tracking: 0.05em, fill: accent, upper(it.body)))
+  v(0.7em)
+  ornament
+  v(1.3em)
+}
+
+#show strong: it => {
+  let t = if it.body.has("text") { it.body.text } else { "" }
+  if t.match(regex("^\d+\.$")) != none {
+    text(weight: "bold", fill: accent, number-type: "lining", it.body)
+  } else if t.match(regex("^(Theorem|Lemma|Corollary|Proposition|Definition)\b")) != none {
+    text(tracking: 0.04em, fill: accent, smallcaps(t))
+  } else {
+    it
+  }
+}
+
+#show enum: it => {
+  for (i, item) in it.children.enumerate() {
+    let number = if item.number == auto { i + 1 } else { item.number }
+    par[#text(weight: "bold", fill: accent, number-type: "lining")[#number.]#h(0.45em)#item.body]
+  }
+}
+
+#show outline.entry.where(level: 1): it => {
+  v(0.35em)
+  it
+}
+'''
+typst_front_matter = '''
+
+#page(header: none, footer: none)[
+  #v(22%)
+  #align(center)[
+    #text(font: head-font, size: 15pt, weight: "bold", tracking: 0.06em, fill: accent)[SYMPLECTIC GEOMETRY.]
+    #v(1.3em)
+    #text(11pt)[By #smallcaps[Carl Ludwig Siegel.]]
+    #v(1.6em)
+    #ornament
+    #v(2.4em)
+    #text(9pt, style: "italic")[Reprinted from the American Journal of Mathematics,]
+    #linebreak()
+    #text(9pt, style: "italic")[Vol. LXV, No. 1, January, 1943.]
+  ]
+]
+
+#page(header: none, footer: none)[
+  #v(3em)
+  #outline(title: align(center, text(font: head-font, size: 11pt, weight: "bold", tracking: 0.08em, fill: accent)[CONTENTS]), indent: 1.2em, depth: 1)
+]
+'''

@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pymupdf
 
+from polytypst.books import book_by_key, module
 from polytypst.checker import (
     ALL_TIERS,
     LAYOUT_TIER,
@@ -18,12 +19,13 @@ from polytypst.compiler.monograph import (
     compile_typst,
     typst_footnote_rules,
 )
-from polytypst.hecke.spec import HECKE_SPEC
-from polytypst.kashiwara.spec import KASHIWARA_SPEC
-from polytypst.klein.spec import KLEIN_SPEC
-from polytypst.kodaira.spec import KODAIRA_SPEC
 from polytypst.ocr.pages import OcrStalled
-from polytypst.siegel_symplectic.spec import SIEGEL_SYMPLECTIC_SPEC
+
+HECKE_SPEC = book_by_key("hecke").spec
+KASHIWARA_SPEC = book_by_key("kashiwara").spec
+KLEIN_SPEC = book_by_key("klein").spec
+KODAIRA_SPEC = module("kodaira", "spec").KODAIRA_SPEC
+SIEGEL_SYMPLECTIC_SPEC = book_by_key("siegel_symplectic").spec
 
 BODY = "This paragraph is ordinary body prose that fills a page with enough characters."
 

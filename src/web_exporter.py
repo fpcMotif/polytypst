@@ -3,6 +3,7 @@ import json
 import re
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -594,32 +595,30 @@ def _copy_edition_files(rebuilt_pdf: Path, dest: Path, name: str, web_base: str)
     return files
 
 
-REGISTRY_WEB_BOOKS: tuple[tuple[str, str, tuple[str, ...], str, str], ...] = (
-    ("bourbaki", "bourbaki-commutative-algebra", ("modern", "vintage", "facsimile"), "Commutative Algebra & Homological Methods",
-     "Bourbaki's Commutative Algebra, Chapters 1–7: flat modules, localization, filtrations and completions, primary decomposition, integers, valuations and divisors. Three print editions: a reflowed modern monograph, the 1970 vintage edition broken line for line like the scan, and a word-placed facsimile."),
-    ("bourbaki_lie", "bourbaki-lie", ("monograph",), "Lie Theory",
-     "Bourbaki's Lie Groups and Lie Algebras, Chapters 1–3: Lie algebras, free Lie algebras and the Campbell–Hausdorff formula, and Lie groups."),
-    ("fermat", "fermat-dream", ("vol1",), "Number Theory",
-     "Number Theory 1: Fermat's Dream. Elementary number theory, rational points on elliptic curves, conics and p-adic numbers, the zeta function, and algebraic number theory."),
-    ("fermat", "class-field-theory", ("vol2",), "Number Theory",
-     "Number Theory 2: Introduction to Class Field Theory. Zeta functions, the local and global class field theory, and their applications."),
-    ("kashiwara", "kashiwara-algebraic-analysis", ("monograph",), "Algebraic Analysis & Microlocal Theory",
-     "Foundations of Algebraic Analysis: hyperfunctions, microfunctions, and the theory of pseudo-differential operators and holonomic systems."),
-    ("klein", "klein-19th-century", ("en",), "History of Mathematics",
-     "Felix Klein's lectures on the development of mathematics in the 19th century."),
-    ("klein", "klein-19th-century-zh", ("zh",), "数学史",
-     "克莱因《数学在19世纪的发展》第二卷中文版：线性不变量理论、狭义相对论、二次微分形式与解析点变换群，以及埃尔朗根纲领与黎曼的三篇附录。"),
-    ("kodaira", "kodaira-complex-analysis", ("monograph",), "Complex Function Theory & Riemann Surfaces",
-     "Kodaira's Complex Analysis: holomorphic functions, Cauchy's theorem, conformal mappings, analytic continuation, Riemann's mapping theorem, and Riemann surfaces up to Riemann–Roch and Abel's theorem."),
-)
+SITE_TOML = "site.toml"
+SITE_PAGE_KEYS = frozenset({"slug", "editions", "domain", "description"})
+
+
+def site_pages(folders: dict[str, Path]) -> list[tuple[str, str, tuple[str, ...], str, str]]:
+    """Each `[[page]]` of each `site.toml` in the book folders, as (key, slug, editions, domain, description)."""
+    pages: list[tuple[str, str, tuple[str, ...], str, str]] = []
+    for key, folder in folders.items():
+        path = folder / SITE_TOML
+        if not path.is_file():
+            continue
+        for page in tomllib.loads(path.read_text(encoding="utf-8")).get("page", []):
+            if set(page) != SITE_PAGE_KEYS:
+                raise ValueError(f"{path}: each [[page]] needs exactly the keys {', '.join(sorted(SITE_PAGE_KEYS))}")
+            pages.append((key, page["slug"], tuple(page["editions"]), page["domain"], page["description"]))
+    return pages
 
 
 def export_registry_books(root_dir: Path, assets_dir: Path) -> list[dict[str, Any]]:
-    from .books import books
+    from .books import book_folders, books
 
     registry = books()
     out: list[dict[str, Any]] = []
-    for key, slug, edition_names, domain, description in REGISTRY_WEB_BOOKS:
+    for key, slug, edition_names, domain, description in site_pages(book_folders()):
         book = registry[key]
         primary = book.editions[edition_names[0]]
         spec = primary.spec
@@ -788,6 +787,8 @@ def convert_london_treasury_to_business_web_blocks(book_md_path: Path) -> list[d
 
 
 def export_all_web_data(root_dir: Path, web_public_dir: Path) -> dict[str, Any]:
+    from .books import book_by_key
+
     assets_dir = web_public_dir / "assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
 
@@ -806,10 +807,10 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> dict[str, Any]:
         root_dir / "output" / "serre_arithmetique", root_dir.parent / "output" / "serre_arithmetique"
     )
     kerodon_out_dir = root_dir / "output" / "kerodon"
-    ahlfors_out_dir = root_dir / "output" / "ahlfors"
+    ahlfors_out_dir = root_dir / book_by_key("ahlfors").out_dir
     goursat_out_dir = root_dir / "output" / "goursat_colab"
     taocp_out_dir = root_dir / "output" / "taocp"
-    london_treasury_out_dir = root_dir / "output" / "london_treasury"
+    london_treasury_out_dir = root_dir / book_by_key("london_treasury").out_dir
     kerodon_pdf = root_dir / "kerodon.pdf"
 
     sync_configs = [

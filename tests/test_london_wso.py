@@ -1,4 +1,6 @@
-from polytypst.london_treasury.wso import clean_wso_thread
+from polytypst.books import module
+
+clean_wso_thread = module("london_treasury", "wso").clean_wso_thread
 
 ANON_THREAD = """# What do you do?
 

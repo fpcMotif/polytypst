@@ -261,7 +261,7 @@ def adhoc_spec(
     lang: str = "en",
     domain: str = "math",
 ) -> MonographSpec:
-    """A one-chapter spec for a source scan that no book in `src/<key>/` describes."""
+    """A one-chapter spec for a source scan that no book in `books/<key>/` describes."""
     comp = resolve_composition(publisher=publisher_key, lang=lang, domain=domain)
     slug = re.sub(r"[^a-z0-9]+", "_", pdf_path.stem.lower()).strip("_") or "book"
     ocr_langs = ("zh-Hans", "en-US") if comp.language.code == "zh" else DEFAULT_OCR_LANGUAGES
@@ -1725,7 +1725,7 @@ class MonographCompiler:
             path = m.group(3).replace(r"\_", "_")
             cap_after = m.group(4)
             width_str = "width: 45%"
-            for candidate_dir in (self._out_dir, Path("output/bourbaki"), Path("output/klein"), Path("output/fermat"), Path("output/kashiwara"), Path("output/kenji-alg"), Path(".")):
+            for candidate_dir in (self._out_dir, Path(".")):
                 local_f = candidate_dir / path
                 if local_f.with_suffix(".typ").exists():
                     typ_path = Path(path).with_suffix(".typ").as_posix()

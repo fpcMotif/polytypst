@@ -1,6 +1,6 @@
 # polytypst
 
-- **Books**: before you build a book edition (`polytypst build`), check one against its scan (`polytypst parity`), audit quality and native numbering (`polytypst audit`), fix a book's figures, tables, notes, headings or equations, or add a book (`src/<key>/book.py`), read `docs/scanned-books.md`.
+- **Books**: before you build a book edition (`polytypst build`), check one against its scan (`polytypst parity`), audit quality and native numbering (`polytypst audit`), fix a book's figures, tables, notes, headings or equations, or add a book (`books/<key>/book.toml`), read `docs/scanned-books.md`.
 - **Numbering**: sections, paragraphs, equations, figure captions, cross-references, and citations use counters, labels, and `@ref`/`\ref`/`\hyperlink` via `src/compiler/source_numbers.py` (`cross_references=True`), checked by `src/literal_numbers.py`.
 - **Review**: before you review any output folder against its scan, redshift its pages, record findings, or track a rebuild's measures (`polytypst review`, `polytypst checklist`), read `docs/reviewing-books.md`.
 - **Evidence**: before you blame code for a wrong word, note or call mark (①②), change shared code in `src/compiler/`, or attach scan proof to a finding (`polytypst evidence`), read `.claude/skills/scan-evidence/SKILL.md`.

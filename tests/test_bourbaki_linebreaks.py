@@ -1,10 +1,11 @@
-from polytypst.bourbaki.linebreaks import (
-    Ending,
-    insert_breaks,
-    keep_fitting_breaks,
-    last_line_fills,
-    line_endings,
-)
+from polytypst.books import module
+
+linebreaks = module("bourbaki", "linebreaks")
+Ending = linebreaks.Ending
+insert_breaks = linebreaks.insert_breaks
+keep_fitting_breaks = linebreaks.keep_fitting_breaks
+last_line_fills = linebreaks.last_line_fills
+line_endings = linebreaks.line_endings
 
 FULL_LINE = "phisms of $A$-modules and the canonical map of $M$ into $S^{-1}M$ is injective"
 

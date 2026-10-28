@@ -7,9 +7,10 @@ from pathlib import Path
 
 import pymupdf
 
+from polytypst.books import book_by_key
 from scripts.book2_figures.engine import ThemeMode
 
-BOOK_DIR = Path("output/5_财政政策与社会保障")
+BOOK_DIR = book_by_key("5_财政政策与社会保障").out_dir
 
 
 MODULES = ("ch1_2", "ch5_6", "ch7_8", "ch9_10_14", "ch11", "ch12")

@@ -6,9 +6,10 @@ from pathlib import Path
 
 import pymupdf
 
+from polytypst.books import book_by_key
 from scripts.book2_figures.engine import ThemeMode
 
-BOOK_DIR = Path("output/4_不良债权与金融危机")
+BOOK_DIR = book_by_key("4_不良债权与金融危机").out_dir
 
 
 def load_all_generators() -> dict[str, Callable[[ThemeMode], str]]:

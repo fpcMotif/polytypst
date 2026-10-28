@@ -79,7 +79,7 @@ class Edition:
 
 @dataclass(frozen=True)
 class Book:
-    """A book lives in `src/<key>/book.py` as `BOOK`. The first edition is the default."""
+    """A book lives in `books/<key>/`, as `book.toml` or as `BOOK` in `book.py`. The first edition is the default."""
 
     spec: MonographSpec
     out_dir: Path
@@ -99,7 +99,7 @@ class Book:
         cls, source: Path, out_dir: Path | None = None, publisher_key: str = "cambridge", lang: str = "en",
         domain: str = "math",
     ) -> Book:
-        """A one-chapter book for a source scan that no `src/<key>/book.py` describes, in `output/<slug>` by default."""
+        """A one-chapter book for a source scan that no `books/<key>/` describes, in `output/<slug>` by default."""
         spec = adhoc_spec(Path(source), SourceScan(source).page_count, publisher_key, lang, domain)
         out_dir = out_dir or OUTPUT / spec.slug
         return cls(spec, out_dir, {"monograph": monograph_edition(spec, out_dir, "one chapter, generic rules")})

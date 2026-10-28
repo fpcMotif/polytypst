@@ -2,8 +2,11 @@ from pathlib import Path
 
 import pymupdf
 
-from polytypst.ahlfors.typst_blocks import TOC_BLOCK, TYPST_PREAMBLE
+from polytypst.books import module
 from polytypst.compiler.monograph import compile_typst
+
+TOC_BLOCK = module("ahlfors", "typst_blocks").TOC_BLOCK
+TYPST_PREAMBLE = module("ahlfors", "typst_blocks").TYPST_PREAMBLE
 
 PROSE = " ".join(["The radius of convergence is determined by the coefficients."] * 6)
 

@@ -1,4 +1,6 @@
-from polytypst.bourbaki.spec import bourbaki_heading
+from polytypst.books import module
+
+bourbaki_heading = module("bourbaki", "spec").bourbaki_heading
 
 
 def test_section_heading_uses_contents_title():
