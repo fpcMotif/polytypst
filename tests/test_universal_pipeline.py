@@ -244,11 +244,34 @@ def test_spec_less_book_names_no_invented_publisher_or_author():
 
 
 def test_markdown_pages_merge_when_inline_math_straddles_pages():
-    from polytypst.compiler.monograph import _join_pages_across_math
+    from polytypst.compiler.monograph import join_markdown_pages
 
-    merged = _join_pages_across_math(["本文 $t = (t_1,", "$t_2)$ の続き"])
+    merged = join_markdown_pages(["本文 $t = (t_1,", "$t_2)$ の続き"])
     assert len(merged) == 1
     assert "$t = (t_1, t_2)$" in merged[0]
+
+
+def test_a_paragraph_that_runs_across_a_page_stays_one_paragraph_ahead_of_the_figures():
+    from polytypst.compiler.monograph import join_markdown_pages
+
+    merged = join_markdown_pages([
+        "前文。\n\n相对就业（图\n\n![图 7-11 a](figures/fig_7-11.svg)",
+        "![图 7-13 b](figures/fig_7-13.svg)\n\n7-12)。因此可以节省。\n\n## 5 结束语",
+    ])
+    assert merged == [
+        (
+            "前文。\n\n相对就业（图 7-12)。因此可以节省。\n\n![图 7-11 a](figures/fig_7-11.svg)\n\n"
+            "![图 7-13 b](figures/fig_7-13.svg)\n\n## 5 结束语"
+        )
+    ]
+    assert join_markdown_pages(["第一段。", "第二段。"]) == ["第一段。", "第二段。"]
+
+
+def test_two_chinese_characters_join_across_a_page_without_a_space():
+    from polytypst.compiler.monograph import join_cross_page_text
+
+    assert join_cross_page_text("劳动力供给制", "约逐渐加强") == "劳动力供给制约逐渐加强"
+    assert join_cross_page_text("相对就业（图", "7-12)") == "相对就业（图 7-12)"
 
 
 def test_missing_ocr_image_refs_are_dropped_but_real_ones_kept(tmp_path):

@@ -104,6 +104,7 @@ LATEX_RULES = (
     r"\newcommand\sourcesection[1]{\refstepcounter{sourcesection}\setcounter{equation}{0}"
     r"\section*{\S\,\arabic{sourcesection}. #1}\addcontentsline{toc}{section}{\S\,\arabic{sourcesection}. #1}}"
     r"\newcommand\sourcesubsection[1]{\refstepcounter{sourcesubsection}\setcounter{equation}{0}\subsection*{\thesourcesubsection. #1}}"
+    r"\newcommand\sourcesubsubsection[1]{\refstepcounter{sourceparagraph}\setcounter{equation}{0}\subsubsection*{\thesourceparagraph. #1}}"
     r"\newcommand\sourcearticle[1]{\refstepcounter{sourcearticle}\setcounter{equation}{0}"
     r"\subsection*{\arabic{sourcearticle}. #1}\addcontentsline{toc}{subsection}{\arabic{sourcearticle}. #1}}"
     r"\newcommand\sourceparagraph[1]{\par\refstepcounter{sourceparagraph}"
@@ -118,6 +119,7 @@ _KINDS = r"(?:Proposition|Corollaire|D[ée]finition|Remarques?|Lemme|Th[ée]or[�
 _ROMAN_VALUES = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6, "VII": 7, "VIII": 8, "IX": 9, "X": 10}
 _SECTION_RE = re.compile(r"^(?:§\s*)?(\d+)\.?\s+(\D.*)$")
 _SUBSECTION_RE = re.compile(r"^(\d+)\.(\d+)\.?\s+(.*)$")
+_SUBSUBSECTION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)\.?\s+(\D.*)$")
 _PARAGRAPH_HEADING_RE = re.compile(rf"^\(({_NUMBER})\.?\)\s*(.*)$")
 _REF_RE = re.compile(rf"\((?:(?P<chapter>0|I{{1,3}}|IV|VI{{0,3}}|IX|X), ?)?(?P<number>{_NUMBER})\.?\)")
 _FIG_REF_RE = re.compile(r"(?i)(?:\bFig(?:ure)?(?:\.|\b)|图)\s*(?P<fig>\d+(?:[.\-]\d+){0,2}[a-z]?)(?![\d\-]|\.\d)")
@@ -165,6 +167,7 @@ class _Writer(Protocol):
     def set_equation(self, n: int) -> str: ...
     def section(self, title: str) -> str: ...
     def subsection(self, title: str) -> str: ...
+    def subsubsection(self, title: str) -> str: ...
     def article(self, title: str, label: str) -> str: ...
     def unnumbered(self, marks: str, title: str) -> str: ...
     def paragraph(self, kind: str, label: str) -> str: ...
@@ -187,7 +190,7 @@ class TypstWriter:
         r"|^(?P<rtop>(?:#h\([^)]*\);)?(?:#src-top\(\d+\);)?)(?P<rprefix>#strong\[附注\.?\]\s+)?(?:#strong\[)?(?P<roman>I{1,3}|IV|VI{0,3}|IX|X)\.(?:\])?(?= )"
         r"|^(?P<ctop>(?:#h\([^)]*\);)?(?:#src-top\(\d+\);)?)(?P<circled>[①-⑳])(?=\S)"
         r"|\$ (?P<body>#fletcher\.diagram\((?s:.*?)\n\)"
-        r"|(?:[^$\\]|\\.)*?) \$ <eq-(?P<eq>\d+(?:-\d+)*)>"
+        r"|(?:[^$\\]|\\[\s\S])*?) \$ <eq-(?P<eq>\d+(?:-\d+)*)>"
     )
     math = re.compile(r"(?<!\\)\$(?:[^$\\]|\\[\s\S])*\$")
     chapter_start = "#counter(heading).update((..c) => (c.pos().at(0, default: 0),))\n#counter(math.equation).update(0)\n"
@@ -210,6 +213,9 @@ class TypstWriter:
 
     def subsection(self, title: str) -> str:
         return f"=== {title}"
+
+    def subsubsection(self, title: str) -> str:
+        return f"==== {title}"
 
     def article(self, title: str, label: str) -> str:
         return f"#heading(level: 3, numbering: source-article-number)[{title}]{label}"
@@ -279,6 +285,9 @@ class LatexWriter:
 
     def subsection(self, title: str) -> str:
         return rf"\sourcesubsection{{{title}}}"
+
+    def subsubsection(self, title: str) -> str:
+        return rf"\sourcesubsubsection{{{title}}}"
 
     def article(self, title: str, label: str) -> str:
         return rf"\sourcearticle{{{title}}}{label}"
@@ -463,6 +472,9 @@ def number_chapter(
     def heading(marks: str, title: str) -> str:
         if m := _PARAGRAPH_HEADING_RE.match(title):
             return paragraph(_parse(m.group(1)), m.group(2))
+        if m := _SUBSUBSECTION_RE.match(title):
+            scan = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            return state.heading(scan, "subsection") + writer.subsubsection(m.group(4))
         if m := _SUBSECTION_RE.match(title):
             return state.heading((int(m.group(1)), int(m.group(2))), "section") + writer.subsection(m.group(3))
         if m := _SECTION_RE.match(title):
@@ -525,10 +537,11 @@ def number_chapter(
         cap = re.sub(r"(?<!\\)([%&#])", r"\\\1", m.group("cap").strip())
         num_tail = raw_num.split(".")[-1].split("-")[-1]
         num_int = int(re.match(r"\d+", num_tail).group(0)) if re.match(r"\d+", num_tail) else 1
+        png = re.sub(r"\.svg$", ".png", m.group("path"))
         return (
             f"\\setcounter{{figure}}{{{max(0, num_int - 1)}}}"
             f"\\begin{{figure}}[htbp]\\centering"
-            f"\\includegraphics[width=\\linewidth,height=0.75\\textheight,keepaspectratio]{{{re.sub(r'\.svg$', '.png', m.group('path'))}}}"
+            f"\\includegraphics[width=\\linewidth,height=0.75\\textheight,keepaspectratio]{{{png}}}"
             f"\\renewcommand{{\\thefigure}}{{{raw_num}}}"
             f"\\captionsetup{{labelformat=simple,labelsep=space,name={{{m.group('sup')}}}}}"
             f"\\caption{{{cap}}}\\label{{{label}}}\\end{{figure}}"

@@ -89,6 +89,7 @@ class FigureLayout:
     png_paired_divisor: int = 650
     png_paired_range: tuple[int, int] = (50, 88)
     supplement_none: bool = True
+    note_before_caption: bool = False
 
 
 @dataclass(frozen=True)
@@ -119,6 +120,8 @@ class MonographSpec:
     figures: FigureLayout = field(default_factory=FigureLayout)
     extra_figures: dict[int, tuple[Figure, ...]] = field(default_factory=dict)
     figure_pages: frozenset[int] = frozenset()
+    landscape_pages: frozenset[int] = frozenset()
+    landscape_columns: dict[int, int] = field(default_factory=dict)
     min_page_chars: int = 1
     skip_page_markers: tuple[str, ...] = ("1.1.1.1.1", "musical compositions")
     folio_pattern: str = r"^(?:\d{1,3}|[ivxlcdm]+)$"
@@ -145,6 +148,7 @@ class MonographSpec:
     pre_math_rewrites: tuple[Rewrite, ...] = ()
     stray_dollar_symbol: str = ""
     nonbreaking_hyphens: bool = False
+    three_line_tables: bool = False
     chapter_heading: str = "{number} {title}"
     chapter_label: str = ""
     prebuilt_fixups: tuple[tuple[str, str], ...] = ()
@@ -569,18 +573,33 @@ def _split_trailing_note_block(text: str) -> tuple[str, str]:
     return "\n\n".join(blocks[:-1]).rstrip(), blocks[-1].strip()
 
 
-def _join_pages_across_math(pages: list[str]) -> list[str]:
-    """Merge a page that opens inline math with the page that closes it."""
+_MD_IMAGE_RE = re.compile(r"!\[[^\]\n]*\]\([^)\n]*\)")
+_CJK_RE = re.compile(r"[　-ヿ㐀-鿿＀-￯]")
+
+
+def _split_images(text: str, trailing: bool) -> tuple[str, list[str]]:
+    paras = re.split(r"\n\s*\n", text.strip())
+    images: list[str] = []
+    while paras and _MD_IMAGE_RE.fullmatch(paras[-1 if trailing else 0]):
+        if trailing:
+            images.insert(0, paras.pop())
+        else:
+            images.append(paras.pop(0))
+    return "\n\n".join(paras), images
+
+
+def join_markdown_pages(pages: list[str]) -> list[str]:
+    """Merge each page whose text runs on into the next page's first paragraph, as `stitch_chapter` does for
+    Typst; the figures on either side of the page break follow the joined paragraph."""
     merged: list[str] = []
     for page in pages:
-        if (
-            merged
-            and len(_UNESCAPED_DOLLAR_RE.findall(merged[-1].rstrip())) % 2 == 1
-            and page.lstrip().startswith("$")
-            and not page.lstrip().startswith("$$")
-        ):
-            merged[-1] = merged[-1].rstrip() + " " + page.lstrip()[1:]
-            continue
+        if merged:
+            prose, below = _split_images(merged[-1], trailing=True)
+            body, above = _split_images(page, trailing=False)
+            if prose and body and not ends_complete_paragraph(prose) and not starts_new_block(body):
+                first, rest = split_first_paragraph(body)
+                merged[-1] = "\n\n".join([join_cross_page_text(prose, first), *below, *above, *([rest] if rest else [])])
+                continue
         merged.append(page)
     return merged
 
@@ -588,6 +607,8 @@ def _join_pages_across_math(pages: list[str]) -> list[str]:
 def join_cross_page_text(prev: str, curr_first: str) -> str:
     prev_r = prev.rstrip()
     curr_l = curr_first.lstrip()
+    if prev_r and curr_l and _CJK_RE.match(prev_r[-1]) and _CJK_RE.match(curr_l[0]):
+        return prev_r + curr_l
     last_line = prev_r.splitlines()[-1].strip() if prev_r else ""
     if len(_UNESCAPED_DOLLAR_RE.findall(prev_r)) % 2 == 1 and curr_l.startswith("$") and not curr_l.startswith("$$"):
         return prev_r + " " + curr_l[1:]
@@ -686,6 +707,7 @@ def reference_chapters(spec: MonographSpec) -> dict[str, int]:
 
 TYPST_CIRCLE = "box(baseline: -15%, circle(radius: if str(n).len() > 1 { 0.55em } else { 0.45em }, stroke: 0.4pt, inset: 0pt)[#align(center + horizon)[#text(size: if str(n).len() > 1 { 0.52em } else { 0.65em })[#n]]])"
 CIRCLED_GLYPH_RE = re.compile("[①-⑳⓪Ⓐ-ⓩ]")
+TYPST_UNBROKEN_NAMES = '#show regex("\\p{Lu}\\p{Ll}+(?:-\\p{Lu}\\p{Ll}+)+"): box\n'
 TYPST_CIRCLED_GLYPHS = (
     '#show regex("[①-⑳⓪Ⓐ-ⓩ]"): it => {\n'
     "  let u = str.to-unicode(it.text)\n"
@@ -901,6 +923,19 @@ def _merge_display_run(run: str, display_blocks: list[tuple[str, str]]) -> str:
 
 
 CELL_STYLE_TAGS = {"b": "strong", "i": "emph"}
+CELL_SPAN_RE = re.compile(r'<span data-colspan="(\d+)">(.*)</span>')
+
+
+def _merge_cell_spans(row: list[str]) -> list[tuple[str, int]]:
+    """Fold each span-marked cell and the cells it covers into one (text, colspan) cell."""
+    cells: list[tuple[str, int]] = []
+    idx = 0
+    while idx < len(row):
+        m = CELL_SPAN_RE.fullmatch(row[idx])
+        span = min(int(m.group(1)), len(row) - idx) if m else 1
+        cells.append((m.group(2) if m else row[idx], span))
+        idx += span
+    return cells
 
 
 TYPST_MATH_SPAN = re.compile(r"((?<!\\)\$.*?(?<!\\)\$)")
@@ -918,7 +953,17 @@ def _escape_table_cell_text(cell: str) -> str:
     return "".join(parts)
 
 
-def format_pipe_tables_as_typst(text: str) -> str:
+THREE_LINE_MIN_WEIGHT = 3
+THREE_LINE_MAX_WEIGHT = 30
+
+
+def _display_width(cell: str) -> int:
+    return sum(2 if ord(ch) >= 0x2E80 else 1 for ch in cell)
+
+
+def format_pipe_tables_as_typst(text: str, three_line: bool = False) -> str:
+    """Typst tables for the Markdown pipe tables in `text`. A `three_line` table (三线表) fills the text width,
+    weights each narrow table's columns by their widest cell, and rules only its top, header and bottom."""
     lines = text.split("\n")
     out: list[str] = []
     i = 0
@@ -949,12 +994,13 @@ def format_pipe_tables_as_typst(text: str) -> str:
                     nrows = len(parsed_rows)
                     items: list[str] = []
                     for r_idx, r in enumerate(parsed_rows):
+                        merged = _merge_cell_spans(r)
                         first = r[0].strip()
                         if first and all(not c.strip() for c in r[1:]) and first.startswith(("#strong", "**", "一、", "二、", "三、", "四、", "A ", "B ", "A面板", "B面板", "A 面板", "B 面板")):
                             title_text = re.sub(r"^\*\*(.*?)\*\*$", r"\1", first)
                             title_text = re.sub(r"^#strong\[(.*?)\]$", r"\1", title_text)
                             items.append(f"table.cell(colspan: {ncols}, fill: luma(245))[#strong[{title_text}]]")
-                        elif r_idx < 2 and any(not c.strip() for c in r) and any(c.strip() for c in r):
+                        elif r_idx < 2 and any(not c.strip() for c, _ in merged) and any(c.strip() for c in r):
                             col_idx = 0
                             while col_idx < len(r):
                                 c = r[col_idx]
@@ -970,7 +1016,7 @@ def format_pipe_tables_as_typst(text: str) -> str:
                                 items.append(f"[#strong[{c_clean}]]" if c_clean.strip() else "[]")
                                 col_idx += 1
                         else:
-                            for c in r:
+                            for c, span in merged:
                                 shaded = re.fullmatch(r"<mark>(.*)</mark>", c)
                                 if shaded:
                                     c = shaded.group(1)
@@ -984,7 +1030,8 @@ def format_pipe_tables_as_typst(text: str) -> str:
                                     cell = f"[#strong[{c_clean}]]"
                                 else:
                                     cell = f"[{c_clean}]"
-                                items.append(f"table.cell(fill: luma(215)){cell}" if shaded else cell)
+                                args = ([f"colspan: {span}"] if span > 1 else []) + (["fill: luma(215)"] if shaded else [])
+                                items.append(f"table.cell({', '.join(args)}){cell}" if args else cell)
                     body = ", ".join(items)
                     if ncols >= 10:
                         size_pt = "6.8pt"
@@ -1001,12 +1048,20 @@ def format_pipe_tables_as_typst(text: str) -> str:
                     else:
                         size_pt = "8.8pt"
                         col_def = f"{ncols}"
+                    if three_line and ncols < 5:
+                        weights = [
+                            min(THREE_LINE_MAX_WEIGHT, max(THREE_LINE_MIN_WEIGHT, *(_display_width(r[c]) for r in parsed_rows)))
+                            for c in range(ncols)
+                        ]
+                        col_def = "(" + ", ".join(f"{w}fr" for w in weights) + ")"
 
-                    if nrows > 1:
+                    if nrows > 1 and three_line:
+                        stroke_str = f"  stroke: (x, y) => if y == 0 {{ (top: 1.0pt + luma(30), bottom: 0.5pt + luma(30)) }} else if y == {nrows - 1} {{ (bottom: 1.0pt + luma(30)) }} else {{ none }},\n"
+                    elif nrows > 1:
                         stroke_str = f"  stroke: (x, y) => if y == 0 {{ (top: 1.0pt + luma(30), bottom: 0.6pt + luma(60)) }} else if y == {nrows - 1} {{ (bottom: 1.0pt + luma(30)) }} else {{ (bottom: 0.3pt + luma(220)) }},\n"
                     else:
                         stroke_str = "  stroke: (x, y) => (top: 1.0pt + luma(30), bottom: 1.0pt + luma(30)),\n"
-                    fill_str = "  fill: (col, row) => if row > 0 and calc.even(row) { luma(252) } else { none },\n" if ncols >= 6 else ""
+                    fill_str = "  fill: (col, row) => if row > 0 and calc.even(row) { luma(252) } else { none },\n" if ncols >= 6 and not three_line else ""
                     typst_table = (
                         f"\n#align(center)[\n"
                         f"#set text(size: {size_pt})\n"
@@ -1415,9 +1470,10 @@ class MonographCompiler:
                 f"    [{f2}]\n"
                 f"  )\n"
                 f"]\n\n"
-            )
+            ) + "".join(f"{note}\n\n" for fid, _ in figs if (note := self.cleaner.figure_notes.get(fid)))
         return "".join(
             f"\n\n#align(center)[\n  {self.make_figure_typst(fid, cap, fig_dir)}\n]\n\n"
+            + (f"{note}\n\n" if (note := self.cleaner.figure_notes.get(fid)) else "")
             for fid, cap in figs
         )
 
@@ -1431,8 +1487,9 @@ class MonographCompiler:
             return self._stitch_by_source_page(pages_data, fig_dir)
         acc = ""
         pending_figs: list[Figure] = []
+        page_columns = 0
 
-        for idx, (_pno, text, top_figs, bot_figs) in enumerate(pages_data):
+        for idx, (pno, text, top_figs, bot_figs) in enumerate(pages_data):
             if not text and not top_figs and not bot_figs:
                 continue
 
@@ -1443,6 +1500,11 @@ class MonographCompiler:
             continues_prev = (
                 not ends_complete_paragraph(prose) and not starts_new_block(text)
             ) or starts_lower
+            columns = self.spec.landscape_columns.get(pno, 1) if pno in self.spec.landscape_pages else 0
+            if columns != page_columns:
+                page_columns = columns
+                acc += f"\n\n@@FLIPPED{columns}@@\n\n"
+                continues_prev = False
 
             if not acc:
                 acc = self.render_figure_group(all_top_figs, fig_dir) + text
@@ -1473,6 +1535,8 @@ class MonographCompiler:
 
         if pending_figs:
             acc += self.render_figure_group(pending_figs, fig_dir)
+        if page_columns:
+            acc += "\n\n@@FLIPPED0@@\n\n"
         return acc
 
 
@@ -1800,7 +1864,7 @@ class MonographCompiler:
             full_title = m.group(1).strip()
             if len(full_title) > 60 or "，" in full_title or "。" in full_title:
                 return m.group(0)
-            return f"\n\n#v(0.6em)\n#align(center)[#strong[{full_title}]]\n#v(0.2em)\n\n"
+            return f"\n\n#v(0.6em)\n#block(sticky: true)[#align(center)[#strong[{full_title}]]]\n#v(0.2em)\n\n"
 
         s = re.sub(
             r"^\s*(?:#+\s*)?((?:附)?表\s*\d+[-.]\d+[^\n]*)\s*$",
@@ -1841,11 +1905,11 @@ class MonographCompiler:
                 lambda im: f"${inline_typst[int(im.group(1))].strip()}$",
                 raw_tbl,
             )
-            tbl_out = format_pipe_tables_as_typst(tbl_math)
+            tbl_out = format_pipe_tables_as_typst(tbl_math, spec.three_line_tables)
             return FOOTNOTE_RE.sub(r"#footnote[\1]", tbl_out)
 
         s = re.sub(r"@@TABLEBLOCK(\d+)@@", _expand_table, s)
-        s = format_pipe_tables_as_typst(s)
+        s = format_pipe_tables_as_typst(s, spec.three_line_tables)
         if spec.paginate_like_source:
             s = re.sub(
                 r"(?:#h\([^)]*\);)?@@SRCPAGE(\d+)@@",
@@ -1860,6 +1924,21 @@ class MonographCompiler:
             s = s.replace("@@HY@@", "-#linebreak(justify: true);")
             s = re.sub(r"(?:#h\([^)]*\);)?@@NOINDENT@@\s*", "#src-cont;", s)
         s = s.replace("@@PAGEBREAK@@", "\n#pagebreak()\n")
+        s = re.sub(
+            r"@@FLIPPED([2-9])@@.*?(?=@@FLIPPED)",
+            lambda m: re.sub(
+                r"#set text\(size: ([\d.]+)pt\)", lambda t: f"#set text(size: {float(t.group(1)) * 0.8:.2f}pt)", m.group(0)
+            ),
+            s,
+            flags=re.DOTALL,
+        )
+        s = re.sub(
+            r"@@FLIPPED(\d+)@@",
+            lambda m: f"\n#set page(flipped: true, columns: {m.group(1)})\n#set table(inset: (x: 4pt, y: 1.6pt))\n"
+            if m.group(1) != "0"
+            else "\n#set page(flipped: false, columns: 1)\n#set table(inset: 5pt)\n",
+            s,
+        )
         return s
 
     def _stitch_by_source_page(self, pages_data: list[PageParts], fig_dir: Path) -> str:
@@ -1987,6 +2066,7 @@ class MonographCompiler:
         ]
         typst_sections: list[str] = [
             self.build_typst_preamble(),
+            TYPST_UNBROKEN_NAMES,
             typst_footnote_rules(spec),
             TYPST_CIRCLED_GLYPHS
             if spec.lang != "zh" and spec.footnote_style != "circled" and any(CIRCLED_GLYPH_RE.search(t) for t in page_texts)
@@ -2047,7 +2127,7 @@ class MonographCompiler:
                         md_page += f"\n\n![{cap}]({spec.figure_dir}/{asset.name})"
                 ch_md_pages.append(md_page)
 
-            md_sections.append("\n\n".join(_join_pages_across_math(ch_md_pages)))
+            md_sections.append("\n\n".join(join_markdown_pages(ch_md_pages)))
             title = clean_margin_and_inline_math(chap.title)
             label = (
                 chap.label

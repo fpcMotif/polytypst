@@ -148,7 +148,7 @@ def normalize_html_tables(text: str) -> str:
                 r_span = int(m_row.group(1)) if m_row else 1
                 c_span = int(m_col.group(1)) if m_col else 1
 
-                clean = re.sub(r"<(?!br\b)[^>]+>", "", content).strip()
+                clean = re.sub(r"<(?!br\b|/?mark>)[^>]+>", "", content).strip()
                 clean = re.sub(r"\s*<br\s*/?>\s*", "<br>", clean)
                 clean = re.sub(r"\s*\n\s*", " ", clean)
                 if re.fullmatch(r"-?\d+\.\s+\d+", clean):
@@ -160,8 +160,7 @@ def normalize_html_tables(text: str) -> str:
                         target_r = r_idx + dr
                         target_c = c_idx + dc
                         grid[(target_r, target_c)] = clean if (dr == 0 and dc == 0) else ""
-                        if target_c + 1 > max_c:
-                            max_c = target_c + 1
+                        max_c = max(max_c, target_c + 1)
                 c_idx += c_span
 
         if not max_r or not max_c:

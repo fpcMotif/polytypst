@@ -4,7 +4,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
 from ..tex_markdown import normalize_html_tables
-from ..vision.figure_extractor import FIGURES_MANIFEST_NAME, ExtractedFigure, manifest_figures
+from ..vision.figure_extractor import (
+    FIGURES_MANIFEST_NAME,
+    ExtractedFigure,
+    manifest_figures,
+)
 from .presets import resolve_composition
 
 if TYPE_CHECKING:
@@ -494,6 +498,23 @@ FIGURE_LABEL_RE = re.compile(
     r"^(?![#*>]|\$\$|\\\[|\(\d+\.\d+\))[^\n]{1,60}(?<![.:;?!,。：；？！，])\s*$"
 )
 FIGURE_SOURCE_OR_NOTE_RE = re.compile(r"^\s*[（(]?\s*(?:资料来源|注)\s*[：:]")
+NOTE_ITEM_RE = re.compile(r"^\s*\d+\s*[.．、]\s*\S")
+
+
+def take_figure_note(body_lines: list[str]) -> str:
+    """Remove and return the note and source paragraphs that end `body_lines`, with the numbered items that
+    continue them; empty when the last paragraphs are not a note."""
+    paras = re.split(r"\n\s*\n", "\n".join(body_lines).strip())
+    k = len(paras)
+    while k and NOTE_ITEM_RE.match(paras[k - 1]) and not FIGURE_SOURCE_OR_NOTE_RE.match(paras[k - 1]):
+        k -= 1
+    if not k or not FIGURE_SOURCE_OR_NOTE_RE.match(paras[k - 1]):
+        return ""
+    k -= 1
+    while k and FIGURE_SOURCE_OR_NOTE_RE.match(paras[k - 1]):
+        k -= 1
+    body_lines[:] = "\n\n".join(paras[:k]).split("\n") if k else []
+    return "\n\n".join(p.strip() for p in paras[k:])
 
 
 def _is_isolated(body_lines: list[str]) -> bool:
@@ -568,6 +589,7 @@ class PageCleaner:
         self.theorem_heads: tuple[str, ...] = theorem_heads
         self.asset_root: Path = asset_root
         self._seen_sections: set[str] = set()
+        self.figure_notes: dict[str, str] = {}
         self._caption_re: re.Pattern[str] = re.compile(
             spec.figures.caption_pattern,
             re.IGNORECASE if spec.figures.caption_ignore_case else 0,
@@ -754,15 +776,14 @@ class PageCleaner:
                 chapter = m_fig.groupdict().get("chapter")
                 listed = self._chapter_figures.get(f"{chapter}-{m_fig.group('number')}") if chapter else None
                 manifest_page = listed.source_page if listed else None
-                if manifest_page is not None and manifest_page != pno:
-                    m_fig = None
-                elif title and (
+                if manifest_page is not None and manifest_page != pno or title and (
                     (manifest_page is None and len(title) > 50)
                     or any(w in title for w in ["所示为", "体现了", "表明", "可知", "指出", "解释为"])
                     or title.endswith("。")
                 ):
                     m_fig = None
             if m_fig:
+                note = take_figure_note(body_lines) if layout.note_before_caption else ""
                 while body_lines and (
                     not body_lines[-1].strip() or FIGURE_LABEL_RE.match(body_lines[-1])
                 ):
@@ -787,6 +808,8 @@ class PageCleaner:
                 fid = f"{chapter}_{number}" if chapter else number
                 if fid not in seen_figs_on_page:
                     seen_figs_on_page.add(fid)
+                    if note:
+                        self.figure_notes[fid] = note
                     tail = (m_fig.groupdict().get("tail") or m_fig.groupdict().get("title") or "").strip()
                     if "{chapter}" in layout.caption_format and not chapter:
                         cap = f"图 {number}" if "图" in lt else f"Figure {number}"

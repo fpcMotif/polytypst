@@ -30,6 +30,11 @@ def test_normalize_html_tables_index_style():
     assert "Ebenenpaar 平面偶 18" in cleaned
 
 
+def test_normalize_html_tables_keeps_marked_cells():
+    raw_html = "<table><tr><th>年度</th><th>差额</th></tr><tr><td><mark>1986</mark></td><td><mark>1.2</mark></td></tr></table>"
+    assert "| <mark>1986</mark> | <mark>1.2</mark> |" in normalize_html_tables(raw_html)
+
+
 def test_normalize_html_tables_grid_style():
     raw_html = (
         "<table>\n"
@@ -139,6 +144,26 @@ def test_drop_line_regexes_never_delete_body_index_entries():
     assert "Beltrami, 99, 138, 150, 170–173" in extracted
     assert "Böcher, 3, 25, 71, 110" in extracted
     assert "Boltzmann, 63" in extracted
+
+
+def test_pages_printed_sideways_in_the_scan_are_set_on_flipped_pages():
+    spec = MonographSpec(
+        domain="math", slug="t", title="T", author="A", chapters=[ChapterSpec(1, "C", 1, 4)], landscape_pages=frozenset({2, 3})
+    )
+    pages = [(1, "Body text that ends", [], []), (2, "| a | b |\n| --- | --- |\n| 1 | 2 |", [], []), (3, "注：wide table note.", [], []), (4, "continues here.", [], [])]
+    compiler = MonographCompiler(spec)
+    out = compiler.format_typst(compiler.stitch_chapter(pages, Path(".")))
+    assert "\\#set page" not in out
+    turn, back = out.index("#set page(flipped: true, columns: 1)"), out.index("#set page(flipped: false, columns: 1)")
+    assert out.index("Body text that ends") < turn < out.index("[#strong[a]]") < out.index("注：wide table note.") < back
+    assert back < out.index("continues here.")
+    assert out.count("#set page(") == 2
+
+
+def test_a_table_caption_sticks_to_its_table():
+    spec = MonographSpec(domain="math", slug="t", title="T", author="A", chapters=[ChapterSpec(1, "C", 1, 1)])
+    out = MonographCompiler(spec).format_typst("表 5-2 政府经济预期与实际值（2）\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n")
+    assert "#block(sticky: true)[#align(center)[#strong[表 5-2 政府经济预期与实际值（2）]]]" in out
 
 
 def test_index_chapter_formats_in_two_columns():

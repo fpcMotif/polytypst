@@ -36,6 +36,22 @@ def test_paragraph_and_equation_numbers_come_from_counters():
     assert resyncs == []
 
 
+def test_a_three_level_heading_number_comes_from_the_counters():
+    text = "== 1 区域内贸易\n\n=== 1.1 出口\n\n==== 1.1.1 面向发达国家市场的出口情况\n\n正文。"
+    typst, resyncs = number_chapter(text, 6)
+    assert "==== 面向发达国家市场的出口情况" in typst and "1.1.1" not in typst
+    latex, _ = number_chapter(text.replace("====", "####").replace("===", "###").replace("==", "##"), 6, LATEX)
+    assert r"\sourcesubsubsection{面向发达国家市场的出口情况}" in latex
+    assert resyncs == []
+
+
+def test_a_display_equation_with_a_line_break_gets_a_counter_label():
+    text = "== 1 前言\n\n$ p_11 = a \\\np_00 = b $ <eq-13-4>\n"
+    out, _ = number_chapter(text, 13)
+    assert "<eq-13-4>" not in out
+    assert "<eq-c13-13-4>" in out
+
+
 def test_a_number_the_counters_would_miss_is_resynced_and_reported():
     text = "== § 1. Foncteurs\n\n=== 1.1. Objets\n\n=== 1.2. Produits\n\n#strong[(1.2.1)] A.\n\n#strong[(1.2.3)] B."
     out, resyncs = number_chapter(text, 1)
@@ -354,7 +370,7 @@ def test_a_latex_figure_caption_prints_its_source_number(tmp_path):
         encoding="utf-8",
     )
     for _pass in range(2):
-        _ = subprocess.run(["xelatex", "-interaction=nonstopmode", "f.tex"], cwd=tmp_path, capture_output=True)
+        _ = subprocess.run(["xelatex", "-interaction=nonstopmode", "f.tex"], check=False, cwd=tmp_path, capture_output=True)
     text = "".join(page.get_text() for page in pymupdf.open(tmp_path / "f.pdf"))
     text = text.replace(" ", "").replace(" ", "")
     assert "图8-84变量VAR模型" in text
