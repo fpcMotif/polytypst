@@ -660,7 +660,7 @@ def test_project_mise_and_uv_environment_configuration() -> None:
 
     mise_cfg = tomllib.loads(mise_toml.read_text(encoding="utf-8"))
     assert "_.file" not in mise_cfg.get("env", {})
-    assert (poly_dir / ".python-version").read_text(encoding="utf-8").strip() == "3.12"
+    assert (poly_dir / ".python-version").read_text(encoding="utf-8").strip() == "3.15"
     assert "uv" in mise_cfg.get("tools", {})
     assert "test" in mise_cfg.get("tasks", {})
     assert "check-web" in mise_cfg.get("tasks", {})
