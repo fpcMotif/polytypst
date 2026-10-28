@@ -1,0 +1,62 @@
+slug = '5'
+title = '5 财政政策与社会保障'
+author = '（日本）内阁府经济社会综合研究所'
+publisher = '中国金融出版社'
+year = 2022
+lang = 'zh'
+domain = 'economics'
+chapters = [
+  { number = 0, title = '作者简介', start_page = 4, end_page = 5 },
+  { number = 0, title = '中文版前言', start_page = 6, end_page = 7 },
+  { number = 0, title = '中文版序言', start_page = 8, end_page = 15 },
+  { number = 0, title = '序 财政政策与社会保障', start_page = 16, end_page = 27 },
+  { number = 1, title = '财政可持续性和财政管理评估', start_page = 32, end_page = 60 },
+  { number = 2, title = '20世纪90年代公共投资政策评估', start_page = 61, end_page = 87 },
+  { number = 3, title = '日本发生非凯恩斯效应的可能性', start_page = 88, end_page = 125 },
+  { number = 4, title = '1996年至1998年财政政策的施行对经济和物价走势的影响', start_page = 126, end_page = 155 },
+  { number = 5, title = '利用制度信息计算财政乘数', start_page = 156, end_page = 181 },
+  { number = 6, title = '20世纪80年代后的养老金改革与社会保障资产', start_page = 182, end_page = 206 },
+  { number = 7, title = '医疗保险制度的推进及其对日本经济的影响', start_page = 207, end_page = 245 },
+  { number = 8, title = '20世纪90年代代际再分配政策的变迁', start_page = 246, end_page = 264 },
+  { number = 9, title = '税收制度', start_page = 265, end_page = 309 },
+  { number = 10, title = '资产税收制度与“泡沫”', start_page = 310, end_page = 343 },
+  { number = 11, title = '对所得征税中税收弹性系数的分析', start_page = 344, end_page = 368 },
+  { number = 12, title = '泡沫和通货紧缩时期的地方财政', start_page = 369, end_page = 388 },
+  { number = 13, title = '各级政府间财政软预算约束', start_page = 389, end_page = 417 },
+  { number = 14, title = '日本财政投融资', start_page = 418, end_page = 454 },
+  { number = 0, title = '后记', start_page = 455, end_page = 455 },
+]
+running_header_regexes = [
+  '^(?:#+\s*|=+\s*)?\d{1,3}\s+财政政策与社会保障.*$',
+  '^(?:#+\s*|=+\s*)?(?:序\s+)?财政政策与社会保障\s+\d{1,3}.*$',
+  '^(?:#+\s*|=+\s*)?目录(?:\s+\d{1,3})?$',
+  '^(?:#+\s*)?(?:\d{1,2}\s*)?(?:财\s*政\s*可\s*持\s*续\s*性\s*和\s*财\s*政\s*管\s*理\s*评\s*估|2\s*0\s*世\s*纪\s*9\s*0\s*年\s*代\s*公\s*共\s*投\s*资\s*政\s*策\s*评\s*估|日\s*本\s*发\s*生\s*非\s*凯\s*恩\s*斯\s*效\s*应\s*的\s*可\s*能\s*性|1\s*9\s*9\s*6\s*年\s*至\s*1\s*9\s*9\s*8\s*年\s*财\s*政\s*政\s*策\s*的\s*施\s*行\s*对\s*经\s*济\s*和\s*物\s*价\s*走\s*势\s*的\s*影\s*响|利\s*用\s*制\s*度\s*信\s*息\s*计\s*算\s*财\s*政\s*乘\s*数|2\s*0\s*世\s*纪\s*8\s*0\s*年\s*代\s*后\s*的\s*养\s*老\s*金\s*改\s*革\s*与\s*社\s*会\s*保\s*障\s*资\s*产|医\s*疗\s*保\s*险\s*制\s*度\s*的\s*推\s*进\s*及\s*其\s*对\s*日\s*本\s*经\s*济\s*的\s*影\s*响|2\s*0\s*世\s*纪\s*9\s*0\s*年\s*代\s*代\s*际\s*再\s*分\s*配\s*政\s*策\s*的\s*变\s*迁|税\s*收\s*制\s*度|资\s*产\s*税\s*收\s*制\s*度\s*与\s*“\s*泡\s*沫\s*”|对\s*所\s*得\s*征\s*税\s*中\s*税\s*收\s*弹\s*性\s*系\s*数\s*的\s*分\s*析|泡\s*沫\s*和\s*通\s*货\s*紧\s*缩\s*时\s*期\s*的\s*地\s*方\s*财\s*政|各\s*级\s*政\s*府\s*间\s*财\s*政\s*软\s*预\s*算\s*约\s*束|日\s*本\s*财\s*政\s*投\s*融\s*资)\s*\d{1,3}$',
+]
+header_zone_lines = 4
+cross_references = true
+heading_rewrites = [['^(#{2,3}\s+\d{1,2})\s+(?=\d)', '\1 ⁠']]
+chapter_heading = '{title}'
+pdf_name_markers = ['财政政策与社会保障']
+pdf_page_count = 455
+source_pdf = '5 财政政策与社会保障.pdf'
+ocr_languages = ['zh-Hans', 'en-US']
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
+caption_format = '图 {chapter}-{number}'
+svg_single_pct = 100
+pair_figures = false
+png_single_divisor = 2900
+png_single_range = [55, 92]
+png_max_height_ratio = 0.9
+png_min_pct_tall = 50
+
+[editions.monograph]
+summary = '14 chapters, monochrome academic monograph'
+
+[editions.illustrated]
+summary = '14 chapters, illustrated monograph with scan figures'
+
+[editions.illustrated.spec]
+slug = '5_illustrated'
+book_aliases = false

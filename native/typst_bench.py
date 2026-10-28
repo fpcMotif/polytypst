@@ -58,7 +58,7 @@ def main() -> None:
           f"same marks: {json.loads(res.stdout) == json.loads(marks)} ({len(json.loads(marks))})")
 
     harness = Path("src/parity/diagram_harness.typ").resolve()
-    snippet = next(Path("src/bourbaki/diagrams").glob("fig_*.typ")).resolve()
+    snippet = next(Path("books/bourbaki/diagrams").glob("fig_*.typ")).resolve()
     inputs = {"snippet": str(snippet), "font": "New Computer Modern", "size": "10", "weight": "400"}
     flags = [a for k, v in inputs.items() for a in ("--input", f"{k}={v}")]
     t_cli, _ = timed(lambda: cli("compile", "--root", "/", *flags, "--ppi", "300", str(harness), str(OUT / "cli.png")))

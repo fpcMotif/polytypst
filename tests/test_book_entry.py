@@ -5,11 +5,12 @@ import pytest
 from conftest import PageRender
 
 from polytypst.book_state import BookStateError, book_state
-from polytypst.books import book_for_scan, books, find_known_book
+from polytypst.books import book_by_key, book_for_scan, books, find_known_book
 from polytypst.edition import Book, Edition
-from polytypst.hecke.spec import HECKE_SPEC
 from polytypst.ocr.backend import Backend
 from polytypst.ocr.blank import BLANK_TRANSCRIPT
+
+HECKE_SPEC = book_by_key("hecke").spec
 
 
 def cached_backend(tmp_path: Path) -> Backend:

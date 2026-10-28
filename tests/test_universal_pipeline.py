@@ -192,7 +192,10 @@ def test_goursat_cover_and_frontmatter_normalization():
 
 
 def test_kodaira_svg_generators_complete():
-    from polytypst.kodaira import KODAIRA_FIG_TITLES, KODAIRA_SVG_GENERATORS
+    from polytypst.books import module
+
+    kodaira = module("kodaira", None)
+    KODAIRA_FIG_TITLES, KODAIRA_SVG_GENERATORS = kodaira.KODAIRA_FIG_TITLES, kodaira.KODAIRA_SVG_GENERATORS
 
     assert len(KODAIRA_SVG_GENERATORS) == 116
     assert len(KODAIRA_FIG_TITLES) == 116

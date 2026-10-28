@@ -6,7 +6,7 @@ Usage: mise exec -- uv run python scripts/one_book.py KEY build [--edition NAME]
        mise exec -- uv run python scripts/one_book.py KEY cli COMMAND [ARGS...]
 
 `polytypst build` and `polytypst audit` import every book, so one broken spec stops them for all
-books. This script imports `src/KEY/book.py` alone. `cli` runs any `polytypst` command, such as
+books. This script loads `books/KEY/` alone. `cli` runs any `polytypst` command, such as
 `review "FOLDER" --scan "SCAN"` or `parity KEY --edition E`, with only this book loaded. `audit` prints the same counts as
 `polytypst audit`. `--issues` prints each issue of the named checker rules with its page.
 `--save` writes the counts, and `--against` prints each rule whose count rose or fell since a save,
@@ -19,9 +19,9 @@ import json
 import sys
 from collections import Counter
 from dataclasses import replace
-from importlib import import_module
 from pathlib import Path
 
+from polytypst.books import book_by_key
 from polytypst.books_cli import DOCUMENT_FORMATS, format_output
 from polytypst.checker import AuditSpec, DocumentQualityChecker
 from polytypst.literal_numbers import edition_literal_counts
@@ -49,7 +49,7 @@ def audit(edition, issue_rules: set[str]) -> Counter[str]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("key", help="the folder name under src/, such as 6_劳动力市场与收入分配")
+    parser.add_argument("key", help="the folder name under books/, such as 6_劳动力市场与收入分配")
     parser.add_argument("command", choices=("build", "audit", "cli"))
     parser.add_argument("--edition", help="default: the book's first edition")
     parser.add_argument("--formats", default="pdf", help="build: comma-separated formats (default: pdf)")
@@ -59,7 +59,7 @@ def main() -> None:
     split = 3 if sys.argv[2:3] == ["cli"] else len(sys.argv)
     args = parser.parse_args(sys.argv[1:split])
 
-    book = import_module(f"polytypst.{args.key}.book").BOOK
+    book = book_by_key(args.key)
     if args.command == "cli":
         import polytypst.books
         import polytypst.books_cli

@@ -10,13 +10,13 @@ moves. A first data row with blank cells, such as "| 1990 | 1.03 |  |  |", shift
 way. The script reads each page as the compiler does (transcript store, then the book's
 cleaner and `page_fixups`), so a table already fixed prints nothing. Each line printed is a
 page, the table's first row, and the row-2 cells that widen. Fix them as
-`docs/scanned-books.md` "Tables" says. Imports only `src/KEY/book.py`, like `one_book.py`.
+`docs/scanned-books.md` "Tables" says. Loads only `books/KEY/`, like `one_book.py`.
 """
 
 import argparse
 import re
-from importlib import import_module
 
+from polytypst.books import book_by_key
 from polytypst.compiler.page_cleaner import PageCleaner
 from polytypst.ocr.transcripts import TranscriptStore
 
@@ -84,7 +84,7 @@ def main() -> None:
     )
     parser.add_argument("key")
     args = parser.parse_args()
-    book = import_module(f"polytypst.{args.key}.book").BOOK
+    book = book_by_key(args.key)
     store = TranscriptStore(book.transcripts)
     cleaner = PageCleaner.for_spec(book.spec, book.out_dir)
     for path in sorted(book.transcripts.glob("p_*.md")):

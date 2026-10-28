@@ -1,0 +1,11 @@
+[[page]]
+slug = "klein-19th-century"
+editions = ["en"]
+domain = "History of Mathematics"
+description = "Felix Klein's lectures on the development of mathematics in the 19th century."
+
+[[page]]
+slug = "klein-19th-century-zh"
+editions = ["zh"]
+domain = "数学史"
+description = "克莱因《数学在19世纪的发展》第二卷中文版：线性不变量理论、狭义相对论、二次微分形式与解析点变换群，以及埃尔朗根纲领与黎曼的三篇附录。"

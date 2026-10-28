@@ -5,9 +5,11 @@ import numpy as np
 import pymupdf
 import pytest
 
-from polytypst.bourbaki.marks import query_marks
+from polytypst.books import module
 from polytypst.compiler import typst_math
 from polytypst.compiler.typst_math import REPO_FONTS_DIR, compile_typst
+
+query_marks = module("bourbaki", "marks").query_marks
 
 pytestmark = pytest.mark.skipif(shutil.which("typst") is None, reason="needs the typst CLI as the reference")
 

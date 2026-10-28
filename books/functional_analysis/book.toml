@@ -1,0 +1,47 @@
+slug = 'functional_analysis'
+title = 'Functional Analysis'
+author = 'Frigyes Riesz and Béla Sz.-Nagy'
+publisher = 'Frederick Ungar Publishing Co.'
+series = ''
+year = 1955
+domain = 'math'
+preface_page = 4
+chapters = [
+  { number = 1, title = 'Differentiation', start_page = 15, end_page = 40 },
+  { number = 2, title = 'The Lebesgue Integral', start_page = 41, end_page = 116 },
+  { number = 3, title = 'The Stieltjes Integral and Its Generalizations', start_page = 117, end_page = 153 },
+  { number = 4, title = 'Integral Equations', start_page = 154, end_page = 205 },
+  { number = 5, title = 'Hilbert and Banach Spaces', start_page = 206, end_page = 237 },
+  { number = 6, title = 'Completely Continuous Symmetric Transformations of Hilbert Space', start_page = 238, end_page = 271 },
+  { number = 7, title = 'Bounded Symmetric, Unitary, and Normal Transformations of Hilbert Space', start_page = 272, end_page = 306 },
+  { number = 8, title = 'Unbounded Linear Transformations of Hilbert Space', start_page = 307, end_page = 351 },
+  { number = 9, title = 'Self-Adjoint Transformations. Functional Calculus, Spectrum, Perturbations', start_page = 352, end_page = 390 },
+  { number = 10, title = 'Groups and Semigroups of Transformations', start_page = 391, end_page = 425 },
+  { number = 11, title = 'Spectral Theories for Linear Transformations of General Type', start_page = 426, end_page = 456 },
+]
+references_page = 457
+index_pages = [468, 477]
+running_header_regexes = [
+  '^([0-9IVXLCDM]+\.?\s*)?(?:differentiation|the lebesgue integral|the stieltjes integral|integral equations|hilbert and banach spaces|completely continuous|bounded symmetric|unbounded linear|self-adjoint transformations|groups and semigroups|spectral theories|functional analysis|contents|bibliography|index)\b',
+]
+cross_references = true
+latex_preamble = '''
+
+\DeclareUnicodeCharacter{2070}{\textsuperscript{0}}
+\DeclareUnicodeCharacter{2074}{\textsuperscript{4}}
+\DeclareUnicodeCharacter{2075}{\textsuperscript{5}}
+\DeclareUnicodeCharacter{2076}{\textsuperscript{6}}
+\DeclareUnicodeCharacter{2077}{\textsuperscript{7}}
+\DeclareUnicodeCharacter{2078}{\textsuperscript{8}}
+\DeclareUnicodeCharacter{2079}{\textsuperscript{9}}
+\DeclareUnicodeCharacter{00B9}{\textsuperscript{1}}
+\DeclareUnicodeCharacter{00B2}{\textsuperscript{2}}
+\DeclareUnicodeCharacter{00B3}{\textsuperscript{3}}
+\DeclareUnicodeCharacter{0150}{\H{O}}
+\DeclareMathOperator{\arccot}{arccot}
+'''
+pdf_page_count = 478
+source_pdf = 'Functional analysis (Riesz, Frigyes, Sz.-Nagy).pdf'
+
+[editions.monograph]
+summary = 'monograph'
