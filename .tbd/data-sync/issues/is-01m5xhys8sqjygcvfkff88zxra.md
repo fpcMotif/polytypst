@@ -1,11 +1,11 @@
 ---
 type: is
 id: is-01m5xhys8sqjygcvfkff88zxra
-title: "Book catalog: move books to books/<key>/book.toml with optional hooks.py"
+title: "A book is a project with one key: book folder in git, state folder outside"
 kind: epic
 status: open
 priority: 2
-version: 14
+version: 24
 spec_path: docs/project/specs/active/plan-2026-10-27-book-catalog-toml.md
 labels: []
 dependencies: []
@@ -23,7 +23,16 @@ child_order_hints:
   - is-01m5xj0682858m2p53e39sr67f
   - is-01m5xj06ewa30tbwrrcc8wz75f
   - is-01m5xj06njta7tzxqc32a6cz2c
+  - is-01m600hpdnpt42dxa5v3yf0y12
+  - is-01m600hpnrpb52qnc436hvg03w
+  - is-01m600hpzrjfdv53yg8zb8ttjm
+  - is-01m600hq7snwe9tz08mc1tnxc1
+  - is-01m600hqffn37fnb0tax6c6tgd
+  - is-01m600hqq6b6vb9zem8xd74ew5
+  - is-01m600hqz1y0dpxq6thst4v18p
+  - is-01m600hr7a3gtp6p37syxhk8sj
+  - is-01m600hrfxnr2ssaqdxnayankv
 created_at: 2026-10-27T02:10:17.496Z
-updated_at: 2026-10-27T02:11:03.986Z
+updated_at: 2026-10-28T01:03:48.220Z
 ---
-Each book moves from a polytypst.<key> package in src/ to books/<key>/: book.toml for the spec and editions, an optional hooks.py for callable fields, and book.py only for custom pipelines. src/catalog.py loads the folders by path and keeps the books(), book_by_key(), book_for_scan() and book_specs() signatures. Done when every book loads from books/, pytest passes, and pyproject.toml lists no book packages.
+Each book gets one key and two folders. books/<key>/ in git holds book.toml, an optional hooks.py and hand-made figures. $POLYTYPST_BOOKS/<key>/ holds transcripts/, lines/, renders/, build/<edition>/ and work/<command>/. catalog.open(key) returns a Book whose BookPaths derive every path from the key. Phase 1: book folders and book.toml. Phase 2: one key and the Book handle. Phase 3: migrate-state and the fixed state layout. Done when no src/<key>/, out_dir, OUTPUT or book_state(out_dir) remains, migrate-state has moved the real state after a reviewed dry run, and pytest passes.

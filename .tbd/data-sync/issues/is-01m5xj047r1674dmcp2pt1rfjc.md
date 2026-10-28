@@ -5,7 +5,7 @@ title: Add src/catalog.py with folder discovery, lazy loading and a strict book.
 kind: task
 status: open
 priority: 2
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-10-27-book-catalog-toml.md
 labels:
   - phase-1
@@ -22,6 +22,6 @@ dependencies:
     target: is-01m5xj0621mqnjxvnfk6ydcwc8
 parent_id: is-01m5xhys8sqjygcvfkff88zxra
 created_at: 2026-10-27T02:11:01.496Z
-updated_at: 2026-10-27T02:11:03.360Z
+updated_at: 2026-10-28T01:03:45.879Z
 ---
 Discover books/<key>/ folders that hold book.toml or book.py without importing them. Load MonographSpec, ChapterSpec and FigureLayout from TOML: arrays become tuple or frozenset per annotation, dict[int,...] keys parse from strings, relative paths resolve against the book folder, running_headers feeds running_header_regexes(), aliases and out_dir are loader keys. Reject unknown keys, wrong types and bad Literal values with file and key in the error. Import book.py by path under polytypst_books.b_<hash> with submodule_search_locations. Done when loader tests compare sample TOML against hand-built specs and each rejection rule has a test that fails without the rule.
