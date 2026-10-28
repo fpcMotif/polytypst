@@ -3,7 +3,7 @@ from itertools import pairwise
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from ..tex_markdown import normalize_html_tables
+from ..tex_markdown import normalize_html_tables, repair_page_math
 from ..vision.figure_extractor import (
     FIGURES_MANIFEST_NAME,
     ExtractedFigure,
@@ -730,6 +730,8 @@ class PageCleaner:
     def clean(self, md_text: str, pno: int) -> CleanPage:
         spec = self.spec
         layout = spec.figures
+        if spec.repair_math:
+            md_text = repair_page_math(md_text)
         md_text = re.sub(r"<!--.*?-->", "", md_text, flags=re.DOTALL)
         md_text = SCANNER_WATERMARK_RE.sub("", md_text)
         md_text = re.sub(r"(?<!\\)\${3,}", "", md_text)

@@ -3,15 +3,19 @@
 from dataclasses import replace
 from pathlib import Path
 
-from polytypst.goursat.build import goursat_markdown
-from polytypst.goursat.figures import (
-    GOURSAT_SVG_GENERATORS,
-    generate_goursat_cover_svg,
-    normalize_goursat_markdown,
-)
+from polytypst.books import book_by_key, module
+from polytypst.compiler.monograph import MonographCompiler
 from polytypst.ocr.colab_cluster import ColabOCRCluster
 from polytypst.ocr.pages import OcrLine, PageImage
-from polytypst.vision.figure_extractor import ExtractedFigure, FigureExtractor
+from polytypst.vision.figure_extractor import FigureExtractor
+
+GOURSAT_FIGURES = module("goursat", "figures")
+
+
+def goursat_markdown(pages: list[tuple[int, str]], fig_dir: Path = Path("figures")) -> str:
+    """Goursat's pages cleaned and stitched by the compiler that builds the book."""
+    compiler = MonographCompiler(book_by_key("goursat").spec)
+    return compiler.stitch_chapter([(pno, *compiler.cleaner.clean(raw, pno)) for pno, raw in pages], fig_dir)
 
 
 def test_tex_markdown_cleaner_delimiters():
@@ -24,7 +28,7 @@ def test_tex_markdown_cleaner_delimiters():
         "with x # 0, where differ-\n"
         "ential elements apply."
     )
-    cleaned = goursat_markdown([(1, raw)], [])
+    cleaned = goursat_markdown([(1, raw)])
 
     assert "A COURSE IN MATHEMATICAL ANALYSIS" not in cleaned
     assert "IMPLICIT FUNCTIONS 87" not in cleaned
@@ -38,7 +42,7 @@ def test_tex_markdown_cleaner_delimiters():
     assert "f(x) = \\int_0^x t^2 \\mathrm{d} t" in cleaned
     assert "x \\neq 0" in cleaned
     assert "differential" in cleaned
-    diff_page = goursat_markdown([(2, "$\\frac{dy}{dx} + \\frac{d^2 y}{dx^2} + d\\alpha$")], [])
+    diff_page = goursat_markdown([(2, "$\\frac{dy}{dx} + \\frac{d^2 y}{dx^2} + d\\alpha$")])
     assert (
         diff_page
         == "$\\frac{\\mathrm{d} y}{\\mathrm{d} x} + \\frac{\\mathrm{d}^2 y}{\\mathrm{d} x^2} + \\mathrm{d} \\alpha$"
@@ -57,24 +61,23 @@ def test_figure_caption_regex_standalone_only():
     )
 
 
-def test_tex_markdown_cleaner_figure_injection():
+def test_goursat_captions_place_their_vector_figures(tmp_path: Path):
+    fig_dir = tmp_path / "figures"
+    fig_dir.mkdir()
+    for fid in ("1", "37_a"):
+        (fig_dir / f"fig_{fid}.svg").write_text(GOURSAT_FIGURES.GOURSAT_SVG_GENERATORS[fid](), encoding="utf-8")
     raw = (
         "We show the tangent line construction below.\n\n"
-        "FIG. 1. The geometric derivative.\n\n"
-        "As seen from the construction, the tangent slope matches the limit."
+        "FIG. 1\n\n"
+        "As seen from the construction, the tangent slope matches the limit.\n\n"
+        "Fig. 37, $a$"
     )
-    fig = ExtractedFigure(
-        figure_id="1",
-        caption="FIG. 1. The geometric derivative.",
-        image_rel_path="figures/fig_1.png",
-        source_page=1,
-    )
-    cleaned = goursat_markdown([(1, raw)], [fig])
+    cleaned = goursat_markdown([(1, raw)], fig_dir)
 
-    assert "![FIG. 1. The geometric derivative.](figures/fig_1.png)" in cleaned
-    caption_idx = cleaned.find("FIG. 1. The geometric derivative.")
-    img_idx = cleaned.find("![FIG. 1. The geometric derivative.](figures/fig_1.png)")
-    assert img_idx > caption_idx
+    assert 'image("figures/fig_1.svg"' in cleaned
+    assert 'image("figures/fig_37_a.svg"' in cleaned
+    assert "caption: [Figure 37a]" in cleaned
+    assert "FIG. 1\n" not in cleaned
 
 
 def test_tex_markdown_stitcher():
@@ -82,7 +85,7 @@ def test_tex_markdown_stitcher():
         (1, "First page content with a hyper-\n"),
         (2, "bolic equation $$ \\cosh^2 x - \\sinh^2 x = 1 $$ continuing here."),
     ]
-    stitched = goursat_markdown(pages, [])
+    stitched = goursat_markdown(pages)
     assert "hyperbolic equation" in stitched
     assert "\\cosh^2 x - \\sinh^2 x = 1" in stitched
 
@@ -92,13 +95,13 @@ def test_stitcher_joins_inline_math_split_across_pages():
         (1, "パラメータ $t = (t_1, t_2, \\cdots,"),
         (2, "$t_m$) と共に変わるものが多い．"),
     ]
-    stitched = goursat_markdown(pages, [])
+    stitched = goursat_markdown(pages)
     assert "$t = (t_1, t_2, \\cdots, t_m$)" in stitched
     assert stitched.count("$") % 2 == 0
 
 
 def test_stitcher_closes_gaps_in_equation_numbers():
-    stitched = goursat_markdown([(1, "次式を得る (5. 83) である.")], [])
+    stitched = goursat_markdown([(1, "次式を得る (5. 83) である.")])
     assert "(5.83)" in stitched
 
 
@@ -152,8 +155,8 @@ def test_dual_colab_partitioning(tmp_path: Path):
 
 
 def test_goursat_svg_generators_complete():
-    assert len(GOURSAT_SVG_GENERATORS) == 54
-    for gen in GOURSAT_SVG_GENERATORS.values():
+    assert len(GOURSAT_FIGURES.GOURSAT_SVG_GENERATORS) == 54
+    for gen in GOURSAT_FIGURES.GOURSAT_SVG_GENERATORS.values():
         svg = gen()
         assert svg.startswith('<svg xmlns="http://www.w3.org/2000/svg"')
         assert "viewBox=" in svg
@@ -163,8 +166,8 @@ def test_goursat_svg_generators_complete():
         assert svg.endswith("</svg>")
 
 
-def test_goursat_cover_and_frontmatter_normalization():
-    cover = generate_goursat_cover_svg()
+def test_goursat_cover_and_section_headings():
+    cover = GOURSAT_FIGURES.generate_goursat_cover_svg()
     assert cover.startswith(
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 648"'
     )
@@ -173,22 +176,23 @@ def test_goursat_cover_and_frontmatter_normalization():
     assert cover.endswith("</svg>")
 
     raw_md = (
-        "## EXPANSION IN SERIES\nby Edouard Goursat\n\n"
-        "## CHAPTER I\n\n### I. FUNCTIONS OF A SINGLE VARIABLE\n\n"
-        "#### 1. Limits. Let $y = f(x)$.\n"
+        "## CHAPTER I\n\n### DERIVATIVES AND DIFFERENTIALS\n\n"
+        "#### I. FUNCTIONS OF A SINGLE VARIABLE\n\n"
+        "#### 1. Limits. Let $y = f(x)$.\n\n"
+        "5. Derivatives. Let $f'(x)$ be a continuous function.\n\n"
+        "16. Show that the function satisfies the equation.\n\n"
+        "### I. TAYLOR'S SERIES WITH A REMAINDER TAYLOR'S SERIES\n"
     )
-    norm_md = normalize_goursat_markdown(raw_md)
-    assert norm_md.startswith("# AUTHOR'S PREFACE")
-    assert "# TRANSLATOR'S PREFACE" in norm_md
-    assert "# CHAPTER I: DERIVATIVES AND DIFFERENTIALS" in norm_md
-    assert "## I. FUNCTIONS OF A SINGLE VARIABLE" in norm_md
-    assert "**1. Limits.** Let $y = f(x)$." in norm_md
-
-    linked = normalize_goursat_markdown(
-        "## CHAPTER I\n\n![FIG. 1](figures/fig_1.png){#fig:1}\n\n![FIG. 99](figures/fig_99.png){#fig:99}\n"
-    )
-    assert "(figures/fig_1.svg)" in linked
-    assert "(figures/fig_99.png)" in linked
+    compiler = MonographCompiler(book_by_key("goursat").spec)
+    typst = compiler.format_typst(compiler.cleaner.clean(raw_md, 12).body)
+    assert "CHAPTER I" not in typst
+    assert "DERIVATIVES AND DIFFERENTIALS" not in typst
+    assert "== I. FUNCTIONS OF A SINGLE VARIABLE" in typst
+    assert "1. Limits." in typst
+    assert "= 1. Limits" not in typst
+    assert "#strong[5. Derivatives.] Let" in typst
+    assert "\n16. Show that the function" in typst
+    assert typst.rstrip().endswith("== I. TAYLOR'S SERIES WITH A REMAINDER")
 
 
 def test_kodaira_svg_generators_complete():

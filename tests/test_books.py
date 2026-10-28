@@ -1,8 +1,17 @@
 import json
 from pathlib import Path
 
-from polytypst.books import BOOKS_DIR, book_specs, books, find_known_book, module
+from polytypst.books import (
+    BOOKS_DIR,
+    book_by_key,
+    book_specs,
+    books,
+    find_known_book,
+    module,
+)
 from polytypst.books_cli import parse_pages
+from polytypst.compiler.monograph import MonographCompiler, is_unnumbered_chapter
+from polytypst.edition import OUTPUT
 
 ROOT = Path(__file__).parents[1]
 SNAPSHOTS = json.loads((ROOT / "tests" / "fixtures" / "book_snapshots.json").read_text(encoding="utf-8"))
@@ -101,5 +110,63 @@ def test_vector_figure_editions_require_vectors_and_do_not_copy_raster_pngs():
         if "color_target = out_dir_color / png.name" in path.read_text(encoding="utf-8")
     ]
     assert smuggled == []
+
+
+def test_goursat_is_a_catalog_book_with_the_scans_chapters():
+    book = book_by_key("goursat")
+    assert book.out_dir == OUTPUT / "goursat_colab"
+    assert list(book.editions) == ["monograph"]
+    assert book.figures is not None
+    chapters = [(c.number, c.title, c.start_page, c.end_page) for c in book.spec.chapters]
+    assert chapters[:3] == [
+        (0, "Author's Preface", 4, 5),
+        (0, "Translator's Preface", 6, 6),
+        (1, "Derivatives and Differentials", 12, 45),
+    ]
+    assert chapters[-2:] == [(12, "Surfaces", 504, 545), (0, "Index", 546, 553)]
+    assert all(is_unnumbered_chapter(title) for number, title, *_ in chapters if number == 0)
+    placed = {fid for figures in book.spec.extra_figures.values() for fid, _ in figures}
+    assert len(placed) == 37 and {"2", "40", "52"} <= placed
+
+
+def test_goursat_pages_get_math_repairs_and_lose_the_scans_chapter_lines():
+    compiler = MonographCompiler(book_by_key("goursat").spec)
+    raw = (
+        "# CHAPTER II\n"
+        "## IMPLICIT FUNCTIONS FUNCTIONAL DETERMINANTS CHANGE OF VARIABLE\n"
+        "### I. IMPLICIT FUNCTIONS\n"
+        "### 20. A particular case. We frequently study $f(x, y)$\n\n"
+        "with x # 0, where differ-\nential elements apply."
+    )
+    body = compiler.cleaner.clean(raw, 46).body
+    assert "CHAPTER II" not in body
+    assert "FUNCTIONAL DETERMINANTS" not in body
+    assert "x \\neq 0" in body
+    assert "differential elements" in body
+    typst = compiler.format_typst(body)
+    assert "== I. IMPLICIT FUNCTIONS" in typst
+    assert "20. A particular case." in typst
+    assert "=== 20." not in typst
+
+
+def test_goursat_keeps_the_break_between_two_titles_the_scan_sets_apart():
+    compiler = MonographCompiler(book_by_key("goursat").spec)
+    raw = {
+        275: "## II. CHANGE OF VARIABLES AREA OF A SURFACE",
+        303: "### I. MULTIPLE INTEGRALS CHANGE OF VARIABLES",
+        357: "## II. SERIES OF COMPLEX TERMS MULTIPLE SERIES",
+    }
+    typst = "\n".join(compiler.format_typst(compiler.cleaner.clean(md, pno).body) for pno, md in raw.items())
+    assert "== II. CHANGE OF VARIABLES, AREA OF A SURFACE" in typst
+    assert "== I. MULTIPLE INTEGRALS, CHANGE OF VARIABLES" in typst
+    assert "== II. SERIES OF COMPLEX TERMS, MULTIPLE SERIES" in typst
+
+
+def test_goursat_drops_the_scan_speck_read_as_a_dot_before_an_equation():
+    compiler = MonographCompiler(book_by_key("goursat").spec)
+    raw = "$$\n\\cdot f(x, y, a) = 0, \\quad \\frac{f(x, y, a + h) - f(x, y, a)}{h} = 0,\n$$"
+    body = compiler.cleaner.clean(raw, 435).body
+    assert "\\cdot" not in body
+    assert "f(x, y, a) = 0, \\quad" in body
 
 

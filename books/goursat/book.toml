@@ -1,0 +1,107 @@
+slug = 'goursat'
+title = 'A Course in Mathematical Analysis'
+author = 'Édouard Goursat'
+translator = 'Earle Raymond Hedrick'
+domain = 'math'
+source_pdf = 'A course in mathematical analysis - Applications to Geometry, Expansion in Series, Definite Integrals, Derivatives and… (Edouard Goursat).pdf'
+pdf_page_count = 568
+pdf_name_markers = ['applications to geometry, expansion in series']
+legacy_state = 'goursat_colab'
+folio_pattern = '^\d{1,4}$'
+normalize_headings = false
+equation_numbering = 'none'
+repair_math = true
+chapters = [
+  { number = 0, title = "Author's Preface", start_page = 4, end_page = 5 },
+  { number = 0, title = "Translator's Preface", start_page = 6, end_page = 6 },
+  { number = 1, title = 'Derivatives and Differentials', start_page = 12, end_page = 45 },
+  { number = 2, title = 'Implicit Functions, Functional Determinants, Change of Variable', start_page = 46, end_page = 99 },
+  { number = 3, title = "Taylor's Series, Elementary Applications, Maxima and Minima", start_page = 100, end_page = 144 },
+  { number = 4, title = 'Definite Integrals', start_page = 145, end_page = 218 },
+  { number = 5, title = 'Indefinite Integrals', start_page = 219, end_page = 260 },
+  { number = 6, title = 'Double Integrals', start_page = 261, end_page = 302 },
+  { number = 7, title = 'Multiple Integrals, Integration of Total Differentials', start_page = 303, end_page = 333 },
+  { number = 8, title = 'Infinite Series', start_page = 334, end_page = 381 },
+  { number = 9, title = 'Power Series, Trigonometric Series', start_page = 382, end_page = 432 },
+  { number = 10, title = 'Plane Curves', start_page = 433, end_page = 459 },
+  { number = 11, title = 'Skew Curves', start_page = 460, end_page = 503 },
+  { number = 12, title = 'Surfaces', start_page = 504, end_page = 545 },
+  { number = 0, title = 'Index', start_page = 546, end_page = 553 },
+]
+running_header_regexes = [
+  '''(?-i:^[*\s]*(?:#+\s*)?(?:\[?[IVXLCDM1K]+[\.,]\s*(?:§+\s*[0-9a-z:]*|Ex[a-z]*\.?)\]?(?:\s+[A-Z][A-Z\s\.,'\-]*\s*\d{0,4})?|(?:§?\d{1,4}\s+)?[A-Z][A-Z\s\.,'\-]{3,}\s+\[?[IVXLCDM1K]+[\.,]\s*(?:§+\s*[0-9a-z:]*|Ex[a-z]*\.?)\]?|[ivxlcdm]+\s+[A-Z][A-Z\s'\-]{3,}|[A-Z][A-Z\s'\-]{3,}\s+[ivxlcdm]+)[*\s]*$)''',
+  '''^[*\s]*(?:#+\s*)?(?:(?:\[?[IVXLCDM1K]+[\.,]\s*(?:§+\s*[0-9a-z:]*|Ex[a-z]*\.?)\]?|\d{1,4})\s+)?(?:A\ COURSE\ IN\ MATHEMATICAL\ ANALYSIS|DERIVATIVES\ AND\ DIFFERENTIALS|IMPLICIT\ FUNCTIONS|FUNCTIONAL\ DETERMINANTS|CHANGE\ OF\ VARIABLE|SERIES|DEFINITE\ INTEGRALS|APPLICATIONS\ TO\ GEOMETRY)(?:\s+(?:\[?[IVXLCDM1K]+[\.,]\s*(?:§+\s*[0-9a-z:]*|Ex[a-z]*\.?)\]?|\d{1,4}))?[*\s]*$''',
+]
+drop_line_regexes = [
+  '''^#+\s*CHAPTER\s+[IVXL]+\s*$''',
+  '''^#+\s*(?:A COURSE IN MATHEMATICAL ANALYSIS|AUTHOR'S PREFACE|TRANSLATOR'S PREFACE|INDEX)\s*$''',
+  '''^#+\s*(?:DERIVATIVES AND DIFFERENTIALS|IMPLICIT FUNCTIONS FUNCTIONAL DETERMINANTS CHANGE OF VARIABLE|TAYLOR'S SERIES ELEMENTARY APPLICATIONS MAXIMA AND MINIMA|DEFINITE INTEGRALS|INDEFINITE INTEGRALS|DOUBLE INTEGRALS|MULTIPLE INTEGRALS|INTEGRATION OF TOTAL DIFFERENTIALS|INFINITE SERIES|POWER SERIES TRIGONOMETRIC SERIES|PLANE CURVES|SKEW CURVES|SURFACES)\s*$''',
+  '''^#+\s*(?:FUNCTIONAL RELATIONS|TRANSFORMATIONS|SPECIAL SERIES)\s*$''',
+]
+heading_rewrites = [
+  ['''### I\. TAYLOR'S SERIES WITH A REMAINDER TAYLOR'S SERIES''', "## I. TAYLOR'S SERIES WITH A REMAINDER"],
+  ['''### I\. SERIES OF REAL CONSTANT TERMS\s+#### GENERAL PROPERTIES TESTS FOR CONVERGENCE''', '## I. SERIES OF REAL CONSTANT TERMS, GENERAL PROPERTIES, TESTS FOR CONVERGENCE'],
+  ['''## III\. GENERALIZATIONS OF DOUBLE INTEGRALS\s+### IMPROPER INTEGRALS SURFACE INTEGRALS''', '## III. GENERALIZATIONS OF DOUBLE INTEGRALS, IMPROPER INTEGRALS, SURFACE INTEGRALS'],
+  ['''## III\. IMPLICIT FUNCTIONS\s+### ANALYTIC CURVES AND SURFACES''', '## III. IMPLICIT FUNCTIONS, ANALYTIC CURVES AND SURFACES'],
+  ['''## IV\. CONTACT BETWEEN SKEW CURVES\s+### CONTACT BETWEEN CURVES AND SURFACES''', '## IV. CONTACT BETWEEN SKEW CURVES, CONTACT BETWEEN CURVES AND SURFACES'],
+  ['''^#+ (II\. CHANGE OF VARIABLES) (AREA OF A SURFACE)$''', '## \1, \2'],
+  ['''^#+ (I\. MULTIPLE INTEGRALS) (CHANGE OF VARIABLES)$''', '## \1, \2'],
+  ['''^#+ (II\. SERIES OF COMPLEX TERMS) (MULTIPLE SERIES)$''', '## \1, \2'],
+  ['''^#+ (IV\. GENERALIZATIONS OF THE IDEA OF AN INTEGRAL) (IMPROPER INTEGRALS) (LINE INTEGRALS\*?)$''', '## \1, \2, \3'],
+  ['''^#+ (II\. DEFINITE INTEGRALS) (ALLIED GEOMETRICAL CONCEPTS)$''', '## \1, \2'],
+  ['''^#+ (I\. DOUBLE INTEGRALS) (METHODS OF EVALUATION) (GREEN'S THEOREM)$''', '## \1, \2, \3'],
+  ['''^#+ (III\. CHANGE OF VARIABLE) (INTEGRATION BY PARTS)$''', '## \1, \2'],
+  ['''^#+ (III\. SERIES OF VARIABLE TERMS) (UNIFORM CONVERGENCE)$''', '## \1, \2'],
+  ['''^### The series\s*$''', 'The series'],
+  ['''([^\n])\n\n+(\[[A-Z]{2,}[^\n]+\.\])''', '\1 \2'],
+  ['''^#+\s*(\d+\*?\.?)\s+([^.\n]+\.)(.*)$''', '**\1 \2**\3'],
+  ['''^#+\s*(\d+\*?\.?)\s+(.+)$''', '**\1** \2'],
+  ['''^(\d{1,3})\. ([A-Z][^.$\n]{2,40}\.) ''', '**\1. \2** '],
+  ['''^#+\s*((?:I|II|III|IV|V|VI)\.\s+.+)$''', '## \1'],
+  ['''^#+\s*EXERCISES\s*$''', '## EXERCISES'],
+]
+
+[page_fixups]
+435 = [['''\\cdot (f\(x, y, a\) = 0, \\quad \\frac)''', '\1']]
+503 = [['''\*\*11\\\*\*\*\.''', '**11*.**']]
+
+[extra_figures]
+41 = [['2', 'Figure 2']]
+42 = [['3', 'Figure 3']]
+78 = [['5', 'Figure 5']]
+80 = [['6', 'Figure 6']]
+145 = [['8', 'Figure 8']]
+146 = [['9', 'Figure 9']]
+150 = [['10', 'Figure 10']]
+171 = [['11', 'Figure 11']]
+176 = [['12', 'Figure 12']]
+177 = [['13', 'Figure 13']]
+203 = [['19', 'Figure 19']]
+230 = [['21', 'Figure 21']]
+231 = [['22', 'Figure 22']]
+261 = [['23', 'Figure 23']]
+266 = [['24', 'Figure 24']]
+269 = [['25', 'Figure 25']]
+276 = [['26', 'Figure 26']]
+278 = [['27', 'Figure 27']]
+280 = [['28', 'Figure 28']]
+281 = [['29', 'Figure 29']]
+291 = [['30', 'Figure 30']]
+295 = [['31', 'Figure 31']]
+305 = [['32', 'Figure 32']]
+308 = [['33', 'Figure 33']]
+325 = [['35', 'Figure 35']]
+326 = [['36', 'Figure 36']]
+438 = [['38', 'Figure 38']]
+439 = [['39', 'Figure 39'], ['40', 'Figure 40']]
+441 = [['41', 'Figure 41']]
+445 = [['43', 'Figure 43'], ['44', 'Figure 44']]
+450 = [['46', 'Figure 46']]
+458 = [['47', 'Figure 47']]
+488 = [['50', 'Figure 50']]
+522 = [['51', 'Figure 51']]
+540 = [['52', 'Figure 52']]
+
+[figures]
+caption_pattern = '''^(?:\*\*)?Fig\.?\s*(?:(?P<chapter>\d+),\s*\$?)?(?P<number>(?(chapter)[a-z]|\d+))\$?\.?(?:\*\*)?\s*$'''
+caption_format = 'Figure {chapter}{number}'

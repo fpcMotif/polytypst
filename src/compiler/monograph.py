@@ -148,6 +148,7 @@ class MonographSpec:
     pre_math_rewrites: tuple[Rewrite, ...] = ()
     stray_dollar_symbol: str = ""
     nonbreaking_hyphens: bool = False
+    repair_math: bool = False
     three_line_tables: bool = False
     chapter_heading: str = "{number} {title}"
     chapter_label: str = ""
@@ -836,6 +837,9 @@ UNNUMBERED_CHAPTER_PREFIXES = (
     "附录",
     "参考文献",
     "Index",
+    "Preface",
+    "Author's Preface",
+    "Translator's Preface",
     "Appendix",
     "Bibliography",
     "References",

@@ -47,7 +47,7 @@ A book is the project. polytypst is the compiler that you point at it, as `typst
 - No change to `MonographSpec` semantics, the compiler, OCR backends, parity measures or vision.
 - No move of source scans. `$POLYTYPST_SOURCES` and `source_pdf` stay as they are.
 - No rename of engine modules to match the stages, such as `scan/`, `ocr/`, `compile/` and `check/`. See Open Questions.
-- No move of `kerodon`, `goursat` and `taocp`. They have no `book.py`, and only `src/web_exporter.py` reaches them. See Open Questions.
+- No move of `kerodon` and `taocp`. They have no `book.py`, and only `src/web_exporter.py` reaches them. See Open Questions. `goursat` is now `books/goursat/`, with its spec in `book.toml` and a `book.py` that adds the figures hook.
 - No JSON. See Design.
 
 ## Background
@@ -353,7 +353,7 @@ There are three phases. Each phase is one PR.
 
 - Should `build/` stay inside the repository as `output/<key>/<edition>/` (gitignored), so that rebuilt PDFs are easy to open from the editor?
 - Should the engine modules be renamed by stage (`scan/`, `ocr/`, `compile/`, `check/`) in a later plan?
-- Should `kerodon`, `goursat` and `taocp` become book folders, with `web_exporter.py` loading them through the catalog? Today the engine imports kerodon (`src/web_exporter.py:10`).
+- Should `kerodon` and `taocp` become book folders, with `web_exporter.py` loading them through the catalog? Today the engine imports kerodon (`src/web_exporter.py:10`).
 - Should `parity` move to TOML with a `page_map` hook, so that bourbaki can drop its `book.py`?
 - Should the project generate a JSON Schema from `MonographSpec`, so that editors can check `book.toml` while you type?
 

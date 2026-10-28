@@ -379,7 +379,7 @@ def convert_goursat_to_math_web_blocks(goursat_md_path: Path) -> list[dict[str, 
     if not goursat_md_path.exists():
         return []
     text = goursat_md_path.read_text(encoding="utf-8")
-    raw_chaps = re.split(r"\n(?=#+ (?:CHAPTER|Chapitre))", text)
+    raw_chaps = re.split(r"(?i)\n(?=#+ (?:CHAPTER|Chapitre))", text)
     chapters: list[dict[str, Any]] = []
     for idx, raw in enumerate(raw_chaps):
         lines = [l.strip() for l in raw.strip().split("\n") if l.strip()]
@@ -808,7 +808,7 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> dict[str, Any]:
     )
     kerodon_out_dir = root_dir / "output" / "kerodon"
     ahlfors_out_dir = root_dir / book_by_key("ahlfors").out_dir
-    goursat_out_dir = root_dir / "output" / "goursat_colab"
+    goursat_out_dir = root_dir / book_by_key("goursat").out_dir
     taocp_out_dir = root_dir / "output" / "taocp"
     london_treasury_out_dir = root_dir / book_by_key("london_treasury").out_dir
     kerodon_pdf = root_dir / "kerodon.pdf"
@@ -818,7 +818,7 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> dict[str, Any]:
         ("serre-arithmetique", serre_out_dir, "serre_cours_darithmetique"),
         ("kerodon-ch1", kerodon_out_dir, "kerodon_complete"),
         ("ahlfors", ahlfors_out_dir, "ahlfors_complete"),
-        ("goursat-analyse", goursat_out_dir, "book"),
+        ("goursat-analyse", goursat_out_dir, "goursat"),
         ("taocp-vol3", taocp_out_dir, "taocp_vol3"),
         ("london-treasury", london_treasury_out_dir, "london_branch_treasury_and_trading_reader"),
     ]
@@ -942,8 +942,8 @@ def export_all_web_data(root_dir: Path, web_public_dir: Path) -> dict[str, Any]:
                 "chapters": ahlfors_chapters
             })
 
-    if (goursat_out_dir / "book.md").exists():
-        goursat_chapters = convert_goursat_to_math_web_blocks(goursat_out_dir / "book.md")
+    if (goursat_out_dir / "goursat.md").exists():
+        goursat_chapters = convert_goursat_to_math_web_blocks(goursat_out_dir / "goursat.md")
         if goursat_chapters:
             books_payload.append({
                 "slug": "goursat-analyse",
