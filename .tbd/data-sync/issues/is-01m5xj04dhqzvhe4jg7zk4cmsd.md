@@ -5,7 +5,7 @@ title: "Support [editions.*] tables: monograph and facsimile kinds with spec ove
 kind: task
 status: open
 priority: 2
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-10-27-book-catalog-toml.md
 labels:
   - phase-1
@@ -16,6 +16,10 @@ dependencies:
     target: is-01m5xj05m79fatpw31bj9n6a5x
 parent_id: is-01m5xhys8sqjygcvfkff88zxra
 created_at: 2026-10-27T02:11:01.680Z
-updated_at: 2026-10-28T01:03:45.887Z
+updated_at: 2026-10-28T01:53:36.319Z
 ---
 Each [editions.<name>] has kind (monograph default, or facsimile), summary, a spec table applied with dataclasses.replace, and a facsimile table of FacsimileStyle fields. No out_dir key: Phase 2 derives it. First edition is the default. No editions table means one monograph edition. Done when tests cover fermat-style vol1/vol2/vol3 overrides and an algebra3-style facsimile edition.
+
+## Notes
+
+80c5f152: monograph editions in TOML are done. Still open: hooks.py binding and the facsimile kind; 16 books keep book.py until then.
