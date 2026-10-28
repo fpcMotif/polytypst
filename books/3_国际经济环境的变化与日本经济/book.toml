@@ -1,0 +1,119 @@
+slug = '3'
+title = '国际经济环境的变化与日本经济'
+author = '（日本）内阁府经济社会综合研究所'
+publisher = '中国金融出版社'
+year = 2022
+lang = 'zh'
+domain = 'economics'
+chapters = [
+  { number = 0, title = '（日本）内阁府经济社会综合研究所', start_page = 1, end_page = 1 },
+  { number = 0, title = '编译委员会', start_page = 2, end_page = 2 },
+  { number = 0, title = '作者简介', start_page = 4, end_page = 5 },
+  { number = 0, title = '中文版前言', start_page = 6, end_page = 7 },
+  { number = 0, title = '中文版序言', start_page = 8, end_page = 15 },
+  { number = 0, title = '序 国际经济环境的变化与日本经济', start_page = 16, end_page = 24 },
+  { number = 1, title = '进口竞争对日本国内产业的影响', start_page = 30, end_page = 55 },
+  { number = 2, title = '日本对内直接投资的变化与经济影响', start_page = 56, end_page = 101 },
+  { number = 3, title = '泡沫、通缩期的日本通商政策', start_page = 102, end_page = 127 },
+  { number = 4, title = '泡沫、通缩期的日本食品和农业问题', start_page = 128, end_page = 162 },
+  { number = 5, title = '货币和汇率政策（国际金融政策）变化', start_page = 163, end_page = 189 },
+  { number = 6, title = '亚洲金融危机和日本金融机构的行动', start_page = 190, end_page = 218 },
+  { number = 7, title = '汇率和国际收支', start_page = 219, end_page = 251 },
+  { number = 8, title = '从老龄化等结构性要因来看日本的国际收支问题', start_page = 252, end_page = 279 },
+  { number = 9, title = '内外价格差和汇率传导', start_page = 280, end_page = 296 },
+  { number = 10, title = '少子老龄化时代的外国劳动者问题', start_page = 297, end_page = 323 },
+  { number = 11, title = '经济全球化对20世纪90年代劳动力市场的影响', start_page = 324, end_page = 347 },
+]
+running_header_regexes = [
+  '^(?:#+\s*|=+\s*)?\d{1,3}\s+国际经济环境的变化与日本经济.*$',
+  '^(?:#+\s*|=+\s*)?(?:序\s+)?国际经济环境的变化与日本经济\s+\d{1,3}.*$',
+  '^(?:#+\s*|=+\s*)?\d{1,2}\s+(?:进口竞争对日本国内产业的影响|日本对内直接投资的变化与经济影响|泡沫、通缩期的日本通商政策|泡沫、通缩期的日本食品和农业问题|货币和汇率政策\s*[（(]国际金融政策[)）]\s*变化|亚洲金融危机和日本金融机构的行动|汇率和国际收支|从老龄化等结构性要因来看日本的国际收支问题|内外价格差和汇率传导|少子老龄化时代的外国劳动者问题|经济全球化对\s*20\s*世纪\s*90\s*年代劳动力市场的影响)(?:\s+\d{1,3})?$',
+  '^(?:#+\s*|=+\s*)?(?:进口竞争对日本国内产业的影响|日本对内直接投资的变化与经济影响|泡沫、通缩期的日本通商政策|泡沫、通缩期的日本食品和农业问题|货币和汇率政策\s*[（(]国际金融政策[)）]\s*变化|亚洲金融危机和日本金融机构的行动|汇率和国际收支|从老龄化等结构性要因来看日本的国际收支问题|内外价格差和汇率传导|少子老龄化时代的外国劳动者问题|经济全球化对\s*20\s*世纪\s*90\s*年代劳动力市场的影响)\s+\d{1,3}$',
+  '^(?:#+\s*|=+\s*)?目录(?:\s+\d{1,3})?$',
+]
+footnote_style = 'circled'
+cross_references = true
+# Table 5-2 is the book's only 11-column table, and the scan rules every cell.
+# Its grey shading takes a tint of the sage band on the scan's cover.
+typst_front_matter = '''
+#show emph: set text(font: ("Source Serif 4", "Songti SC", "STSong"))
+#show table.where(columns: (1.8fr,) + (1fr,) * 10): it => {
+  set table.cell(stroke: 0.4pt + rgb("#2f3d31"), fill: white)
+  let fields = it.fields()
+  let cells = fields.remove("children").map(cell => {
+    let cell_fields = cell.fields()
+    if cell_fields.at("fill", default: none) != luma(215) { return cell }
+    let body = cell_fields.remove("body")
+    cell_fields.insert("fill", rgb("#d6e2d4"))
+    table.cell(..cell_fields, body)
+  })
+  fields.insert("columns", (1.1fr,) + (1fr,) * 9 + (1.6fr,))
+  table(..fields, ..cells)
+}
+@ENGINE_TITLE_PAGE@'''
+pdf_name_markers = ['国际经济环境的变化与日本经济']
+pdf_page_count = 347
+source_pdf = '3 国际经济环境的变化与日本经济.pdf'
+ocr_languages = ['zh-Hans', 'en-US']
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
+caption_format = '图 {chapter}-{number}'
+top_pages = [46, 192, 300, 313, 332]
+svg_single_pct = 100
+pair_figures = false
+png_single_divisor = 2700
+png_single_range = [60, 100]
+png_max_height_ratio = 1.3
+png_min_pct_tall = 60
+
+# The compiler sets each chapter title itself, so a note on the scan's title line moves to the byline.
+[page_fixups]
+1 = [
+  [
+    '\n+---.*\Z',
+    '''
+
+''',
+  ],
+]
+2 = [['\A.*?(?=日文版)', ''], ['(葛 俊).*\Z', '\1\n']]
+# The table writer merges trailing empty header cells into a colspan, so cells under a two-row heading get a joiner.
+132 = [['(?m)(兼业农户 \|)  \|  \|$', '\1 ⁠ | ⁠ |']]
+171 = [
+  ['(?m)^(\| constant .*\| GMPRD \|)  \|$', '\1 ⁠ |'],
+  ['(?m)(\| <mark>0\.063<br>-2\.289</mark> \|)  \|  \|', '\1 ⁠ | ⁠ |'],
+]
+175 = [['(?m)(\| 超过 \| 低于 \|)  \|  \|  \|$', '\1 ⁠ | ⁠ | ⁠ |']]
+247 = [['(?m)(\| 服务收支 \|)  \|  \|$', '\1 ⁠ | ⁠ |']]
+248 = [['(?m)(\| 资产 \| 负债 \|)  \|  \|$', '\1 ⁠ | ⁠ |']]
+255 = [['(?m)^(\| 1955 \| 11\.9 \|)  \|  \|( 1980 \| 17\.9 \| 15\.4 \|)  \|$', '\1 ⁠ | ⁠ |\2 ⁠ |']]
+256 = [['(?m)^(\| 1963 \| 14\.9 \|)  \|  \|( 1988 \| 13\.0 \| 11\.9 \|)  \|$', '\1 ⁠ | ⁠ |\2 ⁠ |']]
+285 = [['(?m)^(\| 1990 \| 1\.03 \|)  \|  \|  \|$', '\1 ⁠ | ⁠ | ⁠ |']]
+289 = [['(?m)^(\| 美国（美元） \| 3\.57 \| 3\.57 \|)  \|  \|  \|$', '\1 ⁠ | ⁠ | ⁠ |']]
+17 = [['（1973年3月=100）\n\n实际有效汇率的走势（1990年1月—2009年1月）', '![](figures/preface_exchange_rate.svg)']]
+221 = [
+  [
+    '\A(?=### 2\.1 汇率的动向)',
+    '''
+### 2 汇率和国际收支
+
+''',
+  ],
+]
+252 = [['^### 8 从老龄化等结构性要因来看日本的国际收支问题(①)\n+(查尔斯 堀冈雄二 \(Charles Yuji Horioka\))', '\2\1']]
+324 = [['^### 11 经济全球化对20世纪90年代劳动力市场的影响(①)\n+(神田玲子)', '\2\1']]
+
+[hooks]
+heading_hook = 'intl_econ_heading_hook'
+figures = 'prepare_figures'
+
+[editions.monograph]
+summary = '11 chapters, monochrome academic monograph'
+
+[editions.illustrated]
+summary = '11 chapters, illustrated monograph with scan figures'
+
+[editions.illustrated.spec]
+slug = '3_illustrated'
+book_aliases = false

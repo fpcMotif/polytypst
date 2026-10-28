@@ -6,8 +6,6 @@ import pymupdf
 
 from polytypst.parity.source import source_pdf
 
-from .spec import LABOR_SPEC
-
 # Each box is (left, top, right, bottom) as fractions of the scan page.
 Box = tuple[float, float, float, float]
 
@@ -54,7 +52,9 @@ def _stack(parts: list[pymupdf.Pixmap]) -> pymupdf.Pixmap:
 
 
 def crop_cross_page_figures(out_dir: Path, source: Path | None) -> None:
-    scan = pymupdf.open(source_pdf(LABOR_SPEC, source))
+    from polytypst.books import book_by_key
+
+    scan = pymupdf.open(source_pdf(book_by_key("6_劳动力市场与收入分配").spec, source))
     for name, parts in STACKED.items():
         _stack([_crop(scan, page, box, FIGURE_DPI) for page, box in parts]).save(figure_path(out_dir, name))
     for name, (page, box) in SPLIT.items():

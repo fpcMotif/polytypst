@@ -323,11 +323,8 @@ def review_folder(
 
 def lowest_pages(pages_csv: Path, pdf_name: str, n: int = 10) -> str:
     """The `n` scan pages of `pages.csv` with the lowest coverage in `pdf_name`, as `scan S -> R (C)`."""
-    rows = [
-        r
-        for r in csv.DictReader(pages_csv.open(encoding="utf-8"))
-        if r.get(f"{pdf_name}:coverage")
-    ]
+    with pages_csv.open(encoding="utf-8") as fh:
+        rows = [r for r in csv.DictReader(fh) if r.get(f"{pdf_name}:coverage")]
     rows.sort(key=lambda r: (float(r[f"{pdf_name}:coverage"]), int(r["scan_page"])))
     return ", ".join(
         f"scan {r['scan_page']} -> {r[f'{pdf_name}:page'] or 'none'} ({float(r[f'{pdf_name}:coverage'])})"

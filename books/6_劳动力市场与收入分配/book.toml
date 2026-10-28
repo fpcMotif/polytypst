@@ -1,0 +1,142 @@
+slug = '6'
+title = '劳动力市场与收入分配'
+author = '（日本）内阁府经济社会综合研究所'
+publisher = '中国金融出版社'
+year = 2022
+lang = 'zh'
+domain = 'economics'
+chapters = [
+  { number = 0, title = '作者简介', start_page = 4, end_page = 5 },
+  { number = 0, title = '中文版前言', start_page = 6, end_page = 7 },
+  { number = 0, title = '中文版序言', start_page = 8, end_page = 15 },
+  { number = 0, title = '序 劳动力市场与收入分配', start_page = 16, end_page = 22 },
+  { number = 1, title = '劳动分配率与工资的下降', start_page = 30, end_page = 66 },
+  { number = 2, title = '工资调整和雇佣调整与菲利普斯曲线的变化', start_page = 67, end_page = 95 },
+  { number = 3, title = '结构性失业与错配', start_page = 96, end_page = 148 },
+  { number = 4, title = '20世纪90年代后半期至21世纪前5年就业严峻化的实证分析', start_page = 149, end_page = 165 },
+  { number = 5, title = '20世纪80年代后日本的劳动时间', start_page = 166, end_page = 203 },
+  { number = 6, title = '工会与雇佣调整', start_page = 204, end_page = 228 },
+  { number = 7, title = '工龄工资、成果主义与工资结构', start_page = 229, end_page = 249 },
+  { number = 8, title = '收入差距', start_page = 250, end_page = 279 },
+  { number = 9, title = '泡沫经济以后的学校教育和教育政策', start_page = 280, end_page = 304 },
+  { number = 10, title = '工资差距', start_page = 305, end_page = 349 },
+  { number = 11, title = '泡沫经济以后性别工资差距的实际情况及其研究动向', start_page = 350, end_page = 373 },
+  { number = 12, title = '工资与就业的地区间差距', start_page = 374, end_page = 408 },
+  { number = 13, title = '非正规雇佣增加的背景及其政策措施', start_page = 409, end_page = 431 },
+  { number = 14, title = '女性就业与少子化', start_page = 432, end_page = 470 },
+  { number = 15, title = '年轻人就业问题和代际效应', start_page = 471, end_page = 491 },
+  { number = 16, title = '日本老年人就业率居高不下以及变化的主要原因', start_page = 492, end_page = 534 },
+  { number = 17, title = '职业培训', start_page = 535, end_page = 563 },
+]
+running_header_regexes = [
+  '^(?:#+\s*|=+\s*)?\d{1,3}\s+劳动力市场与收入分配.*$',
+  '^(?:#+\s*|=+\s*)?劳动力市场与收入分配\s+\d{1,3}.*$',
+  '^(?:#+\s*|=+\s*)?\d{1,2}\s+(?:劳动分配率与工资的?下降|工资调整和雇佣调整与菲利普斯曲线[的]?变化|结构性失业与错配|20\s*世纪\s*90\s*年代后半期至\s*21\s*世纪前\s*5\s*年就业严峻化[的]?实证分析|20\s*世纪\s*80\s*年代后日本[的]?劳动时间|工会与雇佣调整|工龄工资、成果主义与工资结构|收入差距|泡沫经济以后的学校教育和教育政策|工资差距|泡沫经济以后性别工资差距的实际情况及其研究动向|工资与就业的?地区间差距|非正规雇佣增加[的]?背景及其政策措施|女性就业与少子化|年轻人就业问题和代际效应|日本老年人就业率居高不下以及变化[的]?主要原因|职业培训)\s+\d{1,3}$',
+  '^(?:#+\s*|=+\s*)?(?:劳动分配率与工资的?下降|工资调整和雇佣调整与菲利普斯曲线[的]?变化|结构性失业与错配|20\s*世纪\s*90\s*年代后半期至\s*21\s*世纪前\s*5\s*年就业严峻化[的]?实证分析|20\s*世纪\s*80\s*年代后日本[的]?劳动时间|工会与雇佣调整|工龄工资、成果主义与工资结构|收入差距|泡沫经济以后的学校教育和教育政策|工资差距|泡沫经济以后性别工资差距的实际情况及其研究动向|工资与就业的?地区间差距|非正规雇佣增加[的]?背景及其政策措施|女性就业与少子化|年轻人就业问题和代际效应|日本老年人就业率居高不下以及变化[的]?主要原因|职业培训)\s+\d{1,3}$',
+  '^(?:#+\s*|=+\s*)?序\s+劳动力市场与收入分配(?:\s+\d{1,3})?$',
+  '^(?:#+\s*|=+\s*)?中文版序言(?:\s+\d{1,3})?$',
+  '^(?:#+\s*|=+\s*)?中文版前言(?:\s+\d{1,3})?$',
+  '^(?:#+\s*|=+\s*)?作者简介(?:\s+\d{1,3})?$',
+  '^(?:#+\s*|=+\s*)?目录(?:\s+\d{1,3})?$',
+]
+footnote_reset = 'chapter'
+cross_references = true
+# The scan numbers sections "2" and subsections "2.1" with no period or §. Its running heads carry
+# the book title on even pages and the numbered chapter title on odd pages.
+typst_front_matter = '''
+
+#show heading.where(level: 2): set heading(numbering: (..n) => str(n.pos().at(1)) + "\u{2002}")
+#show heading.where(level: 3): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
+#set page(header: context {
+  let page-number = counter(page).get().first()
+  let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
+  if page-number > 4 and not on-chapter-page {
+    let chaps = query(heading.where(level: 1).before(here()))
+    let title = if calc.odd(page-number) and chaps != () [#chaps.last().body] else [劳动力市场与收入分配]
+    let head = text(8.5pt, font: ("Songti SC", "STSong", "New Computer Modern"))[#title]
+    let folio = text(9.5pt, font: ("Songti SC", "STSong", "New Computer Modern"))[#page-number]
+    if calc.odd(page-number) {
+      grid(columns: (1fr, auto), align(left, head), align(right, folio))
+    } else {
+      grid(columns: (auto, 1fr), align(left, folio), align(right, head))
+    }
+    v(-0.35em)
+    line(length: 100%, stroke: 0.35pt + luma(120))
+  }
+})
+@ENGINE_TITLE_PAGE@'''
+latex_preamble = '\renewcommand\sourcesection[1]{\refstepcounter{sourcesection}\setcounter{equation}{0}\section*{\arabic{sourcesection}\quad #1}\addcontentsline{toc}{section}{\arabic{sourcesection}\quad #1}}\renewcommand\sourcesubsection[1]{\refstepcounter{sourcesubsection}\setcounter{equation}{0}\subsection*{\thesourcesubsection\quad #1}}'
+pdf_name_markers = ['劳动力市场与收入分配']
+pdf_page_count = 563
+source_pdf = '6 劳动力市场与收入分配.pdf'
+ocr_languages = ['zh-Hans', 'en-US']
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+(?:\.\d+)?[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
+caption_format = '图 {chapter}-{number}'
+svg_single_pct = 100
+pair_figures = false
+# Crops are 600 dpi; the scan's text block is 2966 px wide, so a figure keeps its scan share of the line.
+png_single_divisor = 2966
+png_single_range = [45, 100]
+png_max_height_ratio = 1.35
+png_min_pct_tall = 45
+
+[page_fixups]
+76 = [['\\quad \(2, ([56])\)\$\$', '\\quad (2.\1)$$']]
+# Panel titles printed inside the figure crops.
+71 = [['(?m)^（[1-6]）(?:日本|美国|加拿大|英国|法国|意大利)\n*', '']]
+72 = [['(?m)^（[1-6]）(?:日本|美国|加拿大|英国|法国|意大利)\n*', '']]
+191 = [['\A.*?(?=注：平均工资率)', '']]
+232 = [['(?m)^（各学历总计，年薪，男性 / 女性，对数差）\n*', '']]
+233 = [['(?m)^（男性，大学/高中学历，年薪，对数差）\n*', '']]
+234 = [['(?m)^（男性，(?:大学|高中)学历，年薪，与25[~～]29岁的对数差）\n*', '']]
+298 = [['(?m)^（[12]）(?:小学|初中)图书预算措施率和语文学力的关系\n*', '']]
+310 = [['(?m)^（[12]）\d+[~～]\d+岁\n*', '']]
+333 = [['(?m)^（[12]）40岁(?:以下|及以上)年龄段与不分年龄段时的比较\n*', '']]
+334 = [['(?m)^（[12]）不同(?:规模企业间|学历间)工资差距.*的变化（.*）\n*', '']]
+368 = [['(?m)^[^\n]*1986年的(?:教育水平|连续工龄|年龄结构成)[^\n]*\n*', '']]
+496 = [['(?m)^[#\s]*(?:65岁及以上|55[~～]59岁)\n*', '']]
+516 = [
+  ['男性 在职年金领取者 60.*?1997 2002年\n*', ''],
+  [
+    '个人劳动性收入比例：\$R = \\frac\{y_i\}\{D\}\$\s*\$\$\\frac\{S\^\{0\.5\}\}\{S\^\{0\.5\}\}\$\$',
+    '''
+个人劳动性收入比例：
+
+$$R = \frac{y_i / D}{S^{0.5}}$$''',
+  ],
+]
+386 = [['(?m)^\([ab]\) (?:基本工资|年度工资)\n*', '']]
+390 = [['(?m)^\([a-d]\) (?:相对地区就业|相对地区失业率|各地区失业率|相对劳动力参与率)\n*', '']]
+# 图 10-26, 13-4 and 13-5 start one scan page before their caption; see figures.py.
+339 = [
+  [
+    '\Z',
+    '''
+
+
+![](figures/fig_10-26-panels.png)''',
+  ],
+]
+340 = [['\A.*?(?=注：1\.)', '']]
+415 = [['(?m)^\(a\) 1990年，男性\n*', '']]
+416 = [['(?m)^(?:\([abc]\) (?:1990|2000|2007)年，(?:男性|女性)|[□■] \S+)\n*', '']]
+417 = [['(?m)^\([bc]\) 20\d\d年，女性\n*', '']]
+# The chapter 9 title carries note ①; the chapter heading comes from CHAPTERS, so the byline keeps the call.
+280 = [['：赤林英夫', '：赤林英夫①']]
+
+[hooks]
+heading_hook = 'labor_heading_hook'
+
+[editions.monograph]
+summary = '17 chapters, academic monograph'
+prepare = 'prepare'
+
+[editions.illustrated]
+summary = '17 chapters, illustrated monograph with scan figures'
+prepare = 'prepare'
+
+[editions.illustrated.spec]
+slug = '6_illustrated'
+book_aliases = false

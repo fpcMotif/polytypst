@@ -47,7 +47,7 @@ A book is the project. polytypst is the compiler that you point at it, as `typst
 - No change to `MonographSpec` semantics, the compiler, OCR backends, parity measures or vision.
 - No move of source scans. `$POLYTYPST_SOURCES` and `source_pdf` stay as they are.
 - No rename of engine modules to match the stages, such as `scan/`, `ocr/`, `compile/` and `check/`. See Open Questions.
-- No move of `kerodon` and `taocp`. They have no `book.py`, and only `src/web_exporter.py` reaches them. See Open Questions. `goursat` is now `books/goursat/`, with its spec in `book.toml` and a `book.py` that adds the figures hook.
+- No move of `kerodon` and `taocp`. They have no `book.py`, and only `src/web_exporter.py` reaches them. See Open Questions. `goursat` is now `books/goursat/`, with its spec in `book.toml` and its figures hook in `hooks.py`.
 - No JSON. See Design.
 
 ## Background
@@ -174,6 +174,7 @@ The top-level keys are the fields of `MonographSpec`, with the same names and me
 | `aliases` | Other keys that `book_by_key` accepts. This replaces the hard-coded `sga4_5` aliases. |
 | `running_headers` | Not built yet. A list of titles. The loader joins them with `\|`, passes them to `running_header_regexes()`, and appends the result to `running_header_regexes`. |
 | `editions` | A table of editions. See Editions. |
+| `hooks` | A table that binds a callable field, or `figures`, to a `hooks.py` function with another name. See `hooks.py`. |
 | `legacy_state` | During migration only: the old output folder name of this book or of one edition. Until Phase 2, it also sets the output folder (`output/<legacy_state>/`). Phase 3 removes it. |
 
 Type rules:
@@ -182,6 +183,9 @@ Type rules:
 - A TOML table becomes a `ChapterSpec`, a `FigureLayout` or a `dict`, as the annotation says.
 - Keys of a `dict[int, ...]` field are strings in TOML. The loader parses them as integers.
 - The token `@REPO@` in a string becomes the absolute path of the repository root. For example, `"@REPO@/fonts"` is the repo's `fonts/` folder. Other strings stay as written, because many path fields, such as `source_pdf`, are scan file names and not paths.
+- In a `Path` field, such as a facsimile's `diagram_dir`, the token `@BOOK@` becomes the book folder.
+- In `typst_front_matter`, the token `@ENGINE_TITLE_PAGE@` becomes the compiler's own title page for that spec. In `typst_preamble`, `@ENGINE_PREAMBLE@` becomes the compiler's own preamble. A book that extends the engine's Typst thus keeps up with the engine.
+- TOML has no null. A field whose `None` means the same as its default, such as `header_zone_lines`, is left out.
 - A callable field must not appear in TOML. It comes only from `hooks.py`.
 - The loader rejects unknown keys, wrong types and bad `Literal` values. The error names the file and the key.
 
@@ -232,7 +236,10 @@ Each `[editions.<name>]` table has these keys:
 - `kind`: `"monograph"` (the default) or `"facsimile"`.
 - `summary`: a short description of the edition.
 - `spec`: an optional table of `MonographSpec` overrides. The loader applies it with `dataclasses.replace`.
-- `facsimile`: for `kind = "facsimile"`, a table of `FacsimileStyle` fields.
+- `facsimile`: for `kind = "facsimile"`, a table of `FacsimileStyle` fields. Its callable fields come from `hooks.py`. `install_diagrams` defaults to `no_diagrams`.
+- `visual`: for `kind = "facsimile"`, an optional table of `VisualLimits`.
+- `hooks`: an optional table that binds callable fields of this edition to `hooks.py` functions.
+- `prepare`: for `kind = "monograph"`, the name of a `hooks.py` function that runs before each build.
 
 The first edition is the default. If a book has no `editions` table, the catalog makes one `monograph` edition. An edition has no `out_dir` key, because `BookPaths` derives it.
 
@@ -257,9 +264,12 @@ spec = { slug = "fermat", title = "...", chapters = [ ... ] }
 
 `hooks.py` is a plain module that the loader imports by path. It can import from the engine (`from polytypst.compiler.monograph import ...`) and use relative imports inside the book folder. The loader binds names with these rules:
 
-- A function with the name of a callable `MonographSpec` field fills that field. The names are `heading_hook`, `source_line_breaks` and `justify_page_end`.
-- A function named `figures` fills `Book.figures`. It receives `BookPaths`, not an `out_dir`.
-- An edition can name a different function, for example `hooks = { heading_hook = "illustrated_heading_hook" }`, or `prepare = "draw_figures"`.
+- A function with the name of a callable `MonographSpec` field fills that field at the top level. The names are `heading_hook`, `source_line_breaks` and `justify_page_end`.
+- A function named `figures` fills `Book.figures`. Until Phase 2 it receives the output folder. Phase 2 passes `BookPaths`.
+- In a facsimile edition, a function with the name of a callable `FacsimileStyle` field fills that field. The names are `install_diagrams`, `diagram_boxes`, `figure_boxes` and `figure_art`.
+- The top-level `[hooks]` table binds a function with another name, for example `heading_hook = "macro_heading_hook"` or `figures = "draw_figures"`.
+- An edition can name a different function, for example `hooks = { heading_hook = "illustrated_heading_hook" }`, or `prepare = "draw_figures"`. An edition's monograph spec inherits the top-level hooks and takes no hook by name.
+- A hook that needs spec data reads it from `book.toml` with `tomllib`, or calls `book_by_key` inside the function at run time. It never copies the data.
 - The loader raises an error when `book.toml` names a hook that `hooks.py` does not define. It also raises an error when `hooks.py` defines a public function that nothing binds.
 
 ### Discovery and loading
@@ -308,11 +318,11 @@ There are three phases. Each phase is one PR.
 
 - [x] Turn `src/books.py` into the catalog, with discovery, lazy loading and the strict TOML loader.
 - [x] Support `[editions.*]` with the `monograph` kind and `spec` overrides.
-- [ ] Support the `facsimile` kind in TOML. Until then, a book with a facsimile edition keeps `book.py`.
-- [ ] Bind `hooks.py` functions by name. Raise an error for a missing or unbound hook.
+- [x] Support the `facsimile` kind in TOML, with an `[editions.<name>.facsimile]` table of `FacsimileStyle` fields.
+- [x] Bind `hooks.py` functions by name. Raise an error for a missing or unbound hook.
 - [x] Record snapshots of every book, edition and spec from the old code (`tests/fixtures/book_snapshots.json`).
-- [x] Move all 28 books to `books/<key>/` in one change, so no dual discovery is needed. 12 books are `book.toml` only. 16 books keep `book.py`, because they use hooks, facsimile editions, figures or extra modules.
-- [ ] Move the 16 Python books to `book.toml` plus `hooks.py`, after hooks and the `facsimile` kind exist.
+- [x] Move all 28 books to `books/<key>/` in one change, so no dual discovery is needed.
+- [x] Move the Python books to `book.toml` plus `hooks.py`. 27 of 29 books now use `book.toml`. `bourbaki` keeps `book.py` for its parity page map, and `london_treasury` keeps it for its own build pipeline.
 - [x] Switch the tests and scripts to the catalog. Change `new-book` to write `book.toml`.
 - [x] Delete the package entries, the `[0-9]*/*.py` glob and `tests/test_packaging.py`.
 - [x] Remove book names from engine code. The website list moves to `books/<key>/site.toml`. The compiler stops looking for diagrams in other books' output folders. Generic scripts take `KEY`. Book-only scripts move to `books/<key>/tools/` or read their folder from the catalog.

@@ -105,3 +105,6 @@ heading_rewrites = [
 [figures]
 caption_pattern = '''^(?:\*\*)?Fig\.?\s*(?:(?P<chapter>\d+),\s*\$?)?(?P<number>(?(chapter)[a-z]|\d+))\$?\.?(?:\*\*)?\s*$'''
 caption_format = 'Figure {chapter}{number}'
+
+[hooks]
+figures = 'draw_figures'

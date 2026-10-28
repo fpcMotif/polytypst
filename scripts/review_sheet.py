@@ -28,7 +28,8 @@ def load(spec: str, height: int | None) -> Image.Image:
         pix = doc[int(page) - 1].get_pixmap(dpi=200)
         img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
     else:
-        img = Image.open(path).convert("RGB")
+        with Image.open(path) as raw:
+            img = raw.convert("RGB")
     if height is not None and img.height != height:
         img = img.resize(
             (round(img.width * height / img.height), height), Image.LANCZOS

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from polytypst import books as catalog
-from polytypst.compiler.monograph import ChapterSpec, MonographSpec
+from polytypst.compiler.monograph import ChapterSpec, MonographCompiler, MonographSpec
 from polytypst.edition import OUTPUT
 
 MINIMAL = 'slug = "probe"\ntitle = "Probe"\nauthor = "A"\ndomain = "math"\n'
@@ -54,7 +54,10 @@ def test_book_toml_fields_become_the_spec_with_their_annotated_types(tmp_path: P
     ("heading_hook = 'mine'", "heading_hook: a function cannot be set"),
     ("problems_pages = [1, 2, 3]", "problems_pages: expected 2 items"),
     ("[page_fixups]\nfirst = []", "page_fixups: key 'first' is not an integer"),
-    ("[editions.big]\nkind = 'facsimile'", "editions.big.kind: 'facsimile' needs a book.py"),
+    ("[editions.big]\nkind = 'facsimile'", "editions.big.facsimile: a facsimile edition needs"),
+    ("[editions.big]\nkind = 'scroll'", "editions.big.kind: 'scroll' is not one of"),
+    ("[hooks]\nheading_hook = 'nowhere'", "hooks.heading_hook: hooks.py defines no function 'nowhere'"),
+    ("[hooks]\ncolour = 'red'", "hooks: unknown key colour"),
     ("[editions.big]\nsize = 3", "editions.big: unknown key size"),
     ("[editions.big.spec]\ncolour = 'red'", "editions.big.spec: unknown key colour"),
 ])
@@ -130,3 +133,70 @@ def test_a_python_book_imports_its_own_files_by_relative_import(shelf: Path):
         encoding="utf-8")
     assert catalog.book_by_key("py_book").spec.slug == "py_book"
     assert catalog.module("py_book", "spec").SPEC is catalog.book_by_key("py_book").spec
+
+
+def hooked(folder: Path, toml: str, hooks: str) -> Path:
+    write(folder, toml)
+    (folder / "hooks.py").write_text(hooks, encoding="utf-8")
+    return folder
+
+
+def test_hooks_fill_fields_by_their_own_name_or_by_the_hooks_table(tmp_path: Path):
+    folder = hooked(tmp_path / "hooked_names", MINIMAL + (
+        "[hooks]\nfigures = 'draw'\n"
+        "[editions.plain]\nsummary = 'plain'\n"
+        "[editions.loud]\nprepare = 'get_ready'\n"
+        "[editions.loud.hooks]\nheading_hook = 'shout'\n"
+    ), (
+        "def heading_hook(lt, chapter):\n    return None\n"
+        "def shout(lt, chapter):\n    return lt.upper()\n"
+        "def draw(out_dir):\n    return []\n"
+        "def get_ready(source):\n    return None\n"
+        "def _helper():\n    return None\n"
+    ))
+    book = catalog.load_toml("hooked_names", folder)
+    assert book.spec.heading_hook.__name__ == "heading_hook"
+    assert book.figures.__name__ == "draw"
+    assert book.editions["plain"].spec.heading_hook.__name__ == "heading_hook"
+    assert book.editions["loud"].spec.heading_hook.__name__ == "shout"
+    prepare = dict(zip(book.editions["loud"].build.__code__.co_freevars, book.editions["loud"].build.__closure__))
+    assert prepare["prepare"].cell_contents.__name__ == "get_ready"
+
+
+def test_a_public_hook_that_fills_no_field_is_an_error(tmp_path: Path):
+    folder = hooked(tmp_path / "hooked_stray", MINIMAL, "def stray(out_dir):\n    return []\n")
+    with pytest.raises(catalog.BookFileError, match="stray fill no field"):
+        catalog.load_toml("hooked_stray", folder)
+
+
+def test_a_facsimile_edition_takes_its_style_from_toml_and_hooks(tmp_path: Path):
+    folder = hooked(tmp_path / "hooked_facsimile", MINIMAL + (
+        "[editions.facsimile]\nkind = 'facsimile'\n"
+        "[editions.facsimile.hooks]\ndiagram_boxes = 'boxes'\n"
+        "[editions.facsimile.facsimile]\n"
+        "slug = 'probe_facsimile'\ntitle = 'Probe (facsimile)'\nfont_file = '/fonts/x.ttf'\n"
+        "font_stack = '(\"X\")'\nsize = 9.5\nweight = 400\ndiagram_dir = '@BOOK@/diagrams'\n"
+        "scan_pages = [2, 1]\n"
+        "diagram_text = { font = 'X', size = 9.5, weight = 400 }\n"
+    ), "def boxes():\n    return {}\n")
+    edition = catalog.load_toml("hooked_facsimile", folder).editions["facsimile"]
+    style = edition.facsimile
+    assert style.slug == "probe_facsimile"
+    assert style.font_file == Path("/fonts/x.ttf")
+    assert style.diagram_dir == folder / "diagrams"
+    assert style.scan_pages == frozenset({1, 2})
+    assert style.diagram_boxes.__name__ == "boxes"
+    assert style.install_diagrams(tmp_path) == []
+    assert edition.rebuilt == OUTPUT / "hooked_facsimile" / "probe_facsimile.pdf"
+    assert edition.parity is not None and edition.parity.diagrams == folder / "diagrams"
+
+
+def test_engine_tokens_become_the_compilers_own_title_page_and_preamble(tmp_path: Path):
+    folder = write(tmp_path / "probe", MINIMAL + (
+        "typst_front_matter = '''#let before = 1\n@ENGINE_TITLE_PAGE@'''\n"
+        "typst_preamble = '''@ENGINE_PREAMBLE@\n#let after = 2'''\n"
+    ))
+    spec = catalog.load_toml("probe", folder).spec
+    plain = MonographSpec(slug="probe", title="Probe", author="A", domain="math")
+    assert spec.typst_front_matter == "#let before = 1\n" + MonographCompiler(plain).build_typst_title_page()
+    assert spec.typst_preamble == MonographCompiler(plain).build_typst_preamble() + "\n#let after = 2"

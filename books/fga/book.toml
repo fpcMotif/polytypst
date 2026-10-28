@@ -1,0 +1,68 @@
+slug = 'fga'
+title = 'Fondements de la géométrie algébrique'
+author = 'Alexander Grothendieck'
+publisher = 'Secrétariat mathématique'
+publisher_key = 'springer'
+lang = 'fr'
+domain = 'math'
+chapters = [
+  { number = 0, title = 'Commentaires', start_page = 3, end_page = 13, label = 'Complément' },
+  { number = 149, title = 'Théorème de dualité pour les faisceaux algébriques cohérents', start_page = 14, end_page = 39, label = 'Exposé 149' },
+  { number = 182, title = 'Géométrie formelle et géométrie algébrique', start_page = 40, end_page = 67, label = 'Exposé 182' },
+  { number = 190, title = 'I. Généralités. Descente par morphismes fidèlement plats', start_page = 68, end_page = 96, label = 'Exposé 190' },
+  { number = 195, title = '''II. Le théorème d'existence en théorie formelle des modules''', start_page = 97, end_page = 118, label = 'Exposé 195' },
+  { number = 212, title = 'III. Préschémas quotients', start_page = 119, end_page = 138, label = 'Exposé 212' },
+  { number = 221, title = 'IV. Les schémas de Hilbert', start_page = 139, end_page = 166, label = 'Exposé 221' },
+  { number = 232, title = '''V. Les schémas de Picard : théorèmes d'existence''', start_page = 167, end_page = 185, label = 'Exposé 232' },
+  { number = 236, title = 'VI. Les schémas de Picard : propriétés générales', start_page = 186, end_page = 208, label = 'Exposé 236' },
+]
+header_zone_lines = 6
+drop_line_regexes = [
+  '^(?:C|\d{3})-\d{1,2}$',
+  '^(?:#+\s*)?Séminaire BOURBAKI.*$',
+  '^\d{1,2}e année.*$',
+  '^\(?(?:Janvier|Février|Mars|Avril|Mai|Juin|Juillet|Août|Septembre|Octobre|Novembre|Décembre)\s+\d{4}\)?$',
+  '^(?:#+\s*)?par Alexander GROTHENDIECK$',
+  '^(?:#+\s*)?FONDEMENTS DE LA GÉOMÉTRIE ALGÉBRIQUE\.?$',
+  '''^(?:#+\s*)?TECHNIQUE DE DESCENTE ET THÉORÈMES D'EXISTENCE.*$''',
+  '^(?:#+\s*)?COMMENTAIRES$',
+]
+cross_references = true
+commutative_diagrams = true
+latex_preamble = '''
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE]{\small\thepage\quad\textsc{Alexander Grothendieck}}
+\fancyhead[RO]{\small\textsc{Fondements de la géométrie algébrique}\quad\thepage}
+\renewcommand{\headrulewidth}{0pt}'''
+pdf_name_markers = ['fondements de la geometrie algebrique', 'fga']
+pdf_page_count = 208
+source_pdf = 'Fondements de la geometrie algebrique (FGA) (Grothendieck A.).pdf'
+
+[hooks]
+figures = 'install_diagrams'
+
+[editions.monograph]
+summary = 'monograph'
+
+[editions.facsimile]
+kind = 'facsimile'
+
+[editions.facsimile.hooks]
+diagram_boxes = 'fga_diagram_boxes'
+
+[editions.facsimile.facsimile]
+slug = 'fga_facsimile'
+title = 'Fondements de la géométrie algébrique (facsimile)'
+font_file = '/System/Library/Fonts/Supplemental/STIXTwoText.ttf'
+font_stack = '("STIX Two Text", "STIX Two Math")'
+size = 9.5
+weight = 400
+diagram_dir = '@BOOK@/diagrams'
+transcripts = 'markdown_pages'
+
+[editions.facsimile.facsimile.diagram_text]
+font = 'STIX Two Text'
+size = 9.5
+weight = 400

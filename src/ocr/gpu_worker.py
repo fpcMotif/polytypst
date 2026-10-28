@@ -192,7 +192,8 @@ TRANSCRIBERS: dict[str, Callable[[OCRModel, str], Transcriber]] = {
 
 def _load_page(item: tuple[int, str]) -> tuple[int, Image.Image | None]:
     p_num, path = item
-    image = Image.open(path).convert("RGB")
+    with Image.open(path) as raw:
+        image = raw.convert("RGB")
     cropped, ink = crop_and_measure_ink(image)
     return p_num, cropped if ink >= blank_page_threshold(image) else None
 

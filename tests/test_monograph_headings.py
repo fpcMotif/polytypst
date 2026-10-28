@@ -16,10 +16,10 @@ def test_theorem_note_before_the_closing_bold_leaves_no_stray_asterisks():
     out = normalize_run_in("**Theorem 1.1 (Cauchy's criterion).** The complex sequence converges.")
     assert out.startswith("**Theorem 1.1.** (Cauchy's criterion) ")
     assert out.count("**") == 2
-from polytypst.books import book_by_key, module
+from polytypst.books import book_by_key
 
 HECKE_SPEC = book_by_key("hecke").spec
-KODAIRA_SPEC = module("kodaira", "spec").KODAIRA_SPEC
+KODAIRA_SPEC = book_by_key("kodaira").spec
 
 
 def test_first_appearance_of_a_section_at_page_top_is_a_heading_not_a_running_head():

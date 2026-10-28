@@ -62,6 +62,7 @@ def blank_page_threshold(img: Image.Image) -> int:
 
 
 def is_blank_page(path: Path) -> bool:
-    image = Image.open(path).convert("RGB")
+    with Image.open(path) as raw:
+        image = raw.convert("RGB")
     _, ink = crop_and_measure_ink(image)
     return ink < blank_page_threshold(image)

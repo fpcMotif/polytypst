@@ -7,7 +7,6 @@ from polytypst.books import (
     book_specs,
     books,
     find_known_book,
-    module,
 )
 from polytypst.books_cli import parse_pages
 from polytypst.compiler.monograph import MonographCompiler, is_unnumbered_chapter
@@ -70,8 +69,9 @@ def test_facsimile_edition_wires_one_to_one_page_map_and_style_diagrams(tmp_path
     import pymupdf
 
     from polytypst.edition import facsimile_edition
-    FACSIMILE_STYLE = module("grothendieck").FACSIMILE_STYLE
-    GROTHENDIECK_SPEC = module("grothendieck", "spec").GROTHENDIECK_SPEC
+    grothendieck = book_by_key("grothendieck")
+    FACSIMILE_STYLE = grothendieck.editions["facsimile"].facsimile
+    GROTHENDIECK_SPEC = grothendieck.spec
     from polytypst.parity.report import FACSIMILE
 
     edition = facsimile_edition(GROTHENDIECK_SPEC, tmp_path, FACSIMILE_STYLE)

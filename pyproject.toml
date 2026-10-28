@@ -27,7 +27,11 @@ pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-n auto --dist worksteal"
 markers = ["slow: compiles Typst many times; skip with -m 'not slow'"]
-filterwarnings = ["ignore:builtin type .* has no __module__ attribute:DeprecationWarning"]
+filterwarnings = [
+  "error",
+  "ignore:builtin type .* has no __module__ attribute:DeprecationWarning",
+  "ignore:'typing.ByteString' and 'collections.abc.ByteString' are deprecated:DeprecationWarning:pymupdf",
+]
 
 [tool.ruff.lint]
 extend-select = ["TID251"]

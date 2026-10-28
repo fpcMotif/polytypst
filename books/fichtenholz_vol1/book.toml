@@ -1,0 +1,96 @@
+slug = 'fichtenholz_vol1'
+title = '微积分学教程（第一卷）'
+author = 'Г.М. 菲赫金哥尔茨'
+publisher = '高等教育出版社'
+lang = 'zh'
+domain = 'math'
+preface_page = 3
+chapters = [
+  { number = 0, title = '实数', start_page = 12, end_page = 38, label = '绪论' },
+  { number = 1, title = '极限论', start_page = 39, end_page = 84, label = '第一章' },
+  { number = 2, title = '一元函数', start_page = 85, end_page = 162, label = '第二章' },
+  { number = 3, title = '导数及微分', start_page = 163, end_page = 236, label = '第三章' },
+  { number = 4, title = '利用导数研究函数', start_page = 237, end_page = 300, label = '第四章' },
+  { number = 5, title = '多元函数', start_page = 301, end_page = 390, label = '第五章' },
+  { number = 6, title = '函数行列式及其应用', start_page = 391, end_page = 446, label = '第六章' },
+  { number = 7, title = '微分学在几何上的应用', start_page = 447, end_page = 518, label = '第七章' },
+  { number = 8, title = '函数扩充的问题', start_page = 519, end_page = 529, label = '附录' },
+  { number = 9, title = '索引', start_page = 530, end_page = 535 },
+  { number = 10, title = '校订后记', start_page = 536, end_page = 537 },
+]
+index_pages = [530, 535]
+require_vector_figures = true
+footnote_style = 'circled'
+footnote_numbering = 'circled'
+cross_references = true
+latex_preamble = '''
+
+\usepackage{amsmath,amssymb}
+\usepackage{xeCJK}
+\setmainfont{Times New Roman}
+\setCJKmainfont{Songti SC}
+\providecommand{\tg}{\tan}
+\providecommand{\ctg}{\cot}
+\providecommand{\arctg}{\arctan}
+\providecommand{\arcctg}{\operatorname{arcctg}}
+\providecommand{\arectg}{\operatorname{arcctg}}
+\providecommand{\arccotg}{\operatorname{arccot}}
+\providecommand{\arsec}{\operatorname{arcsec}}
+\providecommand{\arccsc}{\operatorname{arccsc}}
+\providecommand{\sh}{\sinh}
+\providecommand{\ch}{\cosh}
+\providecommand{\th}{\tanh}
+\providecommand{\cth}{\coth}
+\providecommand{\Arcsin}{\operatorname{Arcsin}}
+\providecommand{\Arctg}{\operatorname{Arctg}}
+\providecommand{\varliminf}{\liminf}
+\providecommand{\varlimsup}{\limsup}
+\providecommand{\sbt}{\operatorname{sbt}}
+\providecommand{\sbn}{\operatorname{sbn}}
+'''
+pdf_page_count = 537
+source_pdf = '微积分学教程.第一卷 (Г.М.菲赫金哥尔茨).pdf'
+ocr_languages = ['zh-Hans', 'en-US']
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<number>\d+[a-z]?)\.?(?:\*\*)?(?:\s+(?P<tail>.*))?\s*$'
+caption_format = '图 {number}'
+supplement_none = false
+
+[hooks]
+heading_hook = '_fichtenholz_heading'
+figures = 'draw_figures'
+
+[editions.monograph]
+summary = 'ordinary figures monograph'
+
+[editions.illustrated]
+summary = 'with colorful figures'
+
+[editions.illustrated.spec]
+slug = 'fichtenholz_vol1_illustrated'
+title = '微积分学教程（第一卷，彩色插图版）'
+figure_dir = 'figures_color'
+
+[editions.facsimile]
+kind = 'facsimile'
+
+[editions.facsimile.hooks]
+install_diagrams = 'draw_figures'
+diagram_boxes = 'fichtenholz_diagram_boxes'
+
+[editions.facsimile.facsimile]
+slug = 'fichtenholz_vol1_facsimile'
+title = '微积分学教程（第一卷） (facsimile)'
+font_file = '/System/Library/Fonts/Supplemental/Songti.ttc'
+font_stack = '("Songti SC", "New Computer Modern Math")'
+size = 10.0
+weight = 400
+diagram_dir = '@BOOK@/diagrams'
+transcripts = 'markdown_pages'
+flow = true
+
+[editions.facsimile.facsimile.diagram_text]
+font = 'Songti SC'
+size = 10.0
+weight = 400

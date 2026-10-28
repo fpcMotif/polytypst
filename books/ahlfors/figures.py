@@ -1,5 +1,6 @@
 import math
 import shutil
+import tomllib
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -11,7 +12,7 @@ from polytypst.vision.diagram_engine import (
     render_figures,
 )
 
-from .spec import AHLFORS_SPEC
+CHAPTERS = tomllib.loads((Path(__file__).parent / "book.toml").read_text(encoding="utf-8"))["chapters"]
 
 
 def generate_fig_3_4() -> str:
@@ -1518,7 +1519,7 @@ AHLFORS_FIGURE_BOOK = FigureBook(
         _figure_spec(name, build)
         for name, build in {**EXTRA_SVG_GENERATORS, **BONUS_SVG_GENERATORS}.items()
     ),
-    chapter_titles={ch.number: ch.title for ch in AHLFORS_SPEC.chapters},
+    chapter_titles={ch["number"]: ch["title"] for ch in CHAPTERS},
     search_hint="Search Fig. 3.8, Riemann, torus...",
 )
 AHLFORS_CANONICAL_BOOK = replace(

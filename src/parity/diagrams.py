@@ -28,7 +28,8 @@ def diagram_ink(snippet: Path, work: Path, dpi: int, text: DiagramText) -> tuple
         inputs = {"snippet": str(snippet.resolve()), "font": text.font, "size": str(text.size), "weight": str(text.weight)}
         flags = [arg for k, v in inputs.items() for arg in ("--input", f"{k}={v}")]
         compile_typst(HARNESS, png, "--root", "/", *flags, "--ppi", str(dpi), capture_output=True)
-    img = np.asarray(Image.open(png).convert("L")) < INK_LEVEL
+    with Image.open(png) as raw:
+        img = np.asarray(raw.convert("L")) < INK_LEVEL
     ys, xs = np.where(img)
     k = 72 / dpi
     inset = (xs.min() * k, ys.min() * k, (img.shape[1] - xs.max() - 1) * k, (img.shape[0] - ys.max() - 1) * k)

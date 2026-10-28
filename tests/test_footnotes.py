@@ -4,7 +4,7 @@ import pymupdf
 import pytest
 
 from polytypst.book_state import book_state
-from polytypst.books import book_by_key, module
+from polytypst.books import book_by_key
 from polytypst.compiler.monograph import (
     MonographCompiler,
     RenderedMonograph,
@@ -17,12 +17,12 @@ from polytypst.compiler.monograph import (
 )
 from polytypst.compiler.page_cleaner import attach_footnotes, split_page_footnotes
 
-AHLFORS_SPEC = module("ahlfors", "spec").AHLFORS_SPEC
+AHLFORS_SPEC = book_by_key("ahlfors").spec
 BOURBAKI_LIE_SPEC = book_by_key("bourbaki_lie").spec
 HECKE_SPEC = book_by_key("hecke").spec
 KASHIWARA_SPEC = book_by_key("kashiwara").spec
 KLEIN_SPEC = book_by_key("klein").spec
-KODAIRA_SPEC = module("kodaira", "spec").KODAIRA_SPEC
+KODAIRA_SPEC = book_by_key("kodaira").spec
 SIEGEL_SYMPLECTIC_SPEC = book_by_key("siegel_symplectic").spec
 FUKUSO_SPEC = book_by_key("複素多様体論").spec
 

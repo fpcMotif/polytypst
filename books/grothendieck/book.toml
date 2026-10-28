@@ -1,0 +1,194 @@
+slug = 'grothendieck'
+title = 'Éléments de Géométrie Algébrique I'
+author = 'A. Grothendieck and J. A. Dieudonné'
+publisher = 'Springer-Verlag'
+series = 'Die Grundlehren der mathematischen Wissenschaften'
+year = 1971
+publisher_key = 'springer'
+lang = 'fr_times'
+domain = 'math'
+preface_page = 9
+chapters = [
+  { number = 0, title = 'Introduction', start_page = 12, end_page = 26 },
+  { number = 1, title = 'Préliminaires', start_page = 27, end_page = 200, label = 'Chapitre 0' },
+  { number = 2, title = 'Le langage des schémas', start_page = 201, end_page = 456, label = 'Chapitre I' },
+  { number = 3, title = 'Appendice: Ultraschémas et espaces algébriques de Serre', start_page = 457, end_page = 461 },
+  { number = 4, title = 'Bibliographie', start_page = 462, end_page = 462 },
+  { number = 5, title = 'Index des notations', start_page = 463, end_page = 467 },
+  { number = 6, title = 'Index terminologique', start_page = 468, end_page = 474 },
+]
+figure_pages = [216]
+running_header_regexes = [
+  '''^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.\s+)?(?:Préliminaires|Le langage des schémas|Sommaire|Table des matières|Avant-propos|Introduction|Foncteurs représentables|Compléments de topologie|Compléments sur les faisceaux|Espaces annelés|Faisceaux quasi-cohérents et faisceaux cohérents|Compléments d'algèbre commutative|Compléments d'algèbre topologique|Schémas affines|Schémas et morphismes de schémas|Produit et somme de schémas|Changement de base|Sous-schémas et morphismes d'immersion|Schémas réduits|Morphismes séparés|Critères valuatifs|Conditions de finitude relatives|Ensembles constructibles dans les schémas|Applications rationnelles|Foncteurs représentables élémentaires dans la théorie des schémas|Schémas formels|Ultraschémas et espaces algébriques de Serre|Spectres maximaux et ultraschémas|Espaces algébriques de Serre|Bibliographie|Index des notations|Index terminologique)(?:\s+\d{1,3})?$''',
+  '''^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.\s+)?(?:Préliminaires|Le langage des schémas|Sommaire|Table des matières|Avant-propos|Introduction|Foncteurs représentables|Compléments de topologie|Compléments sur les faisceaux|Espaces annelés|Faisceaux quasi-cohérents et faisceaux cohérents|Compléments d'algèbre commutative|Compléments d'algèbre topologique|Schémas affines|Schémas et morphismes de schémas|Produit et somme de schémas|Changement de base|Sous-schémas et morphismes d'immersion|Schémas réduits|Morphismes séparés|Critères valuatifs|Conditions de finitude relatives|Ensembles constructibles dans les schémas|Applications rationnelles|Foncteurs représentables élémentaires dans la théorie des schémas|Schémas formels|Ultraschémas et espaces algébriques de Serre|Spectres maximaux et ultraschémas|Espaces algébriques de Serre|Bibliographie|Index des notations|Index terminologique)$''',
+]
+footnote_style = 'parenthesized'
+footnote_numbering = '(1)'
+cross_references = true
+commutative_diagrams = true
+pdf_page_count = 474
+source_pdf = 'ega1.pdf'
+ocr_prompt = '''
+Transcribe this page from Grothendieck-Dieudonné's Éléments de Géométrie Algébrique I into clean, high-fidelity TeX-compatible Markdown.
+Rules:
+1. Format all mathematical expressions in exact LaTeX syntax: inline $...$ and display $$...$$.
+2. Transcribe category-theory, sheaf, and scheme notations faithfully: \operatorname{Hom}, \operatorname{Spec}, \operatorname{Spf}, \operatorname{Proj}, \mathcal{O}_X, \mathcal{F}, \mathcal{G}, \otimes, \oplus, exact sequences, and commutative diagrams.
+3. Format chapter, paragraph (§), and section headings with Markdown (#, ##, ###).
+4. Bold structural environments: (1.1.1), **Définition**, **Proposition**, **Théorème**, **Corollaire**, **Lemme**, **Remarque**, and italicize *Démonstration.*.
+5. Label display equations with exact numbering if present.
+6. Do not omit any prose, definitions, proofs, or footnotes.'''
+
+[citation_abbreviations]
+M = '2'
+G = '5'
+T = '6'
+
+[hooks]
+figures = 'install_diagrams'
+
+[editions.monograph]
+summary = 'reflowed Springer-style monograph'
+
+[editions.vintage]
+summary = '1971 look, one output page per scan page'
+prepare = 'prepare_vintage'
+
+[editions.vintage.spec]
+slug = 'grothendieck_1971_vintage'
+publisher_key = 'springer_1971'
+paginate_like_source = true
+typst_preamble = '''
+#set document(
+  title: "Éléments de Géométrie Algébrique I — A. Grothendieck and J. A. Dieudonné",
+  author: "A. Grothendieck and J. A. Dieudonné",
+  date: auto
+)
+
+#let body-font = ("STIX Two Text",)
+#let chapter-label = state("chapter-label", none)
+
+#let page-fit = json("page_fit.json")
+#let fit-of(n) = page-fit.at("pages", default: (:)).at(str(n), default: (:))
+#let fit-size(n) = fit-of(n).at("size", default: 9.5) * 1pt
+#let fit-leading(n, k) = fit-of(n).at("leading", default: 5.1) * 1pt
+#let mark(kind, key) = context [#metadata((kind: kind, key: key, page: here().page(), y: here().position().y.pt()))<src-mark>]
+#let first-printed-page = 9
+#let src-page(n) = {
+  pagebreak(weak: true)
+  if n >= first-printed-page { counter(page).update(n - first-printed-page + 1) }
+  mark("page", n)
+}
+#let folio() = counter(page).get().first()
+#let src-top(n) = mark("top", n)
+#let src-end(n) = mark("end", n)
+#let src-cont = h(-18pt)
+#let chapter-pages() = query(heading.where(level: 1)).map(h => h.location().page())
+
+#set page(
+  width: 344pt,
+  height: 572pt,
+  margin: (left: 16pt, right: 19pt, top: 58pt, bottom: 6pt),
+  header-ascent: 12pt,
+  header: context {
+    let pg = here().page()
+    if pg in chapter-pages() { return }
+    let chaps = query(heading.where(level: 1).before(here()))
+    if chaps == () { return }
+    let chap = chaps.last()
+    set text(9.5pt)
+    if calc.odd(folio()) {
+      let secs = query(heading.where(level: 2)).filter(h => h.location().page() <= pg and h.location().page() >= chap.location().page())
+      let title = if secs != () { [#counter(heading).at(secs.last().location()).slice(1, 2).map(n => "§ " + str(n) + ".").join() #secs.last().body] } else { chap.body }
+      grid(columns: (1fr, auto, 1fr), [], align(center, title), align(right, counter(page).display()))
+    } else {
+      let number = if chap.numbering != none { (chap.numbering)(1) + ". " } else { "" }
+      grid(columns: (1fr, auto, 1fr), align(left, counter(page).display()), align(center, [#number#chap.body]), [])
+    }
+  },
+  footer: none,
+)
+
+#set text(font: body-font, size: 9.5pt, lang: "fr", hyphenate: true, number-type: "lining")
+#set par(leading: 5.1pt, spacing: 5.1pt, justify: true, first-line-indent: (amount: 18pt, all: true))
+#show math.equation: set text(font: ("STIX Two Math",))
+#set math.mat(row-gap: 0.55em, column-gap: 0.8em)
+#show math.equation.where(block: false): it => {
+  show math.frac: set text(size: 0.85em)
+  it
+}
+#show math.equation.where(block: true): set block(above: 0.7em, below: 0.7em)
+#show math.equation.where(block: true): it => {
+  if it.numbering == none { return it }
+  let number = counter(math.equation).display(it.numbering)
+  block(above: 0.7em, below: 0.7em, layout(size => {
+    let eq = math.equation(it.body, block: true, numbering: none)
+    let gap = measure(number).width + 12pt
+    let w = measure(eq).width
+    let fitted = if w > size.width - 2 * gap and w > 0pt {
+      let s = (size.width - 2 * gap) / w * 100%
+      scale(x: s, y: s, reflow: true, eq)
+    } else { eq }
+    grid(columns: (gap, 1fr, gap), align: (left + horizon, center + horizon, right), number, fitted, [])
+  }))
+}
+
+#let thm-break = block(above: 0.7em, below: 0pt, sticky: true)[]
+#let sub-break = block(above: 0.6em, below: 0pt, sticky: true)[]
+#let item-break = block(above: 0.3em, below: 0pt)[]
+#let qed = { h(0.6em); box(width: 1fr, align(right)[$square.stroked$]) }
+#let dd = math.dif
+#let dv(f, x, deg: none) = if deg == none { $(dif f)/(dif x)$ } else { $(dif^deg f)/(dif x^deg)$ }
+#let pdv(f, x, deg: none) = if deg == none { $(partial f)/(partial x)$ } else { $(partial^deg f)/(partial x^deg)$ }
+#let const = math.op("const")
+#let ord = math.op("ord")
+#let grad = math.op("grad")
+#let rot = math.op("rot")
+#let div = math.op("div")
+#let rank = math.op("rank")
+
+#show heading: set par(justify: false, first-line-indent: 0pt)
+#show heading.where(level: 1): it => {
+  pagebreak(weak: true)
+  v(36pt)
+  context {
+    let label = chapter-label.get()
+    if label != none {
+      align(center, text(10.5pt, upper(label)))
+      v(14pt)
+    }
+  }
+  align(center, text(16pt, weight: "bold", it.body))
+  v(30pt)
+}
+#show heading.where(level: 2): it => {
+  v(1.6em, weak: true)
+  align(center, text(12pt, weight: "bold")[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body])
+  v(1.2em, weak: true)
+}
+#show heading.where(level: 3): it => {
+  v(1.2em, weak: true)
+  text(11pt, weight: "bold")[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+  v(0.6em, weak: true)
+}
+
+#show figure: set block(above: 1.0em, below: 1.0em)
+#show figure.caption: it => text(8.5pt, it.body)
+'''
+
+[editions.facsimile]
+kind = 'facsimile'
+
+[editions.facsimile.facsimile]
+slug = 'grothendieck_1971_facsimile'
+title = 'Éléments de géométrie algébrique I (1971 facsimile)'
+font_file = '/System/Library/Fonts/Supplemental/STIXTwoText.ttf'
+font_stack = '("STIX Two Text", "STIX Two Math")'
+size = 9.5
+weight = 400
+diagram_dir = '@BOOK@/diagrams'
+transcripts = 'markdown_pages'
+
+[editions.facsimile.facsimile.diagram_text]
+font = 'STIX Two Text'
+size = 9.5
+weight = 400

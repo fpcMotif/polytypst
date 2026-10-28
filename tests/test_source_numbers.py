@@ -3,7 +3,7 @@ import subprocess
 import pymupdf
 import pytest
 
-from polytypst.books import module
+from polytypst.books import book_by_key
 from polytypst.compiler.diagrams import parse_array_diagram
 from polytypst.compiler.monograph import MonographCompiler
 from polytypst.compiler.source_numbers import (
@@ -17,7 +17,7 @@ from polytypst.compiler.source_numbers import (
 )
 from polytypst.literal_numbers import literal_numbering_counts
 
-GROTHENDIECK_SPEC = module("grothendieck", "spec").GROTHENDIECK_SPEC
+GROTHENDIECK_SPEC = book_by_key("grothendieck").spec
 
 
 def test_paragraph_and_equation_numbers_come_from_counters():

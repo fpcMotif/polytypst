@@ -75,6 +75,7 @@ class Edition:
     formats: frozenset[str] = frozenset()
     scan_line_breaks: bool = False
     build_pages: Callable[[Path | None, set[int]], None] | None = None
+    facsimile: FacsimileStyle | None = None
 
 
 @dataclass(frozen=True)
@@ -200,5 +201,6 @@ def facsimile_edition(
         Parity(page_map, FACSIMILE, style.diagram_dir, style.diagram_text, visual),
         scan_line_breaks=True,
         build_pages=build_pages if style.strict_lines and not style.flow else None,
+        facsimile=style,
     )
 

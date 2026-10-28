@@ -1,0 +1,75 @@
+slug = 'kodaira_complex_analysis'
+title = 'Complex Analysis'
+author = 'Kunihiko Kodaira'
+translator = 'A. Sevenster'
+editor = 'A. F. Beardon and T. K. Carne'
+domain = 'math'
+preface_page = 10
+chapters = [
+  { number = 1, title = 'Holomorphic functions', start_page = 12, end_page = 70 },
+  { number = 2, title = '''Cauchy's Theorem''', start_page = 71, end_page = 127 },
+  { number = 3, title = 'Conformal mappings', start_page = 128, end_page = 163 },
+  { number = 4, title = 'Analytic continuation', start_page = 164, end_page = 210 },
+  { number = 5, title = '''Riemann's Mapping Theorem''', start_page = 211, end_page = 257 },
+  { number = 6, title = 'Riemann surfaces', start_page = 258, end_page = 329 },
+  { number = 7, title = 'The structure of Riemann surfaces', start_page = 330, end_page = 386 },
+  { number = 8, title = 'Analytic functions on a closed Riemann surface', start_page = 387, end_page = 404 },
+]
+problems_pages = [405, 412]
+references_page = 413
+index_pages = [414, 417]
+require_vector_figures = true
+running_header_regexes = [
+  '''^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:Holomorphic functions|Cauchy's Theorem|Conformal mappings|Analytic continuation|Riemann's Mapping Theorem|Riemann surfaces|The structure of\s*Riemann surfaces|Analytic functions on a closed Riemann surface|Piecewise smooth curves|Cellular decomposition|Differentiability and homology|The Riemann sphere|Linear fractional transformations|Analytic continuation along curves|Analytic continuation by integrals|Cauchy's Theorem \(continued\)|Correspondence of boundaries|The principle of reflection|Differential forms|Differential forms on a Riemann surface|Dirichlet's Principle|Planar Riemann surfaces|Compact Riemann surfaces|Abelian differentials of the first kind|Abelian differentials of the second and third kind|The Riemann[-–—]Roch Theorem|Abel's Theorem|Power series|Integrals|Properties of holomorphic functions|Preface|Contents|Problems|References|Index)(?:\s+\d{1,3})?$''',
+  '''^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:Holomorphic functions|Cauchy's Theorem|Conformal mappings|Analytic continuation|Riemann's Mapping Theorem|Riemann surfaces|The structure of\s*Riemann surfaces|Analytic functions on a closed Riemann surface|Piecewise smooth curves|Cellular decomposition|Differentiability and homology|The Riemann sphere|Linear fractional transformations|Analytic continuation along curves|Analytic continuation by integrals|Cauchy's Theorem \(continued\)|Correspondence of boundaries|The principle of reflection|Differential forms|Differential forms on a Riemann surface|Dirichlet's Principle|Planar Riemann surfaces|Compact Riemann surfaces|Abelian differentials of the first kind|Abelian differentials of the second and third kind|The Riemann[-–—]Roch Theorem|Abel's Theorem|Power series|Integrals|Properties of holomorphic functions|Preface|Contents|Problems|References|Index)$''',
+]
+drop_line_regexes = [
+  '''^#+\s*(?:Holomorphic functions|Cauchy's Theorem|Conformal mappings|Analytic continuation|Riemann's Mapping Theorem|Riemann surfaces|The structure of\s*Riemann surfaces|Analytic functions on a closed Riemann surface|Piecewise smooth curves|Cellular decomposition|Differentiability and homology|The Riemann sphere|Linear fractional transformations|Analytic continuation along curves|Analytic continuation by integrals|Cauchy's Theorem \(continued\)|Correspondence of boundaries|The principle of reflection|Differential forms|Differential forms on a Riemann surface|Dirichlet's Principle|Planar Riemann surfaces|Compact Riemann surfaces|Abelian differentials of the first kind|Abelian differentials of the second and third kind|The Riemann[-–—]Roch Theorem|Abel's Theorem|Power series|Integrals|Properties of holomorphic functions|Preface|Contents|Problems|References|Index)(?:\s+\d{1,3})?\s*$''',
+]
+footnote_style = 'symbol'
+footnote_marks = ['*', '**', '***']
+pdf_name_markers = ['kodaira', 'complex analysis ( etc.)']
+pdf_page_count = 417
+ocr_prompt = '''
+Transcribe this page from Kunihiko Kodaira's Complex Analysis textbook into clean, faithful TeX-compatible Markdown.
+Rules:
+1. Format all mathematical expressions in exact LaTeX syntax: inline $...$ and display $$...$$.
+2. Preserve all Greek letters, barred conjugates (\bar{z}), integrals (\int_\gamma), sums, fractions, subscripts, superscripts, and homology/cohomology notation exactly.
+3. Format chapter, section, and subsection headings with Markdown (#, ##, ###).
+4. Bold theorem, lemma, definition, corollary, proposition, and remark headers (e.g. **Theorem 1.1.**, **Definition 1.5.**, **Lemma 2.3.**) and italicize *Proof.*
+5. Preserve exact equation numbers on display equations (e.g. $$ |zw|^2 = |z|^2 |w|^2 $$ (1.1)).
+6. When a figure caption appears (e.g. Fig. 1.1), output a standalone line `Fig. X.Y` at its exact position.
+7. Do not omit any prose, proofs, or exercises.'''
+
+[sections]
+"1.1" = [12, 'Holomorphic functions']
+"1.2" = [26, 'Power series']
+"1.3" = [35, 'Integrals']
+"1.4" = [58, 'Properties of holomorphic functions']
+"2.1" = [71, 'Piecewise smooth curves']
+"2.2" = [85, 'Cellular decomposition']
+"2.3" = [112, '''Cauchy's Theorem''']
+"2.4" = [124, 'Differentiability and homology']
+"3.1" = [128, 'Conformal mappings']
+"3.2" = [143, 'The Riemann sphere']
+"3.3" = [150, 'Linear fractional transformations']
+"4.1" = [164, 'Analytic continuation']
+"4.2" = [171, 'Analytic continuation along curves']
+"4.3" = [191, 'Analytic continuation by integrals']
+"4.4" = [201, '''Cauchy's Theorem (continued)''']
+"5.1" = [211, '''Riemann's Mapping Theorem''']
+"5.2" = [225, 'Correspondence of boundaries']
+"5.3" = [235, 'The principle of reflection']
+"6.1" = [258, 'Differential forms']
+"6.2" = [271, 'Riemann surfaces']
+"6.3" = [279, 'Differential forms on a Riemann surface']
+"6.4" = [305, '''Dirichlet's Principle''']
+"7.1" = [330, 'Planar Riemann surfaces']
+"7.2" = [351, 'Compact Riemann surfaces']
+"8.1" = [387, 'Abelian differentials of the first kind']
+"8.2" = [390, 'Abelian differentials of the second and third kind']
+"8.3" = [392, 'The Riemann-Roch Theorem']
+"8.4" = [399, '''Abel's Theorem''']
+
+[hooks]
+figures = 'generate_all_kodaira_figures'

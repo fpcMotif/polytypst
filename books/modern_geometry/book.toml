@@ -1,0 +1,48 @@
+slug = 'modern_geometry'
+title = 'Modern Geometry—Methods and Applications. Part I'
+author = 'B. A. Dubrovin, A. T. Fomenko, S. P. Novikov'
+domain = 'math'
+chapters = [{ number = 1, title = 'Modern Geometry—Methods and Applications. Part I', start_page = 1, end_page = 487 }]
+require_vector_figures = true
+cross_references = true
+pdf_page_count = 487
+source_pdf = 'Modern geometry--methods and applications (Dubrovin, B. A, Fomenko, A. T, Novikov).pdf'
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Fig(?:ure)?\.?\s*(?:(?P<chapter>\d+)[\.\-])?(?P<number>\d+[a-z]?)\.?(?:\*\*)?(?:\s+(?P<tail>.*))?\s*$'
+caption_format = 'Figure {number}'
+
+[hooks]
+figures = 'draw_figures'
+
+[editions.monograph]
+summary = 'monograph (ordinary figures)'
+
+[editions.illustrated]
+summary = 'illustrated monograph with colour figures'
+
+[editions.illustrated.spec]
+slug = 'modern_geometry_illustrated'
+subtitle = 'Illustrated Edition with Colour Geometric Figures'
+figure_dir = 'figures_color'
+
+[editions.facsimile]
+kind = 'facsimile'
+
+[editions.facsimile.hooks]
+install_diagrams = 'draw_figures'
+
+[editions.facsimile.facsimile]
+slug = 'modern_geometry_facsimile'
+title = 'Modern Geometry—Methods and Applications. Part I (facsimile)'
+font_file = '/System/Library/Fonts/Supplemental/Times New Roman.ttf'
+font_stack = '("Times New Roman", "STIX Two Math")'
+size = 9.5
+weight = 400
+diagram_dir = '@BOOK@/diagrams'
+transcripts = 'markdown_pages'
+
+[editions.facsimile.facsimile.diagram_text]
+font = 'Times New Roman'
+size = 9.5
+weight = 400

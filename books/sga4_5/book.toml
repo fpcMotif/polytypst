@@ -1,0 +1,62 @@
+slug = 'sga4_5'
+title = 'Cohomologie étale (SGA 4½)'
+author = 'P. Deligne, avec la collaboration de J. F. Boutot, A. Grothendieck, L. Illusie et J. L. Verdier'
+publisher = 'Springer-Verlag'
+series = 'Lecture Notes in Mathematics 569'
+year = 1977
+publisher_key = 'springer'
+lang = 'fr'
+domain = 'math'
+chapters = [
+  { number = 0, title = 'Introduction', start_page = 3, end_page = 5, label = 'Introduction' },
+  { number = 1, title = '''Un fil d'Ariane pour SGA 4, SGA 4 1/2 et SGA 5''', start_page = 6, end_page = 8, label = '''Fil d'Ariane''' },
+  { number = 2, title = 'Cohomologie étale : les points de départ', start_page = 9, end_page = 80, label = 'Arcata' },
+  { number = 3, title = 'Rapport sur la formule des traces', start_page = 81, end_page = 114, label = 'Rapport' },
+  { number = 4, title = 'Fonctions L modulo l^n et modulo p', start_page = 115, end_page = 133, label = 'Fonctions L' },
+  { number = 5, title = 'La classe de cohomologie associée à un cycle', start_page = 134, end_page = 158, label = 'Cycle' },
+  { number = 6, title = 'Dualité', start_page = 159, end_page = 172, label = 'Dualité' },
+  { number = 7, title = 'Applications de la formule des traces aux sommes trigonométriques', start_page = 173, end_page = 237, label = 'Sommes trig.' },
+  { number = 8, title = 'Théorèmes de finitude en cohomologie l-adique', start_page = 238, end_page = 266, label = 'Th. finitude' },
+  { number = 9, title = 'Catégories dérivées, état 0', start_page = 267, end_page = 316, label = 'Catégories dérivées' },
+  { number = 10, title = 'Erratum pour SGA 4', start_page = 317, end_page = 317, label = 'Erratum' },
+]
+running_header_regexes = [
+  '''^(?![#])(?:[0-9A-Z]{1,3}\s*[-–]\s*\d{1,3}\s*)?(?:Arcata|Rapport|Fonction\s+L.*|Cycle|Dualité|Dualite|Sommes\s+trig.*|Th\.\s*finitude.*|Catégories\s+dérivées.*|Erratum.*|Table\s+des\s+matières.*|Un\s+fil\s+d'Ariane.*|Cohomologie\s+étale.*)(?:.*)?$''',
+  '''^(?![#])(?:Arcata|Rapport|Fonction\s+L.*|Cycle|Dualité|Dualite|Sommes\s+trig.*|Th\.\s*finitude.*|Catégories\s+dérivées.*|Erratum.*|Table\s+des\s+matières.*|Un\s+fil\s+d'Ariane.*|Cohomologie\s+étale.*)(?:\s*[-–]\s*.*\s*[-–]?)?$''',
+  '^[-–]\s*\d{1,3}(?:\s*\([a-z]+\))?\s*[-–](?:\s+.*)?$',
+  '^(?:[IVX]{1,4}|[A-Z])\s*[-–]\s*\d{1,3}$',
+  '^(?:A\.\s*\d{1,2}|C\.D\.)(?:\s*[-–]\s*\d{1,3}\s*[-–])?$',
+]
+header_zone_lines = 3
+cross_references = true
+commutative_diagrams = true
+pdf_name_markers = ['cohomologie étale', 'cohomologie etale', 'sga 4', 'sga4', 'deligne']
+pdf_page_count = 317
+source_pdf = 'Cohomologie étale (Deligne, Pierre etc.).pdf'
+
+[hooks]
+figures = 'install_diagrams'
+
+[editions.monograph]
+summary = 'monograph'
+
+[editions.facsimile]
+kind = 'facsimile'
+
+[editions.facsimile.hooks]
+diagram_boxes = 'sga4_5_diagram_boxes'
+
+[editions.facsimile.facsimile]
+slug = 'sga4_5_facsimile'
+title = 'Cohomologie étale (SGA 4½ facsimile)'
+font_file = '/System/Library/Fonts/Supplemental/STIXTwoText.ttf'
+font_stack = '("STIX Two Text", "STIX Two Math")'
+size = 9.5
+weight = 400
+diagram_dir = '@BOOK@/diagrams'
+transcripts = 'markdown_pages'
+
+[editions.facsimile.facsimile.diagram_text]
+font = 'STIX Two Text'
+size = 9.5
+weight = 400

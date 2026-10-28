@@ -29,7 +29,8 @@ def test_zoom_draws_a_red_box_where_the_ocr_found_the_span(tmp_path: Path):
         encoding="utf-8",
     )
     out = evidence.zoom(scan, ocr, 1, "三", "label", tmp_path / "z.png")
-    image = Image.open(out).convert("RGB")
+    with Image.open(out) as raw:
+        image = raw.convert("RGB")
     reds = [image.getpixel((x, 40)) for x in range(image.width)]
     assert any(r > 150 and g < 80 and b < 80 for r, g, b in reds)
 

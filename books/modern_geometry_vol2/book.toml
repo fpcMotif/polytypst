@@ -1,0 +1,81 @@
+slug = 'modern_geometry_vol2'
+title = 'Modern Geometry—Methods and Applications. Part II. The Geometry and Topology of Manifolds'
+author = 'B. A. Dubrovin, A. T. Fomenko, S. P. Novikov'
+translator = 'Robert G. Burns'
+publisher = 'Springer-Verlag'
+series = 'Graduate Texts in Mathematics'
+year = 1985
+publisher_key = 'springer'
+domain = 'math'
+chapters = [
+  { number = 1, title = 'Examples of Manifolds', start_page = 17, end_page = 80 },
+  { number = 2, title = 'Foundational Questions. Essential Facts Concerning Functions on a Manifold. Typical Smooth Mappings', start_page = 81, end_page = 114 },
+  { number = 3, title = 'The Degree of a Mapping. The Intersection Index of Submanifolds. Applications', start_page = 115, end_page = 150 },
+  { number = 4, title = 'Orientability of Manifolds. The Fundamental Group. Covering Spaces (Fibre Bundles with Discrete Fibre)', start_page = 151, end_page = 200 },
+  { number = 5, title = 'Homotopy Groups', start_page = 201, end_page = 235 },
+  { number = 6, title = 'Smooth Fibre Bundles', start_page = 236, end_page = 312 },
+  { number = 7, title = 'Some Examples of Dynamical Systems and Foliations on Manifolds', start_page = 313, end_page = 373 },
+  { number = 8, title = 'The Global Structure of Solutions of Higher-Dimensional Variational Problems', start_page = 374, end_page = 434 },
+]
+references_page = 435
+index_pages = [438, 445]
+require_vector_figures = true
+cross_references = true
+typst_preamble = '''
+@ENGINE_PREAMBLE@
+#show heading.where(level: 1): set par(leading: 0.38em)
+'''
+typst_front_matter = '''
+@ENGINE_TITLE_PAGE@
+#set heading(numbering: none)
+'''
+latex_preamble = '''
+
+\usepackage{newunicodechar}
+\newunicodechar{□}{\ensuremath{\qedsymbol}}
+\AtBeginDocument{
+  \renewcommand{\setminus}{\mathbin{\backslash}}
+}
+'''
+pdf_page_count = 447
+source_pdf = 'GTM104-Modern Geometry — Methods and Applications Part II.The Geometry and Topology of Manifolds1985.pdf'
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Fig(?:ure)?\.?\s*(?:(?P<chapter>\d+)[\.\-])?(?P<number>\d+[a-z]?)\.?(?:\*\*)?(?:\s+(?P<tail>.*))?\s*$'
+caption_format = 'Figure {number}'
+supplement_none = false
+
+[hooks]
+figures = 'draw_figures'
+
+[editions.monograph]
+summary = 'monograph (ordinary figures)'
+
+[editions.illustrated]
+summary = 'illustrated monograph with colour figures'
+
+[editions.illustrated.spec]
+slug = 'modern_geometry_vol2_illustrated'
+subtitle = 'Illustrated Edition with Colour Geometric Figures'
+figure_dir = 'figures_color'
+
+[editions.facsimile]
+kind = 'facsimile'
+
+[editions.facsimile.hooks]
+install_diagrams = 'draw_figures'
+
+[editions.facsimile.facsimile]
+slug = 'modern_geometry_vol2_facsimile'
+title = 'Modern Geometry—Methods and Applications. Part II (facsimile)'
+font_file = '/System/Library/Fonts/Supplemental/Times New Roman.ttf'
+font_stack = '("Times New Roman", "STIX Two Math")'
+size = 9.5
+weight = 400
+diagram_dir = '@BOOK@/diagrams'
+transcripts = 'markdown_pages'
+
+[editions.facsimile.facsimile.diagram_text]
+font = 'Times New Roman'
+size = 9.5
+weight = 400

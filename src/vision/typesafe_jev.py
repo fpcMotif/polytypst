@@ -50,17 +50,16 @@ class TypeSafeJevVision:
             return DiagramDetectionResult(has_diagram=False, noul_score=0.0)
 
         # Scale down for fast network transport
-        img = Image.open(image_path)
-        max_dim = 1200
-        if max(img.width, img.height) > max_dim:
-            scale = max_dim / max(img.width, img.height)
-            img = img.resize(
-                (int(img.width * scale), int(img.height * scale)),
-                Image.Resampling.LANCZOS,
-            )
-
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=85)
+        with Image.open(image_path) as img:
+            max_dim = 1200
+            if max(img.width, img.height) > max_dim:
+                scale = max_dim / max(img.width, img.height)
+                img = img.resize(
+                    (int(img.width * scale), int(img.height * scale)),
+                    Image.Resampling.LANCZOS,
+                )
+            img.save(buf, format="JPEG", quality=85)
         b64_data = base64.b64encode(buf.getvalue()).decode("ascii")
 
         diag_inst = (
@@ -177,7 +176,8 @@ class TypeSafeJevVision:
             except (OSError, RuntimeError, ValueError):
                 lines = ()
 
-        img = Image.open(image_path).convert("RGB")
+        with Image.open(image_path) as raw:
+            img = raw.convert("RGB")
         w, h = img.size
         arr = np.array(img)
         dbox = detection.box or (0.08, 0.08, 0.92, 0.85)

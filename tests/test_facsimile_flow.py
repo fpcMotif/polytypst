@@ -51,7 +51,8 @@ def test_a_figure_box_places_the_scan_art_in_gray_at_its_place(tmp_path) -> None
     out = figure_crop_typst(page, (0.25, 1 / 3, 0.75, 0.5), png)
     assert out.startswith("#place(top + left, dx: 100.00pt, dy: 200.00pt, image(")
     assert "width: 200.00pt, height: 100.00pt" in out
-    art = np.asarray(Image.open(png))
+    with Image.open(png) as image:
+        art = np.asarray(image)
     assert art.ndim == 2 and 100 < int(np.median(art)) < 160
 
 
@@ -574,7 +575,11 @@ def test_a_scan_line_the_transcript_lacks_is_placed_as_a_crop_of_the_scan(tmp_pa
     assert len(crops) == 2
     assert f"dx: {900 * PT_PER_PX:.2f}pt, dy: {480 * PT_PER_PX:.2f}pt" in crops[0]
     assert f"width: {600 * PT_PER_PX:.2f}pt, height: {40 * PT_PER_PX:.2f}pt" in crops[0]
-    assert sorted(Image.open(png).size for png in tmp_path.glob("crop_*.png")) == [(600, 40), (600, 40)]
+    sizes = []
+    for png in tmp_path.glob("crop_*.png"):
+        with Image.open(png) as crop:
+            sizes.append(crop.size)
+    assert sorted(sizes) == [(600, 40), (600, 40)]
 
 
 def test_inline_math_counts_its_symbols_not_its_latex_commands() -> None:

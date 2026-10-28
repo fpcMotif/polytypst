@@ -90,7 +90,8 @@ class KerodonDiagramCropper:
                 pix.save(str(tmp_path))
 
                 # Auto-trim white borders
-                im = Image.open(tmp_path)
+                with Image.open(tmp_path) as opened:
+                    im = opened.copy()
                 bg = Image.new(im.mode, im.size, (255, 255, 255))
                 diff = ImageChops.difference(im, bg)
                 bbox = diff.getbbox()

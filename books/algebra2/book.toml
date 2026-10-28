@@ -1,0 +1,94 @@
+slug = 'algebra2'
+title = '代数学引论 (第2卷) 线性代数'
+author = 'A. И. 柯斯特利金'
+translator = '牛凤文'
+publisher = '高等教育出版社'
+series = '俄罗斯数学教材选译'
+year = 2006
+lang = 'zh'
+domain = 'math'
+preface_page = 5
+chapters = [
+  { number = 0, title = '参考文献', start_page = 6, end_page = 7 },
+  { number = 1, title = '第1章 空间与形式', start_page = 17, end_page = 59 },
+  { number = 2, title = '第2章 线性算子', start_page = 60, end_page = 99 },
+  { number = 3, title = '第3章 带有纯量乘积的向量空间', start_page = 100, end_page = 162 },
+  { number = 4, title = '第4章 仿射空间与欧几里得点空间', start_page = 163, end_page = 202 },
+  { number = 5, title = '第5章 二次曲面', start_page = 203, end_page = 241 },
+  { number = 6, title = '第6章 张量', start_page = 242, end_page = 276 },
+  { number = 7, title = '第7章 附录', start_page = 277, end_page = 317 },
+  { number = 8, title = '习题解答与提示', start_page = 318, end_page = 332 },
+  { number = 9, title = '教法说明', start_page = 333, end_page = 335 },
+  { number = 10, title = '名词索引', start_page = 336, end_page = 341 },
+]
+skip_page_markers = ['''Anna's Archive''', 'DuXiu', 'filename_decoded']
+running_header_regexes = [
+  '^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:空间与形式|线性算子|带有纯量乘积的向量空间|仿射空间与欧几里得点空间|二次曲面|张量|附录|习题解答与提示|教法说明|索引|前言|目录|序言)(?:\s+\d{1,3})?$',
+  '^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:空间与形式|线性算子|带有纯量乘积的向量空间|仿射空间与欧几里得点空间|二次曲面|张量|附录|习题解答与提示|教法说明|索引|前言|目录|序言)$',
+]
+drop_line_regexes = ['^#+\s*(?:习题解答与提示|教法说明|名词索引|索引)\s*$']
+cross_references = true
+latex_preamble = '''
+
+\usepackage{graphicx}
+\setmainfont{Songti SC}
+\XeTeXlinebreaklocale "zh"
+\XeTeXlinebreakskip = 0pt plus 1pt
+\providecommand{\tg}{\tan}
+\providecommand{\ctg}{\cot}
+\providecommand{\arctg}{\arctan}
+\providecommand{\arcctg}{\operatorname{arcctg}}
+\providecommand{\sh}{\sinh}
+\providecommand{\ch}{\cosh}
+\providecommand{\th}{\tanh}
+\providecommand{\cth}{\coth}
+'''
+pdf_name_markers = ['代数学引论', '第二卷', '线性代数', '柯斯特利金']
+pdf_page_count = 341
+source_pdf = '代数学引论（第二卷） 线性代数（第3版） (A.И.柯斯特利金) .pdf'
+ocr_prompt = '''
+将此文档页面转录为精确、高保真的 Markdown 格式（符合 LaTeX 语法标准）。
+规则：
+1. 所有数学表达式、变量、公式均使用精确的 LaTeX 语法：行内公式用 $...$，独立公式用 $$...$$。
+2. 忠实保留所有中文字符、数学专业术语（如向量空间、基底、特征值、特征向量、对偶空间、若尔当标准型、二次型、张量积等）及标点符号。
+3. 文档标题、章节、节标题用 Markdown (#, ##, ###) 清晰分级。
+4. 定理、引理、定义、命题、证明等数学环境加粗（如 **定理 1.**, **定义 1.1.**, **证明.**, **注.**）。
+5. 独立公式如有编号请准确保留（如 (1), (2), (1.1)）。
+6. 完整保留正文、脚注及作者注释，不得遗漏任何内容。'''
+ocr_languages = ['zh-Hans', 'en-US']
+
+[figures]
+caption_format = '图 {number}'
+
+[hooks]
+figures = 'draw_figures'
+
+[editions.monograph]
+summary = 'ordinary figures monograph'
+
+[editions.illustrated]
+summary = 'illustrated monograph with 3b1b colour figures'
+
+[editions.illustrated.spec]
+slug = 'algebra2_illustrated'
+title = '代数学引论 (第2卷) 线性代数 (彩色插图版)'
+figure_dir = 'figures_color'
+
+[editions.facsimile]
+kind = 'facsimile'
+
+[editions.facsimile.facsimile]
+slug = 'algebra2_facsimile'
+title = '代数学引论 (第2卷) 线性代数 (facsimile)'
+font_file = '/System/Library/Fonts/Supplemental/Songti.ttc'
+font_stack = '("Songti SC", "STSong", "STIX Two Math")'
+size = 60.0
+weight = 400
+diagram_dir = 'output/algebra2/figures'
+transcripts = 'markdown_pages'
+scan_pages = [1, 2]
+
+[editions.facsimile.facsimile.diagram_text]
+font = 'Songti SC'
+size = 60.0
+weight = 400

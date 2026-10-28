@@ -12,14 +12,28 @@ import typing
 from collections.abc import Callable, Iterator, Mapping
 from functools import cache
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
-from .compiler.monograph import MonographSpec
-from .edition import OUTPUT, Book, Edition, monograph_edition
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
+
+from .compiler.monograph import MonographCompiler, MonographSpec
+from .edition import (
+    OUTPUT,
+    Book,
+    Edition,
+    VisualLimits,
+    facsimile_edition,
+    monograph_edition,
+)
+from .facsimile import FacsimileStyle
 
 BOOKS_DIR = Path(__file__).resolve().parent.parent / "books"
 REPO_TOKEN = "@REPO@"
+BOOK_TOKEN = "@BOOK@"
 BOOK_TOML = "book.toml"
 BOOK_PY = "book.py"
+HOOKS_PY = "hooks.py"
 PACKAGE = "polytypst_books"
 
 
@@ -69,6 +83,56 @@ def module(key: str, name: str | None = "book") -> types.ModuleType:
     return importlib.import_module(package if name is None else f"{package}.{name}")
 
 
+def _is_callable(tp: object) -> bool:
+    if typing.get_origin(tp) in (types.UnionType, typing.Union):
+        return any(_is_callable(a) for a in typing.get_args(tp))
+    return tp is Callable or typing.get_origin(tp) is Callable
+
+
+def _hook_fields(cls: type) -> tuple[str, ...]:
+    return tuple(name for name, tp in typing.get_type_hints(cls).items() if _is_callable(tp))
+
+
+class _Hooks:
+    """The functions of `books/<key>/hooks.py`. Each public function must fill a field, or loading fails."""
+
+    def __init__(self, key: str, folder: Path) -> None:
+        self.path = folder / HOOKS_PY
+        self.module = importlib.import_module(f"{_package(key, folder)}.hooks") if self.path.is_file() else None
+        self.used: set[str] = set()
+
+    def named(self, name: object, where: str) -> Callable[..., Any]:
+        if not isinstance(name, str) or self.module is None or not callable(fn := getattr(self.module, name, None)):
+            raise BookFileError(f"{where}: {HOOKS_PY} defines no function {name!r}")
+        self.used.add(name)
+        return fn
+
+    def bind(
+        self, fields: tuple[str, ...], names: object, where: str, by_name: bool = True
+    ) -> dict[str, Callable[..., Any]]:
+        """Each field named in the `hooks` table; with `by_name`, also the hooks.py function named after a field."""
+        if not isinstance(names, dict):
+            raise BookFileError(f"{where}hooks: expected a table, got {names!r}")
+        if unknown := sorted(set(names) - set(fields)):
+            raise BookFileError(f"{where}hooks: unknown key {', '.join(unknown)}")
+        bound = {field: self.named(fn, f"{where}hooks.{field}") for field, fn in names.items()}
+        for field in fields if by_name else ():
+            if field not in bound and self.module is not None and callable(getattr(self.module, field, None)):
+                bound[field] = self.named(field, field)
+        return bound
+
+    def check_all_bound(self) -> None:
+        if self.module is None:
+            return
+        public = {
+            name for name, value in vars(self.module).items()
+            if not name.startswith("_") and callable(value) and not isinstance(value, type)
+            and getattr(value, "__module__", None) == self.module.__name__
+        }
+        if unbound := sorted(public - self.used):
+            raise BookFileError(f"{self.path}: {', '.join(unbound)} fill no field; make them private with a leading _")
+
+
 def _coerce(tp: object, value: object, where: str, folder: Path) -> object:
     origin, args = typing.get_origin(tp), typing.get_args(tp)
     if origin is typing.Literal:
@@ -109,12 +173,14 @@ def _coerce(tp: object, value: object, where: str, folder: Path) -> object:
         return float(value)
     if tp is str and isinstance(value, str):
         return value.replace(REPO_TOKEN, str(BOOKS_DIR.parent))
+    if tp is Path and isinstance(value, str):
+        return Path(value.replace(BOOK_TOKEN, str(folder)).replace(REPO_TOKEN, str(BOOKS_DIR.parent)))
     if tp in (int, bool) and type(value) is tp:
         return value
     raise BookFileError(f"{where}: expected {getattr(tp, '__name__', tp)}, got {value!r}")
 
 
-def _fields(cls: type, table: object, where: str, folder: Path) -> dict[str, object]:
+def _fields(cls: type[DataclassInstance], table: object, where: str, folder: Path) -> dict[str, Any]:
     if not isinstance(table, dict):
         raise BookFileError(f"{where}: expected a table, got {table!r}")
     hints = typing.get_type_hints(cls)
@@ -124,7 +190,7 @@ def _fields(cls: type, table: object, where: str, folder: Path) -> dict[str, obj
     return {k: _coerce(hints[k], v, f"{where}.{k}" if where else k, folder) for k, v in table.items()}
 
 
-def _dataclass(cls: type, table: object, where: str, folder: Path) -> object:
+def _dataclass[T: DataclassInstance](cls: type[T], table: object, where: str, folder: Path) -> T:
     try:
         return cls(**_fields(cls, table, where, folder))
     except TypeError as e:
@@ -140,31 +206,86 @@ def _out_dir(table: dict[str, object], default: Path, where: str) -> Path:
     return OUTPUT / name
 
 
+SPEC_HOOKS = _hook_fields(MonographSpec)
+FACSIMILE_HOOKS = _hook_fields(FacsimileStyle)
+TITLE_PAGE_TOKEN = "@ENGINE_TITLE_PAGE@"
+PREAMBLE_TOKEN = "@ENGINE_PREAMBLE@"
+
+
+def _engine_text(spec: MonographSpec) -> MonographSpec:
+    """Put the compiler's own title page and preamble where the spec's Typst names their tokens."""
+    if TITLE_PAGE_TOKEN in spec.typst_front_matter:
+        own = MonographCompiler(dataclasses.replace(spec, typst_front_matter="")).build_typst_title_page()
+        spec = dataclasses.replace(spec, typst_front_matter=spec.typst_front_matter.replace(TITLE_PAGE_TOKEN, own))
+    if PREAMBLE_TOKEN in spec.typst_preamble:
+        own = MonographCompiler(dataclasses.replace(spec, typst_preamble="")).build_typst_preamble()
+        spec = dataclasses.replace(spec, typst_preamble=spec.typst_preamble.replace(PREAMBLE_TOKEN, own))
+    return spec
+
+
+def _edition(
+    name: str, table: object, spec: MonographSpec, out_dir: Path, hooks: _Hooks, folder: Path
+) -> Edition:
+    """One `[editions.<name>]` table: a `monograph` edition by default, or `kind = "facsimile"`."""
+    where = f"editions.{name}."
+    if not isinstance(table, dict):
+        raise BookFileError(f"{where[:-1]}: expected a table, got {table!r}")
+    table = dict(table)
+    edition_dir = _out_dir(table, out_dir, where)
+    kind = table.pop("kind", "monograph")
+    summary = table.pop("summary", None)
+    if summary is not None and not isinstance(summary, str):
+        raise BookFileError(f"{where}summary: expected str, got {summary!r}")
+    overrides = _fields(MonographSpec, table.pop("spec", {}), f"{where}spec", folder)
+    names = table.pop("hooks", {})
+
+    def edition_spec() -> MonographSpec:
+        if table:
+            raise BookFileError(f"{where[:-1]}: unknown key {', '.join(sorted(table))}")
+        return _engine_text(dataclasses.replace(spec, **overrides)) if overrides else spec
+
+    if kind == "monograph":
+        overrides |= hooks.bind(SPEC_HOOKS, names, where, by_name=False)
+        prepare = table.pop("prepare", None)
+        prepare_fn = None if prepare is None else hooks.named(prepare, f"{where}prepare")
+        return monograph_edition(edition_spec(), edition_dir, summary or "", prepare_fn)
+    if kind == "facsimile":
+        style_table = table.pop("facsimile", None)
+        if style_table is None:
+            raise BookFileError(f"{where}facsimile: a facsimile edition needs a [{where}facsimile] table")
+        style_fields = _fields(FacsimileStyle, style_table, f"{where}facsimile", folder)
+        style_fields |= hooks.bind(FACSIMILE_HOOKS, names, where)
+        try:
+            style = FacsimileStyle(**style_fields)
+        except TypeError as e:
+            raise BookFileError(f"{where}facsimile: {e}") from None
+        visual = table.pop("visual", None)
+        limits = None if visual is None else _dataclass(VisualLimits, visual, f"{where}visual", folder)
+        extra = {} if summary is None else {"summary": summary}
+        return facsimile_edition(edition_spec(), edition_dir, style, visual=limits, **extra)
+    raise BookFileError(f"{where}kind: {kind!r} is not one of 'monograph', 'facsimile'")
+
+
 def load_toml(key: str, folder: Path) -> Book:
-    """The book that `books/<key>/book.toml` describes. Its top-level keys are `MonographSpec` fields."""
+    """The book that `books/<key>/book.toml` describes. Its top-level keys are `MonographSpec` fields;
+    `hooks.py` beside it fills the fields that take functions."""
     path = folder / BOOK_TOML
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     data.pop("aliases", None)
     out_dir = _out_dir(data, OUTPUT / key, "")
     tables = data.pop("editions", {})
+    names = data.pop("hooks", {})
+    hooks = _Hooks(key, folder)
     try:
+        bound = hooks.bind((*SPEC_HOOKS, "figures"), names, "")
+        figures = bound.pop("figures", None)
         spec = _dataclass(MonographSpec, data, "", folder)
-        editions: dict[str, Edition] = {}
-        for name, table in tables.items():
-            where = f"editions.{name}."
-            table = dict(table)
-            edition_dir = _out_dir(table, out_dir, where)
-            if (kind := table.pop("kind", "monograph")) != "monograph":
-                raise BookFileError(f"{where}kind: {kind!r} needs a {BOOK_PY}")
-            summary = table.pop("summary", "")
-            overrides = _fields(MonographSpec, table.pop("spec", {}), f"{where}spec", folder)
-            if table:
-                raise BookFileError(f"{where[:-1]}: unknown key {', '.join(sorted(table))}")
-            edition_spec = dataclasses.replace(spec, **overrides) if overrides else spec
-            editions[name] = monograph_edition(edition_spec, edition_dir, summary)
+        spec = _engine_text(dataclasses.replace(spec, **bound) if bound else spec)
+        editions = {name: _edition(name, table, spec, out_dir, hooks, folder) for name, table in tables.items()}
+        hooks.check_all_bound()
     except BookFileError as e:
         raise BookFileError(f"{path}: {e}") from None
-    return Book(spec, out_dir, editions or {"monograph": monograph_edition(spec, out_dir, "monograph")})
+    return Book(spec, out_dir, editions or {"monograph": monograph_edition(spec, out_dir, "monograph")}, figures)
 
 
 def load_book(key: str, folder: Path) -> Book:

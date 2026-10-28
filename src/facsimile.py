@@ -114,6 +114,10 @@ RUN_GAP_LINES = 1.5
 LOCK_FILL = 1.3
 
 
+def no_diagrams(_out_dir: Path) -> list[Path]:
+    return []
+
+
 @dataclass(frozen=True)
 class FacsimileStyle:
     """One book's facsimile: its output name, title, face and the diagram snippets it places."""
@@ -126,7 +130,7 @@ class FacsimileStyle:
     weight: int
     diagram_dir: Path
     diagram_text: DiagramText
-    install_diagrams: Callable[[Path], object]
+    install_diagrams: Callable[[Path], object] = no_diagrams
     diagram_boxes: Callable[[], dict[str, tuple[int, int, int, int]]] | None = None
     figure_boxes: Callable[[], dict[int, list[tuple[float, float, float, float]]]] | None = None
     transcripts: str | None = None
@@ -1044,7 +1048,8 @@ class Outline:
 
 
 def image_typst(alt: str, path: Path, max_width: float) -> str:
-    width = min(max_width, Image.open(path).width * PT_PER_PX)
+    with Image.open(path) as image:
+        width = min(max_width, image.width * PT_PER_PX)
     return f'#align(center, stack(spacing: 0.5em, image("{path}", width: {width:.2f}pt), text(size: 0.9em, {typst_string(alt)})))'
 
 

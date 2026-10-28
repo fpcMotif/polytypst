@@ -61,7 +61,8 @@ FACSIMILE_TURNS = {**BAND_TURNS, "6-19": -90}
 
 
 def _clean_monochrome_raster(raw_path: Path, dst_path: Path) -> None:
-    im = Image.open(raw_path).convert("L")
+    with Image.open(raw_path) as raw:
+        im = raw.convert("L")
     arr = np.asarray(im, dtype=np.float32) / 255.0
     cleaned = np.clip((arr - 0.14) / (0.88 - 0.14), 0.0, 1.0)
     out = (cleaned * 255.0).astype(np.uint8)

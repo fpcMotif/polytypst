@@ -63,8 +63,8 @@ def test_a_chart_is_cropped_between_the_prose_and_its_notes_without_erasing_axis
     assert fig.caption == "图 1-6 薪酬水平的地区性变化"
     assert 0.153 < top <= 0.20 and 0.52 <= bottom < 0.55
     assert left < 0.15 and right > 0.85
-    crop = Image.open(tmp_path / "figures" / "fig_1-6.png")
-    year_row = crop.crop((0, crop.height - 25, crop.width, crop.height - 10))
+    with Image.open(tmp_path / "figures" / "fig_1-6.png") as crop:
+        year_row = crop.crop((0, crop.height - 25, crop.width, crop.height - 10))
     assert year_row.getextrema()[0] == 0
 
 
@@ -142,9 +142,10 @@ def test_a_chart_split_over_a_page_break_is_cropped_whole(tmp_path):
         CAPTION_ON_PAGE_TWO,
     )
     [fig] = extract_cjk_charts(pages, ocr, tmp_path / "figures")
-    crop = Image.open(tmp_path / "figures" / "fig_8-8.png")
+    with Image.open(tmp_path / "figures" / "fig_8-8.png") as crop:
+        height = crop.height
     assert fig.source_page == 2
-    assert crop.height > (0.50 + 0.32) * H
+    assert height > (0.50 + 0.32) * H
 
 
 def test_a_footnote_at_the_foot_of_a_page_is_not_put_above_the_next_chart(tmp_path):
@@ -172,8 +173,8 @@ def test_a_footnote_at_the_foot_of_a_page_is_not_put_above_the_next_chart(tmp_pa
         CAPTION_ON_PAGE_TWO,
     )
     _ = extract_cjk_charts(pages, ocr, tmp_path / "figures")
-    crop = Image.open(tmp_path / "figures" / "fig_8-8.png")
-    assert crop.height < 0.40 * H
+    with Image.open(tmp_path / "figures" / "fig_8-8.png") as crop:
+        assert crop.height < 0.40 * H
 
 
 def test_a_table_continued_at_the_foot_of_a_page_is_not_put_above_the_next_chart(
@@ -196,8 +197,8 @@ def test_a_table_continued_at_the_foot_of_a_page_is_not_put_above_the_next_chart
         CAPTION_ON_PAGE_TWO,
     )
     _ = extract_cjk_charts(pages, ocr, tmp_path / "figures")
-    crop = Image.open(tmp_path / "figures" / "fig_8-8.png")
-    assert crop.height < 0.40 * H
+    with Image.open(tmp_path / "figures" / "fig_8-8.png") as crop:
+        assert crop.height < 0.40 * H
 
 
 def test_a_sentence_that_mentions_a_figure_does_not_take_its_caption(tmp_path):

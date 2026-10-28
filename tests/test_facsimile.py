@@ -6,7 +6,7 @@ import numpy as np
 import pymupdf
 import pytest
 
-from polytypst.books import module
+from polytypst.books import book_by_key
 from polytypst.compiler.typst_math import typst_command
 from polytypst.facsimile import (
     Measure,
@@ -21,7 +21,7 @@ from polytypst.facsimile_text import chunks
 from polytypst.ocr.pages import OcrLine
 from polytypst.parity.words import PT_PER_PX, page_ink
 
-FACSIMILE_STYLE = module("grothendieck").FACSIMILE_STYLE
+FACSIMILE_STYLE = book_by_key("grothendieck").editions["facsimile"].facsimile
 
 pytestmark = pytest.mark.skipif(
     typst_command() is None or not FACSIMILE_STYLE.font_file.exists(),

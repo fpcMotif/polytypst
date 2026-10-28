@@ -1,0 +1,315 @@
+slug = '1'
+title = '宏观经济与产业结构'
+author = '（日本）内阁府经济社会综合研究所'
+publisher = '中国金融出版社'
+series = ''
+year = 2022
+lang = 'zh'
+domain = 'economics'
+# Scan pages 1-3 are the cover, title page and a blank, and 32-35 are the scan's contents; the edition makes its own.
+chapters = [
+  { number = 0, title = '作者简介', start_page = 4, end_page = 5 },
+  { number = 0, title = '研究会和各小组委员会等委员名单', start_page = 6, end_page = 9 },
+  { number = 0, title = '致读者', start_page = 10, end_page = 11 },
+  { number = 0, title = '写在《泡沫/通缩时期的日本经济与经济政策》出版之际', start_page = 12, end_page = 13 },
+  { number = 0, title = '“泡沫/通缩时期的日本经济与经济政策研究”', start_page = 14, end_page = 15 },
+  { number = 0, title = '中文版前言', start_page = 16, end_page = 17 },
+  { number = 0, title = '中文版序言', start_page = 18, end_page = 25 },
+  { number = 0, title = '序 宏观经济与产业结构', start_page = 26, end_page = 31 },
+  { number = 1, title = '20世纪80年代后的GDP缺口和潜在增长率', start_page = 36, end_page = 63, label = '1' },
+  { number = 2, title = '日本经济中的消费与储蓄——20世纪80年代后的概观', start_page = 64, end_page = 84, label = '2' },
+  { number = 3, title = '从泡沫期到通货紧缩期家庭预防性储蓄行为的变化', start_page = 85, end_page = 106, label = '3' },
+  { number = 4, title = '设备投资分析趋势与日本经济——投资过剩还是投资不足', start_page = 107, end_page = 142, label = '4' },
+  { number = 5, title = '日本泡沫期以后的经济预期、经济评估和经济政策——发展历程和现时评估', start_page = 143, end_page = 194, label = '5' },
+  { number = 6, title = '亚洲的发展与日本经济——外需动向、汇率和日本的国际竞争力', start_page = 195, end_page = 222, label = '6' },
+  { number = 7, title = '劳动力供给、劳动力需求、技术进步和经济增长', start_page = 223, end_page = 259, label = '7' },
+  { number = 8, title = '关于日本企业研发资产积累和效益的实证分析', start_page = 260, end_page = 290, label = '8' },
+  { number = 9, title = '服务行业的生产率', start_page = 291, end_page = 316, label = '9' },
+  { number = 10, title = '生产率、资源配置和日本的增长', start_page = 317, end_page = 347, label = '10' },
+  { number = 11, title = '生产率变动和20世纪90年代后的日本经济', start_page = 348, end_page = 368, label = '11' },
+  { number = 12, title = '日本的均衡实际利率', start_page = 369, end_page = 401, label = '12' },
+  { number = 13, title = '日本经济周期的结构性变化', start_page = 402, end_page = 423, label = '13' },
+  { number = 0, title = '后记', start_page = 424, end_page = 425 },
+]
+landscape_pages = [
+  127,
+  128,
+  130,
+  131,
+  152,
+  153,
+  160,
+  161,
+  165,
+  166,
+  167,
+  168,
+  169,
+  170,
+  171,
+  172,
+  173,
+  174,
+  175,
+  176,
+  177,
+  178,
+  179,
+  180,
+  181,
+  182,
+  183,
+  184,
+  185,
+  186,
+  187,
+  188,
+  189,
+  190,
+  191,
+  192,
+  193,
+  213,
+  214,
+  215,
+  216,
+  218,
+  242,
+]
+# The transcripts set some running heads with spaces between words, as "20 世纪 80 年代后的 GDP 缺口".
+running_header_regexes = [
+  '^(?:#+\s*|=+\s*)?\d{1,3}\s+宏观经济与产业结构.*$',
+  '^(?:#+\s*|=+\s*)?宏观经济与产业结构\s+\d{1,3}.*$',
+  '^(?:#+\s*|=+\s*)?\d{1,2}\s+(?:2\s*0\s*世\s*纪\s*8\s*0\s*年\s*代\s*后\s*的\s*G\s*D\s*P\s*缺\s*口\s*和\s*潜\s*在\s*增\s*长\s*率|日\s*本\s*经\s*济\s*中\s*的\s*消\s*费\s*与\s*储\s*蓄|从\s*泡\s*沫\s*期\s*到\s*通\s*货\s*紧\s*缩\s*期\s*家\s*庭\s*预\s*防\s*性\s*储\s*蓄\s*行\s*为\s*的\s*变\s*化|设\s*备\s*投\s*资\s*分\s*析\s*趋\s*势\s*与\s*日\s*本\s*经\s*济|日\s*本\s*泡\s*沫\s*期\s*以\s*后\s*的\s*经\s*济\s*预\s*期\s*、\s*经\s*济\s*评\s*估\s*和\s*经\s*济\s*政\s*策|亚\s*洲\s*的\s*发\s*展\s*与\s*日\s*本\s*经\s*济|劳\s*动\s*力\s*供\s*给\s*、\s*劳\s*动\s*力\s*需\s*求\s*、\s*技\s*术\s*进\s*步\s*和\s*经\s*济\s*增\s*长|关\s*于\s*日\s*本\s*企\s*业\s*研\s*发\s*资\s*产\s*积\s*累\s*和\s*效\s*益\s*的\s*实\s*证\s*分\s*析|服\s*务\s*行\s*业\s*的\s*生\s*产\s*率|生\s*产\s*率\s*、\s*资\s*源\s*配\s*置\s*和\s*日\s*本\s*的\s*增\s*长|生\s*产\s*率\s*变\s*动\s*和\s*2\s*0\s*世\s*纪\s*9\s*0\s*年\s*代\s*后\s*的\s*日\s*本\s*经\s*济|日\s*本\s*的\s*均\s*衡\s*实\s*际\s*利\s*率|日\s*本\s*经\s*济\s*周\s*期\s*的\s*结\s*构\s*性\s*变\s*化)(?:\s+\d{1,3})?$',
+  '^(?:#+\s*|=+\s*)?(?:2\s*0\s*世\s*纪\s*8\s*0\s*年\s*代\s*后\s*的\s*G\s*D\s*P\s*缺\s*口\s*和\s*潜\s*在\s*增\s*长\s*率|日\s*本\s*经\s*济\s*中\s*的\s*消\s*费\s*与\s*储\s*蓄|从\s*泡\s*沫\s*期\s*到\s*通\s*货\s*紧\s*缩\s*期\s*家\s*庭\s*预\s*防\s*性\s*储\s*蓄\s*行\s*为\s*的\s*变\s*化|设\s*备\s*投\s*资\s*分\s*析\s*趋\s*势\s*与\s*日\s*本\s*经\s*济|日\s*本\s*泡\s*沫\s*期\s*以\s*后\s*的\s*经\s*济\s*预\s*期\s*、\s*经\s*济\s*评\s*估\s*和\s*经\s*济\s*政\s*策|亚\s*洲\s*的\s*发\s*展\s*与\s*日\s*本\s*经\s*济|劳\s*动\s*力\s*供\s*给\s*、\s*劳\s*动\s*力\s*需\s*求\s*、\s*技\s*术\s*进\s*步\s*和\s*经\s*济\s*增\s*长|关\s*于\s*日\s*本\s*企\s*业\s*研\s*发\s*资\s*产\s*积\s*累\s*和\s*效\s*益\s*的\s*实\s*证\s*分\s*析|服\s*务\s*行\s*业\s*的\s*生\s*产\s*率|生\s*产\s*率\s*、\s*资\s*源\s*配\s*置\s*和\s*日\s*本\s*的\s*增\s*长|生\s*产\s*率\s*变\s*动\s*和\s*2\s*0\s*世\s*纪\s*9\s*0\s*年\s*代\s*后\s*的\s*日\s*本\s*经\s*济|日\s*本\s*的\s*均\s*衡\s*实\s*际\s*利\s*率|日\s*本\s*经\s*济\s*周\s*期\s*的\s*结\s*构\s*性\s*变\s*化)\s+\d{1,3}$',
+  '^(?:#+\s*|=+\s*)?目录(?:\s+\d{1,3})?$',
+]
+cross_references = true
+circled_items = true
+# The OCR's inline image links repeat the figures that the caption lines already place and number.
+pre_math_rewrites = [['!\[[^\]\n]*\]\(figures/fig_[^)\n]*\)', '']]
+three_line_tables = true
+chapter_heading = '{title}'
+# The scan numbers sections "2" and subsections "2.1" with no period or §, and its running heads
+# carry the book title on even pages and the numbered chapter title on odd pages.
+# Chinese typesetting also indents the first paragraph after a heading.
+# Full-width figures that are taller than wide shrink to 330pt, about 60% of the 545pt text block,
+# so a figure, its caption and some text share a page.
+typst_front_matter = '''
+
+#set par(first-line-indent: (amount: 2em, all: true))
+#show heading.where(level: 1): it => {
+  let back-matter = it.body.has("text") and it.body.text == "后记"
+  v(if back-matter { 0em } else { 2.4em })
+  align(left)[
+    #text(16pt, weight: "bold", font: ("Songti SC", "STSong", "New Computer Modern"))[#if it.numbering != none [#numbering(it.numbering, ..counter(heading).at(it.location()))#h(1em)]#it.body]
+  ]
+  v(0.6em)
+  line(length: 100%, stroke: 0.6pt + black)
+  v(if back-matter { 0.8em } else { 1.4em })
+}
+#show heading.where(level: 2): set heading(numbering: (..n) => str(n.pos().at(1)) + "\u{2002}")
+#show heading.where(level: 3): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
+#let head-number(it) = if it.numbering != none and counter(heading).at(it.location()).first() > 0 { counter(heading).display(it.numbering) }
+#let head-font = ("Songti SC", "STSong", "New Computer Modern")
+#show heading.where(level: 2): it => block(above: 2em, below: 0.9em, sticky: true, text(13pt, weight: "bold", font: head-font)[#head-number(it)#it.body])
+#show heading.where(level: 3): it => block(above: 1.5em, below: 0.7em, sticky: true, text(11pt, weight: "bold", font: head-font)[#head-number(it)#it.body])
+#show heading.where(level: 4): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
+#show heading.where(level: 4): it => block(above: 1.3em, below: 0.6em, sticky: true, text(10pt, weight: "bold", font: head-font)[#head-number(it)#it.body])
+#show table: it => layout(size => if measure(it, width: size.width).height < 0.4 * size.height { block(breakable: false, it) } else { it })
+#set page(header: context {
+  let page-number = counter(page).get().first()
+  let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
+  if page-number > 4 and not on-chapter-page {
+    let chaps = query(heading.where(level: 1).before(here()))
+    let title = if calc.odd(page-number) and chaps != () {
+      let c = chaps.last()
+      if c.numbering != none [#numbering(c.numbering, ..counter(heading).at(c.location()))#h(0.8em)#c.body] else [#c.body]
+    } else [宏观经济与产业结构]
+    let head = text(8.5pt, font: ("Songti SC", "STSong", "New Computer Modern"))[#title]
+    let folio = text(9.5pt, font: ("Songti SC", "STSong", "New Computer Modern"))[#page-number]
+    if calc.odd(page-number) {
+      grid(columns: (1fr, auto), align(left, head), align(right, folio))
+    } else {
+      grid(columns: (auto, 1fr), align(left, folio), align(right, head))
+    }
+    v(-0.35em)
+    line(length: 100%, stroke: 0.35pt + luma(120))
+  }
+})
+
+#show image: it => layout(size => {
+  let limit = if page.flipped { 245pt } else { 330pt }
+  if measure(it, width: size.width).height > limit { image(it.source, height: limit) } else { it }
+})
+@ENGINE_TITLE_PAGE@'''
+latex_preamble = '\renewcommand\sourcesection[1]{\refstepcounter{sourcesection}\setcounter{equation}{0}\section*{\arabic{sourcesection}\quad #1}\addcontentsline{toc}{section}{\arabic{sourcesection}\quad #1}}\renewcommand\sourcesubsection[1]{\refstepcounter{sourcesubsection}\setcounter{equation}{0}\subsection*{\thesourcesubsection\quad #1}}\renewcommand\sourcesubsubsection[1]{\refstepcounter{sourceparagraph}\setcounter{equation}{0}\subsubsection*{\thesourceparagraph\quad #1}}'
+pdf_name_markers = ['宏观经济与产业结构']
+pdf_page_count = 425
+source_pdf = '1 宏观经济与产业结构.pdf'
+ocr_languages = ['zh-Hans', 'en-US']
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
+caption_format = '图 {chapter}-{number}'
+svg_single_pct = 100
+pair_figures = false
+note_before_caption = true
+
+[landscape_columns]
+242 = 3
+
+[page_fixups]
+4 = [
+  ['(?m)^## (深尾京司) \((Fukao Kyoji)\) ([^\n]+)$', '**\1**（\2）　\3'],
+  ['(?m)^([^\s#|*][^\s|]*) \(([A-Za-z ]+)\) ([^\n]+)$', '| \1（\2） | \3 |'],
+  [
+    '(?m)^(\| 酒卷哲朗)',
+    '''
+| 姓名 | 所属机构及职务 |
+| :--- | :--- |
+\1''',
+  ],
+]
+224 = [['(?m)^(图 7-1 显示了)', '⁠\1']]
+315 = [['Becker, G\. S\. \[1962\]', 'Becker, G. S. (1962)']]
+361 = [['(?m)^(图 11-3 \(3\) 显示了)', '⁠\1']]
+69 = [['(?m)^(\| （1） \| 1\.055<br>\(61\.78\) \|)  \|  \|', '\1 ⁠ | ⁠ |']]
+79 = [['(?m)^(\|[^\n]*\| 80\.7 \|)  \|$', '\1 ⁠ |']]
+299 = [['(?m)^(\|[^\n]*\| 0\.523 \|)  \|$', '\1 ⁠ |']]
+300 = [['(?m)^(\|[^\n]*\| 0\.944 \|)  \|$', '\1 ⁠ |'], ['(?m)^(\|[^\n]*\| 0\.447 \|)  \|$', '\1 ⁠ |']]
+301 = [['(?m)^(\|[^\n]*\| 0\.046 \|)  \|$', '\1 ⁠ |'], ['(?m)^(\|[^\n]*\| 0\.493 \|)  \|$', '\1 ⁠ |']]
+302 = [['(?m)^(\|[^\n]*\| 0\.111 \|)  \|$', '\1 ⁠ |']]
+382 = [['(?m)^(\|  \| 估算值 \| \$t\$ 值 \|)  \|', '\1 ⁠ |']]
+213 = [['\A.*\Z', '']]
+41 = [
+  ['(?m)^资本投入量（实际、潜在）估算[ \t]*\n?', ''],
+  ['(?m)^制造业实际利用率（使用采矿业指数）[ \t]*\n?', ''],
+  ['(?m)^制造业资本存量[ \t]*\n?', ''],
+  ['(?m)^制造业潜在利用率（剔除经济因素）[ \t]*\n?', ''],
+  ['(?m)^非制造业实际利用率（使用第三产业活动指数）[ \t]*\n?', ''],
+  ['(?m)^非制造业资本存量[ \t]*\n?', ''],
+  ['(?m)^非制造业潜在利用率（剔除经济因素）[ \t]*\n?', ''],
+  ['(?m)^实际资本投入量[ \t]*\n?', ''],
+  ['(?m)^潜在资本投入量[ \t]*\n?', ''],
+  ['(?m)^柯布\-道格拉斯生产函数[ \t]*\n?', ''],
+  ['(?m)^\$Y\ =\ AK\^\\alpha\ L\^\{\\alpha\-1\}\$[ \t]*\n?', ''],
+  ['(?m)^\$Y\$：生产量（实际GDP）[ \t]*\n?', ''],
+  ['(?m)^\$K\$：资本投入量[ \t]*\n?', ''],
+  ['(?m)^\$L\$：劳动投入量[ \t]*\n?', ''],
+  ['(?m)^\$\\alpha\$：资本份额（假定为0\.33）[ \t]*\n?', ''],
+  ['(?m)^A：TFP（全要素生产率）[ \t]*\n?', ''],
+  ['(?m)^潜在GDP\ GDP缺口[ \t]*\n?', ''],
+  ['(?m)^※\ GDP缺口是实际GDP和潜在GDP之间的偏差率[ \t]*\n?', ''],
+  ['(?m)^实际劳动投入量[ \t]*\n?', ''],
+  ['(?m)^潜在劳动投入量[ \t]*\n?', ''],
+  ['(?m)^总实际劳动时间[ \t]*\n?', ''],
+  ['(?m)^HP滤波器[ \t]*\n?', ''],
+  ['(?m)^潜在劳动时间[ \t]*\n?', ''],
+  ['(?m)^就业人数[ \t]*\n?', ''],
+  ['(?m)^潜在就业人数[ \t]*\n?', ''],
+  ['(?m)^（15岁及以上人口×趋势劳动力参与率）[ \t]*\n?', ''],
+  ['(?m)^×（1—结构性失业率）[ \t]*\n?', ''],
+  ['(?m)^劳动投入量（实际、潜在）估算[ \t]*\n?', ''],
+]
+44 = [
+  ['(?m)^（1）制造业资本利用率[ \t]*\n?', ''],
+  ['(?m)^（×年第一季度）[ \t]*\n?', ''],
+  ['(?m)^（2）非制造业资本利用率[ \t]*\n?', ''],
+  ['(?m)^（3）失业率[ \t]*\n?', ''],
+]
+46 = [['(?m)^（2）潜在增长率的变化[ \t]*\n?', '']]
+48 = [['(?m)^（3）GDP缺口和有效职位空缺率[ \t]*\n?', '']]
+49 = [
+  ['(?m)^CPI增长率（%）[ \t]*\n?', ''],
+  ['(?m)^6\.0[ \t]*\n?', ''],
+  ['(?m)^5\.0[ \t]*\n?', ''],
+  ['(?m)^4\.0[ \t]*\n?', ''],
+  ['(?m)^3\.0[ \t]*\n?', ''],
+  ['(?m)^2\.0[ \t]*\n?', ''],
+  ['(?m)^1\.0[ \t]*\n?', ''],
+  ['(?m)^0\.0[ \t]*\n?', ''],
+  ['(?m)^\-1\.0[ \t]*\n?', ''],
+  ['(?m)^\-2\.0[ \t]*\n?', ''],
+  ['(?m)^GDP缺口（%，反向符号）[ \t]*\n?', ''],
+  ['(?m)^CPI增长率1985—1995\ 线性（CPI增长率1985—1995）[ \t]*\n?', ''],
+  ['(?m)^CPI增长率1996—2006\ 线性（CPI增长率1996—2006）[ \t]*\n?', ''],
+]
+50 = [['(?m)^（1）HP滤波器[ \t]*\n?', '']]
+53 = [
+  ['(?m)^（1）截至1991年[ \t]*\n?', ''],
+  ['(?m)^（×年第一季度）[ \t]*\n?', ''],
+  ['(?m)^——整个时期\ ——仅变更时期[ \t]*\n?', ''],
+  ['(?m)^◇\ 使用当时的GDP[ \t]*\n?', ''],
+  ['(?m)^（2）截至1997年[ \t]*\n?', ''],
+]
+56 = [['(?m)^（2）奥肯定律[ \t]*\n?', '']]
+77 = [
+  ['(?m)^序列（1）：雇员人均报酬/就业者人均国民收入[ \t]*\n?', ''],
+  ['(?m)^序列（2）：雇员报酬/（国民收入一个人企业收入）[ \t]*\n?', ''],
+  ['(?m)^人工成本/（人工成本\+经常利润\+应付利息及贴现费用\+折旧费）[ \t]*\n?', ''],
+  ['(?m)^（出自《法人企业统计》，按年度计算）[ \t]*\n?', ''],
+]
+199 = [
+  ['(?m)^美国\ 日本[ \t]*\n?', ''],
+  ['(?m)^经常账户收支与GDP之比[ \t]*\n?', ''],
+  ['(?m)^商品、服务净出口与GDP之比（名义）[ \t]*\n?', ''],
+  ['(?m)^商品、服务净出口与GDP之比（实际）[ \t]*\n?', ''],
+]
+216 = [['(?m)^口农产品和食品[ \t]*\n?', '']]
+227 = [
+  ['(?m)^（2）女性[ \t]*\n?', ''],
+  ['(?m)^万人[ \t]*\n?', ''],
+  ['(?m)^6000[ \t]*\n?', ''],
+  ['(?m)^5000[ \t]*\n?', ''],
+  ['(?m)^4000[ \t]*\n?', ''],
+  ['(?m)^3000[ \t]*\n?', ''],
+  ['(?m)^2000[ \t]*\n?', ''],
+  ['(?m)^1000[ \t]*\n?', ''],
+]
+228 = [['(?m)^（1）男性[ \t]*\n?', ''], ['(?m)^（2）女性[ \t]*\n?', '']]
+234 = [['(?m)^（2）劳动时间=基于《劳动力调查》[ \t]*\n?', '']]
+238 = [['(?m)^（2）男性[ \t]*\n?', ''], ['(?m)^（3）女性[ \t]*\n?', '']]
+240 = [['(?m)^（1）男性[ \t]*\n?', ''], ['(?m)^（2）女性[ \t]*\n?', '']]
+327 = [
+  ['(?m)^\#\#\ 机电、邮政和通信[ \t]*\n?', ''],
+  ['(?m)^\#\#\ 机电以外的制造业[ \t]*\n?', ''],
+  ['(?m)^\#\#\ 第一产业、建筑、水电燃气[ \t]*\n?', ''],
+  ['(?m)^\#\#\ 金融和对企业服务[ \t]*\n?', ''],
+  ['(?m)^\#\#\ 商业和运输[ \t]*\n?', ''],
+  ['(?m)^\#\#\ 对个人和社会服务[ \t]*\n?', ''],
+]
+338 = [['(?m)^日本企业在亚洲的名义产值变化（1990—2002）/国内生产（1990）（%）[ \t]*\n?', '']]
+
+[hooks]
+heading_hook = 'macro_heading_hook'
+figures = 'draw_figures'
+
+[editions.monograph]
+summary = '13 chapters, monochrome academic monograph'
+
+[editions.illustrated]
+summary = '13 chapters, illustrated monograph with redrawn figures'
+
+[editions.illustrated.spec]
+slug = '1_illustrated'
+book_aliases = false
+
+[editions.facsimile]
+kind = 'facsimile'
+
+[editions.facsimile.facsimile]
+slug = '1_facsimile'
+title = '宏观经济与产业结构 (facsimile)'
+font_file = '/System/Library/Fonts/Supplemental/Songti.ttc'
+font_stack = '("Songti SC", "STSong", "STIX Two Math")'
+size = 10.5
+weight = 400
+diagram_dir = 'output/1_宏观经济与产业结构/figures'
+transcripts = 'markdown_pages'
+strict_lines = true
+
+[editions.facsimile.facsimile.diagram_text]
+font = 'Songti SC'
+size = 10.5
+weight = 400
