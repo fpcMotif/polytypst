@@ -13,6 +13,7 @@ RUNNING_HEADERS = (
 )
 
 KASHIWARA_SPEC = MonographSpec(
+    domain="math",
     slug="foundations_of_algebraic_analysis",
     title="Foundations of Algebraic Analysis",
     footnote_style="superscript",

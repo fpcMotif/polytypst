@@ -49,6 +49,10 @@ class LinePage:
     lines: tuple[OcrLine, ...]
 
 
+class OcrStalled(RuntimeError):
+    """An OCR reader stopped producing pages and was stopped."""
+
+
 class LineReader(Protocol):
     @property
     def provenance(self) -> str: ...

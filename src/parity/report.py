@@ -3,6 +3,8 @@
 import csv
 import html
 import json
+import os
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
@@ -37,6 +39,7 @@ class Tolerance:
     diagram_scale: float = 0.02
     same_line_count: bool = False
     one_page: bool = False
+    max_right_overflow_lines: int = 0
 
 
 FACSIMILE = Tolerance(word_pt=0.5, word_lines="all", baseline_pt=0.5, page_offset_pt=0.3)
@@ -81,6 +84,8 @@ def verdict(page: PageParity, tol: Tolerance) -> list[str]:
     for d in page.diagrams:
         if max(abs(d.dx), abs(d.dy)) > tol.diagram_pt or max(abs(d.sx - 1), abs(d.sy - 1)) > tol.diagram_scale:
             reasons.append(f"diagram {d.name} off {d.dx:+.1f},{d.dy:+.1f}pt x{d.sx:.3f},{d.sy:.3f}")
+    if page.right_overflow_lines > tol.max_right_overflow_lines:
+        reasons.append(f"{page.right_overflow_lines} lines cross the scan's right text edge")
     return reasons
 
 
@@ -112,6 +117,21 @@ def write_overlay(source: np.ndarray, rebuilt: np.ndarray, path: Path) -> None:
     Image.fromarray(rgb).save(path)
 
 
+_DOCS: dict[Path, pymupdf.Document] = {}
+
+
+def _write_page_images(page: PageParity, img: Path) -> str:
+    """Write a page's source, rebuilt and overlay images; returns its diagram crops' HTML."""
+    src = _DOCS.setdefault(page.source, pymupdf.open(page.source))
+    ours = _DOCS.setdefault(page.rebuilt, pymupdf.open(page.rebuilt))
+    a, b = _gray(src, page.source_page), _gray(ours, page.rebuilt_pages[0])
+    stem = f"p{page.source_page:03d}"
+    Image.fromarray(a).save(img / f"{stem}_source.png")
+    Image.fromarray(b).save(img / f"{stem}_rebuilt.png")
+    write_overlay(a, b, img / f"{stem}_overlay.png")
+    return _diagram_crops(src, ours, page, img)
+
+
 def _row(page: PageParity, reasons: list[str], tol: Tolerance) -> dict[str, object]:
     worst = max((max(abs(w.dx_left), abs(w.dx_right), abs(w.dy)) for w in page.words), default=0.0)
     return {
@@ -129,6 +149,7 @@ def _row(page: PageParity, reasons: list[str], tol: Tolerance) -> dict[str, obje
         "bad_words": len(bad_words(page, tol)),
         "worst_word_pt": round(worst, 2),
         "worst_baseline_pt": max((abs(line.dy) for line in page.lines), default=0.0),
+        "right_overflow_lines": page.right_overflow_lines,
         "diagrams": " ".join(f"{d.name}:{d.dx:+.1f},{d.dy:+.1f},x{d.sx:.3f}" for d in page.diagrams),
     }
 
@@ -138,18 +159,13 @@ def write_report(results: list[PageParity], out_dir: Path, tolerance: Tolerance)
     img = out_dir / "img"
     img.mkdir(parents=True, exist_ok=True)
     rows, items = [], []
-    docs: dict[Path, pymupdf.Document] = {}
-    for page in results:
+    with ProcessPoolExecutor(min(os.cpu_count() or 1, max(len(results), 1))) as pool:
+        crops = list(pool.map(_write_page_images, results, [img] * len(results), chunksize=4))
+    for page, diagram_html in zip(results, crops, strict=True):
         reasons = verdict(page, tolerance)
         row = _row(page, reasons, tolerance)
         rows.append(row)
-        src = docs.setdefault(page.source, pymupdf.open(page.source))
-        ours = docs.setdefault(page.rebuilt, pymupdf.open(page.rebuilt))
-        a, b = _gray(src, page.source_page), _gray(ours, page.rebuilt_pages[0])
         stem = f"p{page.source_page:03d}"
-        Image.fromarray(a).save(img / f"{stem}_source.png")
-        Image.fromarray(b).save(img / f"{stem}_rebuilt.png")
-        write_overlay(a, b, img / f"{stem}_overlay.png")
         meta = "<br>".join(html.escape(f"{k}: {v}") for k, v in row.items() if k not in ("source_page", "status", "reasons"))
         worst = sorted(page.words, key=lambda w: -max(abs(w.dx_left), abs(w.dx_right), abs(w.dy)))[:8]
         worst_html = "".join(
@@ -159,7 +175,7 @@ def write_report(results: list[PageParity], out_dir: Path, tolerance: Tolerance)
             f'<tr class="{row["status"]}" data-page="{page.source_page}" data-worst="{row["worst_word_pt"]}">'
             f'<td class="meta"><b>source page {page.source_page}</b><br><span class="tag {row["status"]}">{row["status"]}</span>'
             f'<br>{html.escape(str(row["reasons"]))}<br>{meta}<br>worst words (dx left, dx right, dy pt):<ul>{worst_html}</ul>'
-            f"{_diagram_crops(src, ours, page, img)}</td>"
+            f"{diagram_html}</td>"
             f'<td><img loading="lazy" src="img/{stem}_source.png" alt="source {page.source_page}"></td>'
             f'<td><img loading="lazy" src="img/{stem}_rebuilt.png" alt="rebuilt {page.source_page}"></td>'
             f'<td><img loading="lazy" src="img/{stem}_overlay.png" alt="overlay {page.source_page}"></td></tr>'
@@ -170,7 +186,7 @@ def write_report(results: list[PageParity], out_dir: Path, tolerance: Tolerance)
             writer.writeheader()
             writer.writerows(rows)
     failed = [r for r in rows if r["status"] == "fail"]
-    summary = {"pages": len(rows), "passed": len(rows) - len(failed), "failed": len(failed), "tolerance": asdict(tolerance)}
+    summary = {"pages": len(rows), "passed": len(rows) - len(failed), "failed": len(failed), "right_overflow_lines": sum(r.right_overflow_lines for r in results), "tolerance": asdict(tolerance)}
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=1), encoding="utf-8")
     (out_dir / "index.html").write_text(_page_html(summary, "".join(items)), encoding="utf-8")
     return not failed

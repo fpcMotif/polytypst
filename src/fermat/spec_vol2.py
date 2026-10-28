@@ -13,6 +13,7 @@ RUNNING_HEADERS = (
 )
 
 FERMAT2_SPEC = MonographSpec(
+    domain="math",
     slug="number_theory_2_class_field_theory",
     title="Number Theory 2: Introduction to Class Field Theory",
     author="Kazuya Kato, Nobushige Kurokawa, Takeshi Saito",

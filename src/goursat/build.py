@@ -4,10 +4,11 @@ import argparse
 import re
 from pathlib import Path
 
+from ..book_state import book_state
 from ..compiler.monograph import MonographSpec
 from ..compiler.page_cleaner import PageCleaner
 from ..ocr.backend import Backend, backend_argument
-from ..ocr.lines import LineStore
+from ..ocr.lines import LineStore, source_ocr_dir
 from ..ocr.pages import LinePage, PageImage, Transcriber, page_images
 from ..ocr.transcripts import TranscriptStore
 from ..tex_markdown import repair_page_math
@@ -54,6 +55,7 @@ SECTION_RUNNING_HEADER = (
     r")[*\s]*$)"
 )
 GOURSAT_SPEC = MonographSpec(
+    domain="math",
     slug="goursat",
     title="A Course in Mathematical Analysis",
     author="Édouard Goursat",
@@ -171,7 +173,7 @@ def _figures(
     if cached is not None:
         return cached
     extractor = FigureExtractor(pdf_path)
-    lines = LineStore(out_dir / "source_ocr").read(renders, extractor.reader)
+    lines = LineStore(source_ocr_dir(out_dir)).read(renders, extractor.reader)
     ocr_pages = [LinePage(number, page_lines) for number, page_lines in lines.items()]
     figures = extractor.extract_figures_from_ocr_pages(
         ocr_pages, out_dir / "figures", dpi=300
@@ -187,7 +189,7 @@ def build_goursat(pdf_path: Path, out_dir: Path, transcriber: Transcriber) -> Pa
     print(f"{len(figures)} figures grounded.")
 
     text_pages = [p for p in pages if p.number <= GOURSAT_LAST_TEXT_PAGE]
-    store = TranscriptStore(out_dir / "markdown_pages")
+    store = TranscriptStore(book_state(out_dir) / "markdown_pages")
     pages_md = store.transcribe(text_pages, transcriber)
     print(f"{len(pages_md)}/{len(text_pages)} pages transcribed.")
 

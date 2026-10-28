@@ -1,12 +1,17 @@
 """LaTeX-to-Typst math conversion shared by every monograph build."""
 
 import functools
+import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from re import Pattern
+
+from polytypst_native import Typst, TypstError
 
 KNOWN_MATH_WORDS: set[str] = {
     "sin",
@@ -447,8 +452,6 @@ TEXT_MACROS = re.compile(
 def convert_unary_macros(s: str) -> str:
     if "\\" not in s:
         return s
-    s = s.replace(r"\mathrm{d}", " dif ")
-    s = re.sub(r"(?<![\\a-zA-Z0-9_\^])d\s*([xyztuvwsr])(?![a-zA-Z0-9])", r" dif \1", s)
     s = BARE_UNARY_ARG_RE.sub(r"\1{\2}", s)
     for pattern, fmt in UNARY_MACROS:
         while True:
@@ -597,38 +600,6 @@ SUB_GREEK_SPLIT_RE = re.compile(
 BARE_BRACES_RE = re.compile(r"(?<!\\)\{([^{}]*)\}")
 NON_MATH_CHARS_RE = re.compile(r"[^\x00-\x7Fα-ωΑ-Ωℂℝℤℕℚ℘≤≥≠±∓×·→⇒↔⇐⇔⟶⟵⟷⟼⟹⟸⟺•—–§\s]")
 MULTI_TOK_RE = re.compile(r"(?<![a-zA-Z0-9])[a-zA-Z0-9]{2,}(?![a-zA-Z0-9])")
-
-DIFF_DERIV_FRAC_RE = re.compile(
-    r"\(\s*(?:dif|d)(\^\([0-9a-zA-Z+\-\s]+\)|\^[0-9a-zA-Z]+)?(?:\s+([a-zA-Z0-9_']+))?\s*\)\s*/\s*\(\s*(?:dif|b|d)\s*([zxywtuvsrZ])(\^\([0-9a-zA-Z+\-\s]+\)|\^[0-9a-zA-Z]+)?\s*\)"
-)
-DIFF_INLINE_DERIV_RE = re.compile(
-    r"\b(?:dif|d)(\^\([0-9a-zA-Z+\-\s]+\)|\^[0-9a-zA-Z]+)\s*([a-zA-Z0-9_']+)\s*/\s*(?:dif|d)\s*([zxywtuvsrZ])(\^\([0-9a-zA-Z+\-\s]+\)|\^[0-9a-zA-Z]+)"
-)
-DIFF_FORM_RE = re.compile(
-    r"(?:thin\s+)?(?<![a-zA-Z0-9_\\])(?:dif|d)\s*(?=(?:theta|phi|rho|xi|zeta|tau|eta|omega|alpha|sigma|log|arg)\b|(?:[uavgG]_[0-9]+\b)|(?:[zxywtuvsrghFGUWZ]\b(?!\s*\^|\s*-\s*b\b))|\(u_2\s*v_1\))"
-)
-DIFF_ABS_RE = re.compile(r"(?<!\\)\|\s*(dif\s+[^|\n]+?)\s*(?<!\\)\|")
-
-
-def normalize_differentials(code: str) -> str:
-    if "d" not in code:
-        return code
-
-    def _repl_frac(m: re.Match[str]) -> str:
-        deg1 = m.group(1) or ""
-        fn = m.group(2) or ""
-        var = m.group(3)
-        deg2 = m.group(4) or ""
-        num = f"dif{deg1} {fn}".strip()
-        den = f"dif {var}{deg2}".strip()
-        return f"({num})/({den})"
-
-    code = DIFF_DERIV_FRAC_RE.sub(_repl_frac, code)
-    code = DIFF_INLINE_DERIV_RE.sub(r"(dif\1 \2)/(dif \3\4)", code)
-    code = DIFF_FORM_RE.sub("dif ", code)
-    code = DIFF_ABS_RE.sub(r"abs(\1)", code)
-    return code
-
 
 def _is_variable_product(m: re.Match[str]) -> bool:
     """A two-letter word like `if` or `by` that is applied or follows an operator is a product."""
@@ -864,8 +835,6 @@ def sanitize_math_code(code: str, is_display: bool = False) -> str:
         code,
     )
 
-    code = normalize_differentials(code)
-
     def fix_tok(m: re.Match[str]) -> str:
         t = m.group(0)
         if t.isdigit() or t in KNOWN_MATH_WORDS:
@@ -903,8 +872,6 @@ def sanitize_math_code(code: str, is_display: bool = False) -> str:
         segments[idx] = seg
     code = "".join(segments)
 
-    code = normalize_differentials(code)
-
     code = re.sub(r"_([a-zA-Z0-9]+)\(", r"_(\1)(", code)
     code = re.sub(r"\^([a-zA-Z0-9]+)\(", r"^(\1)(", code)
     code = re.sub(r"(_(?:\([^\)]+\)|[a-zA-Z0-9]+))('+)", r"\2\1", code)
@@ -938,6 +905,7 @@ ESCAPED_DELIM_RE = re.compile(r"\\([()\[\]])")
 LATEX_MACRO_REWRITES: tuple[tuple[Pattern[str], str], ...] = (
     (re.compile(r"\\tag\*?\{[^{}]*\}"), ""),
     (re.compile(r"\\(?:nonumber|notag|displaystyle|textstyle)(?![a-zA-Z])"), ""),
+    (re.compile(r"\\dfrac(?![a-zA-Z])"), r"\\frac"),
     (re.compile(r"\\varprojlim"), r"\\underset{\\longleftarrow}{\\lim}"),
     (re.compile(r"\\varinjlim"), r"\\underset{\\longrightarrow}{\\lim}"),
     (re.compile(r"\\leqq(?![a-zA-Z])"), r"\\leq"),
@@ -965,6 +933,22 @@ LATEX_MACRO_REWRITES: tuple[tuple[Pattern[str], str], ...] = (
     (re.compile(r"(?<!\\)#"), r"\\#"),
     (re.compile(r"(?<=[(\[|])\s*\\ \s*"), ""),
     (re.compile(r"\s*\\ \s*(?=[)\]|])"), ""),
+    (re.compile(r"\\arctg(?![a-zA-Z])"), r"\\arctan"),
+    (re.compile(r"\\arcctg(?![a-zA-Z])"), r"\\operatorname{arcctg}"),
+    (re.compile(r"\\arectg(?![a-zA-Z])"), r"\\operatorname{arcctg}"),
+    (re.compile(r"\\arccotg(?![a-zA-Z])"), r"\\operatorname{arccot}"),
+    (re.compile(r"\\arsec(?![a-zA-Z])"), r"\\operatorname{arcsec}"),
+    (re.compile(r"\\arccsc(?![a-zA-Z])"), r"\\operatorname{arccsc}"),
+    (re.compile(r"\\tg(?![a-zA-Z])"), r"\\tan"),
+    (re.compile(r"\\ctg(?![a-zA-Z])"), r"\\cot"),
+    (re.compile(r"\\sh(?![a-zA-Z])"), r"\\sinh"),
+    (re.compile(r"\\ch(?![a-zA-Z])"), r"\\cosh"),
+    (re.compile(r"\\th(?![a-zA-Z])"), r"\\tanh"),
+    (re.compile(r"\\cth(?![a-zA-Z])"), r"\\coth"),
+    (re.compile(r"\\Arcsin(?![a-zA-Z])"), r"\\operatorname{Arcsin}"),
+    (re.compile(r"\\Arctg(?![a-zA-Z])"), r"\\operatorname{Arctg}"),
+    (re.compile(r"\\varliminf(?![a-zA-Z])"), r"\\liminf"),
+    (re.compile(r"\\varlimsup(?![a-zA-Z])"), r"\\limsup"),
 )
 _PANDOC_CACHE: dict[tuple[str, bool], str] = {}
 _DANGLING_OPERATOR_RE = re.compile(r"([\^_√])(?=\s*(?:$|[)\]},;&^_]))")
@@ -1168,8 +1152,10 @@ def convert_math_batch(items: list[tuple[str, bool]]) -> list[str]:
                 converted = converted.replace("plus.circle", "plus.o")
                 if converted.count('"') % 2:
                     converted = converted.replace('"', "")
-            _PANDOC_CACHE[key] = _give_operands(converted)
-        finished = [(finish_typst_math(normalize_typst_differentials(_PANDOC_CACHE[k])), k[1]) for k in todo]
+            _PANDOC_CACHE[key] = finish_typst_math(
+                normalize_typst_differentials(_give_operands(converted))
+            )
+        finished = [(_PANDOC_CACHE[k], k[1]) for k in todo]
         for key in _typst_rejects(finished):
             _PANDOC_CACHE[todo[key]] = _as_math_string(todo[key][0])
     return [_PANDOC_CACHE[k] for k in items]
@@ -1214,13 +1200,65 @@ def _fix_typst_single_arg_frac(text: str) -> str:
     return "".join(res)
 
 
+ITALIC_D_RE = re.compile(
+    rf"(?:thin\s+)?(?<![\w.'\"#^_\\])(?<![_^]\()d(\^(?:\([\w+\- ]*\)|\w))?\s+"
+    rf"(?!d\s)(?=(?:{GREEK_WORDS})(?![A-Za-z])|[A-Za-z](?![A-Za-z0-9(]|\.[A-Za-z])|(?:abs|norm)\(|(?:log|ln|exp|sin|cos|tan)\b)"
+)
+DENOMINATOR_START_RE = re.compile(r"(?:/|\\/)\s*\(?\s*$")
+DERIVATIVE_OPERATOR_RE = re.compile(
+    r"(?<![\w.'\"#^_\\])d(\^(?:\([\w+\- ]*\)|\w))?"
+    r"(?=\s*[,(]\s*(?:dif\b|d(?:\^(?:\([\w+\- ]*\)|\w))?\s+[A-Za-z])|\s+(?:thin\s+)?(?:dif\b|d\s+[A-Za-z]))"
+)
+BRACKET_OPERATOR_RE = re.compile(r"(?<![\w.'\"#^_\\])d(\^(?:\([\w+\- ]*\)|\w))?(?=\s*\((?:[^(),]|\([^()]*\))*\))")
+DEFINED_DIFFERENTIAL_RE = re.compile(
+    r"\s*d\s+[A-Za-z]\s*=\s*0\s*$|\s*d\s+([A-Za-z])\s*=.*(?:'|\bpartial\b|\bDelta\b)|.*\bDelta\s+([A-Za-z])\b.*\bd\s+\2\b|(?=.*\bDelta\b).*'"
+)
+INTEGRAL_RE = re.compile(r"\b(?:integral|oint)(?![A-Za-z])")
+LETTER_RUN_RE = re.compile(r"\s*[A-Za-z](?:\s+[A-Za-z]){2,}\s*")
+DIFF_RUN_RE = re.compile(r"(?:\s*d\s+[A-Za-z])+\s*")
+LONE_ARGUMENT_RE = re.compile(rf"\s*(?:{GREEK_WORDS}|[A-Za-z])\s*")
+STRING_RE = re.compile(r'"(?:\\.|[^"\\])*"')
+
+
+def italic_differentials(body: str) -> list[re.Match[str]]:
+    plain = STRING_RE.sub(lambda m: " " * len(m.group(0)), body)
+    proven = _proven_differentials(plain)
+    if proven or re.search(r"\bdif\b", plain):
+        proven += BRACKET_OPERATOR_RE.finditer(plain)
+    return list({m.start(): m for m in sorted(proven, key=lambda m: m.start())}.values())
+
+
+def _proven_differentials(plain: str) -> list[re.Match[str]]:
+    operators = list(DERIVATIVE_OPERATOR_RE.finditer(plain))
+    found = list(ITALIC_D_RE.finditer(plain))
+    if operators:
+        return operators + found
+    if not found or (LETTER_RUN_RE.fullmatch(plain) and not DIFF_RUN_RE.fullmatch(plain)):
+        return []
+    if len(found) > 1 or re.search(r"\bdif\b", plain):
+        return found
+    m = found[0]
+    integral = INTEGRAL_RE.search(plain)
+    if integral and integral.start() < m.start() or DENOMINATOR_START_RE.search(plain[: m.start()]):
+        return found
+    if not plain[: m.start()].strip() and LONE_ARGUMENT_RE.fullmatch(plain[m.end() :]):
+        return found
+    if DEFINED_DIFFERENTIAL_RE.match(plain):
+        return found
+    variable = re.match(r"\s*(\w+)", plain[m.end() :])
+    if variable and re.search(rf"\([^()]*\b{variable.group(1)}\b[^()]*\)\s*$", plain[: m.start()]):
+        return found
+    return []
+
+
 def normalize_typst_differentials(t: str) -> str:
-    t = t.replace("upright(d)", "dif")
-    return re.sub(
-        r"(?<![a-zA-Z0-9_\^])d\s*([xyztrsuvwqp]|xi|alpha|beta|gamma|theta|phi|tau|lambda|mu)(?=[0-9\s\^_,.;!?\)]|$)",
-        r"dif \1",
-        t,
-    )
+    t = re.sub(r"(?:thin\s+)?upright\(d\)", "dif", t)
+    t = re.sub(r"thin\s+(?=dif\b)", "", t)
+    for m in reversed(italic_differentials(t)):
+        gap = " " if m.start() and not t[m.start() - 1].isspace() and t[m.start() - 1] not in "(," else ""
+        tail = " " if m.group(0)[-1:].isspace() else ""
+        t = f"{t[: m.start()]}{gap}dif{m.group(1) or ''}{tail}{t[m.end() :]}"
+    return t
 
 
 def finish_typst_math(s: str) -> str:
@@ -1242,6 +1280,7 @@ def finish_typst_math(s: str) -> str:
 
 
 _TYPST_ERROR_LINE_RE = re.compile(r"\.typ:(\d+):\d+: error")
+REPO_FONTS_DIR = Path(__file__).resolve().parents[2] / "fonts"
 
 
 def _as_math_string(latex: str) -> str:
@@ -1251,12 +1290,110 @@ def _as_math_string(latex: str) -> str:
 
 
 @functools.cache
-def _typst_command() -> tuple[str, ...] | None:
+def typst_command(fallback_nix: bool = True) -> tuple[str, ...] | None:
     if shutil.which("typst"):
         return ("typst",)
     if shutil.which("mise"):
         return ("mise", "exec", "--", "typst")
+    if fallback_nix and shutil.which("nix"):
+        return ("nix", "shell", "nixpkgs#typst", "--command", "typst")
     return None
+
+
+def _typst_command() -> tuple[str, ...] | None:
+    return typst_command(fallback_nix=False)
+
+
+def run_typst(
+    subcommand: str,
+    *args: str,
+    check: bool = True,
+    capture_output: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    cmd = typst_command(fallback_nix=True) or ("typst",)
+    return subprocess.run(
+        [*cmd, subcommand, "--font-path", str(REPO_FONTS_DIR), *args],
+        check=check,
+        capture_output=capture_output,
+        text=True,
+    )
+
+
+@functools.cache
+def _embedded_typst() -> Typst | None:
+    return Typst([str(REPO_FONTS_DIR)])
+
+
+def _embedded_options(target: Path, extra_args: tuple[str, ...]) -> dict[str, object] | None:
+    fmt = {".pdf": "pdf", ".png": "png"}.get(target.suffix)
+    if fmt is None:
+        return None
+    inputs: dict[str, str] = {}
+    options: dict[str, object] = {"format": fmt, "inputs": inputs}
+    args = iter(extra_args)
+    for arg in args:
+        if arg == "--no-pdf-tags":
+            options["pdf_tags"] = False
+        elif arg in ("--root", "--input", "--ppi") and (value := next(args, None)) is not None:
+            if arg == "--root":
+                options["root"] = value
+            elif arg == "--ppi":
+                options["ppi"] = float(value)
+            else:
+                key, _, inputs[key] = value.partition("=")
+        else:
+            return None
+    return options
+
+
+def _run_embedded[T](call: Callable[[Typst], T], command: list[str], capture_output: bool) -> T | None:
+    typst = _embedded_typst()
+    if typst is None:
+        return None
+    try:
+        return call(typst)
+    except TypstError as e:
+        if "offline:" in str(e):
+            return None
+        if not capture_output:
+            print(e, end="", file=sys.stderr)
+        raise subprocess.CalledProcessError(1, command, output="", stderr=str(e)) from e
+
+
+def query_typst(typ: Path, selector: str, field: str, inputs: dict[str, str]) -> list:
+    command = ["typst", "query", str(typ), selector]
+    found = _run_embedded(lambda t: t.query(str(typ), selector, field=field, inputs=inputs), command, True)
+    if found is None:
+        flags = [arg for k, v in inputs.items() for arg in ("--input", f"{k}={v}")]
+        found = run_typst("query", *flags, str(typ), selector, "--field", field, capture_output=True).stdout
+    return json.loads(found)
+
+
+def compile_typst(
+    typ_path: Path,
+    pdf_path: Path,
+    *extra_args: str,
+    capture_output: bool = False,
+) -> None:
+    options = _embedded_options(pdf_path, extra_args)
+    if options is not None:
+        command = ["typst", "compile", *extra_args, str(typ_path), str(pdf_path)]
+        built = _run_embedded(lambda t: t.compile(str(typ_path), **options), command, capture_output)
+        if built is not None:
+            data, warnings = built
+            pdf_path.write_bytes(data)
+            if warnings and not capture_output:
+                print(warnings, end="", file=sys.stderr)
+            return
+    _ = run_typst(
+        "compile",
+        *extra_args,
+        str(typ_path),
+        str(pdf_path),
+        check=True,
+        capture_output=capture_output,
+    )
+
 
 
 def _typst_rejects(bodies: list[tuple[str, bool]]) -> set[int]:
@@ -1289,7 +1426,7 @@ def _rejects_among(
                 owner.append(i)
         _ = source.write_text("\n".join(lines), encoding="utf-8")
         res = subprocess.run(
-            [*command, "compile", "--diagnostic-format", "short", str(source), str(tmp / "math.pdf")],
+            [*command, "compile", "--ignore-system-fonts", "--diagnostic-format", "short", str(source), str(tmp / "math.pdf")],
             capture_output=True,
             text=True,
             check=False,

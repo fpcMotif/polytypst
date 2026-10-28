@@ -1,0 +1,281 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Registry and reproduction records for scanned mathematical books processed by polytypst.",
+  "updated_at": "2026-10-25T16:30:00Z",
+  "books": {
+    "algebra3": {
+      "book_key": "algebra3",
+      "metadata": {
+        "title": "代数学引论 (第3卷) 基本结构",
+        "title_en": "Introduction to Algebra, Part III: Basic Structures",
+        "title_ru": "Введение в алгебру. Часть III. Основные структуры",
+        "edition_number": "第2版",
+        "author": "A. И. 柯斯特利金 (A. I. Kostrikin)",
+        "translator": "郭文彬",
+        "publisher": "高等教育出版社 (Higher Education Press)",
+        "series": "俄罗斯数学教材选译",
+        "year": 2008,
+        "isbn": "978-7-04-022506-8",
+        "language": "zh"
+      },
+      "original_scan": {
+        "file_name": "代数学引论 第3卷 基本结构 第2版 (A.И.柯斯特利金著) .pdf",
+        "file_path": "/Users/martinfan/Downloads/代数学引论 第3卷 基本结构 第2版 (A.И.柯斯特利金著) .pdf",
+        "size_bytes": 8423182,
+        "size_mb": 8.033,
+        "page_count": 262,
+        "md5": "f5af40075248c7a1b4b834f80d231b3b",
+        "sha256": "ead606cdf216661ec0d3c2c4c0788f292d554a2ce90e92eec9cae8aa6f1b68c1"
+      },
+      "reproduced_deliverables": {
+        "monograph_pdf": {
+          "path": "output/algebra3/algebra3.pdf",
+          "size_bytes": 6430386,
+          "size_mb": 6.132,
+          "page_count": 263,
+          "sha256": "d6eeeaf66d075a2740151c23ee5acc11a563f91d53a0e3ec24de0bdbe60f11a9"
+        },
+        "facsimile_pdf": {
+          "path": "output/algebra3/algebra3_facsimile.pdf",
+          "size_bytes": 2037476,
+          "size_mb": 1.943,
+          "page_count": 262,
+          "sha256": "d34be4f9f647102bf71107831ba62ec9dd01ed0b5662bd18260b7e03903a621f"
+        },
+        "typst_source": {
+          "path": "output/algebra3/algebra3.typ",
+          "size_bytes": 644051,
+          "line_count": 15850,
+          "sha256": "465b6fa09a519fd738e4da6eed74d6bf15b4e1ff64738c61d7789e3dbe71b52c"
+        },
+        "latex_source": {
+          "path": "output/algebra3/algebra3.tex",
+          "size_bytes": 672203,
+          "line_count": 17322,
+          "sha256": "47045752b08a065d93decf04fa6ef6dcf44a9531ad3ab299336048b69afc7141"
+        },
+        "markdown_transcripts": {
+          "directory": "output/algebra3/markdown_pages",
+          "page_files_count": 262,
+          "manifest_file": "output/algebra3/markdown_pages/transcripts.json"
+        },
+        "page_renders": {
+          "directory": "output/algebra3/page_renders",
+          "rendered_png_count": 262,
+          "dpi": 200
+        },
+        "figures": {
+          "directory": "output/algebra3/figures",
+          "count": 6
+        },
+        "visual_parity_report": {
+          "directory": "output/algebra3/visual_facsimile",
+          "index_html": "output/algebra3/visual_facsimile/index.html"
+        }
+      },
+      "reproduction_environment": {
+        "recorded_at": "2026-10-25T15:20:00Z",
+        "platform": "darwin (arm64 Apple Silicon)",
+        "compute_backend": "Google Colab",
+        "gpu_type": "G4 (NVIDIA RTX PRO 6000 Blackwell Server Edition, 95 GB VRAM)",
+        "colab_workers": 2,
+        "shards_per_worker": 3,
+        "ocr_model": "jina-ocr-v1 (jinaai/jina-ocr-v1, 3.4B)",
+        "typst_version": "0.15.1"
+      },
+      "reproduction_commands": [
+        {
+          "step": "1. OCR Transcription via Colab Cluster",
+          "command": "uv run polytypst \"/Users/martinfan/Downloads/代数学引论 第3卷 基本结构 第2版 (A.И.柯斯特利金著) .pdf\" -o output/algebra3 --mode colab --colab-workers 2 --shards 3 --gpu-type G4 --formats typst,latex,pdf"
+        },
+        {
+          "step": "2. Build Reflowed Monograph Edition",
+          "command": "uv run polytypst build algebra3 --edition monograph"
+        },
+        {
+          "step": "3. Standalone Typst Compile Monograph",
+          "command": "mise exec -- typst compile --root / output/algebra3/algebra3.typ output/algebra3/algebra3.pdf"
+        },
+        {
+          "step": "4. Build Word-Placed Facsimile Scan Edition",
+          "command": "uv run polytypst build algebra3 --edition facsimile --source \"/Users/martinfan/Downloads/代数学引论 第3卷 基本结构 第2版 (A.И.柯斯特利金著) .pdf\""
+        },
+        {
+          "step": "5. Optical Visual Parity Scan Comparison (Pages 16-25)",
+          "command": "uv run polytypst parity algebra3 --edition facsimile --pages 16-25 --visual --source \"/Users/martinfan/Downloads/代数学引论 第3卷 基本结构 第2版 (A.И.柯斯特利金著) .pdf\""
+        },
+        {
+          "step": "6. Run Multi-Tier Document Quality Checker",
+          "command": "uv run python -m polytypst.checker output/algebra3/algebra3.pdf algebra3"
+        },
+        {
+          "step": "7. Run Native Numbering & Reference Audit",
+          "command": "uv run polytypst audit algebra3"
+        }
+      ]
+    },
+    "algebra2": {
+      "book_key": "algebra2",
+      "metadata": {
+        "title": "代数学引论 (第2卷) 线性代数",
+        "title_en": "Introduction to Algebra, Part II: Linear Algebra",
+        "title_ru": "Введение в алгебру. Часть II. Линейная алгебра",
+        "edition_number": "第3版",
+        "author": "A. И. 柯斯特利金 (A. I. Kostrikin)",
+        "translator": "牛凤文",
+        "publisher": "高等教育出版社 (Higher Education Press)",
+        "series": "俄罗斯数学教材选译",
+        "year": 2006,
+        "isbn": "978-7-04-018449-3",
+        "language": "zh"
+      },
+      "original_scan": {
+        "file_name": "代数学引论（第二卷） 线性代数（第3版） (A.И.柯斯特利金) .pdf",
+        "file_path": "/Users/martinfan/Downloads/代数学引论（第二卷） 线性代数（第3版） (A.И.柯斯特利金) .pdf",
+        "size_bytes": 8273279,
+        "size_mb": 7.89,
+        "page_count": 341,
+        "md5": "84559bcc258d74f287fc4e7c01126f59",
+        "sha256": "a7c707c2f8d13c4ec16228f4f1548caaa7a35c6f8245c57db088f1e9b2c6815d"
+      },
+      "reproduced_deliverables": {
+        "monograph_pdf": {
+          "path": "output/algebra2/algebra2.pdf",
+          "size_bytes": 8389247,
+          "size_mb": 8.001,
+          "page_count": 375,
+          "compiler": "Typst 0.15.1",
+          "md5": "6b4fbabaaa71f2fa96d31ae8b5280910",
+          "sha256": "8f84b3aedf162e522be4d4bb4a72901b97e4cbb3b225b9e2284170c86a2bc0a8"
+        },
+        "typst_source": {
+          "path": "output/algebra2/algebra2.typ",
+          "size_bytes": 912978,
+          "size_mb": 0.871,
+          "line_count": 24859,
+          "sha256": "09e1f6226fa329ade37584e2d16e9ea5f3c9bebe1a9ea9aa03e5aeb944cd6d56"
+        },
+        "latex_source": {
+          "path": "output/algebra2/algebra2.tex",
+          "size_bytes": 910708,
+          "size_mb": 0.869,
+          "line_count": 24127,
+          "sha256": "e756e7cf3b366a612a0d79551f0492a146512056b222a9ccc1c75460d7d947f4"
+        },
+        "markdown_transcripts": {
+          "directory": "output/algebra2/markdown_pages",
+          "page_file_count": 341,
+          "total_bytes": 878298
+        },
+        "page_renders": {
+          "directory": "output/algebra2/page_renders",
+          "rendered_png_count": 341,
+          "dpi": 200
+        },
+        "figures": {
+          "total_figures_count": 31,
+          "monochrome_directory": "output/algebra2/figures",
+          "colorful_3b1b_directory": "output/algebra2/figures_color",
+          "generator_module": "src/algebra2/figures.py",
+          "formats_available": [
+            "svg (pure scalable vector)",
+            "png (300-DPI rasterized)"
+          ]
+        },
+        "illustrated_pdf": {
+          "path": "output/algebra2/algebra2_illustrated.pdf",
+          "size_bytes": 7669981,
+          "size_mb": 7.315,
+          "page_count": 376,
+          "compiler": "Typst 0.15.1",
+          "description": "Illustrated monograph edition featuring vibrant 3Blue1Brown 2D textbook vector diagrams with semantic pedagogical colors"
+        },
+        "facsimile_pdf": {
+          "path": "output/algebra2/algebra2_facsimile.pdf",
+          "size_bytes": 5345519,
+          "size_mb": 5.098,
+          "page_count": 341,
+          "compiler": "Typst 0.15.1 (Word-Placed Facsimile Engine)",
+          "description": "1:1 page-mapped facsimile edition where every recognized word is placed directly on its scan ink bounding box coordinates",
+          "parity_editions_active": true
+        },
+        "visual_parity_report": {
+          "directory": "output/algebra2/visual_facsimile",
+          "index_html": "output/algebra2/visual_facsimile/index.html",
+          "summary_json": "output/algebra2/visual_facsimile/summary.json",
+          "regions_csv": "output/algebra2/visual_facsimile/regions.csv",
+          "sample_pages_tested": "Pages 17-30 (Chapter 1 body text & diagrams)"
+        }
+      },
+      "reproduction_environment": {
+        "recorded_at": "2026-10-25T16:00:00Z",
+        "platform": "darwin (arm64 Apple Silicon)",
+        "compute_backend": "Google Colab",
+        "gpu_type": "G4 (NVIDIA RTX PRO 6000 Blackwell Server Edition, 95 GB VRAM)",
+        "colab_workers": 2,
+        "shards_per_worker": 3,
+        "ocr_model": "jina-ocr-v1 (jinaai/jina-ocr-v1, 3.4B)",
+        "typst_version": "0.15.1",
+        "xetex_version": "XeTeX 3.141592653-2.6-0.999994 (TeX Live 2022)"
+      },
+      "reproduction_commands": [
+        {
+          "step": "1. Check Colab Account Usage & GPU Availability",
+          "command": "uv run polytypst-colab usage && uv run polytypst-colab gpus"
+        },
+        {
+          "step": "2. Transcribe Full Book on Google Colab G4 Cluster (2 workers, 3 shards each)",
+          "command": "uv run polytypst \"/Users/martinfan/Downloads/代数学引论（第二卷） 线性代数（第3版） (A.И.柯斯特利金) .pdf\" -o output/algebra2 --mode colab --colab-workers 2 --shards 3 --gpu-type G4 --formats typst,latex,pdf"
+        },
+        {
+          "step": "3. Build Typst, LaTeX, and PDF Formats",
+          "command": "uv run polytypst build algebra2 --formats pdf,tex"
+        },
+        {
+          "step": "4. Compile Typst Source Directly",
+          "command": "mise exec -- typst compile --root / --font-path fonts output/algebra2/algebra2.typ output/algebra2/algebra2.pdf"
+        },
+        {
+          "step": "5. Compile LaTeX Source via XeLaTeX with CJK Line Breaking",
+          "command": "export TEXINPUTS=\".:/tmp/xypic/xypic/texinputs//:/nix/store/x21nj5dx8j5l9yxdzjvv2kwzhkhaj97k-texlive-amsmath-63514/tex/latex/amsmath//:/nix/store/jj0j15mn4kz0yggpysmpgfvv9bs8dfp8-texlive-amscls-2.20.6/tex/latex/amscls//:\"; export TFMINPUTS=\".:/tmp/xypic/xypic/texfonts//:\"; export TEXFONTS=\".:/tmp/xypic/xypic/texfonts//:\"; cd output/algebra2 && /nix/store/p3b1y61xjgbqh844xv3dkz2bljiv6x48-texlive-combined-2022/bin/xelatex -interaction=nonstopmode algebra2.tex"
+        },
+        {
+          "step": "6. Run Multi-Tier Quality Checker",
+          "command": "uv run python -m polytypst.checker output/algebra2/algebra2.pdf algebra2"
+        },
+        {
+          "step": "7. Run Native Numbering & Reference Audit",
+          "command": "uv run polytypst audit algebra2"
+        }
+      ],
+      "parity_and_coverage_analysis": {
+        "edition_type": "Reflowed Monograph",
+        "page_count_comparison": {
+          "original_scan_pages": 341,
+          "rebuilt_pdf_pages": 375,
+          "expansion_ratio": 1.1
+        },
+        "redshift_and_coverage_explanation": {
+          "concept": "Scan Parity Redshift Overlay (polytypst parity --visual)",
+          "color_semantics": {
+            "black_ink": "Exact overlapping ink present in both scan and rebuilt page",
+            "red_ink": "Scan ink only (original raster artifacts, scan paper defects, or un-reproduced scan text)",
+            "cyan_ink": "Rebuilt ink only (vector digital type rendered by compiler)"
+          },
+          "does_it_completely_cover": "No, not in the reflowed monograph edition by design. The monograph edition is reflowed (375 pages vs 341 scan pages) using modern Springer-style proportions (6.14x9.21 in, 10pt text), so lines break at different points and text flows independently of scan raster coordinates. Complete pixel-on-pixel coverage (1:1 spatial overlay where cyan sits directly on red) is only achieved in facsimile editions where every word bounding box is anchored to its original scan ink coordinates."
+        },
+        "facsimile_coverage_results": {
+          "edition_type": "Word-Placed Facsimile (1:1 with source scan)",
+          "page_alignment": "341 rebuilt pages = 341 source scan pages (1:1 page map)",
+          "vertical_layout_pitch_error": "0.0 pt baseline shift on standard body columns",
+          "optical_redshift_semantics": {
+            "black_ink": "Exact overlapping ink where digital vector characters coincide with scan ink",
+            "red_ink": "Scan ink only (original lead-type ink bleed, paper texture, raster grain, scan dust, and scan diagram lines)",
+            "cyan_ink": "Rebuilt ink only (digital vector font outline curves outside the scan ink boundary)"
+          },
+          "why_100_percent_pixel_overlap_is_bounded": "100% exact pixel match is physically impossible between an analog paper scan and a modern digital vector font: 1) Font Outline Variance: Songti SC OpenType outlines have different serif curves and stroke thicknesses compared to the 1990s metal/phototypesetting lead type, creating 1-2px edge fringes. 2) Paper Noise & Bleed: The scan contains raster scan noise and ink bleed (pure red) that digital vectors do not replicate. 3) The facsimile places 100% of recognized words directly inside their detected bounding boxes with 0 missing transcript lines."
+        }
+      }
+    }
+  }
+}

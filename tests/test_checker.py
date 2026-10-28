@@ -9,13 +9,20 @@ from polytypst.checker import (
     STRUCTURE_TIER,
     TEXT_TIER,
     AuditSpec,
+    CheckReport,
     DocumentQualityChecker,
     audit_pdf,
 )
-from polytypst.compiler.monograph import compile_typst, typst_footnote_rules
+from polytypst.compiler.monograph import (
+    ChapterSpec,
+    compile_typst,
+    typst_footnote_rules,
+)
+from polytypst.hecke.spec import HECKE_SPEC
 from polytypst.kashiwara.spec import KASHIWARA_SPEC
 from polytypst.klein.spec import KLEIN_SPEC
 from polytypst.kodaira.spec import KODAIRA_SPEC
+from polytypst.ocr.pages import OcrStalled
 from polytypst.siegel_symplectic.spec import SIEGEL_SYMPLECTIC_SPEC
 
 BODY = "This paragraph is ordinary body prose that fills a page with enough characters."
@@ -40,6 +47,44 @@ def test_text_tier_catches_leaked_markup(tmp_path: Path) -> None:
     assert {"NO_LITERAL_TILDE", "UNRENDERED_LATEX_MACRO"} <= report.rules()
     assert all(issue.tier == TEXT_TIER for issue in report.issues)
     assert not report.is_clean
+
+
+class _StalledReader:
+    provenance = "stalled:test"
+
+    def read(self, pages):
+        raise OcrStalled("apple_vision_runner wrote nothing for 120 s")
+        yield
+
+
+def test_a_stalled_figure_ocr_is_reported_and_the_other_figure_checks_still_run(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from PIL import Image
+
+    from polytypst.ocr import lines
+
+    pdf = _pdf(tmp_path, [[BODY]])
+    (tmp_path / "figures").mkdir()
+    Image.new("L", (20, 20), 255).save(tmp_path / "figures" / "fig_1-1.png")
+    monkeypatch.setattr(lines, "line_reader", lambda languages: _StalledReader())
+    monkeypatch.setattr(lines, "FIGURE_OCR_DIR", tmp_path / "figure_ocr")
+    report = CheckReport(pdf, 1)
+
+    DocumentQualityChecker(pdf).check_extracted_figures_purity(report)
+
+    assert [i.rule_name for i in report.issues] == ["FIGURE_OCR_STALLED", "CORRUPTED_FIGURE_CROP"]
+
+
+def test_text_tier_catches_a_pipe_table_typst_set_as_prose(tmp_path: Path) -> None:
+    doc = pymupdf.open()
+    page = doc.new_page()
+    for i, line in enumerate([BODY, "| 已开展<br>(n = 84) | B | | :— | :—: | :—: |"]):
+        _ = page.insert_text((72, 120 + 40 * i), line, fontsize=11, fontname="china-s")
+    pdf = tmp_path / "book.pdf"
+    doc.save(pdf)
+    report = DocumentQualityChecker(pdf).run_all_checks(frozenset({TEXT_TIER}))
+    assert {"UNRENDERED_TABLE_SYNTAX", "UNRENDERED_HTML_MARKUP"} <= report.rules()
 
 
 def test_text_tier_catches_an_invented_thesis_outline(tmp_path: Path) -> None:
@@ -138,6 +183,20 @@ def test_book_author_or_title_alone_on_a_body_line_is_a_leaked_header(
     assert "LEAKED_RUNNING_HEADER" not in plain.rules()
 
 
+def test_a_caseless_title_inside_prose_is_not_a_leaked_header(tmp_path: Path) -> None:
+    body = "本段是普通正文，用来填满一页的篇幅，没有任何书眉。" * 2
+    doc = pymupdf.open()
+    for lines in [[body, body]] * 4 + [[body, "从学术观点着眼，本丛书第一卷《宏观经济与产业结构》主编深尾京司", "宏观经济与产业结构"]]:
+        page = doc.new_page(width=612, height=792)
+        for i, line in enumerate(lines):
+            _ = page.insert_text((72, 120 + 40 * i), line, fontsize=11, fontname="china-s")
+    pdf = tmp_path / "book.pdf"
+    doc.save(pdf)
+    spec = AuditSpec(book_headers=("宏观经济与产业结构",))
+    leaked = [i for i in DocumentQualityChecker(pdf, spec).run_all_checks(frozenset({TEXT_TIER})).issues if i.rule_name == "LEAKED_RUNNING_HEADER"]
+    assert [i.context_snippet for i in leaked] == ["宏观经济与产业结构"]
+
+
 def test_heading_rule_flags_headings_but_not_cardinality(tmp_path: Path) -> None:
     def headings(line: str) -> list[str]:
         pdf = _pdf(tmp_path, [[BODY, line]])
@@ -215,6 +274,45 @@ def test_margin_overflow_scales_with_page_width(tmp_path: Path) -> None:
     assert overflow_pages == [1, 2]
 
 
+def test_an_axis_label_inside_a_drawn_chart_is_not_an_isolated_math_block(tmp_path: Path) -> None:
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+    _ = page.insert_text((300, 400), "z", fontsize=24)
+    for k in range(12):
+        page.draw_line((250, 330 + 10 * k), (400, 330 + 10 * k), width=0.5)
+    path = tmp_path / "chart.pdf"
+    doc.save(path)
+    report = DocumentQualityChecker(path).run_all_checks(frozenset({LAYOUT_TIER}))
+    assert "ISOLATED_MATH_BLOCK" not in report.rules()
+
+
+def test_an_axis_label_on_a_sparse_chart_is_not_an_isolated_math_block(tmp_path: Path) -> None:
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+    _ = page.insert_text((240, 330), "S", fontsize=24)
+    page.draw_line((260, 320), (260, 560), width=0.5)
+    page.draw_line((260, 560), (540, 560), width=0.5)
+    page.draw_polyline([(257, 326), (260, 318), (263, 326)], width=0.5)
+    page.draw_bezier((270, 340), (300, 500), (400, 520), (530, 530), width=0.5)
+    page.draw_bezier((280, 360), (320, 440), (420, 460), (530, 470), width=0.5)
+    path = tmp_path / "sparse_chart.pdf"
+    doc.save(path)
+    report = DocumentQualityChecker(path).run_all_checks(frozenset({LAYOUT_TIER}))
+    assert "ISOLATED_MATH_BLOCK" not in report.rules()
+
+
+def test_a_letter_beside_a_three_line_table_is_still_an_isolated_math_block(tmp_path: Path) -> None:
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+    _ = page.insert_text((300, 400), "z", fontsize=24)
+    for y in (330, 345, 440):
+        page.draw_line((200, y), (420, y), width=0.5)
+    path = tmp_path / "table.pdf"
+    doc.save(path)
+    report = DocumentQualityChecker(path).run_all_checks(frozenset({LAYOUT_TIER}))
+    assert "ISOLATED_MATH_BLOCK" in report.rules()
+
+
 def test_figure_pages_are_exempt_from_isolated_letters(tmp_path: Path) -> None:
     doc = pymupdf.open()
     page = doc.new_page(width=612, height=792)
@@ -276,3 +374,30 @@ def test_text_tier_flags_a_note_left_at_the_foot_of_the_body(tmp_path: Path) -> 
     pdf = _notes_pdf(tmp_path, typst_footnote_rules(KLEIN_SPEC), left)
     report = audit_pdf(pdf, KLEIN_SPEC, frozenset({TEXT_TIER}))
     assert _note_pages(report, "FOOTNOTE_LEFT_IN_BODY") == [1]
+
+
+ZH_PROSE = "日本政府关于外国劳动者问题的基本方针是明确的，根据内阁决议的基本计划进行调整。" * 8
+ZH_NOTE_SPEC = AuditSpec(footnote_numbering="1")
+
+
+def test_text_tier_accepts_a_circled_body_list_that_nothing_calls(tmp_path: Path) -> None:
+    listed = f"{ZH_PROSE}内容如下：\n\n①从谋求日本经济社会的振兴及进一步国际化的观点出发。\n\n②对于单纯劳动者的问题需要慎重地进行研究。\n"
+    pdf = _notes_pdf(tmp_path, "", listed)
+    report = audit_pdf(pdf, ZH_NOTE_SPEC, frozenset({TEXT_TIER}))
+    assert _note_pages(report, "FOOTNOTE_LEFT_IN_BODY") == []
+
+
+def test_text_tier_flags_a_circled_note_that_the_body_calls(tmp_path: Path) -> None:
+    called = f"{ZH_PROSE}也可以观察到相同的结果①。\n\n①但因为未就业者占整体就业者比率小，所以影响更大。\n"
+    pdf = _notes_pdf(tmp_path, "", called)
+    report = audit_pdf(pdf, ZH_NOTE_SPEC, frozenset({TEXT_TIER}))
+    assert _note_pages(report, "FOOTNOTE_LEFT_IN_BODY") == [1]
+
+
+def test_a_book_without_a_chapter_0_keeps_the_default_front_matter() -> None:
+    assert AuditSpec.from_monograph(HECKE_SPEC).front_matter_pages == AuditSpec().front_matter_pages == 4
+
+
+def test_a_chapter_0_sets_the_front_matter() -> None:
+    spec = replace(HECKE_SPEC, chapters=[ChapterSpec(0, "Preface", 1, 9), *HECKE_SPEC.chapters])
+    assert AuditSpec.from_monograph(spec).front_matter_pages == 9

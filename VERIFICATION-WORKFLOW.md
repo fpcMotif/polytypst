@@ -31,6 +31,7 @@ Validate syntactic integrity on the source Markdown before rendering canvas layo
 - **Fraction AST Integrity**: LaTeX `\frac{A}{B}` must translate to `frac(A, B)` or `(A)/(B)`. Stripping `\frac` leaves orphaned `{A}{B}` that renders without a division bar.
 - **Context Scoping**: Prose formatting (markdown italics `*text*`) and math operators (`*` for multiplication, `!=` for not-equal) operate in mutually exclusive scopes. Apply transformations only to designated token partitions.
 - **Equation Number Gating**: Display equation numbers belong only to equations carrying explicit reference labels (`<eq-...>`). Unlabelled derivations remain unnumbered.
+- **Native Counter & Reference Numbering**: Headings, paragraphs, theorem items, equations, figure captions, and bibliography citations must use Typst/LaTeX counters and reference targets (`<eq-...>`, `<par-...>`, `<fig-...>`, `<bib-...>`, `@ref`, `\ref`, `\eqref`, `\hyperlink`), never hard-coded strings (`src/compiler/source_numbers.py` and `src/literal_numbers.py`).
 
 ### Completion Criterion
 AST parser returns exit code 0. Zero occurrences of `$ [A-Za-z0-9] $` inside continuous prose sentences. Zero orphaned `{A}{B}` expressions in math tokens.
@@ -89,7 +90,7 @@ Horizontal books use scan parity (`polytypst.parity`). Vertical CJK books use th
 Run `uv run polytypst parity BOOK --edition EDITION`. It measures how far each word, line and diagram of the rebuilt PDF sits from the same ink on the source scan, in points, with no shift. `docs/scanned-books.md` gives the procedure, the tolerances, and how to read the report.
 
 ### CJK column audit steps
-1. Render both the original ground truth PDF and the compiled reproduction PDF at 150 DPI and 300 DPI via `pdftoppm`.
+1. Render both the original ground truth PDF and the compiled reproduction PDF at 150 DPI and 300 DPI via `pymupdf` (`pymupdf.open(pdf)[n].get_pixmap(dpi=300).save(path)`).
 2. Binarize ink channels (`threshold=210` for ground truth, `threshold=230` for vector reproduction).
 3. Extract column boundaries and vertical text centroids via morphological projection kernels ($3 \times 35\,\text{px}$).
 4. Measure horizontal centroid deviation $\Delta x$ and vertical column extent $\Delta y$ for every text line.
@@ -120,10 +121,10 @@ CJK column audit: the OpenCV automated audit reports:
 
 ## Automated Verification Command
 
-Run the consolidated multi-tier audit tool against any deliverable:
+Run the consolidated multi-tier audit tool against any book or built deliverable:
 
 ```bash
-PYTHONPATH=polytypst uv run --with pymupdf python3 -m polytypst.checker <path_to_pdf>
+uv run polytypst audit <BOOK>
 ```
 
 A clean audit report reports:

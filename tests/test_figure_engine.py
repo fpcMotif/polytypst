@@ -1,0 +1,82 @@
+import re
+
+from scripts.book2_figures.engine import (
+    FigureSpec,
+    LineSeries,
+    PanelSpec,
+    render_figure_svg,
+)
+
+YEARS = [float(y) for y in range(1980, 2007)]
+
+
+def year_panel(xlabel: str = "年", **kw) -> PanelSpec:
+    return PanelSpec(
+        xlim=(1979.5, 2006.5),
+        ylim=(60.0, 120.0),
+        xticks=[float(y) for y in range(1980, 2007, 2)],
+        yticks=[float(v) for v in range(60, 121, 10)],
+        xlabel=xlabel,
+        lines=[
+            LineSeries(x=YEARS, y=[100.0] * len(YEARS), label="劳动时间指数1（A）", color_idx=0),
+            LineSeries(x=YEARS, y=[90.0] * len(YEARS), label="就业指数（B）", color_idx=1),
+            LineSeries(x=YEARS, y=[95.0] * len(YEARS), label="劳动时间×就业人数（A×B）", color_idx=2),
+        ],
+        **kw,
+    )
+
+
+def svg(panel: PanelSpec, mode: str) -> str:
+    return render_figure_svg(FigureSpec(fig_id="t", title="", panels=[panel], width=860, height=500), mode)
+
+
+def grid_lines(text: str) -> list[str]:
+    return re.findall(r'<line [^>]*stroke="#(?:e2e8f0|000000)" stroke-width="0\.[79]"[^>]*/>', text)
+
+
+def text_at(text: str, label: str) -> str:
+    return next(m[0] for m in re.finditer(r"<text [^>]*>([^<]*)</text>", text) if m[1] == label)
+
+
+def test_scan_style_draws_a_solid_black_grid_where_mono_draws_a_dashed_light_one():
+    mono, scan = svg(year_panel(), "mono"), svg(year_panel(), "scan")
+    assert all('stroke-dasharray' in g and "#e2e8f0" in g for g in grid_lines(mono))
+    assert grid_lines(scan)
+    assert all('stroke-dasharray' not in g and "#000000" in g for g in grid_lines(scan))
+
+
+def test_scan_style_keeps_every_year_label_that_mono_thins():
+    labels = [str(y) for y in range(1980, 2007, 2)]
+    mono, scan = svg(year_panel(), "mono"), svg(year_panel(), "scan")
+    assert not all(f">{y}</text>" in mono for y in labels)
+    assert all(f">{y}</text>" in scan for y in labels)
+
+
+def test_scan_style_sets_a_short_unit_after_the_last_year_and_a_long_one_under_the_axis():
+    short = svg(year_panel(), "scan")
+    y_unit = float(re.search(r'y="([\d.]+)"', text_at(short, "年"))[1])
+    y_year = float(re.search(r'y="([\d.]+)"', text_at(short, "2006"))[1])
+    assert y_unit == y_year
+    long = svg(year_panel("年（×年第一季度）"), "scan")
+    unit = text_at(long, "年（×年第一季度）")
+    assert float(re.search(r'y="([\d.]+)"', unit)[1]) > y_year
+    assert 'text-anchor="end"' in unit
+
+
+def test_scan_style_sets_a_top_legend_in_one_row_under_the_axis():
+    scan = svg(year_panel(legend_loc="top"), "scan")
+    rows = {re.search(r'y="([\d.]+)"', text_at(scan, label))[1] for label in ("劳动时间指数1（A）", "就业指数（B）", "劳动时间×就业人数（A×B）")}
+    assert len(rows) == 1
+    assert float(rows.pop()) > float(re.search(r'y="([\d.]+)"', text_at(scan, "2006"))[1])
+
+
+def test_scan_style_draws_no_grid_behind_a_scatter():
+    points = PanelSpec(
+        xlim=(-30.0, 40.0),
+        ylim=(-1.2, 0.4),
+        xticks=[-30.0, 0.0, 40.0],
+        yticks=[-1.2, -0.4, 0.4],
+        lines=[LineSeries(x=[1.0, 2.0], y=[-0.1, -0.3], marker="diamond", style="none", fixed_style=True)],
+    )
+    assert grid_lines(svg(points, "mono"))
+    assert not grid_lines(svg(points, "scan"))

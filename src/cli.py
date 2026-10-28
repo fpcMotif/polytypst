@@ -4,37 +4,34 @@ import argparse
 import sys
 from pathlib import Path
 
-from .ocr.backend import DEFAULT_BACKEND, KINDS, backend_argument
+from .books_cli import parse_pages as page_set
+from .compiler.presets import DOMAIN_PROFILES
+from .ocr.backend import DEFAULT_BACKEND, KINDS, Backend, backend_argument
 
 BOOK_COMMANDS = """\
 book commands (see `polytypst COMMAND --help`):
   polytypst books                         list every book and its editions
   polytypst build BOOK [--edition E]      build one edition of a book
   polytypst parity BOOK --edition E       check a rebuilt edition against its scan
+  polytypst measure BOOK --edition E      measure each page against the scan; exits 1 when a page got worse
+  polytypst audit [BOOK ...] [--update]   compare checker issue counts with quality/baseline.json
+  polytypst rules                         list every rule, its stage, severity, enforcer and file:line
   polytypst new-book KEY --title T ...    write src/KEY/ for a new book and list its package
+  polytypst review FOLDER [--scan SCAN]   measure any output folder against its scan and track changes
+  polytypst checklist FINDINGS.jsonl      render review findings as a Markdown checklist
+  polytypst evidence zoom|sweep|diff|report   box a span on the scan, sweep the cleaner, render findings as HTML
 """
 
 
-def page_set(text: str) -> set[int]:
-    """Page numbers from `3,7-9` style text."""
-    pages: set[int] = set()
-    for part in text.split(","):
-        first, _, last = part.strip().partition("-")
-        try:
-            start, stop = int(first), int(last or first)
-        except ValueError:
-            raise argparse.ArgumentTypeError(
-                f"pages must look like 3,7-9, got {text!r}"
-            ) from None
-        pages.update(range(start, stop + 1))
-    return pages
-
-
 def main() -> None:
-    if sys.argv[1:2] in (["books"], ["build"], ["parity"], ["new-book"]):
+    if sys.argv[1:2] in (["books"], ["build"], ["parity"], ["measure"], ["audit"], ["rules"], ["new-book"], ["review"], ["checklist"]):
         from .books_cli import main as books_main
 
         sys.exit(books_main(sys.argv[1], sys.argv[2:]))
+    if sys.argv[1:2] == ["evidence"]:
+        from .evidence import main as evidence_main
+
+        sys.exit(evidence_main(sys.argv[2:]))
     parser = argparse.ArgumentParser(
         description="polytypst: Universal tool to turn complex PDFs into beautiful Typst, LaTeX, and EPUB.",
         epilog=BOOK_COMMANDS,
@@ -93,10 +90,54 @@ def main() -> None:
     parser.add_argument(
         "--domain",
         type=str,
-        choices=["math", "physics", "economics", "philosophy", "history", "novel"],
+        choices=list(DOMAIN_PROFILES),
         help="Subject domain profile of a new book (default: math)",
     )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        help="OCR execution mode / backend kind (colab, local, gemini, etc.)",
+    )
+    parser.add_argument(
+        "--colab-workers",
+        type=int,
+        help="Number of Colab worker instances (default: 2)",
+    )
+    parser.add_argument(
+        "--shards",
+        type=int,
+        help="Shards per GPU worker (default: 3)",
+    )
+    parser.add_argument(
+        "--gpu-type",
+        type=str,
+        help="Colab GPU type (T4, L4, A100, G4)",
+    )
+    parser.add_argument(
+        "--ocr-model",
+        type=str,
+        help="OCR model name (default: jina-ocr-v1)",
+    )
+    parser.add_argument(
+        "--formats",
+        type=str,
+        help="Comma-separated formats to build (e.g. typst,latex,pdf)",
+    )
+    parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="Skip macOS Apple Vision OCR cross-verification",
+    )
     args = parser.parse_args()
+
+    if args.mode or args.gpu_type or args.colab_workers or args.shards or args.ocr_model:
+        args.backend = Backend.from_legacy_flags(
+            mode=args.mode,
+            ocr_model_name=args.ocr_model,
+            gpu_type=args.gpu_type,
+            colab_workers=args.colab_workers,
+            shards=args.shards,
+        )
 
     if args.export_web:
         from .web_exporter import export_all_web_data
@@ -132,16 +173,26 @@ def main() -> None:
             parser.error(f"{book.spec.slug} is a known book and writes to {book.out_dir}")
         print(f"Book: {book.spec.title} -> {book.out_dir}")
         _ = book.transcribe(args.source, args.backend, args.pages, args.retranscribe)
+        if not args.no_verify and sys.platform == "darwin":
+            from .ocr.verifier import verify_transcripts
+
+            verify_transcripts(book.out_dir / "page_renders", book.transcripts, book.spec.ocr_languages)
     except KeyError as exc:
         parser.error(exc.args[0])
     except OCRBackendError as exc:
         sys.exit(f"OCR backend {args.backend} failed: {exc}")
     except SourceScanError as exc:
         sys.exit(f"Cannot read the source scan: {exc}")
-    if book.figures is not None:
-        _ = book.figures(book.out_dir)
     edition = next(iter(book.editions.values()))
-    edition.build(args.source, edition.formats, "original")
+    formats = edition.formats
+    if args.formats:
+        requested = frozenset(
+            "tex" if f in ("tex", "latex") else f
+            for f in args.formats.split(",")
+            if f.strip() and f != "typst"
+        )
+        formats = requested & edition.formats or formats
+    _ = book.build(source=args.source, formats=formats)
 
 
 if __name__ == "__main__":

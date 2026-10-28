@@ -1,6 +1,5 @@
 import json
 import re
-import shutil
 from pathlib import Path
 
 import pymupdf
@@ -13,6 +12,7 @@ from polytypst.compiler.monograph import (
     compile_typst,
     running_header_regexes,
 )
+from polytypst.compiler.typst_math import typst_command
 from polytypst.fermat.spec import FERMAT_SPEC
 from polytypst.goursat.build import goursat_markdown
 from polytypst.goursat.figures import (
@@ -20,6 +20,8 @@ from polytypst.goursat.figures import (
     normalize_goursat_markdown,
 )
 from polytypst.parity import FACSIMILE, SOURCE_PAGINATED, PageParity, compare, verdict
+from polytypst.parity.ink_cache import InkCache
+from polytypst.parity.words import page_ink
 from polytypst.tex_markdown import repair_page_math
 from polytypst.vision.figure_extractor import ExtractedFigure
 
@@ -341,6 +343,7 @@ def test_goursat_differentials_delimiters_and_figure_grounding_snapshot(
 
     compiler = MonographCompiler(
         MonographSpec(
+            domain="math",
             slug="goursat_test",
             title="A Course in Mathematical Analysis",
             author="Edouard Goursat",
@@ -363,6 +366,7 @@ def test_goursat_differentials_delimiters_and_figure_grounding_snapshot(
 def test_serre_display_brackets_tags_operators_and_bars_typst_snapshot() -> None:
     compiler = MonographCompiler(
         MonographSpec(
+            domain="math",
             slug="serre_test",
             title="Cours d'arithmétique",
             author="Jean-Pierre Serre",
@@ -376,11 +380,13 @@ def test_serre_display_brackets_tags_operators_and_bars_typst_snapshot() -> None
     assert _collapse_blank_lines(compiler.format_typst(body)) == SERRE_TYPST_SNAPSHOT
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(
-    shutil.which("typst") is None, reason="needs typst to compile layout page"
+    typst_command() is None, reason="needs typst to compile layout page"
 )
 def test_math_layout_compiled_page_scan_parity_snapshot(tmp_path: Path) -> None:
     spec = MonographSpec(
+        domain="math",
         slug="parity_math",
         title="Number Theory",
         author="Kato",
@@ -407,8 +413,9 @@ def test_math_layout_compiled_page_scan_parity_snapshot(tmp_path: Path) -> None:
 
     rebuilt_pdf = tmp_path / "rebuilt.pdf"
     compile_typst(typ_file, rebuilt_pdf)
+    scan = InkCache(src_pdf, tmp_path / "ink", page_ink)
     page_ok: PageParity = compare(
-        src_pdf, rebuilt_pdf, {1: [1]}, ocr=tmp_path / "ocr", work=tmp_path / "work"
+        scan, rebuilt_pdf, {1: [1]}, ocr=tmp_path / "ocr", work=tmp_path / "work"
     )[0]
     assert (
         page_ok.lines_source,
@@ -430,7 +437,7 @@ def test_math_layout_compiled_page_scan_parity_snapshot(tmp_path: Path) -> None:
     broken_typ.write_text(broken_src, encoding="utf-8")
     compile_typst(broken_typ, broken_pdf)
     page_broken: PageParity = compare(
-        src_pdf, broken_pdf, {1: [1]}, ocr=tmp_path / "ocr", work=tmp_path / "work"
+        scan, broken_pdf, {1: [1]}, ocr=tmp_path / "ocr", work=tmp_path / "work"
     )[0]
     assert verdict(page_broken, SOURCE_PAGINATED) == [
         "page offset +14.88,+0.06pt",

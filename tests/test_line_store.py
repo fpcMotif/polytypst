@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw, ImageFont
 
-from polytypst.ocr.lines import LineStore
-from polytypst.ocr.pages import LinePage, OcrLine, PageImage
+from polytypst.ocr.lines import ImageLineStore, LineStore
+from polytypst.ocr.pages import LinePage, OcrLine, OcrStalled, PageImage
 from polytypst.ocr.tesseract import TesseractReader, tesseract_languages, tsv_lines
 
 
@@ -68,6 +68,45 @@ def test_store_keeps_earlier_provenance_and_leaves_failed_pages_pending(
     assert made_by == {"1": "first", "2": "second"}
 
 
+class StallingReader(FakeReader):
+    def read(self, pages: Sequence[PageImage]) -> Iterator[LinePage]:
+        yield from super().read(pages[:1])
+        raise OcrStalled("runner stopped")
+
+
+def figure_files(tmp_path: Path, names: Sequence[str]) -> list[Path]:
+    paths = [tmp_path / name for name in names]
+    for path in paths:
+        path.write_bytes(path.name.encode())
+    return paths
+
+
+def test_image_store_reads_each_image_once_by_its_bytes(tmp_path: Path) -> None:
+    store = ImageLineStore(tmp_path / "figure_ocr")
+    first, second = figure_files(tmp_path, ["fig_1.png", "fig_2.png"])
+    store.read([first, second], FakeReader())
+    again = FakeReader()
+
+    store.read([first, second], again)
+    second.write_bytes(b"redrawn")
+    store.read([first, second], again)
+
+    assert again.seen == [2]
+    assert store.lines(first, "fake:lines") == (OcrLine("line 1", 0.1, 0.8, 0.5, 0.02, 0.9),)
+
+
+def test_image_store_keeps_the_lines_read_before_a_stall(tmp_path: Path) -> None:
+    store = ImageLineStore(tmp_path / "figure_ocr")
+    first, second = figure_files(tmp_path, ["fig_1.png", "fig_2.png"])
+
+    with pytest.raises(OcrStalled):
+        store.read([first, second], StallingReader())
+    resumed = FakeReader()
+    store.read([first, second], resumed)
+
+    assert resumed.seen == [2]
+
+
 TSV_ROWS = (
     "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
     "1\t1\t0\t0\t0\t0\t0\t0\t1000\t2000\t-1\t",
@@ -118,3 +157,45 @@ def test_tesseract_reads_a_rendered_line(tmp_path: Path) -> None:
     assert page.number == 1
     assert "HELLO WORLD" in [line.text for line in page.lines]
     assert all(0 <= line.y <= 1 for line in page.lines)
+
+
+def test_line_store_page_and_verifier_reuse_line_cache(tmp_path: Path) -> None:
+    import pymupdf
+
+    from polytypst.ocr.lines import LineStore, source_ocr_dir
+    from polytypst.ocr.scan import SourceScanError
+    from polytypst.ocr.transcripts import TranscriptStore
+    from polytypst.ocr.verifier import OCRVerifier
+
+    pdf = tmp_path / "scan.pdf"
+    doc = pymupdf.open()
+    doc.new_page(width=300, height=500)
+    doc.save(pdf)
+
+    store = LineStore(source_ocr_dir(tmp_path))
+    img_dir = tmp_path / "page_renders"
+    img_dir.mkdir()
+    img_path = img_dir / "p_001.png"
+    Image.new("L", (300, 500), 255).save(img_path)
+
+    reader = FakeReader("fake:vision")
+    store.ensure_pdf(pdf, ("en-US",), reader=reader)
+    page = store.page(1)
+    assert (page.width, page.height) == (300.0, 500.0)
+    assert [line.text for line in page.lines] == ["line 1"]
+    assert reader.seen == [1]
+
+    with pytest.raises(SourceScanError):
+        store.page(2)
+
+    tx_dir = tmp_path / "markdown_pages"
+    tx_dir.mkdir()
+    (tx_dir / "p_001.md").write_text("line 1", encoding="utf-8")
+    _ = TranscriptStore(tx_dir)
+
+    second_reader = FakeReader("fake:second")
+    verifier = OCRVerifier(("en-US",), reader=second_reader)
+    report = verifier.verify_pages(img_dir, tx_dir)
+    assert report.total_pages_verified == 1
+    assert second_reader.seen == []
+

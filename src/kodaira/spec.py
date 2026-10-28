@@ -33,8 +33,10 @@ KODAIRA_OCR_PROMPT = (
 )
 
 KODAIRA_SPEC = MonographSpec(
+    domain="math",
     slug="kodaira_complex_analysis",
     title="Complex Analysis",
+    require_vector_figures=True,
     footnote_style="symbol",
     footnote_marks=("*", "**", "***"),
     author="Kunihiko Kodaira",

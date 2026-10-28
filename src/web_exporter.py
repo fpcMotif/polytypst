@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from .book_state import book_state
 from .kerodon.compiler import KerodonCompiler
 from .kerodon.diagrams import KerodonDiagramCropper
 from .kerodon.extractor import KerodonExtractor
@@ -318,7 +319,7 @@ def _kerodon_env_to_blocks(env) -> list[dict[str, Any]]:
 
 
 def convert_ahlfors_to_math_web_blocks(ahlfors_dir: Path) -> list[dict[str, Any]]:
-    transcripts = TranscriptStore(ahlfors_dir / "markdown")
+    transcripts = TranscriptStore(book_state(ahlfors_dir) / "markdown")
     chapters_def = [
         (1, "Complex Numbers", 1, 36),
         (2, "Complex Functions", 37, 64),

@@ -1,9 +1,13 @@
 """A book is a source scan plus the editions polytypst can rebuild from it; `polytypst build` and `polytypst parity` read these."""
 
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import pymupdf
+
+from .book_state import book_state
 from .compiler.monograph import (
     MONOGRAPH_FORMATS,
     MonographCompiler,
@@ -12,16 +16,38 @@ from .compiler.monograph import (
     adhoc_spec,
     running_footnotes,
 )
+from .facsimile import FacsimileStyle, build_facsimile
 from .ocr.backend import Backend
 from .ocr.scan import SourceScan
 from .ocr.transcripts import TranscriptStore
 from .parity.diagrams import DiagramText
-from .parity.report import Tolerance
-from .parity.source import source_ocr_dir
+from .parity.report import FACSIMILE, Tolerance
+from .parity.source import source_ocr_dir, source_pdf
 from .vision.figure_extractor import extract_book_figures
 
 OUTPUT = Path("output")
 RENDER_DPI = 200
+PAGE_FIT = "page_fit.json"
+
+
+def install_page_fit(out_dir: Path) -> None:
+    kept = book_state(out_dir) / PAGE_FIT
+    if not kept.exists():
+        kept.parent.mkdir(parents=True, exist_ok=True)
+        _ = kept.write_text("{}\n", encoding="utf-8")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    _ = shutil.copy2(kept, out_dir / PAGE_FIT)
+
+
+@dataclass(frozen=True)
+class VisualLimits:
+    """The largest optical-parity values a page may have: ink shares from 0 to 1, and the text block offset in pt.
+    An edition with these limits is checked optically by default, and `polytypst parity` exits 1 above any of them."""
+
+    missing: float | None = None
+    extra: float | None = None
+    layout: float | None = None
+    offset: float | None = None
 
 
 @dataclass(frozen=True)
@@ -32,6 +58,7 @@ class Parity:
     tolerance: Tolerance
     diagrams: Path | None = None
     diagram_text: DiagramText | None = None
+    visual: VisualLimits | None = None
 
 
 @dataclass(frozen=True)
@@ -46,6 +73,8 @@ class Edition:
     parity: Parity | None = None
     spec: MonographSpec | None = None
     formats: frozenset[str] = frozenset()
+    scan_line_breaks: bool = False
+    build_pages: Callable[[Path | None, set[int]], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -63,13 +92,13 @@ class Book:
 
     @property
     def transcripts(self) -> Path:
-        return self.out_dir / self.spec.markdown_dir
+        return book_state(self.out_dir) / self.spec.markdown_dir
 
     @classmethod
     def adhoc(
         cls, source: Path, out_dir: Path | None = None, publisher_key: str = "cambridge", lang: str = "en",
         domain: str = "math",
-    ) -> "Book":
+    ) -> Book:
         """A one-chapter book for a source scan that no `src/<key>/book.py` describes, in `output/<slug>` by default."""
         spec = adhoc_spec(Path(source), SourceScan(source).page_count, publisher_key, lang, domain)
         out_dir = out_dir or OUTPUT / spec.slug
@@ -95,6 +124,33 @@ class Book:
         print(f"Transcribing with {transcriber.provenance}")
         return TranscriptStore(self.transcripts).transcribe(renders, transcriber, retranscribe=retranscribe)
 
+    def build(
+        self,
+        edition_name: str | None = None,
+        source: Path | None = None,
+        formats: frozenset[str] | None = None,
+        footnotes: str = "original",
+        pages: set[int] | None = None,
+    ) -> Edition:
+        """Build an edition; with `pages`, set only those pages again through the edition's `build_pages`."""
+        name = edition_name or next(iter(self.editions))
+        edition = self.editions[name]
+        if pages is not None:
+            if edition.build_pages is None:
+                raise ValueError(f"{name} cannot rebuild only some pages")
+            edition.build_pages(source, pages)
+            return edition
+        if self.figures is not None:
+            if source is not None or self.spec.source_pdf:
+                scan = SourceScan(source if source is not None else source_pdf(self.spec))
+                _ = scan.pages(self.out_dir / "page_renders", dpi=RENDER_DPI)
+            _ = self.figures(self.out_dir)
+        edition.build(
+            source, edition.formats if formats is None else formats, footnotes
+        )
+        return edition
+
+
 
 def report_build(outputs: MonographOutputs) -> None:
     """Print the PDF and its page count, or the Typst file when no PDF was made."""
@@ -117,3 +173,32 @@ def monograph_edition(
         report_build(MonographCompiler(built).build_all(out_dir, formats))
 
     return Edition(out_dir / f"{spec.slug}.pdf", build, summary, parity, spec, MONOGRAPH_FORMATS)
+
+
+def facsimile_edition(
+    spec: MonographSpec, out_dir: Path, style: FacsimileStyle,
+    summary: str = "every OCR word placed on its scan ink box",
+    visual: VisualLimits | None = None,
+) -> Edition:
+    rebuilt = out_dir / f"{style.slug}.pdf"
+
+    def page_map() -> dict[int, list[int]]:
+        if not rebuilt.exists():
+            return {}
+        pages = int(pymupdf.open(rebuilt).page_count)
+        return {p: [p] for p in range(1, pages + 1)}
+
+    def build_pages(source: Path | None, pages: set[int] | None) -> None:
+        pdf = build_facsimile(source_pdf(spec, source), out_dir, spec.ocr_languages, style, pages)
+        print(f"{pdf}: {int(pymupdf.open(pdf).page_count)} pages")
+
+    def build(source: Path | None, _formats: frozenset[str], _footnotes: str) -> None:
+        build_pages(source, None)
+
+    return Edition(
+        rebuilt, build, summary,
+        Parity(page_map, FACSIMILE, style.diagram_dir, style.diagram_text, visual),
+        scan_line_breaks=True,
+        build_pages=build_pages if style.strict_lines and not style.flow else None,
+    )
+

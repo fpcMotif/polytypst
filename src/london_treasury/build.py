@@ -5,13 +5,13 @@ from pathlib import Path
 
 from ..compiler.monograph import (
     MONOGRAPH_FORMATS,
-    REPO_FONTS_DIR,
     MonographOutputs,
     alias_as_book,
     build_outputs,
     compile_typst,
     run_formats,
 )
+from ..compiler.typst_math import REPO_FONTS_DIR
 from ..parity.source import source_pdf as resolve_source_pdf
 from .models import ParsedReaderBook
 from .reader import parse_reader_pdf

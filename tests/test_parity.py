@@ -1,10 +1,11 @@
 import json
-import shutil
 from pathlib import Path
 
+import numpy as np
 import pymupdf
 import pytest
 
+from polytypst.compiler.typst_math import typst_command
 from polytypst.parity import (
     FACSIMILE,
     SOURCE_PAGINATED,
@@ -13,7 +14,10 @@ from polytypst.parity import (
     verdict,
     write_report,
 )
-from polytypst.parity.diagrams import DiagramText
+from polytypst.parity.compare import right_overflow_lines
+from polytypst.parity.diagrams import DiagramText, find_diagram
+from polytypst.parity.ink_cache import InkCache
+from polytypst.parity.words import page_ink
 
 W, H = 388.0, 609.0
 FONT, SIZE, LEAD = "tiro", 10.0, 14.0
@@ -78,7 +82,8 @@ def source(tmp_path: Path) -> Path:
 
 def run(source: Path, rebuilt: Path, diagrams: Path | None = None) -> PageParity:
     text = DiagramText(font="Libertinus Serif", size=10.0, weight=400) if diagrams else None
-    return compare(source, rebuilt, {1: [1]}, ocr=source.parent / "ocr", diagrams=diagrams, diagram_text=text, work=source.parent / "work")[0]
+    scan = InkCache(source, source.parent / "ink", page_ink)
+    return compare(scan, rebuilt, {1: [1]}, ocr=source.parent / "ocr", diagrams=diagrams, diagram_text=text, work=source.parent / "work")[0]
 
 
 def test_an_identical_page_matches_every_word_in_place_and_passes(source: Path, tmp_path: Path) -> None:
@@ -110,7 +115,34 @@ def test_one_moved_word_is_reported_and_fails_the_facsimile_tolerance(source: Pa
     assert "1 words off by more than 0.5pt" in verdict(page, FACSIMILE)
 
 
-@pytest.mark.skipif(shutil.which("typst") is None, reason="needs typst to render the diagram snippet")
+def test_a_word_past_the_scan_text_edge_counts_as_one_overflowing_line(source: Path, tmp_path: Path) -> None:
+    rebuilt = tmp_path / "rebuilt.pdf"
+    write_page(rebuilt, word_shift={"injective": 60.0})
+    page = run(source, rebuilt)
+    assert page.right_overflow_lines == 1
+    assert "1 lines cross the scan's right text edge" in verdict(page, FACSIMILE)
+    assert verdict(page, SOURCE_PAGINATED)[-1] == "1 lines cross the scan's right text edge"
+
+
+def test_a_whole_page_shifted_right_is_a_page_offset_not_an_overflow(source: Path, tmp_path: Path) -> None:
+    rebuilt = tmp_path / "rebuilt.pdf"
+    write_page(rebuilt, dx=6.0)
+    page = run(source, rebuilt)
+    assert page.right_overflow_lines == 0
+    assert any(r.startswith("page offset") for r in verdict(page, FACSIMILE))
+
+
+def test_overflow_counts_rebuilt_ink_by_the_same_column_rule_as_the_scan_edge() -> None:
+    scan = np.zeros((200, 300), bool)
+    scan[20:180, 10:200] = True
+    speck, stroke = np.zeros_like(scan), np.zeros_like(scan)
+    speck[50, 230] = True
+    stroke[100:106, 230] = True
+    assert right_overflow_lines(scan, speck) == 0
+    assert right_overflow_lines(scan, stroke) == 1
+
+
+@pytest.mark.skipif(typst_command() is None, reason="needs typst to render the diagram snippet")
 def test_a_diagram_moved_sideways_reports_its_offset_and_scale(source: Path, tmp_path: Path) -> None:
     write_page(source, rect_dx=0.0)
     snippets = tmp_path / "diagrams"
@@ -125,6 +157,20 @@ def test_a_diagram_moved_sideways_reports_its_offset_and_scale(source: Path, tmp
     assert d.dy == pytest.approx(0.0, abs=0.25)
     assert d.sx == pytest.approx(1.0, abs=0.01) and d.sy == pytest.approx(1.0, abs=0.01)
     assert any(r.startswith("diagram fig_001_001") for r in verdict(page, FACSIMILE))
+
+
+def test_find_diagram_returns_the_page_position_of_a_diagram_set_in_an_indented_block() -> None:
+    rng = np.random.default_rng(7)
+    tmpl = np.zeros((120, 300), bool)
+    for _ in range(12):
+        y, x = rng.integers(0, 117), rng.integers(0, 240)
+        tmpl[y : y + 3, x : x + 60] = True
+        tmpl[rng.integers(0, 60) : rng.integers(60, 120), x : x + 3] = True
+    page = np.zeros((1300, 900), bool)
+    for y in [*range(40, 600, 30), *range(780, 1260, 30)]:
+        page[y : y + 12, 50:850] = rng.random((12, 800)) < 0.3
+    page[640:760, 300:600] = tmpl
+    assert find_diagram(page, tmpl)[:4] == (640, 300, 120, 300)
 
 
 def test_a_source_paginated_page_that_overflows_or_loses_a_line_fails() -> None:

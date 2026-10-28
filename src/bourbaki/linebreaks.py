@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
-from ..compiler.monograph import REPO_FONTS_DIR as FONTS
+from ..compiler.typst_math import REPO_FONTS_DIR as FONTS
 from ..parity.source import SourcePage, read_source_page, source_ocr_dir
 
 BODY_TOP, BODY_BOTTOM = 60.0, 58.0

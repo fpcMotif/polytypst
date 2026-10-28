@@ -126,36 +126,65 @@ def _normalize_differentials(s: str) -> str:
 
 
 def normalize_html_tables(text: str) -> str:
-    """Convert arbitrary HTML <table> markup into clean Markdown tables or lines."""
+    """Convert arbitrary HTML <table> markup into clean Markdown tables with full rowspan/colspan support."""
 
     def repl_table(m: re.Match[str]) -> str:
-        table_html = m.group(0)
+        table_html = re.sub(r"</t([hd])[a-z]*\s*>", r"</t\1>", m.group(0))
         rows = re.findall(r"<tr[^>]*>(.*?)</tr>", table_html, re.DOTALL)
-        parsed_rows: list[list[str]] = []
-        for r in rows:
-            cells = [
-                re.sub(r"<[^>]+>", "", c).strip()
-                for c in re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", r, re.DOTALL)
-            ]
-            while cells and not cells[-1]:
-                cells.pop()
-            if cells:
-                parsed_rows.append(cells)
-        if not parsed_rows:
+        grid: dict[tuple[int, int], str] = {}
+        max_r = len(rows)
+        max_c = 0
+
+        for r_idx, r in enumerate(rows):
+            c_idx = 0
+            cell_matches = list(re.finditer(r"<t([hd])\b([^>]*)>(.*?)</t\1>", r, re.DOTALL))
+            for cm in cell_matches:
+                while (r_idx, c_idx) in grid:
+                    c_idx += 1
+                attrs = cm.group(2)
+                content = cm.group(3).strip()
+                m_row = re.search(r'rowspan=["\']?(\d+)["\']?', attrs, re.IGNORECASE)
+                m_col = re.search(r'colspan=["\']?(\d+)["\']?', attrs, re.IGNORECASE)
+                r_span = int(m_row.group(1)) if m_row else 1
+                c_span = int(m_col.group(1)) if m_col else 1
+
+                clean = re.sub(r"<(?!br\b|/?mark>)[^>]+>", "", content).strip()
+                clean = re.sub(r"\s*<br\s*/?>\s*", "<br>", clean)
+                clean = re.sub(r"\s*\n\s*", " ", clean)
+                if re.fullmatch(r"-?\d+\.\s+\d+", clean):
+                    clean = re.sub(r"\.\s+", ".", clean)
+                clean = clean.replace("|", "\\|")
+
+                for dr in range(r_span):
+                    for dc in range(c_span):
+                        target_r = r_idx + dr
+                        target_c = c_idx + dc
+                        grid[(target_r, target_c)] = clean if (dr == 0 and dc == 0) else ""
+                        max_c = max(max_c, target_c + 1)
+                c_idx += c_span
+
+        if not max_r or not max_c:
             return ""
-        max_cols = max(len(r) for r in parsed_rows)
-        if max_cols <= 3 and all(r[-1].isdigit() for r in parsed_rows if len(r) >= 2):
-            return "\n\n" + "\n\n".join(" ".join(c for c in r if c) for r in parsed_rows) + "\n\n"
-        padded = [row + [""] * (max_cols - len(row)) for row in parsed_rows]
+
+        parsed_rows = []
+        for r_idx in range(max_r):
+            row = [grid.get((r_idx, c), "") for c in range(max_c)]
+            parsed_rows.append(row)
+
+        filled = [cells for row in parsed_rows if (cells := [c for c in row if c])]
+        if max_c <= 3 and all(cells[-1].isdigit() for cells in filled if len(cells) >= 2):
+            return "\n\n" + "\n\n".join(" ".join(cells) for cells in filled) + "\n\n"
+
+        align_row = [":---"] + [":---:"] * (max_c - 1)
         lines = [
-            "| " + " | ".join(padded[0]) + " |",
-            "| " + " | ".join(["---"] * max_cols) + " |",
+            "| " + " | ".join(parsed_rows[0]) + " |",
+            "| " + " | ".join(align_row) + " |",
         ]
-        for row in padded[1:]:
+        for row in parsed_rows[1:]:
             lines.append("| " + " | ".join(row) + " |")
         return "\n\n" + "\n".join(lines) + "\n\n"
 
-    return re.sub(r"<table>.*?</table>", repl_table, text, flags=re.DOTALL)
+    return re.sub(r"<table\b[^>]*>.*?</table>", repl_table, text, flags=re.DOTALL)
 
 
 def repair_ocr_math(body: str, is_display: bool = False) -> str:

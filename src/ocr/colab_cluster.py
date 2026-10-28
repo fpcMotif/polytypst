@@ -114,9 +114,13 @@ class ColabOCRCluster:
         if not session.start() or not session.install(self.model.pip):
             return False
         setup = (
-            "import os, pathlib, tarfile\n"
+            "import os, pathlib, shutil, tarfile\n"
             f"os.makedirs({REMOTE_PKG!r}, exist_ok=True)\n"
             f"pathlib.Path({REMOTE_PKG!r}, '__init__.py').touch()\n"
+            "for p in ['/content/markdown.tar.gz', '/content/worker.log', '/content/worker.pid']:\n"
+            "    if os.path.exists(p): os.remove(p)\n"
+            "if os.path.exists('/content/markdown'): shutil.rmtree('/content/markdown')\n"
+            "if os.path.exists('/content/pages'): shutil.rmtree('/content/pages')\n"
             "os.makedirs('/content/markdown', exist_ok=True)\n"
         )
         if session.exec(setup).returncode != 0:

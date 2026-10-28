@@ -14,6 +14,7 @@ RUNNING_HEADERS = (
 )
 
 FERMAT_SPEC = MonographSpec(
+    domain="math",
     slug="fermat_dream",
     title="Number Theory 1: Fermat's Dream",
     footnote_style="superscript",

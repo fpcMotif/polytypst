@@ -1,11 +1,11 @@
-import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-from ..compiler.monograph import REPO_FONTS_DIR
+from ..compiler.typst_math import compile_typst
 
 HARNESS = Path(__file__).parent / "diagram_harness.typ"
 INK_LEVEL = 140
@@ -27,10 +27,7 @@ def diagram_ink(snippet: Path, work: Path, dpi: int, text: DiagramText) -> tuple
     if not png.exists():
         inputs = {"snippet": str(snippet.resolve()), "font": text.font, "size": str(text.size), "weight": str(text.weight)}
         flags = [arg for k, v in inputs.items() for arg in ("--input", f"{k}={v}")]
-        subprocess.run(
-            ["typst", "compile", "--root", "/", "--font-path", str(REPO_FONTS_DIR), *flags, str(HARNESS), str(png), "--ppi", str(dpi)],
-            check=True, capture_output=True,
-        )
+        compile_typst(HARNESS, png, "--root", "/", *flags, "--ppi", str(dpi), capture_output=True)
     img = np.asarray(Image.open(png).convert("L")) < INK_LEVEL
     ys, xs = np.where(img)
     k = 72 / dpi
@@ -58,6 +55,17 @@ def _blur(img: np.ndarray, r: int) -> np.ndarray:
             acc += np.roll(out, d, axis=axis)
         out = acc / (2 * r + 1)
     return out
+
+
+def _fast_len(n: int) -> int:
+    while True:
+        m = n
+        for f in (2, 3, 5):
+            while m % f == 0:
+                m //= f
+        if m == 1:
+            return n
+        n += 1
 
 
 def display_blocks(page: np.ndarray, min_height: int) -> list[tuple[int, int]]:
@@ -96,25 +104,38 @@ def find_diagram(page: np.ndarray, tmpl: np.ndarray, scales: tuple[float, ...] =
     """
     p = _blur(page, 2)
     h, w = p.shape
-    fp = np.fft.rfft2(p, s=(h, w))
     blocks = display_blocks(page, int(tmpl.shape[0] * 0.5))
-    best = (0, 0, tmpl.shape[0], tmpl.shape[1], -np.inf)
-    for s in scales:
-        th, tw = max(1, round(tmpl.shape[0] * s)), max(1, round(tmpl.shape[1] * s))
-        if th >= h or tw >= w:
-            continue
+    sizes = [(max(1, round(tmpl.shape[0] * s)), max(1, round(tmpl.shape[1] * s))) for s in scales]
+    sizes = [(th, tw) for th, tw in sizes if th < h and tw < w]
+    top, end = 0, h
+    if blocks and sizes:
+        th_max = max(th for th, _ in sizes)
+        top = max(0, min(a for a, _ in blocks) - th_max // 3)
+        end = min(h, max(b for _, b in blocks) + th_max)
+    band = p[top:end]
+    shape = (_fast_len(band.shape[0]), _fast_len(w))
+    fp = np.fft.rfft2(band, s=shape)
+
+    def match(size: tuple[int, int]) -> tuple[int, int, int, int, float]:
+        th, tw = size
+        if th > band.shape[0]:
+            return (0, 0, th, tw, -np.inf)
         t = np.asarray(Image.fromarray(tmpl.astype(np.uint8) * 255).resize((tw, th), Image.Resampling.BILINEAR)) > 100
         t = _blur(t, 2)
         t = (t - t.mean()) / (t.std() * t.size + 1e-6)
-        corr = np.fft.irfft2(fp * np.fft.rfft2(t[::-1, ::-1], s=(h, w)), s=(h, w))[th - 1 :, tw - 1 :]
+        corr = np.fft.irfft2(fp * np.fft.rfft2(t[::-1, ::-1], s=shape), s=shape)[th - 1 : band.shape[0], tw - 1 : w]
         if blocks:
-            allowed = np.zeros(corr.shape[0], bool)
-            for top, bottom in blocks:
-                allowed[max(0, top - th // 3) : min(corr.shape[0], bottom - th // 2 + 1)] = True
-            corr = np.where(allowed[:, None], corr, -np.inf)
+            allowed = np.zeros(h - th + 1, bool)
+            for a, b in blocks:
+                allowed[max(0, a - th // 3) : min(h - th + 1, b - th // 2 + 1)] = True
+            corr = np.where(allowed[top : top + corr.shape[0], None], corr, -np.inf)
         y, x = np.unravel_index(np.argmax(corr), corr.shape)
-        local = p[y : y + th, x : x + tw]
-        score = float(corr[y, x] / (local.std() + 1e-6))
-        if score > best[4]:
-            best = (int(y), int(x), th, tw, score)
+        local = band[y : y + th, x : x + tw]
+        return (top + int(y), int(x), th, tw, float(corr[y, x] / (local.std() + 1e-6)))
+
+    best = (0, 0, tmpl.shape[0], tmpl.shape[1], -np.inf)
+    with ThreadPoolExecutor(max(1, len(sizes))) as pool:
+        for found in pool.map(match, sizes):
+            if found[4] > best[4]:
+                best = found
     return best

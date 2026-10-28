@@ -4,10 +4,14 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 
-from .pages import LinePage, OcrLine, PageImage
+from .pages import LinePage, OcrLine, OcrStalled, PageImage
+
+STALL_SECONDS = 120.0
+POLL_SECONDS = 0.5
 
 SWIFT_HARNESS_CODE = """
 import Foundation
@@ -74,8 +78,9 @@ DispatchQueue.concurrentPerform(iterations: files.count) { idx in
 
 
 class AppleVisionReader:
-    def __init__(self, languages: Sequence[str]):
+    def __init__(self, languages: Sequence[str], stall_seconds: float = STALL_SECONDS):
         self.languages = tuple(languages)
+        self.stall_seconds = stall_seconds
         self._compiled_binary = None
 
     @property
@@ -109,15 +114,40 @@ class AppleVisionReader:
                 os.symlink(page.path.resolve(), target)
 
             langs_arg = ",".join(self.languages)
-            subprocess.run([str(bin_path), temp_in, temp_out, langs_arg], check=True)
+            stalled = self._run_watched([str(bin_path), temp_in, temp_out, langs_arg], Path(temp_out))
 
             for idx, page in enumerate(pages):
                 json_path = Path(temp_out) / f"page_{idx + 1:04d}.json"
                 if not json_path.exists():
                     continue
-                data = json.loads(json_path.read_text(encoding="utf-8"))
+                try:
+                    data = json.loads(json_path.read_text(encoding="utf-8"))
+                except json.JSONDecodeError:
+                    continue
                 lines = tuple(
                     OcrLine(line["text"], line["x"], line["y"], line["w"], line["h"], line.get("confidence", 1.0))
                     for line in data.get("lines", [])
                 )
                 yield LinePage(page.number, lines)
+            if stalled:
+                done = sum(1 for _ in Path(temp_out).glob("*.json"))
+                raise OcrStalled(
+                    f"apple_vision_runner wrote no page for {self.stall_seconds:.0f} s and was stopped after {done}/{len(pages)} pages"
+                )
+
+    def _run_watched(self, command: list[str], out_dir: Path) -> bool:
+        """Run the runner until it exits; kill it and return True when it writes no page for `stall_seconds`."""
+        proc = subprocess.Popen(command)
+        written, last = 0, time.monotonic()
+        while proc.poll() is None:
+            time.sleep(POLL_SECONDS)
+            count = sum(1 for _ in out_dir.glob("*.json"))
+            if count > written:
+                written, last = count, time.monotonic()
+            elif time.monotonic() - last > self.stall_seconds:
+                proc.kill()
+                proc.wait()
+                return True
+        if proc.returncode:
+            raise subprocess.CalledProcessError(proc.returncode, command)
+        return False

@@ -39,9 +39,7 @@ class DomainProfile:
     key: str
     equation_numbering: str
     theorem_heads: tuple[str, ...]
-    figure_layer_mode: str
-    sanitize_inline_math: bool
-    drop_cap_chapters: bool
+    proof_end_mark: bool
 
 
 PUBLISHER_PRESETS: dict[str, PublisherPreset] = {
@@ -141,6 +139,22 @@ PUBLISHER_PRESETS: dict[str, PublisherPreset] = {
         header_rule_pt=0.0,
         pandoc_geometry="paperwidth=5.39in,paperheight=8.46in,margin=0.45in",
     ),
+    "springer_1971": PublisherPreset(
+        key="springer_1971",
+        imprint_name="Springer-Verlag",
+        default_series="Die Grundlehren der mathematischen Wissenschaften",
+        cities_line="Berlin · Heidelberg · New York",
+        width_pt=344,
+        height_pt=572,
+        margin_inside_pt=17,
+        margin_outside_pt=17,
+        margin_top_pt=56,
+        margin_bottom_pt=14,
+        body_size_pt=9.6,
+        heading_style="numbered-block",
+        header_rule_pt=0.0,
+        pandoc_geometry="paperwidth=4.78in,paperheight=7.95in,margin=0.3in,top=0.78in",
+    ),
     "princeton": PublisherPreset(
         key="princeton",
         imprint_name="Princeton University Press",
@@ -217,10 +231,23 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         contents_title="Table des matières",
         ocr_instruction="Transcribe French accents, guillemets, and LaTeX math faithfully.",
     ),
+    "fr_times": LanguageProfile(
+        code="fr_times",
+        typst_lang="fr",
+        font_stack=("STIX Two Text",),
+        math_font="STIX Two Math",
+        first_line_indent="1.2em",
+        leading="0.7em",
+        par_spacing="0.7em",
+        hyphenate=True,
+        cjk_punctuation_compress=False,
+        contents_title="Table des matières",
+        ocr_instruction="Transcribe French accents, guillemets, and LaTeX math faithfully.",
+    ),
     "zh": LanguageProfile(
         code="zh",
         typst_lang="zh",
-        font_stack=("New Computer Modern", "Songti SC", "STSong"),
+        font_stack=("Songti SC", "STSong", "New Computer Modern"),
         math_font="New Computer Modern Math",
         first_line_indent="2.0em",
         leading="0.85em",
@@ -237,6 +264,7 @@ DOMAIN_PROFILES: dict[str, DomainProfile] = {
     "math": DomainProfile(
         key="math",
         equation_numbering="(1.1)",
+        proof_end_mark=True,
         theorem_heads=(
             "Theorem",
             "Lemma",
@@ -248,13 +276,11 @@ DOMAIN_PROFILES: dict[str, DomainProfile] = {
             "Axiom",
             "Conjecture",
         ),
-        figure_layer_mode="four-layer-svg",
-        sanitize_inline_math=True,
-        drop_cap_chapters=False,
     ),
     "physics": DomainProfile(
         key="physics",
         equation_numbering="(1.1)",
+        proof_end_mark=True,
         theorem_heads=(
             "Postulate",
             "Law",
@@ -264,13 +290,11 @@ DOMAIN_PROFILES: dict[str, DomainProfile] = {
             "Example",
             "Exercise",
         ),
-        figure_layer_mode="four-layer-svg",
-        sanitize_inline_math=True,
-        drop_cap_chapters=False,
     ),
     "economics": DomainProfile(
         key="economics",
         equation_numbering="(1.1)",
+        proof_end_mark=False,
         theorem_heads=(
             "Proposition",
             "Theorem",
@@ -280,13 +304,11 @@ DOMAIN_PROFILES: dict[str, DomainProfile] = {
             "Definition",
             "Example",
         ),
-        figure_layer_mode="four-layer-svg",
-        sanitize_inline_math=True,
-        drop_cap_chapters=False,
     ),
     "philosophy": DomainProfile(
         key="philosophy",
         equation_numbering="(1)",
+        proof_end_mark=False,
         theorem_heads=(
             "Thesis",
             "Proposition",
@@ -295,25 +317,18 @@ DOMAIN_PROFILES: dict[str, DomainProfile] = {
             "Reply",
             "Definition",
         ),
-        figure_layer_mode="minimal",
-        sanitize_inline_math=True,
-        drop_cap_chapters=False,
     ),
     "history": DomainProfile(
         key="history",
         equation_numbering="none",
+        proof_end_mark=False,
         theorem_heads=(),
-        figure_layer_mode="archival-plate",
-        sanitize_inline_math=False,
-        drop_cap_chapters=True,
     ),
     "novel": DomainProfile(
         key="novel",
         equation_numbering="none",
+        proof_end_mark=False,
         theorem_heads=(),
-        figure_layer_mode="minimal",
-        sanitize_inline_math=False,
-        drop_cap_chapters=True,
     ),
 }
 
@@ -333,11 +348,14 @@ class CompositionConfig:
     def typst_heading_rules(self) -> str:
         font_expr = self.typst_font_tuple()
         style = self.publisher.heading_style
+        use_sc = self.language.code != "zh"
+        sc_body = "#smallcaps(it.body)" if use_sc else "#it.body"
+        italic_h3 = 'style: "italic", ' if self.language.code != "zh" else ""
         if style == "centered-smallcaps":
             h1 = f"""#show heading.where(level: 1): it => {{
   v(2.8em)
   align(center)[
-    #text(15pt, weight: "regular", tracking: 0.08em, font: {font_expr})[#smallcaps(it.body)]
+    #text(15pt, weight: "regular", tracking: 0.08em, font: {font_expr})[{sc_body}]
   ]
   v(1.6em)
 }}"""
@@ -363,6 +381,13 @@ class CompositionConfig:
   v(2.2em)
   line(length: 100%, stroke: 1.2pt + black)
   v(0.5em)
+  context {{
+    let label = chapter-label.get()
+    if label != none {{
+      align(left, text(11pt, weight: "bold", tracking: 0.08em, fill: luma(70), font: {font_expr})[#smallcaps(label)])
+      v(0.4em)
+    }}
+  }}
   align(left)[
     #text(17pt, weight: "bold", font: {font_expr})[#it.body]
   ]
@@ -395,31 +420,39 @@ class CompositionConfig:
   line(length: 100%, stroke: 0.6pt + black)
   v(1.4em)
 }}"""
+        h4_body = "#smallcaps(it.body)" if use_sc else "#it.body"
         return f"""{h1}
 
 #show heading.where(level: 2): it => block(above: 1.75em, below: 0.75em, sticky: true)[
-  #text(12.5pt, weight: "bold", font: {font_expr})[#it.body]
+  #text(12.5pt, weight: "bold", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
 ]
 
 #show heading.where(level: 3): it => block(above: 1.3em, below: 0.5em, sticky: true)[
-  #text(10.5pt, weight: "bold", style: "italic", font: {font_expr})[#it.body]
+  #text(10.5pt, weight: "bold", {italic_h3}font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
 ]
 
 #show heading.where(level: 4): it => block(above: 1.1em, below: 0.45em, sticky: true)[
-  #text(10pt, weight: "bold", font: {font_expr})[#smallcaps(it.body)]
+  #text(10pt, weight: "bold", font: {font_expr})[{h4_body}]
 ]"""
 
 
 def resolve_composition(
     publisher: str = "cambridge",
     lang: str = "en",
-    domain: str = "math",
+    *,
+    domain: str,
 ) -> CompositionConfig:
     pub_key = publisher.strip().lower()
     lang_key = lang.strip().lower().split("-")[0]
-    dom_key = domain.strip().lower()
     return CompositionConfig(
         publisher=PUBLISHER_PRESETS.get(pub_key, PUBLISHER_PRESETS["cambridge"]),
         language=LANGUAGE_PROFILES.get(lang_key, LANGUAGE_PROFILES["en"]),
-        domain=DOMAIN_PROFILES.get(dom_key, DOMAIN_PROFILES["math"]),
+        domain=domain_profile(domain),
     )
+
+
+def domain_profile(domain: str) -> DomainProfile:
+    key = domain.strip().lower()
+    if key not in DOMAIN_PROFILES:
+        raise ValueError(f"unknown domain {domain!r}; known domains: {', '.join(DOMAIN_PROFILES)}")
+    return DOMAIN_PROFILES[key]

@@ -15,6 +15,7 @@ RUNNING_HEADERS = (
 )
 
 HECKE_SPEC = MonographSpec(
+    domain="math",
     slug="hecke",
     title="Lectures on the Theory of Algebraic Numbers",
     footnote_style="superscript",

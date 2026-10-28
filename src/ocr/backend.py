@@ -74,7 +74,7 @@ class Backend:
     options: Mapping[str, Option]
 
     @classmethod
-    def parse(cls, text: str) -> "Backend":
+    def parse(cls, text: str) -> Backend:
         head, _, query = text.partition("?")
         kind, _, model = head.partition(":")
         spec = KINDS.get(kind)
@@ -97,6 +97,27 @@ class Backend:
         if kind == "cached" and not options["dir"]:
             raise ValueError("cached needs dir, as in cached:?dir=PATH")
         return cls(kind, model, MappingProxyType(options))
+
+    @classmethod
+    def from_legacy_flags(
+        cls,
+        mode: str | None = None,
+        ocr_model_name: str | None = None,
+        gpu_type: str | None = None,
+        colab_workers: int | None = None,
+        shards: int | None = None,
+    ) -> Backend:
+        kind = mode or DEFAULT_BACKEND
+        base = cls.parse(f"{kind}:{ocr_model_name}" if ocr_model_name else kind)
+        options = dict(base.options)
+        if gpu_type and "gpu" in options:
+            options["gpu"] = gpu_type
+        if colab_workers is not None and "workers" in options:
+            options["workers"] = colab_workers
+        if shards is not None and "shards" in options:
+            options["shards"] = shards
+        return cls(base.kind, base.model, MappingProxyType(options))
+
 
     def __str__(self) -> str:
         defaults = KINDS[self.kind].options
@@ -218,6 +239,17 @@ def backend_argument(text: str) -> Backend:
 
 def api_key(env_name: str) -> str:
     key = os.environ.get(env_name, "")
+    if not key and os.name == "posix":
+        import subprocess
+        res = subprocess.run(
+            ["security", "find-generic-password", "-s", f"polytypst.{env_name}", "-w"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            key = res.stdout.strip()
+            os.environ[env_name] = key
     if not key:
         raise OCRBackendError(
             f"{env_name} is not set; `varlock load` shows what .env.schema provides"

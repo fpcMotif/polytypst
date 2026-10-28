@@ -12,7 +12,7 @@ import numpy as np
 import pymupdf
 from PIL import Image
 
-from ..ocr.lines import DEFAULT_OCR_LANGUAGES, LineStore, line_reader
+from ..ocr.lines import DEFAULT_OCR_LANGUAGES, LineStore, line_reader, source_ocr_dir
 from ..ocr.pages import LinePage, LineReader, OcrLine, PageImage, page_images
 from ..ocr.transcripts import TranscriptStore
 from .cropper import HighDPICropper
@@ -66,6 +66,13 @@ def load_figures_manifest(path: Path) -> list[ExtractedFigure]:
     return figures
 
 
+def manifest_figures(path: Path) -> dict[str, ExtractedFigure]:
+    """Each figure by its id, or nothing when `path` is absent or not a list of figures."""
+    if not path.exists() or not isinstance(json.loads(path.read_text(encoding="utf-8")), list):
+        return {}
+    return {f.figure_id: f for f in load_figures_manifest(path)}
+
+
 def load_complete_figures_manifest(path: Path) -> list[ExtractedFigure] | None:
     if not path.exists():
         return None
@@ -91,9 +98,18 @@ def extract_book_figures(
         return cached
     extractor = FigureExtractor(pdf_path, line_reader(ocr_languages))
     print("Running the OCR line pass for figure grounding...")
-    figures = extractor.extract_whitespace_isolated_figures(out_dir / "page_renders", figures_dir, transcripts_dir)
+    figures: list[ExtractedFigure] = []
+    if any(lang.startswith("zh") for lang in ocr_languages) and rendered_pages:
+        from .cjk_charts import extract_cjk_charts, transcript_figure_ids
+
+        lines = LineStore(source_ocr_dir(out_dir)).read(rendered_pages, extractor.reader)
+        transcripts = TranscriptStore(transcripts_dir)
+        known_ids = transcript_figure_ids(transcripts.text(p.number) or "" for p in rendered_pages)
+        figures = extract_cjk_charts(rendered_pages, lines, figures_dir, known_ids)
+    if not figures:
+        figures = extractor.extract_whitespace_isolated_figures(out_dir / "page_renders", figures_dir, transcripts_dir)
     if not figures and rendered_pages:
-        lines = LineStore(out_dir / "source_ocr").read(rendered_pages, extractor.reader)
+        lines = LineStore(source_ocr_dir(out_dir)).read(rendered_pages, extractor.reader)
         ocr_pages = [LinePage(number, page_lines) for number, page_lines in lines.items()]
         figures = extractor.extract_all(figures_dir, ocr_pages=ocr_pages, dpi=300)
     write_figures_manifest(manifest_path, figures)
@@ -326,7 +342,7 @@ class FigureExtractor:
         if pages is None:
             pages = range(1, len(doc) + 1)
         cap_re = re.compile(
-            r"^(?:FIG|Fig|Figure)\.?\s*(\d+[\.\-]\d+[a-z]?)(?:\.?\s*$|\.\s+\S)",
+            r"^(?:FIG|Fig|Figure|Abb|Abbildung|图)\.?\s*(\d+(?:[\.\-]\d+)?[a-z]?)(?:\.?\s*$|\.\s+\S)",
             re.IGNORECASE,
         )
 
@@ -334,20 +350,15 @@ class FigureExtractor:
         seen_ids: set[str] = set()
         pages_to_scan: set[int] = set()
         transcripts = TranscriptStore(transcripts_dir)
+        page_marker_re = re.compile(r"(?i)\b(?:fig|abb)|图")
         for pno in pages:
             t = doc[pno - 1].get_text()
             md_txt = transcripts.text(pno) or ""
-            if (
-                "Fig" in t
-                or "fig" in t
-                or "FIG" in t
-                or "Fig" in md_txt
-                or "FIG" in md_txt
-            ):
+            if page_marker_re.search(t) or page_marker_re.search(md_txt):
                 pages_to_scan.update(p for p in (pno - 1, pno, pno + 1) if p in pages)
 
         renders = [page for page in page_images(renders_dir) if page.number in pages_to_scan]
-        page_lines = LineStore(out_dir.parent / "source_ocr").read(renders, self.reader)
+        page_lines = LineStore(source_ocr_dir(out_dir.parent)).read(renders, self.reader)
         for pno, png_path in ((page.number, page.path) for page in renders):
             with Image.open(png_path) as im:
                 w_px, h_px = im.size

@@ -18,14 +18,16 @@ import sys
 import numpy as np
 import pymupdf
 
+from polytypst.book_state import book_state
 from polytypst.bourbaki import OUT_DIR
 from polytypst.bourbaki.marks import query_marks as query_typ_marks
 from polytypst.bourbaki.spec import BOURBAKI_1970_SPEC, CHAPTERS
+from polytypst.edition import PAGE_FIT, install_page_fit
 from polytypst.parity.source import source_pdf
 
 ORIGINAL = source_pdf(BOURBAKI_1970_SPEC)
 TYP = OUT_DIR / f"{BOURBAKI_1970_SPEC.slug}.typ"
-FIT = OUT_DIR / "page_fit.json"
+FIT = book_state(OUT_DIR) / PAGE_FIT
 TARGETS = OUT_DIR / "page_targets.json"
 
 BODY_HEIGHT = 609 - 74 - 66
@@ -93,7 +95,9 @@ def bottom_reserves(targets: dict[str, dict[str, float]], keys: list[str]) -> di
 
 
 def write_fit(fit: dict[str, dict[str, float]]) -> None:
+    FIT.parent.mkdir(parents=True, exist_ok=True)
     FIT.write_text(json.dumps({"pages": fit}, indent=1), encoding="utf-8")
+    install_page_fit(OUT_DIR)
 
 
 def main(rounds: int) -> None:
