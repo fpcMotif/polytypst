@@ -1,6 +1,6 @@
-# Feature: Book catalog in `books/<key>/book.toml`
+# Feature: A book is a project with one key
 
-**Date:** 2026-10-27 (last updated 2026-10-27)
+**Date:** 2026-10-27 (last updated 2026-10-28)
 
 **Author:** fpcmotif, with Claude
 
@@ -8,47 +8,91 @@
 
 ## At a glance
 
-Today every book is a Python package (`polytypst.<key>`) inside the engine's `src/`. A new book therefore needs a hand-kept entry in `pyproject.toml`, an `__init__.py`, a boilerplate `book.py`, and Python code for data that is mostly titles, page numbers and regexes.
-This plan moves each book to a folder `books/<key>/` that holds a `book.toml` with the spec and editions. An optional `hooks.py` holds the few functions that a spec needs, and a `book.py` remains only for books with a custom pipeline. A new module, `src/catalog.py`, loads these folders by path.
-The engine and the CLI stay the same. They still receive the same `Book`, `Edition` and `MonographSpec` objects, and `books()`, `book_by_key()`, `book_for_scan()` and `book_specs()` keep their signatures.
+One book is spread over five places today, and the places do not even share a key. `src/<key>/` holds the spec as a Python package. `pyproject.toml` lists that package. `$POLYTYPST_SOURCES` holds the scan. `$POLYTYPST_BOOKS/<name>/` holds the transcripts. `output/<name>/` holds everything else, with no fixed layout. In the last two places, `<name>` is the output folder name, which differs from the key for 7 output folders.
+This plan treats a book as a project that polytypst compiles. Each book has one key and two folders. The **book folder**, `books/<key>/` in git, holds what a person writes: `book.toml`, an optional `hooks.py`, and hand-made figures. The **state folder**, `$POLYTYPST_BOOKS/<key>/` outside git, holds what the machine makes. It uses one fixed layout for each pipeline stage. A `Book` handle derives every path from the key.
+The compiler, OCR backends, parity measures and CLI verbs stay the same. The source scans stay in `$POLYTYPST_SOURCES`. The transcripts that exist today are moved, never made again.
 
 ## Overview
 
-A book is content that the engine reads. It is not a library. This plan makes the code match that. A book becomes a data file that the catalog loads. It is no longer a package that setuptools ships.
+The natural mental model is a pipeline with one owner for each stage:
+
+```text
+┌────────────┐   ┌───────────────────────┐   ┌──────────────┐   ┌──────────────┐
+│ Source     │──▶│ Transcripts + lines   │──▶│ Editions     │──▶│ Parity and   │
+│ scan       │   │ (OCR: slow, kept)     │   │ (build/)     │   │ review       │
+└────────────┘   └───────────────────────┘   └──────────────┘   └──────────────┘
+```
+
+A book is the project. polytypst is the compiler that you point at it, as `typst compile` is pointed at a project folder. Who made a file decides where it lives:
+
+| Made by | Example | Where | Kept? |
+| --- | --- | --- | --- |
+| A person | `book.toml`, `hooks.py`, hand-drawn SVG | book folder, in git | Yes, under version control |
+| OCR | transcripts, line cache | state folder | Yes, because OCR is slow and costs money |
+| A build or a check | `.typ`, `.pdf`, renders, parity reports | state folder | No. `polytypst clean` can delete them. |
 
 ## Goals
 
-- A data-only book is one file: `books/<key>/book.toml`. It has no Python, no `__init__.py` and no `pyproject.toml` entry.
-- A book that needs code adds `books/<key>/hooks.py`. The catalog binds each function to the spec field of the same name.
-- A book with a custom pipeline keeps `books/<key>/book.py` that defines `BOOK`. This is the escape hatch.
-- The folder is the registry. A folder with `book.toml` or `book.py` is a book, and its key is the folder name. Any folder name works, including `1_宏观经济与产业结构` and `複素多様体論`.
-- The loader rejects unknown keys, wrong types and bad `Literal` values. The error names the file and the key.
-- The catalog loads one book at a time. A broken book stops only the commands that use that book.
-- `polytypst new-book` writes `books/<key>/book.toml` and does not change `pyproject.toml`.
+- One key names a book everywhere: the book folder, the state folder, the CLI argument and `book_by_key`.
+- A volume or a variant is an edition of one book. It is not a separate output folder.
+- A data-only book is one file, `books/<key>/book.toml`, with no Python, no `__init__.py` and no `pyproject.toml` entry.
+- A book that needs code adds `books/<key>/hooks.py`. A book with a custom pipeline keeps `books/<key>/book.py`.
+- `catalog.open(key)` returns a `Book` handle. Callers get every path from it, and no caller builds a path from `out_dir` or `book_state()`.
+- Each state folder has the same fixed layout. Ad hoc folders such as `output/bourbaki/test_10_diagrams/` have no place in it.
+- A broken book stops only the commands that use that book.
+- `polytypst migrate-state` moves the existing state into the new layout. It shows a dry run first, and it never deletes a transcript.
 
 ## Non-Goals
 
-- No change to `MonographSpec`, `Edition`, `Book`, the compiler, OCR, parity or vision.
-- No change to the output layout under `output/<key>/`.
-- No move of the engine from `src/` to `src/polytypst/`. `package-dir = { "polytypst" = "src" }` already gives the right import name.
-- No move of `kerodon`, `goursat` and `taocp` in this plan. They have no `book.py`, and only `src/web_exporter.py` reaches them. See Open Questions.
+- No change to `MonographSpec` semantics, the compiler, OCR backends, parity measures or vision.
+- No move of source scans. `$POLYTYPST_SOURCES` and `source_pdf` stay as they are.
+- No rename of engine modules to match the stages, such as `scan/`, `ocr/`, `compile/` and `check/`. See Open Questions.
+- No move of `kerodon`, `goursat` and `taocp`. They have no `book.py`, and only `src/web_exporter.py` reaches them. See Open Questions.
 - No JSON. See Design.
 
 ## Background
 
-These facts come from the repository at commit `eabaa6b`.
+These facts come from the repository at commit `84d81df0` and from the state folder on 2026-10-28.
 
-- `src/books.py:13` already finds books at runtime with `PACKAGE.glob("*/book.py")`. The 26 `polytypst.<key>` entries in `pyproject.toml` exist only for setuptools.
-- `src/new_book.py` rewrites `pyproject.toml` with the regex `PACKAGES_RE` to add each new book.
-- `tests/test_packaging.py` exists only to keep the package list in step with the folders.
-- The five folders with a numeric prefix are not valid package names. They ship through the `"polytypst" = ["[0-9]*/*.py"]` package-data glob.
-- 28 folders have a `book.py`. Six of these files have the same short shape: bourbaki_lie, functional_analysis, hecke, kashiwara and ode_arnold, plus kodaira with a figures hook.
-- `docs/scanned-books.md:19` says: "`polytypst build` and `polytypst audit` import every book, so a broken spec in one book stops them for all." `scripts/one_book.py` exists to work around this.
+### One book in five places
+
+| Place | What it holds | Named by |
+| --- | --- | --- |
+| `src/<key>/` | spec, hooks, figure code, diagrams | key |
+| `pyproject.toml` | `polytypst.<key>` package entry | key |
+| `$POLYTYPST_SOURCES/` | source scan | `source_pdf` file name |
+| `$POLYTYPST_BOOKS/<name>/` | transcript store, `page_fit.json`, sometimes `source_ocr/` | output folder name |
+| `output/<name>/` | renders, line cache, figures, rebuilt PDFs, reports | output folder name |
+
+### The key changes from place to place
+
+- `src/book_state.py:17` returns `Path(root) / Path(out_dir).name`. The state folder is named after the output folder, not after the key.
+- 7 output folders differ from their key. They are `fermat → fermat2, fermat3`, `kenji_alg → kenji-alg, kenji-alg_vol1, kenji-alg_vol2`, `klein → klein_zh` and `siegel_symplectic → siegel-symplectic`.
+- `src/books.py` hard-codes five aliases for `sga4_5`.
+
+### Paths are built by hand
+
+- `out_dir` appears 333 times in 49 files under `src/`. `OUTPUT` appears in 29 files.
+- `book_state(...)` is called in 10 places. Four of them add `"markdown_pages"` by hand instead of using `spec.markdown_dir`. They are `src/vision/diagram_engine.py:538`, `src/vision/diagram_crops.py:107`, `src/goursat/build.py:192` and `src/1_宏观经济与产业结构/figures.py:72`.
+- The transcript folder name is not fixed. Most books use `markdown_pages/`, but `$POLYTYPST_BOOKS/ahlfors/` uses `markdown/`.
+
+### `output/` has no layout
+
+- `output/` holds 73 folders for 28 books.
+- `output/bourbaki/` alone holds 49 subfolders, for example `diagram_test`, `test_10_diagrams`, `redshift_fitted`, `parity_work` and `previews`.
+- `$POLYTYPST_BOOKS` holds 35 folders. Some of them also hold a `source_ocr/` copy of the line cache.
+
+### Books are packages
+
+- `src/books.py:13` finds books at runtime with `PACKAGE.glob("*/book.py")`. The 26 `polytypst.<key>` entries in `pyproject.toml` exist only for setuptools.
+- `src/new_book.py` rewrites `pyproject.toml` with the regex `PACKAGES_RE`. `tests/test_packaging.py` keeps the package list in step with the folders.
+- The five folders with a numeric prefix are not valid package names. They ship through the `"[0-9]*/*.py"` package-data glob.
+- `docs/scanned-books.md:19` says: "`polytypst build` and `polytypst audit` import every book, so a broken spec in one book stops them for all." `scripts/one_book.py` works around this.
 - 14 test files import book modules directly, for example `polytypst.hecke.spec`.
 
 ### Which spec fields need code
 
-`Rewrite` is `tuple[str, str]` (`src/compiler/monograph.py:49`), so rewrites and page fixups are data. These `MonographSpec` fields are the only ones that take functions:
+`Rewrite` is `tuple[str, str]` (`src/compiler/monograph.py:49`), so rewrites and page fixups are data. These are the only `MonographSpec` fields that take functions:
 
 | Field | Books that set it |
 | --- | --- |
@@ -58,32 +102,62 @@ These facts come from the repository at commit `eabaa6b`.
 
 Code also appears at the edition level:
 
-- `Book.figures`, for example kodaira's `generate_all_kodaira_figures`.
+- `Book.figures`, as in kodaira.
 - `monograph_edition(prepare=...)`.
 - `Parity.page_map`.
-- `FacsimileStyle.install_diagrams`, for example `lambda out: []` in `src/algebra3/book.py`.
+- `FacsimileStyle.install_diagrams`.
 
-Every other field is a string, number, boolean, list, table or path.
+Every other field is data.
 
 ## Design
 
-### Approach
+### Terms
 
-```text
-┌──────────────────────┐   path import   ┌──────────────────┐   ┌──────────────────┐
-│ books/<key>/         │────────────────▶│ src/catalog.py   │──▶│ cli, build,      │
-│   book.toml          │                 │ books()          │   │ parity, review   │
-│   hooks.py   (opt.)  │                 │ book_by_key()    │   │ (unchanged)      │
-│   book.py    (opt.)  │                 │ book_for_scan()  │   └──────────────────┘
-│   diagrams/ figures/ │                 └──────────────────┘
-└──────────────────────┘
+- **Book**: a key, a book folder and a state folder.
+- **Book folder**: `books/<key>/` in the repository. It holds what a person writes.
+- **State folder**: `$POLYTYPST_BOOKS/<key>/`. It holds what the machine makes. The name `book_state()` already means this, and it keeps that meaning.
+- **Edition**: one rebuild of a book, named inside the book, for example `monograph`, `vol2` or `facsimile`.
+
+Phase 3 adds these terms to `GLOSSARY.md`.
+
+### Layout
+
+```diff
++ books/<key>/                    book folder, in git
++   book.toml                     metadata, chapters, editions
++   hooks.py                      optional functions for callable fields
++   book.py                       optional, only for a custom pipeline
++   figures/  diagrams/           hand-made SVG and Typst
++ $POLYTYPST_BOOKS/<key>/         state folder, not in git
++   transcripts/                  kept: p_NNN.md and transcripts.json
++   lines/                        kept: line cache, pNNN.json and lines.json
++   page_fit.json  linebreaks.json   kept: measured fits
++   renders/                      cache: page renders of the source scan
++   build/<edition>/              disposable: .typ .tex .pdf .epub, figures
++   work/<command>/               disposable: parity, review, facsimile ink, crops
+- src/<key>/                      replaced by books/<key>/
+- output/                         replaced by the state folders
 ```
 
-The catalog resolves a folder in this order:
+Each `work/` subfolder belongs to one command, for example `work/parity/<edition>/`, `work/review/` or `work/ink/`. A command writes only its own subfolder. `polytypst clean <key>` deletes `build/`, `work/` and `renders/`. It never deletes `transcripts/`, `lines/` or the fit files.
 
-1. If `book.py` exists, the catalog imports it and uses its `BOOK`. A `book.toml` can exist beside it, and `book.py` can read it with `catalog.load_spec(folder)`.
-2. If there is no `book.py`, the catalog reads `book.toml`, binds `hooks.py` if it exists, and builds the `Book`.
-3. If neither file exists, the folder is not a book.
+### The `Book` handle
+
+`catalog.open(key)` returns a `Book`. The handle is the only interface that callers need.
+
+```python
+book = catalog.open("fermat")
+book.paths.transcripts            # $POLYTYPST_BOOKS/fermat/transcripts
+book.paths.build("vol2")          # $POLYTYPST_BOOKS/fermat/build/vol2
+book.paths.work("parity", "vol2") # $POLYTYPST_BOOKS/fermat/work/parity/vol2
+book.transcribe(backend)
+book.build("vol2", formats)
+book.parity("vol2")
+```
+
+`BookPaths` derives each path from the key and `$POLYTYPST_BOOKS`. `Book.out_dir`, `Edition.rebuilt`, `OUTPUT` and the free function `book_state(out_dir)` go away. `Edition.rebuilt` becomes `book.paths.build(name) / f"{key}.pdf"`. `MonographSpec.markdown_dir` goes away because the transcript folder is always `transcripts/`.
+
+`Book.adhoc(source)` handles a scan that has no book folder. It keeps working, with the key taken from the spec slug.
 
 ### Why TOML and not JSON
 
@@ -91,22 +165,23 @@ Specs hold many regexes and LaTeX or Typst preambles. TOML literal strings (`'..
 
 ### `book.toml` schema
 
-The top-level keys are the fields of `MonographSpec`, with the same names and meanings. The loader adds four keys:
+The top-level keys are the fields of `MonographSpec`, with the same names and meanings. The loader adds these keys:
 
 | Key | Meaning |
 | --- | --- |
-| `aliases` | Other keys that `book_by_key` accepts. This replaces the hard-coded `sga4_5` aliases in `src/books.py`. |
-| `out_dir` | The output folder. The default is `output/<key>`. |
+| `aliases` | Other keys that `book_by_key` accepts. This replaces the hard-coded `sga4_5` aliases. |
 | `running_headers` | A list of titles. The loader joins them with `\|`, passes them to `running_header_regexes()`, and appends the result to `running_header_regexes`. |
 | `editions` | A table of editions. See Editions. |
+| `legacy_state` | During migration only: the old output folder names of this book and its editions. Phase 3 removes it. |
 
 Type rules:
 
 - A TOML array becomes a `tuple` or a `frozenset`, as the field's annotation says.
 - A TOML table becomes a `ChapterSpec`, a `FigureLayout` or a `dict`, as the annotation says.
 - Keys of a `dict[int, ...]` field are strings in TOML. The loader parses them as integers.
-- A relative path resolves against the book folder. For example, `"../../fonts"` is the repo's `fonts/` folder. This replaces `Path(__file__).resolve().parents[2] / "fonts"`.
+- A relative path resolves against the book folder. For example, `"../../fonts"` is the repo's `fonts/` folder.
 - A callable field must not appear in TOML. It comes only from `hooks.py`.
+- The loader rejects unknown keys, wrong types and bad `Literal` values. The error names the file and the key.
 
 Example, from `src/hecke/spec.py` and `src/hecke/book.py`:
 
@@ -154,87 +229,132 @@ Each `[editions.<name>]` table has these keys:
 
 - `kind`: `"monograph"` (the default) or `"facsimile"`.
 - `summary`: a short description of the edition.
-- `out_dir`: an optional output folder.
-- `spec`: an optional table of `MonographSpec` overrides. The loader applies it with `dataclasses.replace`. This covers fermat's vol1, vol2 and vol3, and the `*_ILLUSTRATED_SPEC` variants.
+- `spec`: an optional table of `MonographSpec` overrides. The loader applies it with `dataclasses.replace`.
 - `facsimile`: for `kind = "facsimile"`, a table of `FacsimileStyle` fields.
 
-The first edition is the default, as it is today. If a book has no `editions` table, the catalog makes one `monograph` edition.
+The first edition is the default. If a book has no `editions` table, the catalog makes one `monograph` edition. An edition has no `out_dir` key, because `BookPaths` derives it.
 
-`parity` stays in `book.py` in this plan. It needs `Parity.page_map`, which is a function, and only bourbaki uses it.
+This replaces the separate output folders. For example, fermat becomes one book with the editions `vol3`, `vol2` and `vol1`:
+
+```toml
+[editions.vol3]
+summary = "volume 3"
+
+[editions.vol2]
+summary = "volume 2"
+spec = { slug = "fermat2", title = "...", chapters = [ ... ] }
+
+[editions.vol1]
+summary = "volume 1"
+spec = { slug = "fermat", title = "...", chapters = [ ... ] }
+```
+
+`parity` stays in `book.py` in this plan, because `Parity.page_map` is a function and only bourbaki uses it.
 
 ### `hooks.py`
 
 `hooks.py` is a plain module that the loader imports by path. It can import from the engine (`from polytypst.compiler.monograph import ...`) and use relative imports inside the book folder. The loader binds names with these rules:
 
 - A function with the name of a callable `MonographSpec` field fills that field. The names are `heading_hook`, `source_line_breaks` and `justify_page_end`.
-- A function named `figures` fills `Book.figures`.
-- An edition can name a different function. For example, `hooks = { heading_hook = "illustrated_heading_hook" }`, or `prepare = "draw_figures"` for `monograph_edition(prepare=...)`.
+- A function named `figures` fills `Book.figures`. It receives `BookPaths`, not an `out_dir`.
+- An edition can name a different function, for example `hooks = { heading_hook = "illustrated_heading_hook" }`, or `prepare = "draw_figures"`.
 - The loader raises an error when `book.toml` names a hook that `hooks.py` does not define. It also raises an error when `hooks.py` defines a public function that nothing binds.
 
-### Module loading
+### Discovery and loading
 
-`catalog.py` imports `hooks.py` and `book.py` with `importlib.util.spec_from_file_location`. It uses the synthetic package name `polytypst_books.b_<hash of key>` and sets `submodule_search_locations=[folder]`. This keeps relative imports such as `from .figures import ...` working, and it accepts any folder name.
+The book folders are in `books/`, relative to the repository root. The catalog finds that root from its own file location, not from the working directory.
 
-`books()` lists the folders without importing them. `book_by_key()` loads only the book that it returns. `books(load=True)` loads every book and reports each failure with its key. Thus one broken book does not hide the others.
+A folder is a book if it holds `book.toml` or `book.py`. If `book.py` exists, the catalog uses its `BOOK`, and `book.py` can read the TOML with `catalog.load_spec(folder)`. Otherwise, the catalog reads `book.toml` and binds `hooks.py`.
 
-### Components
+`catalog.py` imports `hooks.py` and `book.py` with `importlib.util.spec_from_file_location`. It uses the package name `polytypst_books.b_<hash of key>` and sets `submodule_search_locations=[folder]`. This keeps relative imports working, and it accepts any folder name.
 
-- New: `src/catalog.py`. It holds discovery, the TOML loader, hook binding and lazy loading.
-- New: `books/<key>/` for each book in `src/` that has a `book.py`.
-- Changed: `src/books.py` re-exports `catalog` during migration, and then goes away.
-- Changed: `src/new_book.py` writes `book.toml`. It loses `PACKAGES_RE` and `_list_package`.
-- Changed: the 14 test files that import book modules use `catalog.book_by_key("<key>").spec` instead.
-- Removed at the end: the 26 book entries and the `[0-9]*/*.py` glob in `pyproject.toml`, `tests/test_packaging.py`, and `scripts/one_book.py`, which lazy loading makes unnecessary.
+`books()` lists the keys without importing anything. `catalog.open(key)` loads only that book. `books(load=True)` loads every book and reports each failure with its key.
 
-### API Changes
+### `polytypst migrate-state`
 
-- `books()`, `book_by_key()`, `book_for_scan()`, `book_specs()` and `find_known_book()` keep their signatures. They move to `polytypst.catalog`.
-- New: `catalog.load_spec(folder) -> MonographSpec`, for a `book.py` that wants its data from TOML.
-- The books folder is `Path("books")`, relative to the working directory. This matches `OUTPUT = Path("output")`. The wheel no longer contains books.
+The command moves the existing state into the new layout. It reads `legacy_state` from each `book.toml` to map old folder names to a key and an edition.
+
+| Old path | New path |
+| --- | --- |
+| `$POLYTYPST_BOOKS/<old>/markdown_pages/` or `markdown/` | `$POLYTYPST_BOOKS/<key>/transcripts/` |
+| `output/<old>/source_ocr/` or `$POLYTYPST_BOOKS/<old>/source_ocr/` | `$POLYTYPST_BOOKS/<key>/lines/` |
+| `$POLYTYPST_BOOKS/<old>/page_fit.json`, `linebreaks.json` | `$POLYTYPST_BOOKS/<key>/` |
+| `output/<old>/page_renders/` | `$POLYTYPST_BOOKS/<key>/renders/` |
+| `output/<old>/<slug>.{typ,tex,pdf,epub}` and `figures/` | `$POLYTYPST_BOOKS/<key>/build/<edition>/` |
+
+Rules:
+
+1. Without `--apply`, the command prints every planned move and every folder that it will leave alone. It changes nothing.
+2. With `--apply`, it moves files. It never overwrites a file and never deletes a transcript.
+3. If two copies of the line cache differ, it keeps both and reports the conflict.
+4. It leaves unknown folders, such as `output/bourbaki/test_10_diagrams/`, where they are and lists them. You decide what to keep.
+5. A second run with nothing to move prints "nothing to move" and exits 0.
+
+### API changes
+
+- New: `polytypst.catalog` with `books()`, `open()`, `book_by_key()`, `book_for_scan()`, `book_specs()`, `find_known_book()` and `load_spec()`. The old names keep their signatures during phase 1.
+- New: `BookPaths` and the `Book.paths` attribute.
+- New CLI commands: `polytypst migrate-state [--apply]` and `polytypst clean <key>`.
+- Removed: `Book.out_dir`, `Edition.rebuilt`, `OUTPUT`, `book_state(out_dir)`, `MonographSpec.markdown_dir`, `src/books.py` and `scripts/one_book.py`.
+- The wheel no longer contains books.
 
 ## Implementation Plan
 
-The plan has two phases. Each phase is one PR.
+There are three phases. Phase 1 is a stack of two PRs. Phases 2 and 3 are one PR each.
 
-### Phase 1: Catalog and loader beside the old discovery
+### Phase 1: Book folders and `book.toml`
 
-- [ ] Add `src/catalog.py` with folder discovery, lazy loading and the strict TOML loader for `MonographSpec`, `ChapterSpec` and `FigureLayout`.
+- [ ] Add `src/catalog.py` with discovery, lazy loading and the strict TOML loader.
 - [ ] Support `[editions.*]` with the `monograph` and `facsimile` kinds and `spec` overrides.
-- [ ] Bind `hooks.py` functions by field name. Raise an error for a missing or unbound hook.
-- [ ] Make `src/books.py` return books from both `src/*/book.py` and `books/*/`. Reject a key that both locations define.
-- [ ] Add loader tests. Each test writes a sample `book.toml` and compares the result with a hand-built `MonographSpec`.
+- [ ] Bind `hooks.py` functions by name. Raise an error for a missing or unbound hook.
+- [ ] Make `src/books.py` read both `src/*/book.py` and `books/*/`. Reject a key that both define.
+- [ ] Record spec snapshots of every edition from the current code.
+- [ ] Move the data-only books, the multi-edition books, the books with hooks, and london_treasury. Record each book's old output folder names in `legacy_state`.
+- [ ] Switch the 14 test files to the catalog. Change `new-book` to write `book.toml`.
+- [ ] Delete the package entries, the `[0-9]*/*.py` glob and `tests/test_packaging.py`.
 
-### Phase 2: Migrate every book and remove the package machinery
+### Phase 2: One key and the `Book` handle
 
-- [ ] Move the single-edition, data-only books: hecke, kashiwara, ode_arnold, bourbaki_lie, functional_analysis, modern_geometry_vol3 and 複素多様体論.
-- [ ] Move the multi-edition and facsimile books: fermat, kenji_alg, algebra2, algebra3, klein, siegel_symplectic, grothendieck, fga, sga4_5, modern_geometry, modern_geometry_vol2 and ahlfors.
-- [ ] Move the books with hooks: the five economics books, bourbaki (which keeps `book.py` for `Parity`), fichtenholz_vol1 and kodaira.
-- [ ] Move london_treasury with its `book.py` unchanged.
-- [ ] Switch the 14 test files to `catalog`.
-- [ ] Change `new-book` to write `book.toml`.
-- [ ] Delete `src/books.py`, the book entries and the glob in `pyproject.toml`, `tests/test_packaging.py` and `scripts/one_book.py`.
-- [ ] Update `docs/scanned-books.md` (lines 19, 91 and 138 to 144), `docs/reviewing-books.md` (lines 4 and 250) and the Books line in `AGENTS.md`.
+- [ ] Add `BookPaths` and `Book.paths`, and make `catalog.open()` return the handle.
+- [ ] Replace each `out_dir`, `OUTPUT` and `book_state(...)` use in `src/` with `book.paths`. Start with the four places that add `"markdown_pages"` by hand.
+- [ ] Turn the fermat, kenji_alg and klein output-folder variants into editions under one key.
+- [ ] Pass `BookPaths` to the `figures` and `prepare` hooks.
+- [ ] Delete `Book.out_dir`, `Edition.rebuilt`, `OUTPUT`, `MonographSpec.markdown_dir`, `src/books.py` and `scripts/one_book.py`.
+
+### Phase 3: State layout and migration
+
+- [ ] Add `polytypst migrate-state` with dry run, `--apply`, the no-overwrite rule and the conflict report.
+- [ ] Add `polytypst clean <key>`.
+- [ ] Run the dry run on the real `$POLYTYPST_BOOKS` and `output/`, and review the plan with the user before `--apply`.
+- [ ] Remove `legacy_state` from every `book.toml` after the move.
+- [ ] Update `GLOSSARY.md` (book, book folder, state folder, transcript store, line cache), `docs/scanned-books.md`, `docs/reviewing-books.md` and the Books line in `AGENTS.md`.
 
 ## Testing Strategy
 
-- **Spec snapshots.** Before a book moves, the old code writes `repr(spec)` for each edition of that book to a snapshot. After the move, the catalog must produce an equal spec. Tests compare hooks by function name. The snapshot comes from the old code, so the test fails if the TOML drifts from it.
+- **Spec snapshots.** Before a book moves, the old code writes `repr(spec)` for each edition of that book to a snapshot. After the move, the catalog must produce an equal spec. Tests compare hooks by function name. The snapshot comes from the old code, so the test fails if the TOML drifts.
 - **Loader errors.** Each rejection rule has a test that fails without the rule. The rules are unknown key, wrong type, bad `Literal`, missing hook, unbound hook and duplicate key.
-- **Isolation.** A test puts a broken `book.toml` beside a good one. `book_by_key` on the good book must succeed.
-- **End to end.** `uv run polytypst books` lists the same keys before and after the move. `uv run pytest -q` passes. `polytypst build` for hecke and for one economics book gives the same `.typ` output as before.
+- **Isolation.** A broken `book.toml` beside a good one must not stop `catalog.open` on the good one.
+- **Paths.** A test checks each `BookPaths` attribute against the layout table in this spec, for a key with an underscore and for a key with Chinese characters.
+- **Migration.** A test builds a temporary old-style tree with transcripts, two differing line caches, an unknown folder and a renamed output folder. The dry run must change nothing. `--apply` must move every known file, keep both line caches, leave the unknown folder, and keep every transcript byte for byte. A second run must print "nothing to move".
+- **End to end.** `uv run polytypst books` lists the same keys before and after. `uv run pytest -q` passes. `polytypst build` for hecke, one economics book and fermat `vol2` gives the same `.typ` output as before.
 
 ## Rollout Plan
 
-Phase 1 merges first. During the migration, both locations work. Phase 2 moves the books in the batches above, and the last batch removes the old discovery. No user command changes.
+1. Phase 1 merges. Both book locations work until its last PR removes the old one.
+2. Phase 2 merges. Builds now write under the state folder, but the old state stays where it is.
+3. Phase 3 merges. The user reviews the `migrate-state` dry run, then runs `--apply`.
+4. After the user checks the moved state, the user deletes `output/`.
 
 ## Open Questions
 
-- Should `kerodon`, `goursat` and `taocp` move to `books/` as code-only folders, with `web_exporter.py` loading them through the catalog? Today the engine imports kerodon (`src/web_exporter.py:10`), which reverses the direction of the dependency.
-- Does anyone run polytypst from an installed wheel outside the repo? If so, add a `POLYTYPST_BOOKS` environment variable or a `--books` option.
-- Should the project generate a JSON Schema from `MonographSpec`, so that editors such as Taplo can check `book.toml` while you type?
+- Should `build/` stay inside the repository as `output/<key>/<edition>/` (gitignored), so that rebuilt PDFs are easy to open from the editor?
+- Should the engine modules be renamed by stage (`scan/`, `ocr/`, `compile/`, `check/`) in a later plan?
+- Should `kerodon`, `goursat` and `taocp` become book folders, with `web_exporter.py` loading them through the catalog? Today the engine imports kerodon (`src/web_exporter.py:10`).
 - Should `parity` move to TOML with a `page_map` hook, so that bourbaki can drop its `book.py`?
+- Should the project generate a JSON Schema from `MonographSpec`, so that editors can check `book.toml` while you type?
 
 ## References
 
-- `src/books.py`, `src/edition.py`, `src/new_book.py`, `src/compiler/monograph.py`
+- `src/books.py`, `src/book_state.py`, `src/edition.py`, `src/new_book.py`, `src/compiler/monograph.py`, `src/parity/source.py`
 - `tests/test_packaging.py`, `tests/test_books.py`
-- `docs/scanned-books.md`
+- `GLOSSARY.md`, `docs/scanned-books.md`, `docs/reviewing-books.md`
