@@ -447,8 +447,6 @@ TEXT_MACROS = re.compile(
 def convert_unary_macros(s: str) -> str:
     if "\\" not in s:
         return s
-    s = s.replace(r"\mathrm{d}", " dif ")
-    s = re.sub(r"(?<![\\a-zA-Z0-9_\^])d\s*([xyztuvwsr])(?![a-zA-Z0-9])", r" dif \1", s)
     s = BARE_UNARY_ARG_RE.sub(r"\1{\2}", s)
     for pattern, fmt in UNARY_MACROS:
         while True:
@@ -597,38 +595,6 @@ SUB_GREEK_SPLIT_RE = re.compile(
 BARE_BRACES_RE = re.compile(r"(?<!\\)\{([^{}]*)\}")
 NON_MATH_CHARS_RE = re.compile(r"[^\x00-\x7Fα-ωΑ-Ωℂℝℤℕℚ℘≤≥≠±∓×·→⇒↔⇐⇔⟶⟵⟷⟼⟹⟸⟺•—–§\s]")
 MULTI_TOK_RE = re.compile(r"(?<![a-zA-Z0-9])[a-zA-Z0-9]{2,}(?![a-zA-Z0-9])")
-
-DIFF_DERIV_FRAC_RE = re.compile(
-    r"\(\s*(?:dif|d)(\^\([0-9a-zA-Z+\-\s]+\)|\^[0-9a-zA-Z]+)?(?:\s+([a-zA-Z0-9_']+))?\s*\)\s*/\s*\(\s*(?:dif|b|d)\s*([zxywtuvsrZ])(\^\([0-9a-zA-Z+\-\s]+\)|\^[0-9a-zA-Z]+)?\s*\)"
-)
-DIFF_INLINE_DERIV_RE = re.compile(
-    r"\b(?:dif|d)(\^\([0-9a-zA-Z+\-\s]+\)|\^[0-9a-zA-Z]+)\s*([a-zA-Z0-9_']+)\s*/\s*(?:dif|d)\s*([zxywtuvsrZ])(\^\([0-9a-zA-Z+\-\s]+\)|\^[0-9a-zA-Z]+)"
-)
-DIFF_FORM_RE = re.compile(
-    r"(?:thin\s+)?(?<![a-zA-Z0-9_\\])(?:dif|d)\s*(?=(?:theta|phi|rho|xi|zeta|tau|eta|omega|alpha|sigma|log|arg)\b|(?:[uavgG]_[0-9]+\b)|(?:[zxywtuvsrghFGUWZ]\b(?!\s*\^|\s*-\s*b\b))|\(u_2\s*v_1\))"
-)
-DIFF_ABS_RE = re.compile(r"(?<!\\)\|\s*(dif\s+[^|\n]+?)\s*(?<!\\)\|")
-
-
-def normalize_differentials(code: str) -> str:
-    if "d" not in code:
-        return code
-
-    def _repl_frac(m: re.Match[str]) -> str:
-        deg1 = m.group(1) or ""
-        fn = m.group(2) or ""
-        var = m.group(3)
-        deg2 = m.group(4) or ""
-        num = f"dif{deg1} {fn}".strip()
-        den = f"dif {var}{deg2}".strip()
-        return f"({num})/({den})"
-
-    code = DIFF_DERIV_FRAC_RE.sub(_repl_frac, code)
-    code = DIFF_INLINE_DERIV_RE.sub(r"(dif\1 \2)/(dif \3\4)", code)
-    code = DIFF_FORM_RE.sub("dif ", code)
-    code = DIFF_ABS_RE.sub(r"abs(\1)", code)
-    return code
-
 
 def _is_variable_product(m: re.Match[str]) -> bool:
     """A two-letter word like `if` or `by` that is applied or follows an operator is a product."""
@@ -864,8 +830,6 @@ def sanitize_math_code(code: str, is_display: bool = False) -> str:
         code,
     )
 
-    code = normalize_differentials(code)
-
     def fix_tok(m: re.Match[str]) -> str:
         t = m.group(0)
         if t.isdigit() or t in KNOWN_MATH_WORDS:
@@ -902,8 +866,6 @@ def sanitize_math_code(code: str, is_display: bool = False) -> str:
             )
         segments[idx] = seg
     code = "".join(segments)
-
-    code = normalize_differentials(code)
 
     code = re.sub(r"_([a-zA-Z0-9]+)\(", r"_(\1)(", code)
     code = re.sub(r"\^([a-zA-Z0-9]+)\(", r"^(\1)(", code)
@@ -1233,13 +1195,65 @@ def _fix_typst_single_arg_frac(text: str) -> str:
     return "".join(res)
 
 
+ITALIC_D_RE = re.compile(
+    rf"(?:thin\s+)?(?<![\w.'\"#^_\\])(?<![_^]\()d(\^(?:\([\w+\- ]*\)|\w))?\s+"
+    rf"(?!d\s)(?=(?:{GREEK_WORDS})(?![A-Za-z])|[A-Za-z](?![A-Za-z0-9(]|\.[A-Za-z])|(?:abs|norm)\(|(?:log|ln|exp|sin|cos|tan)\b)"
+)
+DENOMINATOR_START_RE = re.compile(r"(?:/|\\/)\s*\(?\s*$")
+DERIVATIVE_OPERATOR_RE = re.compile(
+    r"(?<![\w.'\"#^_\\])d(\^(?:\([\w+\- ]*\)|\w))?"
+    r"(?=\s*[,(]\s*(?:dif\b|d(?:\^(?:\([\w+\- ]*\)|\w))?\s+[A-Za-z])|\s+(?:thin\s+)?(?:dif\b|d\s+[A-Za-z]))"
+)
+BRACKET_OPERATOR_RE = re.compile(r"(?<![\w.'\"#^_\\])d(\^(?:\([\w+\- ]*\)|\w))?(?=\s*\((?:[^(),]|\([^()]*\))*\))")
+DEFINED_DIFFERENTIAL_RE = re.compile(
+    r"\s*d\s+[A-Za-z]\s*=\s*0\s*$|\s*d\s+([A-Za-z])\s*=.*(?:'|\bpartial\b|\bDelta\b)|.*\bDelta\s+([A-Za-z])\b.*\bd\s+\2\b|(?=.*\bDelta\b).*'"
+)
+INTEGRAL_RE = re.compile(r"\b(?:integral|oint)(?![A-Za-z])")
+LETTER_RUN_RE = re.compile(r"\s*[A-Za-z](?:\s+[A-Za-z]){2,}\s*")
+DIFF_RUN_RE = re.compile(r"(?:\s*d\s+[A-Za-z])+\s*")
+LONE_ARGUMENT_RE = re.compile(rf"\s*(?:{GREEK_WORDS}|[A-Za-z])\s*")
+STRING_RE = re.compile(r'"(?:\\.|[^"\\])*"')
+
+
+def italic_differentials(body: str) -> list[re.Match[str]]:
+    plain = STRING_RE.sub(lambda m: " " * len(m.group(0)), body)
+    proven = _proven_differentials(plain)
+    if proven or re.search(r"\bdif\b", plain):
+        proven += BRACKET_OPERATOR_RE.finditer(plain)
+    return list({m.start(): m for m in sorted(proven, key=lambda m: m.start())}.values())
+
+
+def _proven_differentials(plain: str) -> list[re.Match[str]]:
+    operators = list(DERIVATIVE_OPERATOR_RE.finditer(plain))
+    found = list(ITALIC_D_RE.finditer(plain))
+    if operators:
+        return operators + found
+    if not found or (LETTER_RUN_RE.fullmatch(plain) and not DIFF_RUN_RE.fullmatch(plain)):
+        return []
+    if len(found) > 1 or re.search(r"\bdif\b", plain):
+        return found
+    m = found[0]
+    integral = INTEGRAL_RE.search(plain)
+    if integral and integral.start() < m.start() or DENOMINATOR_START_RE.search(plain[: m.start()]):
+        return found
+    if not plain[: m.start()].strip() and LONE_ARGUMENT_RE.fullmatch(plain[m.end() :]):
+        return found
+    if DEFINED_DIFFERENTIAL_RE.match(plain):
+        return found
+    variable = re.match(r"\s*(\w+)", plain[m.end() :])
+    if variable and re.search(rf"\([^()]*\b{variable.group(1)}\b[^()]*\)\s*$", plain[: m.start()]):
+        return found
+    return []
+
+
 def normalize_typst_differentials(t: str) -> str:
-    t = t.replace("upright(d)", "dif")
-    return re.sub(
-        r"(?<![a-zA-Z0-9_\^])d\s*([xyztrsuvwqp]|xi|alpha|beta|gamma|theta|phi|tau|lambda|mu)(?=[0-9\s\^_,.;!?\)]|$)",
-        r"dif \1",
-        t,
-    )
+    t = re.sub(r"(?:thin\s+)?upright\(d\)", "dif", t)
+    t = re.sub(r"thin\s+(?=dif\b)", "", t)
+    for m in reversed(italic_differentials(t)):
+        gap = " " if m.start() and not t[m.start() - 1].isspace() and t[m.start() - 1] not in "(," else ""
+        tail = " " if m.group(0)[-1:].isspace() else ""
+        t = f"{t[: m.start()]}{gap}dif{m.group(1) or ''}{tail}{t[m.end() :]}"
+    return t
 
 
 def finish_typst_math(s: str) -> str:
