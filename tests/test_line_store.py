@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw, ImageFont
 
-from polytypst.ocr.lines import LineStore
-from polytypst.ocr.pages import LinePage, OcrLine, PageImage
+from polytypst.ocr.lines import ImageLineStore, LineStore
+from polytypst.ocr.pages import LinePage, OcrLine, OcrStalled, PageImage
 from polytypst.ocr.tesseract import TesseractReader, tesseract_languages, tsv_lines
 
 
@@ -66,6 +66,45 @@ def test_store_keeps_earlier_provenance_and_leaves_failed_pages_pending(
         "pages"
     ]
     assert made_by == {"1": "first", "2": "second"}
+
+
+class StallingReader(FakeReader):
+    def read(self, pages: Sequence[PageImage]) -> Iterator[LinePage]:
+        yield from super().read(pages[:1])
+        raise OcrStalled("runner stopped")
+
+
+def figure_files(tmp_path: Path, names: Sequence[str]) -> list[Path]:
+    paths = [tmp_path / name for name in names]
+    for path in paths:
+        path.write_bytes(path.name.encode())
+    return paths
+
+
+def test_image_store_reads_each_image_once_by_its_bytes(tmp_path: Path) -> None:
+    store = ImageLineStore(tmp_path / "figure_ocr")
+    first, second = figure_files(tmp_path, ["fig_1.png", "fig_2.png"])
+    store.read([first, second], FakeReader())
+    again = FakeReader()
+
+    store.read([first, second], again)
+    second.write_bytes(b"redrawn")
+    store.read([first, second], again)
+
+    assert again.seen == [2]
+    assert store.lines(first, "fake:lines") == (OcrLine("line 1", 0.1, 0.8, 0.5, 0.02, 0.9),)
+
+
+def test_image_store_keeps_the_lines_read_before_a_stall(tmp_path: Path) -> None:
+    store = ImageLineStore(tmp_path / "figure_ocr")
+    first, second = figure_files(tmp_path, ["fig_1.png", "fig_2.png"])
+
+    with pytest.raises(OcrStalled):
+        store.read([first, second], StallingReader())
+    resumed = FakeReader()
+    store.read([first, second], resumed)
+
+    assert resumed.seen == [2]
 
 
 TSV_ROWS = (
