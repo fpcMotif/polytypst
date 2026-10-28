@@ -15,7 +15,7 @@ from polytypst.parity import (
     write_report,
 )
 from polytypst.parity.compare import right_overflow_lines
-from polytypst.parity.diagrams import DiagramText
+from polytypst.parity.diagrams import DiagramText, find_diagram
 
 W, H = 388.0, 609.0
 FONT, SIZE, LEAD = "tiro", 10.0, 14.0
@@ -154,6 +154,20 @@ def test_a_diagram_moved_sideways_reports_its_offset_and_scale(source: Path, tmp
     assert d.dy == pytest.approx(0.0, abs=0.25)
     assert d.sx == pytest.approx(1.0, abs=0.01) and d.sy == pytest.approx(1.0, abs=0.01)
     assert any(r.startswith("diagram fig_001_001") for r in verdict(page, FACSIMILE))
+
+
+def test_find_diagram_returns_the_page_position_of_a_diagram_set_in_an_indented_block() -> None:
+    rng = np.random.default_rng(7)
+    tmpl = np.zeros((120, 300), bool)
+    for _ in range(12):
+        y, x = rng.integers(0, 117), rng.integers(0, 240)
+        tmpl[y : y + 3, x : x + 60] = True
+        tmpl[rng.integers(0, 60) : rng.integers(60, 120), x : x + 3] = True
+    page = np.zeros((1300, 900), bool)
+    for y in [*range(40, 600, 30), *range(780, 1260, 30)]:
+        page[y : y + 12, 50:850] = rng.random((12, 800)) < 0.3
+    page[640:760, 300:600] = tmpl
+    assert find_diagram(page, tmpl)[:4] == (640, 300, 120, 300)
 
 
 def test_a_source_paginated_page_that_overflows_or_loses_a_line_fails() -> None:
