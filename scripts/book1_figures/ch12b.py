@@ -145,6 +145,7 @@ def _fig_12_6(mode: ThemeMode = "mono") -> str:
         xlim=(1983.0, 2008.0),
         ylim=(-1.0, 7.0),
         xticks=[(1983.5, "1938"), *_year_span_ticks(1984, 2007)],
+        xtick_vertical=True,
         yticks=[(float(v), _neg(v)) for v in range(-1, 8)],
         xlabel="年",
         ylabel="%",

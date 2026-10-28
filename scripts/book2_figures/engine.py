@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from html import escape
 from pathlib import Path
 from typing import Literal
 
 import pymupdf
 
-ThemeMode = Literal["mono", "color", "dark"]
+ThemeMode = Literal["mono", "color", "dark", "scan"]
 FONT_STACK = "'Songti SC', 'STIX Two Text', 'PingFang SC', 'Noto Serif CJK SC', serif"
 SANS_STACK = "'PingFang SC', 'Helvetica Neue', 'STIX Two Text', sans-serif"
+SERIF_STACK = "'Times New Roman', 'STIX Two Text', 'Songti SC', serif"
 PRINT_SCALE = 0.6
 
 
@@ -155,8 +156,26 @@ DASH_PATTERNS: dict[str, str] = {
 }
 
 
+PALETTES["scan"] = replace(
+    PALETTES["mono"],
+    mode="scan",
+    fg="#000000",
+    muted="#000000",
+    axis="#000000",
+    grid="#000000",
+    zero="#000000",
+    border="#ffffff",
+    span_fills=("rgba(0, 0, 0, 0.45)", "rgba(0, 0, 0, 0.3)", "rgba(0, 0, 0, 0.2)"),
+)
+
+
 def get_palette(mode: ThemeMode = "mono") -> Palette:
     return PALETTES[mode]
+
+
+def is_mono(mode: ThemeMode) -> bool:
+    """Whether the mode prints in black ink only, so series differ by dash, marker fill and hatch, not colour."""
+    return mode in ("mono", "scan")
 
 
 @dataclass
@@ -171,6 +190,7 @@ class LineSeries:
     axis: Literal["y1", "y2"] = "y1"
     area_fill: bool = False
     fixed_style: bool = False
+    hollow: bool | None = None
 
 
 @dataclass
@@ -243,6 +263,7 @@ class PanelSpec:
         default_factory=list
     )
     legend_loc: Literal["top", "bottom", "none"] = "top"
+    xtick_vertical: bool = False
 
 
 @dataclass
@@ -355,15 +376,26 @@ def _draw_marker(
 
 
 LEGEND_ROW_H = 16.0
-LegendItem = tuple[str, str, str, str | None, bool]
+LegendItem = tuple[str, str, str, str | None, tuple[str, bool] | None]
+
+
+def _marker_hollow(ln: LineSeries, mode: ThemeMode) -> bool:
+    return ln.hollow if ln.hollow is not None else (is_mono(mode) and ln.color_idx % 2 == 1)
+
+
+def _xtick_drop(panel: PanelSpec) -> float:
+    """Extra height below the axis that vertical tick labels need."""
+    if not panel.xtick_vertical:
+        return 0.0
+    return max((_text_w(lab, 10.5) for _, lab in _norm_ticks(panel.xticks, panel.xlim, 6)), default=0.0) - 8.0
 
 
 def _text_w(text: str, size: float) -> float:
     return sum(size if ord(ch) > 0x2E7F else size * 0.56 for ch in text)
 
 
-def _legend_item_w(item: LegendItem) -> float:
-    return 22.0 + _text_w(item[1], 10.8) + 14.0
+def _legend_item_w(item: LegendItem, size: float = 10.8) -> float:
+    return 22.0 + _text_w(item[1], size) + 14.0
 
 
 def _legend_items(panel: PanelSpec, pal: Palette, mode: ThemeMode) -> list[LegendItem]:
@@ -371,15 +403,15 @@ def _legend_items(panel: PanelSpec, pal: Palette, mode: ThemeMode) -> list[Legen
     for b in panel.bars:
         if b.label:
             bcol = pal.fills[b.color_idx % len(pal.fills)]
-            items.append(("bar", b.label, bcol, "hatch" if (mode == "mono" and b.hatch) else None, False))
+            items.append(("bar", b.label, bcol, "hatch" if (is_mono(mode) and b.hatch) else None, False))
     for ln in panel.lines:
         if ln.label:
             lcol = pal.series[ln.color_idx % len(pal.series)]
             s_key = ln.style
-            if mode == "mono" and s_key == "solid" and ln.color_idx > 0 and len(panel.lines) > 1 and not ln.fixed_style:
+            if is_mono(mode) and s_key == "solid" and ln.color_idx > 0 and len(panel.lines) > 1 and not ln.fixed_style:
                 mono_styles = ["solid", "dashed", "dotted", "dashdot", "longdash"]
                 s_key = mono_styles[ln.color_idx % len(mono_styles)]
-            items.append(("line", ln.label, lcol, s_key, ln.marker is not None))
+            items.append(("line", ln.label, lcol, s_key, (ln.marker, _marker_hollow(ln, mode)) if ln.marker else None))
     for i, bd in enumerate(panel.bands):
         if bd.label and bd.show_edges:
             bcol = pal.series[bd.color_idx % len(pal.series)]
@@ -390,11 +422,11 @@ def _legend_items(panel: PanelSpec, pal: Palette, mode: ThemeMode) -> list[Legen
     return items
 
 
-def _wrap_legend(items: list[LegendItem], width: float) -> list[list[LegendItem]]:
+def _wrap_legend(items: list[LegendItem], width: float, size: float = 10.8) -> list[list[LegendItem]]:
     rows: list[list[LegendItem]] = []
     used = 0.0
     for item in items:
-        item_w = _legend_item_w(item)
+        item_w = _legend_item_w(item, size)
         if not rows or (rows[-1] and used + item_w > width):
             rows.append([])
             used = 0.0
@@ -409,6 +441,63 @@ TITLE_SIZE = 13.5
 TITLE_LINE_H = 17.0
 NOTE_SIZE = 10.5
 NOTE_LINE_H = 14.0
+
+
+@dataclass(frozen=True)
+class Style:
+    """Type sizes and rule weights of one house style."""
+
+    tick_font: str = SANS_STACK
+    tick_size: float = 10.5
+    tick_gap: float = 8.0
+    grid_width: float = 0.9
+    grid_dash: str = "2.5,2.5"
+    frame_width: float = 1.2
+    zero_line: bool = True
+    legend_size: float = 10.8
+    title_size: float = TITLE_SIZE
+    title_weight: str = "600"
+    title_left: bool = False
+    xlabel_inline: bool = False
+    legend_bottom: bool = False
+    legend_wide: bool = False
+    scatter_grid: bool = True
+
+
+STYLES: dict[ThemeMode, Style] = {
+    "scan": Style(
+        tick_font=SERIF_STACK,
+        tick_size=12.0,
+        tick_gap=2.0,
+        grid_width=0.7,
+        grid_dash="",
+        frame_width=0.8,
+        zero_line=False,
+        legend_size=12.0,
+        title_size=12.0,
+        title_weight="400",
+        title_left=True,
+        xlabel_inline=True,
+        legend_bottom=True,
+        legend_wide=True,
+        scatter_grid=False,
+    ),
+}
+
+
+def get_style(mode: ThemeMode) -> Style:
+    """The house style of a mode: the printed book's charts for "scan" (solid black grid, serif ticks with every
+    label kept, the x unit after the last label, legend under the axis), else the redraw's own."""
+    return STYLES.get(mode, Style())
+
+
+def _xlabel_inline(panel: PanelSpec, style: Style) -> bool:
+    """Whether the x unit sits after the last tick label, as a short unit such as 年 does in the scan."""
+    return style.xlabel_inline and _text_w(panel.xlabel, style.tick_size) <= 2 * style.tick_size
+
+
+def _legend_loc(panel: PanelSpec, style: Style) -> str:
+    return "bottom" if style.legend_bottom and panel.legend_loc == "top" else panel.legend_loc
 
 
 @dataclass
@@ -435,14 +524,18 @@ def _panel_frame(panel: PanelSpec, cell_w: float, cols: int, pal: Palette, mode:
     pad_l = 54.0 if panel.ylabel or cols == 1 else 46.0
     pad_r = 52.0 if panel.y2lim is not None else 22.0
     pw = max(60.0, cell_w - pad_l - pad_r)
-    leg_rows = _wrap_legend(_legend_items(panel, pal, mode), pw) if panel.legend_loc != "none" else []
+    style = get_style(mode)
+    loc = _legend_loc(panel, style)
+    leg_w = cell_w - 12.0 if style.legend_wide else pw
+    leg_rows = _wrap_legend(_legend_items(panel, pal, mode), leg_w, style.legend_size) if loc != "none" else []
     leg_h = 22.0 + LEGEND_ROW_H * (len(leg_rows) - 1) if leg_rows else 0.0
-    top_legend = bool(leg_rows) and panel.legend_loc == "top"
-    title_lines = _wrap_title(panel.title, cell_w - abs(2 * pad_l + pw - cell_w) - 6.0)
+    top_legend = bool(leg_rows) and loc == "top"
+    title_lines = _wrap_title(panel.title, cell_w - abs(2 * pad_l + pw - cell_w) - 6.0, style.title_size)
     y_label_gap = 17.0 if (top_legend or title_lines) and (panel.ylabel or panel.y2label) else 0.0
     title_h = 26.0 + TITLE_LINE_H * (len(title_lines) - 1) if title_lines else 10.0
     pad_t = title_h + (leg_h if top_legend else 8.0) + y_label_gap
-    pad_b = 34.0 + (14.0 if panel.xlabel else 0.0) + (leg_h + 6.0 if panel.legend_loc == "bottom" and leg_rows else 0.0)
+    xlabel_h = 14.0 if panel.xlabel and not _xlabel_inline(panel, style) else 0.0
+    pad_b = 34.0 + _xtick_drop(panel) + xlabel_h + (leg_h + 6.0 if loc == "bottom" and leg_rows else 0.0)
     return PanelFrame(pad_l, pw, pad_t, pad_b, leg_rows, y_label_gap, title_lines)
 
 
@@ -493,6 +586,8 @@ def _thin_ticks(
 
 def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
     pal = get_palette(mode)
+    style = get_style(mode)
+    grid_dash = f' stroke-dasharray="{style.grid_dash}"' if style.grid_dash else ""
     W, H = round(spec.width * PRINT_SCALE), round(spec.height * PRINT_SCALE)
     rows = max(1, spec.rows)
     cols = max(1, spec.cols)
@@ -548,10 +643,11 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
         px1 = px0 + pw
         py1 = py0 + ph
 
+        title_x, title_anchor = (cx0 + 6.0, "start") if style.title_left else (px0 + pw / 2, "middle")
         for line_idx, title_line in enumerate(frame.title_lines):
             out.append(
-                f'<text x="{px0 + pw / 2:.1f}" y="{cy0 + 18.0 + TITLE_LINE_H * line_idx:.1f}" text-anchor="middle" '
-                f'font-family="{FONT_STACK}" font-size="{TITLE_SIZE}" font-weight="600" fill="{pal.fg}">'
+                f'<text x="{title_x:.1f}" y="{cy0 + 18.0 + TITLE_LINE_H * line_idx:.1f}" text-anchor="{title_anchor}" '
+                f'font-family="{FONT_STACK}" font-size="{style.title_size}" font-weight="{style.title_weight}" fill="{pal.fg}">'
                 f"{escape(title_line)}</text>"
             )
         if panel.ylabel:
@@ -621,20 +717,23 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
         yticks = _norm_ticks(panel.yticks, panel.ylim, 5)
         if len(yticks) > 1:
             yticks = _thin_ticks(yticks, map_y1, 13.0)
+        scatter = bool(panel.scatters) or (bool(panel.lines) and all(ln.style == "none" for ln in panel.lines))
+        grid = style.scatter_grid or not scatter
         for yv, ylab in yticks:
             yy = map_y1(yv)
             if py0 - 1.0 <= yy <= py1 + 1.0:
-                out.append(
-                    f'<line x1="{px0:.2f}" y1="{yy:.2f}" x2="{px1:.2f}" y2="{yy:.2f}" '
-                    f'stroke="{pal.grid}" stroke-width="0.9" stroke-dasharray="2.5,2.5"/>'
-                )
+                if grid:
+                    out.append(
+                        f'<line x1="{px0:.2f}" y1="{yy:.2f}" x2="{px1:.2f}" y2="{yy:.2f}" '
+                        f'stroke="{pal.grid}" stroke-width="{style.grid_width}"{grid_dash}/>'
+                    )
                 out.append(
                     f'<line x1="{px0:.2f}" y1="{yy:.2f}" x2="{px0 + 4.5:.2f}" y2="{yy:.2f}" '
                     f'stroke="{pal.axis}" stroke-width="1.1"/>'
                 )
                 out.append(
                     f'<text x="{px0 - 6.5:.2f}" y="{yy + 3.8:.2f}" text-anchor="end" '
-                    f'font-family="{SANS_STACK}" font-size="10.5" fill="{pal.muted}">{escape(ylab)}</text>'
+                    f'font-family="{style.tick_font}" font-size="{style.tick_size}" fill="{pal.muted}">{escape(ylab)}</text>'
                 )
 
         if has_y2 and panel.y2lim is not None:
@@ -648,13 +747,15 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
                     )
                     out.append(
                         f'<text x="{px1 + 6.5:.2f}" y="{yy + 3.8:.2f}" text-anchor="start" '
-                        f'font-family="{SANS_STACK}" font-size="10.5" fill="{pal.muted}">{escape(ylab)}</text>'
+                        f'font-family="{style.tick_font}" font-size="{style.tick_size}" fill="{pal.muted}">{escape(ylab)}</text>'
                     )
 
         xticks = _norm_ticks(panel.xticks, panel.xlim, 6)
+        drop = _xtick_drop(panel)
         if len(xticks) > 1:
-            label_w = max(_text_w(lab, 10.5) for _, lab in xticks) + 8.0
+            label_w = 12.0 if panel.xtick_vertical else max(_text_w(lab, style.tick_size) for _, lab in xticks) + style.tick_gap
             xticks = _thin_ticks(xticks, map_x, label_w)
+        label_end = px1
         for xv, xlab in xticks:
             xx = map_x(xv)
             if px0 - 1.0 <= xx <= px1 + 1.0:
@@ -662,18 +763,35 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
                     f'<line x1="{xx:.2f}" y1="{py1 - 4.5:.2f}" x2="{xx:.2f}" y2="{py1:.2f}" '
                     f'stroke="{pal.axis}" stroke-width="1.1"/>'
                 )
+                if panel.xtick_vertical:
+                    out.append(
+                        f'<text transform="translate({xx + 3.8:.2f},{py1 + 6.0:.2f}) rotate(-90)" text-anchor="end" '
+                        f'font-family="{style.tick_font}" font-size="{style.tick_size}" fill="{pal.muted}">{escape(xlab)}</text>'
+                    )
+                    continue
                 out.append(
                     f'<text x="{xx:.2f}" y="{py1 + 18.0:.2f}" text-anchor="middle" '
-                    f'font-family="{SANS_STACK}" font-size="10.5" fill="{pal.muted}">{escape(xlab)}</text>'
+                    f'font-family="{style.tick_font}" font-size="{style.tick_size}" fill="{pal.muted}">{escape(xlab)}</text>'
                 )
+                label_end = max(label_end, xx + _text_w(xlab, style.tick_size) / 2)
 
-        if panel.xlabel:
+        if panel.xlabel and _xlabel_inline(panel, style):
             out.append(
-                f'<text x="{px0 + pw / 2:.1f}" y="{py1 + 34:.1f}" text-anchor="middle" '
+                f'<text x="{label_end + 4:.1f}" y="{py1 + 18.0:.1f}" text-anchor="start" '
+                f'font-family="{FONT_STACK}" font-size="{style.tick_size}" fill="{pal.muted}">{escape(panel.xlabel)}</text>'
+            )
+        elif panel.xlabel and style.xlabel_inline:
+            out.append(
+                f'<text x="{px1:.1f}" y="{py1 + 34 + drop:.1f}" text-anchor="end" '
+                f'font-family="{FONT_STACK}" font-size="{style.tick_size}" fill="{pal.muted}">{escape(panel.xlabel)}</text>'
+            )
+        elif panel.xlabel:
+            out.append(
+                f'<text x="{px0 + pw / 2:.1f}" y="{py1 + 34 + drop:.1f}" text-anchor="middle" '
                 f'font-family="{FONT_STACK}" font-size="11.5" fill="{pal.muted}">{escape(panel.xlabel)}</text>'
             )
 
-        if panel.zero_line and ylo < 0 < yhi:
+        if panel.zero_line and style.zero_line and ylo < 0 < yhi:
             zy = map_y1(0.0)
             out.append(
                 f'<line x1="{px0:.2f}" y1="{zy:.2f}" x2="{px1:.2f}" y2="{zy:.2f}" '
@@ -744,10 +862,10 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
                 y_bot = y_fn(min(b0, b0 + yv))
                 bh = max(0.8, abs(y_bot - y_top))
                 bx = map_x(xv) - bw_px / 2
-                fill_attr = "#cbd5e1" if (mode == "mono" and b.hatch) else bcol
+                fill_attr = "#cbd5e1" if (is_mono(mode) and b.hatch) else bcol
                 out.append(
                     f'<rect x="{bx:.2f}" y="{min(y_top, y_bot):.2f}" width="{bw_px:.2f}" height="{bh:.2f}" '
-                    f'fill="{fill_attr}" fill-opacity="{b.opacity:.2f}" stroke="{pal.fg if mode == "mono" else bcol}" stroke-width="0.7"/>'
+                    f'fill="{fill_attr}" fill-opacity="{b.opacity:.2f}" stroke="{pal.fg if is_mono(mode) else bcol}" stroke-width="0.7"/>'
                 )
 
         scatter_boxes = [
@@ -764,7 +882,7 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
                     f'<path d="{d_str}" fill="none" stroke="{scol}" stroke-width="1.6" stroke-opacity="0.75"/>'
                 )
             for i, (px, py) in enumerate(pts_px):
-                out.append(_draw_marker(px, py, "circle", scol, pal.panel_bg, 3.6, hollow=(mode == "mono" and c_idx % 2 == 1)))
+                out.append(_draw_marker(px, py, "circle", scol, pal.panel_bg, 3.6, hollow=(is_mono(mode) and c_idx % 2 == 1)))
                 if pt_labels and i < len(pt_labels) and pt_labels[i]:
                     lx, ly, anchor = _place_point_label(scatter_boxes, px, py, _text_w(pt_labels[i], 9.5))
                     out.append(
@@ -776,7 +894,7 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
             y_fn = map_y2 if ln.axis == "y2" else map_y1
             lcol = pal.series[ln.color_idx % len(pal.series)]
             style_key = ln.style
-            if mode == "mono" and style_key == "solid" and ln.color_idx > 0 and len(panel.lines) > 1 and not ln.fixed_style:
+            if is_mono(mode) and style_key == "solid" and ln.color_idx > 0 and len(panel.lines) > 1 and not ln.fixed_style:
                 mono_styles = ["solid", "dashed", "dotted", "dashdot", "longdash"]
                 style_key = mono_styles[ln.color_idx % len(mono_styles)]
             dash = DASH_PATTERNS.get(style_key, "")
@@ -803,7 +921,7 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
                             + [f"{seg[-1][0]:.2f},{z_py:.2f}"]
                         )
                         afill = pal.band_fills[ln.color_idx % len(pal.band_fills)]
-                        if mode != "mono" or ln.area_fill:
+                        if not is_mono(mode) or ln.area_fill:
                             out.append(f'<polygon points="{" ".join(area_pts)}" fill="{afill}" stroke="none"/>')
                     d_str = _dashed_path_d(seg, dash)
                     out.append(
@@ -822,7 +940,7 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
                                     lcol,
                                     pal.panel_bg,
                                     3.6,
-                                    hollow=(mode == "mono" and ln.color_idx % 2 == 1),
+                                    hollow=_marker_hollow(ln, mode),
                                 )
                             )
 
@@ -852,23 +970,25 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
 
         out.append(
             f'<rect x="{px0:.2f}" y="{py0:.2f}" width="{pw:.2f}" height="{ph:.2f}" '
-            f'fill="none" stroke="{pal.axis}" stroke-width="1.2"/>'
+            f'fill="none" stroke="{pal.axis}" stroke-width="{style.frame_width}"/>'
         )
 
         if leg_rows:
             for row_idx, row in enumerate(leg_rows):
-                if panel.legend_loc == "top":
+                if _legend_loc(panel, style) == "top":
                     ly = py0 - 10.0 - y_label_gap - LEGEND_ROW_H * (len(leg_rows) - 1 - row_idx)
                 else:
-                    ly = py1 + (52.0 if panel.xlabel else 36.0) + LEGEND_ROW_H * row_idx
-                lx = px0 + max(0.0, (pw - sum(_legend_item_w(it) for it in row)) / 2.0)
-                for kind, ltext, lcol, lstyle, has_mk in row:
-                    iw = _legend_item_w((kind, ltext, lcol, lstyle, has_mk))
+                    xlabel_row = panel.xlabel and not _xlabel_inline(panel, style)
+                    ly = py1 + (52.0 if xlabel_row else 36.0) + drop + LEGEND_ROW_H * row_idx
+                row_x, row_w = (cx0 + 6.0, cell_w - 12.0) if style.legend_wide else (px0, pw)
+                lx = row_x + max(0.0, (row_w - sum(_legend_item_w(it, style.legend_size) for it in row)) / 2.0)
+                for kind, ltext, lcol, lstyle, mk in row:
+                    iw = _legend_item_w((kind, ltext, lcol, lstyle, mk), style.legend_size)
                     if kind == "bar":
                         fill_attr = "#cbd5e1" if lstyle == "hatch" else lcol
                         out.append(
                             f'<rect x="{lx:.2f}" y="{ly - 8.5:.2f}" width="14" height="9" '
-                            f'fill="{fill_attr}" stroke="{pal.fg if mode == "mono" else lcol}" stroke-width="0.8"/>'
+                            f'fill="{fill_attr}" stroke="{pal.fg if is_mono(mode) else lcol}" stroke-width="0.8"/>'
                         )
                     elif kind == "fill":
                         out.extend(
@@ -882,11 +1002,11 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
                             out.append(
                                 f'<path d="{leg_d}" fill="none" stroke="{lcol}" stroke-width="2.1"/>'
                             )
-                        if has_mk:
-                            out.append(_draw_marker(lx + 9, ly - 4, "circle", lcol, pal.panel_bg, 3.0))
+                        if mk:
+                            out.append(_draw_marker(lx + 9, ly - 4, mk[0], lcol, pal.panel_bg, 3.0, hollow=mk[1]))
                     out.append(
                         f'<text x="{lx + 22:.2f}" y="{ly:.2f}" font-family="{FONT_STACK}" '
-                        f'font-size="10.8" fill="{pal.fg}">{escape(ltext)}</text>'
+                        f'font-size="{style.legend_size}" fill="{pal.fg}">{escape(ltext)}</text>'
                     )
                     lx += iw
 

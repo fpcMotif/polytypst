@@ -36,12 +36,17 @@ def figure_order(fid: str) -> tuple[int, ...]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Redraw book 1's chart figures as monochrome SVGs beside the scan crops.")
+    parser = argparse.ArgumentParser(
+        description="Redraw book 1's chart figures as monochrome SVGs beside the scan crops, and in the scan's own "
+        "chart style into figures_scan for the facsimile edition."
+    )
     parser.add_argument("ids", nargs="*", help="figure ids such as 1-1 or 12-4; all when omitted")
     parser.add_argument("--png", type=Path, help="also write a 150-dpi PNG of each SVG into this folder")
     args = parser.parse_args()
 
     fig_dir = BOOK_DIR / "figures"
+    scan_dir = BOOK_DIR / "figures_scan"
+    scan_dir.mkdir(exist_ok=True)
     generators = load_all_generators()
     unknown = [fid for fid in args.ids if fid not in generators]
     if unknown:
@@ -49,6 +54,7 @@ def main() -> None:
     for fid in args.ids or sorted(generators, key=figure_order):
         svg = generators[fid]("mono")
         (fig_dir / f"fig_{fid}.svg").write_text(svg, encoding="utf-8")
+        (scan_dir / f"fig_{fid}.svg").write_text(generators[fid]("scan"), encoding="utf-8")
         if args.png:
             args.png.mkdir(parents=True, exist_ok=True)
             doc = pymupdf.open("svg", svg.encode("utf-8"))

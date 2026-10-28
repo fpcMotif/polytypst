@@ -339,6 +339,7 @@ def chart_band(
 
 def crop_page_charts(
     page: PageImage,
+    page_img: Image.Image,
     rows: Sequence[Row],
     body: Body,
     out_dir: Path,
@@ -348,11 +349,10 @@ def crop_page_charts(
 ) -> list[ExtractedFigure]:
     """Crop each captioned chart on one page into `out_dir/fig_X-Y.png`, skipping ids already in `seen`.
 
+    `page_img` is the page in grayscale.
     `known_ids` are the figure ids the transcripts caption, used to repair OCR misreadings of a number.
     `lead` is the start of a chart at the foot of the previous page; it goes above a chart that opens this page."""
     figures: list[ExtractedFigure] = []
-    with Image.open(page.path) as im:
-        page_img = im.convert("L")
     gray = np.asarray(page_img)
     h, w = gray.shape
     caps = captions(rows, body)
@@ -437,13 +437,13 @@ def extract_cjk_charts(
     for page in sorted(pages, key=lambda p: p.number):
         if previous is None or page.number != previous + 1:
             lead = None
-        figures.extend(
-            crop_page_charts(
-                page, page_rows[page.number], body, out_dir, seen, known_ids, lead
-            )
-        )
         with Image.open(page.path) as im:
             page_img = im.convert("L")
+        figures.extend(
+            crop_page_charts(
+                page, page_img, page_rows[page.number], body, out_dir, seen, known_ids, lead
+            )
+        )
         box = chart_tail(np.asarray(page_img), page_rows[page.number], body)
         lead = page_img.crop(box) if box else None
         previous = page.number

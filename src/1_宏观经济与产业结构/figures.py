@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import json
 import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
 from ..book_state import book_state
+from ..facsimile_figures import FigureArt
 from ..ocr.lines import LineStore, source_ocr_dir
 from ..ocr.pages import PageImage
 from ..vision.cjk_charts import (
@@ -34,10 +37,27 @@ BAND_OVERRIDES: dict[str, list[tuple[int, tuple[float, float, float, float]]]] =
     "2-3": [(74, (0.04, 0.530, 0.96, 0.870))],
     "6-10": [(204, (0.04, 0.332, 0.96, 0.575))],
     "6-12": [(205, (0.04, 0.075, 0.96, 0.347))],
+    "6-17": [(213, (0.13, 0.09, 0.84, 0.92)), (214, (0.11, 0.095, 0.81, 0.92))],
+    "6-18": [(215, (0.13, 0.09, 0.84, 0.92)), (216, (0.11, 0.095, 0.81, 0.92))],
+    "7-10": [(246, (0.04, 0.228, 0.96, 0.506))],
     "9-1": [(297, (0.04, 0.285, 0.96, 0.409))],
     "10-12": [(338, (0.04, 0.118, 0.96, 0.489))],
     "11-6": [(365, (0.04, 0.625, 0.96, 0.880))],
 }
+BAND_TURNS = {"6-17": -90, "6-18": -90}
+FACSIMILE_BANDS: dict[str, list[tuple[int, tuple[float, float, float, float]]]] = {
+    "1-4": [(45, (0.04, 0.425, 0.96, 0.72)), (46, (0.04, 0.10, 0.96, 0.378))],
+    "1-9": [(55, (0.04, 0.60, 0.96, 0.885)), (56, (0.04, 0.10, 0.96, 0.405))],
+    "7-2": [(226, (0.04, 0.50, 0.96, 0.86)), (227, (0.04, 0.10, 0.96, 0.475))],
+    "7-5": [(233, (0.04, 0.51, 0.96, 0.76)), (234, (0.04, 0.10, 0.96, 0.362))],
+    "7-6": [(237, (0.04, 0.65, 0.96, 0.90)), (238, (0.04, 0.10, 0.96, 0.630))],
+    "11-3": [(359, (0.04, 0.285, 0.96, 0.785)), (360, (0.04, 0.10, 0.96, 0.368))],
+    "11-5": [(362, (0.04, 0.485, 0.96, 0.93)), (363, (0.04, 0.10, 0.96, 0.355))],
+    "13-3": [(414, (0.04, 0.60, 0.96, 0.85)), (415, (0.04, 0.10, 0.96, 0.61))],
+    "6-14": [(205, (0.04, 0.685, 0.96, 0.935)), (206, (0.04, 0.10, 0.96, 0.866))],
+    "6-19": [(218, (0.11, 0.13, 0.83, 0.91))],
+}
+FACSIMILE_TURNS = {**BAND_TURNS, "6-19": -90}
 
 
 def _clean_monochrome_raster(raw_path: Path, dst_path: Path) -> None:
@@ -82,7 +102,10 @@ def extract_clean_raw_figures(out_dir: Path) -> list[dict[str, object]]:
                 break
             pad = int(PAD * h)
             box = (max(0, box[0] - pad), max(0, box[1] - pad), min(w, box[2] + pad), min(h, box[3] + pad))
-            crops.append(page_img.crop(box))
+            crop = page_img.crop(box)
+            if fid in BAND_TURNS:
+                crop = crop.rotate(BAND_TURNS[fid], expand=True)
+            crops.append(crop)
         else:
             sheet = crops[0]
             for lower in crops[1:]:
@@ -101,18 +124,53 @@ def extract_clean_raw_figures(out_dir: Path) -> list[dict[str, object]]:
                 continue
             seen.add(fig_id)
             ef = by_id.get(fig_id)
+            source_page = ef.source_page if ef is not None else page_num
+            band = next((b for p, b in BAND_OVERRIDES.get(fig_id, ()) if p == source_page), None)
             records.append(
                 {
                     "id": fig_id,
-                    "page": ef.source_page if ef is not None else page_num,
+                    "page": source_page,
                     "caption": SCAN_CAPTIONS.get(fig_id)
                     or (ef.caption if ef is not None else "")
                     or alt_text
                     or f"图 {fig_id}",
-                    "box": ef.box if ef is not None else None,
+                    "box": band or (ef.box if ef is not None else None),
                 }
             )
     return records
+
+
+def figure_page_boxes(out_dir: Path) -> dict[int, list[tuple[float, float, float, float]]]:
+    """Each scan page's figure art as page fractions: an overridden figure's bands, else the extractor's box."""
+    boxes: dict[int, list[tuple[float, float, float, float]]] = {}
+    for rec in json.loads((out_dir / FIGURES_MANIFEST_NAME).read_text(encoding="utf-8")):
+        if rec["figure_id"] in BAND_OVERRIDES:
+            for page, band in BAND_OVERRIDES[rec["figure_id"]]:
+                boxes.setdefault(page, []).append(band)
+        elif rec["box"]:
+            boxes.setdefault(rec["source_page"], []).append(tuple(rec["box"]))
+    return boxes
+
+
+def figure_page_art(out_dir: Path) -> dict[int, list[FigureArt]]:
+    """Each scan page's figure boxes with the figure's redrawn SVG: `FACSIMILE_BANDS` for a figure the extractor
+    cut short, which the scan continues from the page before or prints sideways, else as in `figure_page_boxes`."""
+    art: dict[int, list[FigureArt]] = {}
+    for rec in json.loads((out_dir / FIGURES_MANIFEST_NAME).read_text(encoding="utf-8")):
+        fid = rec["figure_id"]
+        svg = out_dir / "figures_scan" / f"fig_{fid}.svg"
+        if not svg.exists():
+            svg = out_dir / "figures" / f"fig_{fid}.svg"
+        if not svg.exists():
+            continue
+        bands = (
+            FACSIMILE_BANDS.get(fid)
+            or BAND_OVERRIDES.get(fid)
+            or ([(rec["source_page"], tuple(rec["box"]))] if rec["box"] else [])
+        )
+        for page, band in bands:
+            art.setdefault(page, []).append(FigureArt(fid, band, svg, FACSIMILE_TURNS.get(fid, 0)))
+    return art
 
 
 def crop_macro_figures(out_dir: Path) -> list[ExtractedFigure]:
@@ -120,10 +178,13 @@ def crop_macro_figures(out_dir: Path) -> list[ExtractedFigure]:
     mono_dir.mkdir(parents=True, exist_ok=True)
 
     figures: list[ExtractedFigure] = []
-    for rec in extract_clean_raw_figures(out_dir):
+    records = extract_clean_raw_figures(out_dir)
+    names = [f"fig_{rec['id']}.png" for rec in records]
+    with ThreadPoolExecutor() as pool:
+        _ = list(pool.map(lambda name: _clean_monochrome_raster(out_dir / "figures_raw" / name, mono_dir / name), names))
+    for rec in records:
         fid = str(rec["id"])
         crop = mono_dir / f"fig_{fid}.png"
-        _clean_monochrome_raster(out_dir / "figures_raw" / f"fig_{fid}.png", crop)
         with Image.open(crop) as im:
             width, height = im.size
         figures.append(
