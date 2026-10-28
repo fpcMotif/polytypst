@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pymupdf
+import pytest
 
 from polytypst.ahlfors.spec import AHLFORS_SPEC
 from polytypst.book_state import book_state
@@ -266,6 +267,7 @@ def test_running_option_numbers_through_the_book(tmp_path):
     assert page_words(running_footnotes(FUKUSO_SPEC), tmp_path) == [["A1", "B2"], ["C3", "D4"], ["E5"]]
 
 
+@pytest.mark.slow
 def test_note_entry_stays_on_the_page_of_its_call(tmp_path):
     paragraph = MonographCompiler(KLEIN_SPEC).format_typst(
         "Noether (born in 1844, at Erlangen since 1875" + note("Died 1922.") + ") will occupy us extensively"
@@ -295,6 +297,7 @@ LOREM_40 = (
 )
 
 
+@pytest.mark.slow
 def test_note_entry_stays_on_the_page_of_a_call_near_the_end_of_its_paragraph(tmp_path):
     paragraph = MonographCompiler(KLEIN_SPEC).format_typst(
         f"{LOREM_40} Noether at Erlangen since 1875" + note("Died 1922.") + " will occupy us."
@@ -317,6 +320,7 @@ def test_note_entry_stays_on_the_page_of_a_call_near_the_end_of_its_paragraph(tm
     assert apart == []
 
 
+@pytest.mark.slow
 def test_a_paragraph_without_notes_never_leaves_one_line_on_the_next_page(tmp_path):
     alone = []
     for words in range(200, 300, 3):
@@ -334,6 +338,7 @@ def test_a_paragraph_without_notes_never_leaves_one_line_on_the_next_page(tmp_pa
     assert alone == []
 
 
+@pytest.mark.slow
 def test_chinese_note_mark_never_starts_a_line(tmp_path):
     spec = adhoc_spec(Path("Probe.pdf"), 1, lang="zh")
     leading = []

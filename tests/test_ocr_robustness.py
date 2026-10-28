@@ -21,6 +21,8 @@ from polytypst.compiler.monograph import (
 )
 from polytypst.compiler.typst_math import REPO_FONTS_DIR, convert_math_batch
 
+pytestmark = pytest.mark.slow
+
 OCR_STATES: dict[str, str] = {
     "empty": "",
     "whitespace": "   \n\n\t\n",

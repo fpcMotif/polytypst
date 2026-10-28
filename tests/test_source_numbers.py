@@ -1,6 +1,7 @@
 import subprocess
 
 import pymupdf
+import pytest
 
 from polytypst.compiler.diagrams import parse_array_diagram
 from polytypst.compiler.monograph import MonographCompiler
@@ -338,6 +339,7 @@ def test_a_latex_figure_caption_escapes_percent_ampersand_and_hash():
     assert "\\caption{前1\\%高收入群体 \\& 第\\#1组}" in out
 
 
+@pytest.mark.slow
 def test_a_latex_figure_caption_prints_its_source_number(tmp_path):
     out, _ = number_chapter("![图 8-8 4 变量 VAR 模型](figures/fig_8-8.png)\n\n见图 8-8。", 1, LATEX)
     linked = link_references(out, 1, {}, labels(out), LATEX)

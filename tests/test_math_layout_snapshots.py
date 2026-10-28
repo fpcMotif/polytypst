@@ -378,6 +378,7 @@ def test_serre_display_brackets_tags_operators_and_bars_typst_snapshot() -> None
     assert _collapse_blank_lines(compiler.format_typst(body)) == SERRE_TYPST_SNAPSHOT
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(
     typst_command() is None, reason="needs typst to compile layout page"
 )

@@ -19,6 +19,8 @@ polytypst = "polytypst.cli:main"
 polytypst-colab = "polytypst.ocr.colab_cli:main"
 
 [tool.pytest.ini_options]
+addopts = "-n auto --dist worksteal"
+markers = ["slow: compiles Typst many times; skip with -m 'not slow'"]
 filterwarnings = ["ignore:builtin type .* has no __module__ attribute:DeprecationWarning"]
 
 [tool.ruff.lint]
@@ -41,6 +43,7 @@ build-backend = "setuptools.build_meta"
 dev = [
     "hypothesis>=6.170.5",
     "pytest>=9.1.1",
+    "pytest-xdist>=3.8.0",
     "ruff==0.17.1",
 ]
 
