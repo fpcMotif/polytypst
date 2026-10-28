@@ -16,8 +16,10 @@ def test_theorem_note_before_the_closing_bold_leaves_no_stray_asterisks():
     out = normalize_run_in("**Theorem 1.1 (Cauchy's criterion).** The complex sequence converges.")
     assert out.startswith("**Theorem 1.1.** (Cauchy's criterion) ")
     assert out.count("**") == 2
-from polytypst.hecke.spec import HECKE_SPEC
-from polytypst.kodaira.spec import KODAIRA_SPEC
+from polytypst.books import book_by_key, module
+
+HECKE_SPEC = book_by_key("hecke").spec
+KODAIRA_SPEC = module("kodaira", "spec").KODAIRA_SPEC
 
 
 def test_first_appearance_of_a_section_at_page_top_is_a_heading_not_a_running_head():
@@ -137,11 +139,10 @@ def test_running_head_shows_the_current_chapter_section(tmp_path: Path) -> None:
 
 
 def test_japanese_inside_math_uses_the_body_mincho(tmp_path: Path) -> None:
-    from polytypst.複素多様体論.spec import FUKUSO_SPEC
-
+    fukuso = book_by_key("複素多様体論").spec
     typ = tmp_path / "j.typ"
     body = 'これは本文です。\n\n$ lambda, mu upright("は複素数") $\n'
-    typ.write_text(MonographCompiler(FUKUSO_SPEC).build_typst_preamble() + body, encoding="utf-8")
+    typ.write_text(MonographCompiler(fukuso).build_typst_preamble() + body, encoding="utf-8")
     pdf = tmp_path / "j.pdf"
     compile_typst(typ, pdf)
     spans = [s for b in pymupdf.open(pdf)[0].get_text("dict")["blocks"] for ln in b.get("lines", []) for s in ln["spans"]]

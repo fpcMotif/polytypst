@@ -1,0 +1,139 @@
+legacy_state = 'kenji-alg'
+slug = 'algebraic_geometry_3_further_study_of_schemes_kenji_ueno'
+title = 'Algebraic Geometry 3: Further Study of Schemes'
+author = 'Kenji Ueno'
+translator = 'Goro Kato'
+publisher = 'American Mathematical Society'
+series = 'Translations of Mathematical Monographs, Volume 218'
+year = 2003
+publisher_key = 'ams'
+domain = 'math'
+preface_page = 10
+chapters = [
+  { number = 7, title = 'Fundamental Properties of Scheme Theory', start_page = 10, end_page = 133, label = 'Chapter 7' },
+  { number = 8, title = 'Algebraic Curves and Jacobian Varieties', start_page = 134, end_page = 191, label = 'Chapter 8' },
+  { number = 9, title = 'Algebraic Geometry and Analytic Geometry', start_page = 192, end_page = 201, label = 'Chapter 9' },
+  { number = 10, title = 'Overview and References', start_page = 202, end_page = 211 },
+  { number = 11, title = 'Solutions to Problems', start_page = 212, end_page = 219 },
+  { number = 12, title = 'Solutions to Exercises', start_page = 220, end_page = 227 },
+  { number = 13, title = 'Index', start_page = 228, end_page = 234 },
+]
+figure_pages = [20, 48, 128, 150]
+running_header_regexes = [
+  '^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:FUNDAMENTAL PROPERTIES OF SCHEME THEORY|ALGEBRAIC CURVES AND JACOBIAN VARIETIES|ALGEBRAIC GEOMETRY AND ANALYTIC GEOMETRY|OVERVIEW AND REFERENCES|SOLUTIONS TO PROBLEMS|SOLUTIONS TO EXERCISES|INDEX|PREFACE|CONTENTS)(?:\s+\d{1,3})?$',
+  '^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:FUNDAMENTAL PROPERTIES OF SCHEME THEORY|ALGEBRAIC CURVES AND JACOBIAN VARIETIES|ALGEBRAIC GEOMETRY AND ANALYTIC GEOMETRY|OVERVIEW AND REFERENCES|SOLUTIONS TO PROBLEMS|SOLUTIONS TO EXERCISES|INDEX|PREFACE|CONTENTS)$',
+]
+drop_line_regexes = [
+  '^[ivxlcdm]+\s+[A-Z\s\$\-\.\,\?]+$',
+  '^[A-Z\s\$\-\.\,\?]+\s+[ivxlcdm]+$',
+  '^\d+\s+[A-Z\s\$\-\.\,\?]+$',
+  '^[A-Z\s\$\-\.\,\?]+\s+\d+$',
+]
+pdf_name_markers = ['algebraic geometry 3', 'further study of schemes', 'ueno']
+pdf_page_count = 234
+
+[sections]
+"7.1" = [11, 'Algebraic Schemes and Algebraic Varieties']
+"7.2" = [23, 'Dimension']
+"7.3" = [61, 'Flat Morphisms and Proper Morphisms']
+"7.4" = [89, 'Regular Schemes and Smooth Morphisms']
+"7.5" = [122, '''Completion and Zariski's Main Theorem''']
+"8.1" = [134, 'Algebraic Curves']
+"8.2" = [162, 'Jacobian Varieties']
+"9.1" = [192, 'Analytic Geometry']
+"9.2" = [197, '''Kodaira's Vanishing Theorem''']
+
+[editions.monograph]
+summary = 'monograph'
+
+[editions.vol3]
+summary = 'volume 3'
+
+[editions.vol2]
+legacy_state = 'kenji-alg_vol2'
+summary = 'volume 2'
+
+[editions.vol2.spec]
+slug = 'algebraic_geometry_2_sheaves_and_cohomology_kenji_ueno'
+title = 'Algebraic Geometry 2: Sheaves and Cohomology'
+series = 'Translations of Mathematical Monographs, Volume 197'
+year = 2001
+preface_page = 8
+chapters = [
+  { number = 4, title = 'Coherent Sheaves', start_page = 8, end_page = 59, label = 'Chapter 4' },
+  { number = 5, title = 'Proper and Projective Morphisms', start_page = 60, end_page = 117, label = 'Chapter 5' },
+  { number = 6, title = 'Cohomology of Coherent Sheaves', start_page = 118, end_page = 167, label = 'Chapter 6' },
+  { number = 7, title = 'Solutions to Problems', start_page = 168, end_page = 179 },
+  { number = 8, title = 'Solutions to Exercises', start_page = 180, end_page = 189 },
+  { number = 9, title = 'Index', start_page = 190, end_page = 194 },
+]
+figure_pages = [10, 12, 128]
+running_header_regexes = [
+  '^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:COHERENT SHEAVES|PROPER AND PROJECTIVE MORPHISMS|COHOMOLOGY OF COHERENT SHEAVES|SOLUTIONS TO PROBLEMS|SOLUTIONS TO EXERCISES|INDEX|PREFACE|CONTENTS)(?:\s+\d{1,3})?$',
+  '^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:COHERENT SHEAVES|PROPER AND PROJECTIVE MORPHISMS|COHOMOLOGY OF COHERENT SHEAVES|SOLUTIONS TO PROBLEMS|SOLUTIONS TO EXERCISES|INDEX|PREFACE|CONTENTS)$',
+]
+pdf_name_markers = ['algebraic geometry 2', 'sheaves and cohomology', 'ueno']
+pdf_page_count = 194
+
+[editions.vol2.spec.sections]
+"4.1" = [9, 'Exact Sequence of Sheaves']
+"4.2" = [23, 'Quasicoherent Sheaves and Coherent Sheaves']
+"4.3" = [43, 'Direct Image and Inverse Image']
+"4.4" = [51, 'Schemes and Quasicoherent Sheaves']
+"5.1" = [60, 'Proper Morphisms']
+"5.2" = [74, 'Quasicoherent Sheaves over a Projective Scheme']
+"5.3" = [98, 'Projective Morphisms']
+"6.1" = [118, 'Cohomology of Sheaves']
+"6.2" = [145, 'Cohomology of a Projective Scheme']
+"6.3" = [160, 'Higher Direct Image']
+
+[editions.vol1]
+legacy_state = 'kenji-alg_vol1'
+summary = 'volume 1'
+
+[editions.vol1.spec]
+slug = 'algebraic_geometry_1_from_algebraic_varieties_to_schemes_kenji_ueno'
+title = 'Algebraic Geometry 1: From Algebraic Varieties to Schemes'
+series = 'Translations of Mathematical Monographs, Volume 185'
+year = 1999
+chapters = [
+  { number = 1, title = 'Algebraic Varieties', start_page = 22, end_page = 63, label = 'Chapter 1' },
+  { number = 2, title = 'Schemes', start_page = 64, end_page = 121, label = 'Chapter 2' },
+  { number = 3, title = 'Categories and Schemes', start_page = 122, end_page = 159, label = 'Chapter 3' },
+  { number = 4, title = 'Solutions to Problems', start_page = 160, end_page = 167 },
+  { number = 5, title = 'Solutions to Exercises', start_page = 168, end_page = 173 },
+  { number = 6, title = 'Index', start_page = 174, end_page = 178 },
+]
+figure_pages = [106, 121]
+running_header_regexes = [
+  '^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:ALGEBRAIC VARIETIES|SCHEMES|CATEGORIES AND SCHEMES|SOLUTIONS TO PROBLEMS|SOLUTIONS TO EXERCISES|INDEX|PREFACE|CONTENTS|SUMMARY AND GOALS)(?:\s+\d{1,3})?$',
+  '^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:ALGEBRAIC VARIETIES|SCHEMES|CATEGORIES AND SCHEMES|SOLUTIONS TO PROBLEMS|SOLUTIONS TO EXERCISES|INDEX|PREFACE|CONTENTS|SUMMARY AND GOALS)$',
+]
+drop_line_regexes = [
+  '^Translations of MATHEMATICAL MONOGRAPHS.*$',
+  '^Volume 185.*$',
+  '^American Mathematical Society.*$',
+  '^\d+\s+[A-Z\s\$\-\.\,\?]+$',
+  '^[A-Z\s\$\-\.\,\?]+\s+\d+$',
+]
+pdf_name_markers = ['algebraic geometry 1', 'kenji ueno', 'ueno']
+pdf_page_count = 178
+
+[editions.vol1.spec.sections]
+"1.1" = [22, 'Algebraic Sets']
+"1.2" = [27, '''Hilbert's Nullstellensatz''']
+"1.3" = [33, 'Affine Algebraic Varieties']
+"1.4" = [47, 'Multiplicity and Local Intersection Multiplicity']
+"1.5" = [50, 'Projective Varieties']
+"1.6" = [59, 'What is Missing?']
+"2.1" = [64, 'Prime Spectrum']
+"2.2" = [72, 'Affine Schemes']
+"2.3" = [96, 'Ringed Space and Scheme']
+"2.4" = [109, 'Schemes and Morphisms']
+"3.1" = [122, 'Categories and Functors']
+"3.2" = [136, 'Representable Functors and Fibre Products']
+"3.3" = [152, 'Separated Morphisms']
+
+[editions.vol1.spec.figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Figure\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[a-z]?)\.?(?:\*\*)?\s*(?P<tail>.*)$'
+caption_format = 'Figure {chapter}.{number}'

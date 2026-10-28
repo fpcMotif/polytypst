@@ -1,22 +1,205 @@
-"""Finds every book: a folder `src/<key>/` with a `book.py` that defines `BOOK`."""
+"""Finds every book: a folder `books/<key>/` with a `book.toml`, or a `book.py` that defines `BOOK`.
+A book loads only when it is first used, so a broken book stops only the commands that use it."""
 
+import dataclasses
+import hashlib
 import importlib
+import importlib.util
+import sys
+import tomllib
+import types
+import typing
+from collections.abc import Callable, Iterator, Mapping
 from functools import cache
 from pathlib import Path
 
 from .compiler.monograph import MonographSpec
-from .edition import Book
+from .edition import OUTPUT, Book, Edition, monograph_edition
 
-PACKAGE = Path(__file__).parent
+BOOKS_DIR = Path(__file__).resolve().parent.parent / "books"
+REPO_TOKEN = "@REPO@"
+BOOK_TOML = "book.toml"
+BOOK_PY = "book.py"
+PACKAGE = "polytypst_books"
+
+
+class BookFileError(ValueError):
+    """A `book.toml` that does not describe a book; the message names the file and the key."""
+
+
+class BookLoadError(RuntimeError):
+    """A book that failed to load; the message names its key."""
+
+
+def book_folders() -> dict[str, Path]:
+    """Every book folder by key, without loading any book. The key is the folder name."""
+    return {
+        p.name: p
+        for p in sorted(BOOKS_DIR.iterdir())
+        if p.is_dir() and ((p / BOOK_TOML).is_file() or (p / BOOK_PY).is_file())
+    }
+
+
+def _package_name(key: str) -> str:
+    name = key if key.isidentifier() else "b_" + hashlib.sha1(key.encode()).hexdigest()[:10]
+    return f"{PACKAGE}.{name}"
+
+
+def _package(key: str, folder: Path) -> str:
+    """Register the book folder as a package, so that its files can import each other with `from .x import y`."""
+    if PACKAGE not in sys.modules:
+        root = types.ModuleType(PACKAGE)
+        root.__path__ = []
+        sys.modules[PACKAGE] = root
+    name = _package_name(key)
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, folder / "__init__.py", submodule_search_locations=[str(folder)])
+        if spec is None or spec.loader is None:
+            raise BookLoadError(f"{key}: cannot import {folder}")
+        package = importlib.util.module_from_spec(spec)
+        sys.modules[name] = package
+        if (folder / "__init__.py").is_file():
+            spec.loader.exec_module(package)
+    return name
+
+
+def module(key: str, name: str | None = "book") -> types.ModuleType:
+    """The module `books/<key>/<name>.py`, imported as part of its book's package; `None` names the package itself."""
+    package = _package(key, book_folders()[key])
+    return importlib.import_module(package if name is None else f"{package}.{name}")
+
+
+def _coerce(tp: object, value: object, where: str, folder: Path) -> object:
+    origin, args = typing.get_origin(tp), typing.get_args(tp)
+    if origin is typing.Literal:
+        if value not in args:
+            raise BookFileError(f"{where}: {value!r} is not one of {', '.join(map(repr, args))}")
+        return value
+    if origin in (types.UnionType, typing.Union):
+        options = [a for a in args if a is not type(None)]
+        if len(options) != 1:
+            raise BookFileError(f"{where}: unsupported type {tp}")
+        return _coerce(options[0], value, where, folder)
+    if origin is Callable or tp is Callable:
+        raise BookFileError(f"{where}: a function cannot be set in {BOOK_TOML}")
+    if isinstance(tp, type) and dataclasses.is_dataclass(tp):
+        return _dataclass(tp, value, where, folder)
+    if origin in (list, tuple, frozenset):
+        if not isinstance(value, list):
+            raise BookFileError(f"{where}: expected an array, got {value!r}")
+        if origin is tuple and not (len(args) == 2 and args[1] is Ellipsis):
+            if len(value) != len(args):
+                raise BookFileError(f"{where}: expected {len(args)} items, got {len(value)}")
+            return tuple(_coerce(a, v, f"{where}[{i}]", folder) for i, (a, v) in enumerate(zip(args, value, strict=True)))
+        items = [_coerce(args[0], v, f"{where}[{i}]", folder) for i, v in enumerate(value)]
+        return origin(items)
+    if origin is dict:
+        if not isinstance(value, dict):
+            raise BookFileError(f"{where}: expected a table, got {value!r}")
+        key_type, value_type = args
+        out = {}
+        for k, v in value.items():
+            if key_type is int:
+                if not k.lstrip("-").isdigit():
+                    raise BookFileError(f"{where}: key {k!r} is not an integer")
+                k = int(k)
+            out[k] = _coerce(value_type, v, f"{where}.{k}", folder)
+        return out
+    if tp is float and isinstance(value, int | float) and not isinstance(value, bool):
+        return float(value)
+    if tp is str and isinstance(value, str):
+        return value.replace(REPO_TOKEN, str(BOOKS_DIR.parent))
+    if tp in (int, bool) and type(value) is tp:
+        return value
+    raise BookFileError(f"{where}: expected {getattr(tp, '__name__', tp)}, got {value!r}")
+
+
+def _fields(cls: type, table: object, where: str, folder: Path) -> dict[str, object]:
+    if not isinstance(table, dict):
+        raise BookFileError(f"{where}: expected a table, got {table!r}")
+    hints = typing.get_type_hints(cls)
+    known = {f.name for f in dataclasses.fields(cls) if f.init}
+    if unknown := sorted(set(table) - known):
+        raise BookFileError(f"{where}: unknown key {', '.join(unknown)}")
+    return {k: _coerce(hints[k], v, f"{where}.{k}" if where else k, folder) for k, v in table.items()}
+
+
+def _dataclass(cls: type, table: object, where: str, folder: Path) -> object:
+    try:
+        return cls(**_fields(cls, table, where, folder))
+    except TypeError as e:
+        raise BookFileError(f"{where or cls.__name__}: {e}") from None
+
+
+def _out_dir(table: dict[str, object], default: Path, where: str) -> Path:
+    name = table.pop("legacy_state", None)
+    if name is None:
+        return default
+    if not isinstance(name, str):
+        raise BookFileError(f"{where}legacy_state: expected str, got {name!r}")
+    return OUTPUT / name
+
+
+def load_toml(key: str, folder: Path) -> Book:
+    """The book that `books/<key>/book.toml` describes. Its top-level keys are `MonographSpec` fields."""
+    path = folder / BOOK_TOML
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    data.pop("aliases", None)
+    out_dir = _out_dir(data, OUTPUT / key, "")
+    tables = data.pop("editions", {})
+    try:
+        spec = _dataclass(MonographSpec, data, "", folder)
+        editions: dict[str, Edition] = {}
+        for name, table in tables.items():
+            where = f"editions.{name}."
+            table = dict(table)
+            edition_dir = _out_dir(table, out_dir, where)
+            if (kind := table.pop("kind", "monograph")) != "monograph":
+                raise BookFileError(f"{where}kind: {kind!r} needs a {BOOK_PY}")
+            summary = table.pop("summary", "")
+            overrides = _fields(MonographSpec, table.pop("spec", {}), f"{where}spec", folder)
+            if table:
+                raise BookFileError(f"{where[:-1]}: unknown key {', '.join(sorted(table))}")
+            edition_spec = dataclasses.replace(spec, **overrides) if overrides else spec
+            editions[name] = monograph_edition(edition_spec, edition_dir, summary)
+    except BookFileError as e:
+        raise BookFileError(f"{path}: {e}") from None
+    return Book(spec, out_dir, editions or {"monograph": monograph_edition(spec, out_dir, "monograph")})
+
+
+def load_book(key: str, folder: Path) -> Book:
+    if (folder / BOOK_PY).is_file():
+        return module(key).BOOK
+    return load_toml(key, folder)
+
+
+class _Books(Mapping[str, Book]):
+    """Every book by key. Listing the keys loads nothing; each book loads on first lookup."""
+
+    def __init__(self) -> None:
+        self._folders = book_folders()
+        self._loaded: dict[str, Book] = {}
+
+    def __getitem__(self, key: str) -> Book:
+        if key not in self._loaded:
+            folder = self._folders[key]
+            try:
+                self._loaded[key] = load_book(key, folder)
+            except Exception as e:
+                raise BookLoadError(f"book {key!r} failed to load: {e}") from e
+        return self._loaded[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._folders)
+
+    def __len__(self) -> int:
+        return len(self._folders)
 
 
 @cache
-def books() -> dict[str, Book]:
-    """Every book by key. The key is its package name and its folder under output/."""
-    return {
-        p.parent.name: importlib.import_module(f".{p.parent.name}.book", __package__).BOOK
-        for p in sorted(PACKAGE.glob("*/book.py"))
-    }
+def books() -> Mapping[str, Book]:
+    """Every book by key. The key is its folder name under books/."""
+    return _Books()
 
 
 def book_specs() -> dict[str, MonographSpec]:
@@ -40,21 +223,26 @@ def find_known_book(path: Path) -> MonographSpec | None:
     return next((spec for spec in book_specs().values() if _names(spec, path)), None)
 
 
+def _aliases(folder: Path) -> list[str]:
+    toml = folder / BOOK_TOML
+    if not toml.is_file():
+        return []
+    aliases = tomllib.loads(toml.read_text(encoding="utf-8")).get("aliases", [])
+    if not (isinstance(aliases, list) and all(isinstance(a, str) for a in aliases)):
+        raise BookFileError(f"{toml}: aliases: expected an array of strings, got {aliases!r}")
+    return aliases
+
+
 def book_by_key(key: str) -> Book:
-    """The book with key `key`, which may spell underscores as hyphens; raises KeyError naming the keys."""
+    """The book with key `key`, which may spell underscores as hyphens or be an alias; raises KeyError naming the keys."""
     known = books()
-    aliases = {
-        "sga4half": "sga4_5",
-        "sga4_half": "sga4_5",
-        "sga4-half": "sga4_5",
-        "sga-4-5": "sga4_5",
-        "sga45": "sga4_5",
-    }
-    resolved_key = aliases.get(key, key)
-    normalized = {**known, **{k.replace("_", "-"): v for k, v in known.items()}}
-    if resolved_key not in normalized:
+    folders = book_folders()
+    names = {k: k for k in known}
+    names |= {k.replace("_", "-"): k for k in known}
+    names |= {alias: k for k in known if k in folders for alias in _aliases(folders[k])}
+    if key not in names:
         raise KeyError(f"unknown book {key!r}; known: {', '.join(known)}")
-    return normalized[resolved_key]
+    return known[names[key]]
 
 
 def book_for_scan(source: Path, key: str | None = None) -> Book | None:

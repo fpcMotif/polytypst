@@ -15,7 +15,7 @@ book commands (see `polytypst COMMAND --help`):
   polytypst parity BOOK --edition E       check a rebuilt edition against its scan
   polytypst audit [BOOK ...] [--update]   compare checker issue counts with quality/baseline.json
   polytypst rules                         list every rule, its stage, severity, enforcer and file:line
-  polytypst new-book KEY --title T ...    write src/KEY/ for a new book and list its package
+  polytypst new-book KEY --title T ...    write books/KEY/book.toml for a new book
   polytypst review FOLDER [--scan SCAN]   measure any output folder against its scan and track changes
   polytypst checklist FINDINGS.jsonl      render review findings as a Markdown checklist
   polytypst evidence zoom|sweep|diff|report   box a span on the scan, sweep the cleaner, render findings as HTML
@@ -46,7 +46,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--book",
-        help="Key of the book in src/KEY/ that this scan is (default: the book whose scan name matches, else a new book)",
+        help="Key of the book in books/KEY/ that this scan is (default: the book whose scan name matches, else a new book)",
     )
     parser.add_argument(
         "-o",

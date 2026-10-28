@@ -21,8 +21,8 @@ The checks (default: labels,notes,repeats):
 
 import argparse
 import re
-from importlib import import_module
 
+from polytypst.books import book_by_key
 from polytypst.compiler.page_cleaner import CIRCLED_DIGITS, split_page_footnotes
 from polytypst.ocr.transcripts import TranscriptStore
 from polytypst.vision.figure_extractor import load_figures_manifest
@@ -95,7 +95,7 @@ def main() -> None:
     parser.add_argument("--check", default="labels,notes,repeats", help=f"comma-separated, from {','.join(CHECKS)}")
     args = parser.parse_args()
 
-    book = import_module(f"polytypst.{args.key}.book").BOOK
+    book = book_by_key(args.key)
     store = TranscriptStore(book.transcripts)
     for name in args.check.split(","):
         CHECKS[name](book, store)

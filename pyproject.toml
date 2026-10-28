@@ -29,6 +29,7 @@ known-first-party = ["polytypst"]
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/*" = ["BLE001"]
+"books/*" = ["N999"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "fitz".msg = "The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead."
@@ -48,38 +49,14 @@ dev = [
 package-dir = { "polytypst" = "src" }
 packages = [
     "polytypst",
-    "polytypst.ahlfors",
-    "polytypst.algebra2",
-    "polytypst.algebra3",
-    "polytypst.bourbaki",
-    "polytypst.bourbaki_lie",
     "polytypst.compiler",
-    "polytypst.fermat",
-    "polytypst.fga",
-    "polytypst.fichtenholz_vol1",
-    "polytypst.functional_analysis",
     "polytypst.goursat",
-    "polytypst.grothendieck",
-    "polytypst.hecke",
-    "polytypst.kashiwara",
-    "polytypst.kenji_alg",
     "polytypst.kerodon",
-    "polytypst.klein",
-    "polytypst.kodaira",
-    "polytypst.london_treasury",
-    "polytypst.modern_geometry",
-    "polytypst.modern_geometry_vol2",
-    "polytypst.modern_geometry_vol3",
     "polytypst.ocr",
-    "polytypst.ode_arnold",
     "polytypst.parity",
-    "polytypst.sga4_5",
-    "polytypst.siegel_symplectic",
     "polytypst.taocp",
     "polytypst.vision",
-    "polytypst.複素多様体論",
 ]
 
 [tool.setuptools.package-data]
 "*" = ["*.typ", "**/*.typ"]
-"polytypst" = ["[0-9]*/*.py"]

@@ -1,0 +1,11 @@
+[[page]]
+slug = "fermat-dream"
+editions = ["vol1"]
+domain = "Number Theory"
+description = "Number Theory 1: Fermat's Dream. Elementary number theory, rational points on elliptic curves, conics and p-adic numbers, the zeta function, and algebraic number theory."
+
+[[page]]
+slug = "class-field-theory"
+editions = ["vol2"]
+domain = "Number Theory"
+description = "Number Theory 2: Introduction to Class Field Theory. Zeta functions, the local and global class field theory, and their applications."

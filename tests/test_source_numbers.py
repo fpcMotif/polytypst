@@ -2,6 +2,7 @@ import subprocess
 
 import pymupdf
 
+from polytypst.books import module
 from polytypst.compiler.diagrams import parse_array_diagram
 from polytypst.compiler.monograph import MonographCompiler
 from polytypst.compiler.source_numbers import (
@@ -13,8 +14,9 @@ from polytypst.compiler.source_numbers import (
     link_references,
     number_chapter,
 )
-from polytypst.grothendieck.spec import GROTHENDIECK_SPEC
 from polytypst.literal_numbers import literal_numbering_counts
+
+GROTHENDIECK_SPEC = module("grothendieck", "spec").GROTHENDIECK_SPEC
 
 
 def test_paragraph_and_equation_numbers_come_from_counters():
@@ -352,7 +354,7 @@ def test_a_latex_figure_caption_prints_its_source_number(tmp_path):
         encoding="utf-8",
     )
     for _pass in range(2):
-        _ = subprocess.run(["xelatex", "-interaction=nonstopmode", "f.tex"], cwd=tmp_path, capture_output=True)
+        _ = subprocess.run(["xelatex", "-interaction=nonstopmode", "f.tex"], check=False, cwd=tmp_path, capture_output=True)
     text = "".join(page.get_text() for page in pymupdf.open(tmp_path / "f.pdf"))
     text = text.replace(" ", "").replace(" ", "")
     assert "图8-84变量VAR模型" in text

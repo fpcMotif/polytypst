@@ -5,6 +5,7 @@ from pathlib import Path
 import pymupdf
 import pytest
 
+from polytypst.books import book_by_key
 from polytypst.compiler.monograph import (
     ChapterSpec,
     MonographCompiler,
@@ -13,7 +14,6 @@ from polytypst.compiler.monograph import (
     running_header_regexes,
 )
 from polytypst.compiler.typst_math import typst_command
-from polytypst.fermat.spec import FERMAT_SPEC
 from polytypst.goursat.build import goursat_markdown
 from polytypst.goursat.figures import (
     GOURSAT_SVG_GENERATORS,
@@ -22,6 +22,8 @@ from polytypst.goursat.figures import (
 from polytypst.parity import FACSIMILE, SOURCE_PAGINATED, PageParity, compare, verdict
 from polytypst.tex_markdown import repair_page_math
 from polytypst.vision.figure_extractor import ExtractedFigure
+
+FERMAT_SPEC = book_by_key("fermat").editions["vol1"].spec
 
 FERMAT_PAGE_29_MD = (
     "1.1. FERMAT AND ELLIPTIC CURVES\n\n"

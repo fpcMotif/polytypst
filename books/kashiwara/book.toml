@@ -1,0 +1,57 @@
+slug = 'foundations_of_algebraic_analysis'
+title = 'Foundations of Algebraic Analysis'
+author = 'Masaki Kashiwara, Takahiro Kawai, Tatsuo Kimura'
+translator = 'Goro Kato'
+publisher = 'Princeton University Press'
+series = 'Princeton Mathematical Series, Volume 37'
+year = 1986
+publisher_key = 'princeton'
+domain = 'math'
+preface_page = 7
+chapters = [
+  { number = 1, title = 'Hyperfunctions', start_page = 15, end_page = 46 },
+  { number = 2, title = 'Microfunctions', start_page = 47, end_page = 112 },
+  { number = 3, title = 'Fundamental Operations', start_page = 113, end_page = 202 },
+  { number = 4, title = 'Microdifferential Equations', start_page = 203, end_page = 259 },
+  { number = 5, title = 'Bibliography', start_page = 260, end_page = 264 },
+  { number = 6, title = 'Index', start_page = 265, end_page = 267 },
+]
+running_header_regexes = [
+  '^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:HYPERFUNCTIONS|MICROFUNCTIONS|FUNDAMENTAL OPERATIONS|MICRODIFFERENTIAL EQUATIONS|PREFACE|NOTATIONS|BIBLIOGRAPHY|INDEX)(?:\s+\d{1,3})?$',
+  '^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:HYPERFUNCTIONS|MICROFUNCTIONS|FUNDAMENTAL OPERATIONS|MICRODIFFERENTIAL EQUATIONS|PREFACE|NOTATIONS|BIBLIOGRAPHY|INDEX)$',
+]
+drop_line_regexes = [
+  '^PRINCETON MATHEMATICAL SERIES.*$',
+  '^Volume 37.*$',
+  '^Princeton University Press.*$',
+  '^\d+\s+[A-Z\s\$\-\.\,\?]+$',
+  '^[A-Z\s\$\-\.\,\?]+\s+\d+$',
+]
+footnote_style = 'superscript'
+footnote_reset = 'book'
+pdf_name_markers = ['foundations of algebraic analysis', 'kashiwara']
+pdf_page_count = 267
+
+[sections]
+"1.1" = [15, 'Sheaf Theory']
+"1.2" = [33, 'Hyperfunctions as Boundary Values of Holomorphic Functions']
+"2.1" = [47, 'Definition of Microfunctions']
+"2.2" = [63, 'Vanishing Theorems of Relative Cohomology Groups']
+"2.3" = [72, 'Fundamental Exact Sequences']
+"2.4" = [93, 'Examples']
+"3.1" = [113, 'Product, Restriction, and Substitution']
+"3.2" = [128, 'Integration']
+"3.3" = [143, 'Analyticity of Feynman Integrals']
+"3.4" = [147, 'Microlocal Operators and the Fundamental Theorem of Sato']
+"3.5" = [157, 'The Wave Equation']
+"3.6" = [173, 'Fundamental Solutions for Regularly Hyperbolic Operators']
+"4.1" = [203, 'Microdifferential Operators']
+"4.2" = [225, 'Quantized Contact Transformations']
+"4.3" = [245, 'Structure of Systems of Microdifferential Equations']
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Figure\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[a-z]?)\.?(?:\*\*)?\s*(?P<tail>.*)$'
+caption_format = 'Figure {chapter}.{number}'
+
+[editions.monograph]
+summary = 'monograph'

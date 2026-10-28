@@ -5,9 +5,10 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from polytypst.books import book_by_key
 from scripts.book2_figures.engine import ThemeMode, save_figure_outputs
 
-BOOK_DIR = Path("output/3_国际经济环境的变化与日本经济")
+BOOK_DIR = book_by_key("3_国际经济环境的变化与日本经济").out_dir
 PREFACE_CHART = "preface_exchange_rate"
 
 

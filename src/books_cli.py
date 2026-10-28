@@ -1,4 +1,4 @@
-"""`polytypst books`, `build`, `parity` and `new-book`: one entry point for every book in `src/<key>/book.py`."""
+"""`polytypst books`, `build`, `parity` and `new-book`: one entry point for every book in `books/<key>/`."""
 
 import argparse
 import json
@@ -6,7 +6,7 @@ from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
-from .books import book_by_key, books
+from .books import BOOKS_DIR, book_by_key, books
 from .checker import AuditSpec, DocumentQualityChecker
 from .compiler.presets import DOMAIN_PROFILES
 from .edition import Book, Edition, VisualLimits
@@ -310,7 +310,7 @@ def main(command: str, argv: list[str]) -> int:
             "parity": "Check a rebuilt edition against its source scan. Writes a report and exits 1 when a page fails.",
             "audit": "Count the checker's issues per rule in every format a rebuilt edition declares. Exits 1 when a count rises above the baseline, a declared format has no output, or a built edition has no baseline.",
             "rules": "List every rule a book is checked against: its stage, severity, the command that enforces it, and where it is written.",
-            "new-book": "Write src/KEY/{__init__,spec,book}.py for a new book and add polytypst.KEY to pyproject.toml.",
+            "new-book": "Write books/KEY/book.toml for a new book.",
             "review": "Measure an output folder against its scan, with or without a book key: text coverage per scan page, "
             "text past the page edge, LaTeX log warnings, literal numbers, links, footnotes and leaked running heads. "
             "Writes FOLDER/review/ and prints what changed since the last review.",
@@ -341,12 +341,12 @@ def main(command: str, argv: list[str]) -> int:
         parser.add_argument("--domain", required=True, choices=list(DOMAIN_PROFILES), help="subject profile, such as math or economics")
         args = parser.parse_args(argv)
         try:
-            written = scaffold_book(Path.cwd(), args.key, args.title, args.author, args.source, args.pages, domain=args.domain)
+            written = scaffold_book(BOOKS_DIR.parent, args.key, args.title, args.author, args.source, args.pages, domain=args.domain)
         except ValueError as error:
             parser.error(str(error))
         for path in written:
             print(path)
-        print(f"next: fill in the chapters in src/{args.key}/spec.py, then run `polytypst books`")
+        print(f"next: fill in the chapters in books/{args.key}/book.toml, then run `polytypst books`")
         print("then: add the spec to test_specs_come_from_the_editions in tests/test_books.py")
         return 0
     if command == "rules":

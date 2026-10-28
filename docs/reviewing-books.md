@@ -1,7 +1,7 @@
 # Review a rebuilt book against its scan
 
 This runbook checks one rebuilt book against its source scan and records each defect as a finding.
-It works for any output folder. The book does not need a key in `src/<key>/book.py`.
+It works for any output folder. The book does not need a folder in `books/<key>/`.
 For a registered edition with a page map, `polytypst parity` in `docs/scanned-books.md` is stricter.
 
 The review only reads the book. Write files only in these places:
@@ -247,6 +247,6 @@ Each run of `review` adds one line to `FOLDER/review/history.jsonl`. The next ru
 | `has bad lines` | A finding line is wrong. | Correct each line it names, then run the command again. |
 | `No such file or directory: scripts/review_sheet.py` | You are not in the repository root. | Run `cd /Users/martinfan/devv/polytypst`, then run the command again. |
 | `ModuleNotFoundError` or `command not found: polytypst` | The command did not use `uv run`. | Put `uv run` before the command. |
-| `SyntaxError` or `NameError` in another book's `src/<key>/` | The CLI imports every book, and another book's spec is broken. | Run `mise exec -- uv run python scripts/one_book.py KEY cli review "FOLDER" --scan "SCAN"`, which loads only book `KEY`. |
+| `book 'OTHER' failed to load`, or a `SyntaxError` or `NameError` in `books/OTHER/` | The CLI loads every book to match the scan, and another book's `book.toml` or `book.py` is broken. | Run `mise exec -- uv run python scripts/one_book.py KEY cli review "FOLDER" --scan "SCAN"`, which loads only book `KEY`. |
 | `BookStateError: set POLYTYPST_BOOKS` | The book state folder is not set. | Put `mise exec --` before the command, so `mise.local.toml` sets it. Without that file, export it to the folder that holds each book's state. |
 | `page ... out of range` or an empty sheet | `R` or `S` is wrong. | Look up `R` again in `pages.csv`. Pages count from 1. |

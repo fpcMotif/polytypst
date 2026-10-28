@@ -1,8 +1,10 @@
 from dataclasses import replace
 
-from polytypst.algebra3.spec import ALGEBRA3_SPEC
+from polytypst.books import module
 from polytypst.compiler.source_numbers import LATEX, TYPST
 from polytypst.literal_numbers import edition_literal_counts, literal_numbering_counts
+
+ALGEBRA3_SPEC = module("algebra3", "spec").ALGEBRA3_SPEC
 
 ABBREVIATIONS = ("T", "G")
 

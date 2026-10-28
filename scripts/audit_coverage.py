@@ -1,14 +1,20 @@
+"""Print each page whose transcript keeps less than 75% of the words of its OCR lines.
+
+Usage: uv run python scripts/audit_coverage.py KEY
+"""
+
 import json
 import re
-from pathlib import Path
+import sys
 
-from polytypst.book_state import book_state
+from polytypst.books import book_by_key
 
-source_ocr_dir = book_state(Path("output/functional_analysis")) / "source_ocr"
-md_dir = book_state(Path("output/functional_analysis")) / "markdown_pages"
+book = book_by_key(sys.argv[1])
+source_ocr_dir = book.ocr
+md_dir = book.transcripts
 
 flagged: list[tuple[int, str, float, int, list[str]]] = []
-total_pages = 478
+total_pages = book.spec.pdf_page_count
 coverages: list[float] = []
 
 for pno in range(1, total_pages + 1):
