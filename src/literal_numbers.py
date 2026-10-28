@@ -29,6 +29,7 @@ from .compiler.source_numbers import (
     TYPST,
     labels,
 )
+from .compiler.typst_math import italic_differentials
 
 _HEAD_RE = re.compile(
     rf"(?m)(?<!\w){_KINDS}\]?\s*\({_NUMBER}\.?\)|^\({_NUMBER}\.?\)(?= )|^(?:#strong\[|\*\*)?(?:I{{1,3}}|IV|VI{{0,3}}|IX|X)\.(?:\]|\*\*)?(?= )|[①-⑳ⓐ-ⓩ]"
@@ -161,12 +162,19 @@ def edition_literal_counts(rebuilt: Path, spec: MonographSpec) -> dict[str, int]
     for suffix, writer, prefix in ((".typ", TYPST, "TYPST"), (".tex", LATEX, "LATEX")):
         path = rebuilt.with_suffix(suffix)
         if path.exists():
+            source = path.read_text(encoding="utf-8")
             counts = literal_numbering_counts(
-                path.read_text(encoding="utf-8"),
+                source,
                 writer,
                 spec.citation_abbreviations,
                 reference_chapters(spec),
                 require_vector_figures=spec.require_vector_figures,
             )
             out |= {f"{prefix}_{rule}": n for rule, n in counts.items()}
+            if writer is TYPST and (italic := italic_differential_count(source)):
+                out["TYPST_ITALIC_DIFFERENTIAL"] = italic
     return out
+
+
+def italic_differential_count(source: str) -> int:
+    return sum(len(italic_differentials(m.group(0)[1:-1])) for m in TYPST.math.finditer(source))

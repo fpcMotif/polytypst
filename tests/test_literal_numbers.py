@@ -144,3 +144,15 @@ def test_every_book_is_held_to_native_numbering(tmp_path):
     spec = replace(ALGEBRA3_SPEC, cross_references=False)
     assert edition_literal_counts(rebuilt, spec) == {"TYPST_LITERAL_ITEM_HEAD": 1}
 
+
+def test_only_italic_d_in_a_real_differential_is_counted(tmp_path):
+    rebuilt = tmp_path / "book.pdf"
+    rebuilt.with_suffix(".typ").write_text(
+        TYPST.chapter_start
+        + "Soit $integral_gamma f(z) d z$ et $integral f dif x$ avec la distance $d(x, y)$, "
+        + "$frac(d y, d x)$, $d A = F cos t$ et $mat(a, b; c, d)$.\n",
+        encoding="utf-8",
+    )
+    spec = replace(ALGEBRA3_SPEC, cross_references=False)
+    assert edition_literal_counts(rebuilt, spec) == {"TYPST_ITALIC_DIFFERENTIAL": 3}
+

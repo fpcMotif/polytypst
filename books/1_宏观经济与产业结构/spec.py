@@ -21,13 +21,14 @@ FIGURE_LAYOUT = FigureLayout(
     caption_format="图 {chapter}-{number}",
     svg_single_pct=100,
     pair_figures=False,
+    note_before_caption=True,
 )
 
 # Full-width figures that are taller than wide shrink to 330pt, about 60% of the 545pt text block,
 # so a figure, its caption and some text share a page.
 FIGURE_STYLE = r"""
 #show image: it => layout(size => {
-  let limit = 330pt
+  let limit = if page.flipped { 245pt } else { 330pt }
   if measure(it, width: size.width).height > limit { image(it.source, height: limit) } else { it }
 })
 """
@@ -100,6 +101,7 @@ FIGURE_TEXT_FIXUPS = {
     50: (_drop_line('（1）HP滤波器'),),
     53: (_drop_line('（1）截至1991年'), _drop_line('（×年第一季度）'), _drop_line('——整个时期 ——仅变更时期'), _drop_line('◇ 使用当时的GDP'), _drop_line('（2）截至1997年'),),
     56: (_drop_line('（2）奥肯定律'),),
+    77: (_drop_line('序列（1）：雇员人均报酬/就业者人均国民收入'), _drop_line('序列（2）：雇员报酬/（国民收入一个人企业收入）'), _drop_line('人工成本/（人工成本+经常利润+应付利息及贴现费用+折旧费）'), _drop_line('（出自《法人企业统计》，按年度计算）'),),
     199: (_drop_line('美国 日本'), _drop_line('经常账户收支与GDP之比'), _drop_line('商品、服务净出口与GDP之比（名义）'), _drop_line('商品、服务净出口与GDP之比（实际）'),),
     216: (_drop_line('口农产品和食品'),),
     227: (_drop_line('（2）女性'), _drop_line('万人'), _drop_line('6000'), _drop_line('5000'), _drop_line('4000'), _drop_line('3000'), _drop_line('2000'), _drop_line('1000'),),
@@ -117,7 +119,13 @@ def _not_a_caption(sentence_start: str) -> tuple[str, str]:
 
 
 PAGE_FIXUPS = {
+    4: (
+        (r"(?m)^## (深尾京司) \((Fukao Kyoji)\) ([^\n]+)$", r"**\1**（\2）　\3"),
+        (r"(?m)^([^\s#|*][^\s|]*) \(([A-Za-z ]+)\) ([^\n]+)$", r"| \1（\2） | \3 |"),
+        (r"(?m)^(\| 酒卷哲朗)", "| 姓名 | 所属机构及职务 |\n| :--- | :--- |\n\\1"),
+    ),
     224: (_not_a_caption(r"图 7-1 显示了"),),
+    315: ((r"Becker, G\. S\. \[1962\]", "Becker, G. S. (1962)"),),
     361: (_not_a_caption(r"图 11-3 \(3\) 显示了"),),
 }
 
@@ -147,7 +155,9 @@ def macro_heading_hook(lt: str, chapter: int) -> str | None:
     if text in BYLINES or TABLE_TITLE.match(text):
         return text
     if not chapter:
-        return "" if any(c.title == text for c in CHAPTERS if not c.number) else None
+        if any(c.title == text for c in CHAPTERS if not c.number):
+            return ""
+        return lt.strip() if lt.startswith("##") else None
     title = next(c.title for c in CHAPTERS if c.number == chapter)
     if re.match(rf"^{chapter}\s+", text) and title.startswith(re.sub(r"^\d+\s+", "", text)):
         return ""
@@ -195,16 +205,24 @@ CHAPTERS = [
 SCAN_NUMBER_STYLE = r"""
 #set par(first-line-indent: (amount: 2em, all: true))
 #show heading.where(level: 1): it => {
-  v(2.4em)
+  let back-matter = it.body.has("text") and it.body.text == "后记"
+  v(if back-matter { 0em } else { 2.4em })
   align(left)[
     #text(16pt, weight: "bold", font: ("Songti SC", "STSong", "New Computer Modern"))[#if it.numbering != none [#numbering(it.numbering, ..counter(heading).at(it.location()))#h(1em)]#it.body]
   ]
   v(0.6em)
   line(length: 100%, stroke: 0.6pt + black)
-  v(1.4em)
+  v(if back-matter { 0.8em } else { 1.4em })
 }
 #show heading.where(level: 2): set heading(numbering: (..n) => str(n.pos().at(1)) + "\u{2002}")
 #show heading.where(level: 3): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
+#let head-number(it) = if it.numbering != none and counter(heading).at(it.location()).first() > 0 { counter(heading).display(it.numbering) }
+#let head-font = ("Songti SC", "STSong", "New Computer Modern")
+#show heading.where(level: 2): it => block(above: 2em, below: 0.9em, sticky: true, text(13pt, weight: "bold", font: head-font)[#head-number(it)#it.body])
+#show heading.where(level: 3): it => block(above: 1.5em, below: 0.7em, sticky: true, text(11pt, weight: "bold", font: head-font)[#head-number(it)#it.body])
+#show heading.where(level: 4): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
+#show heading.where(level: 4): it => block(above: 1.3em, below: 0.6em, sticky: true, text(10pt, weight: "bold", font: head-font)[#head-number(it)#it.body])
+#show table: it => layout(size => if measure(it, width: size.width).height < 0.4 * size.height { block(breakable: false, it) } else { it })
 #set page(header: context {
   let page-number = counter(page).get().first()
   let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
@@ -232,6 +250,8 @@ SCAN_NUMBER_STYLE_LATEX = (
     r"\section*{\arabic{sourcesection}\quad #1}\addcontentsline{toc}{section}{\arabic{sourcesection}\quad #1}}"
     r"\renewcommand\sourcesubsection[1]{\refstepcounter{sourcesubsection}\setcounter{equation}{0}"
     r"\subsection*{\thesourcesubsection\quad #1}}"
+    r"\renewcommand\sourcesubsubsection[1]{\refstepcounter{sourceparagraph}\setcounter{equation}{0}"
+    r"\subsubsection*{\thesourceparagraph\quad #1}}"
 )
 
 BASE_SPEC = MonographSpec(
@@ -239,6 +259,7 @@ BASE_SPEC = MonographSpec(
     title="宏观经济与产业结构",
     author="（日本）内阁府经济社会综合研究所",
     publisher="中国金融出版社",
+    series="",
     year=2022,
     lang="zh",
     domain="economics",
@@ -252,8 +273,11 @@ BASE_SPEC = MonographSpec(
     heading_hook=macro_heading_hook,
     figure_dir="figures",
     figures=FIGURE_LAYOUT,
+    landscape_pages=frozenset({127, 128, 130, 131, 152, 153, 160, 161, *range(165, 194), 213, 214, 215, 216, 218, 242}),
+    landscape_columns={242: 3},
     cross_references=True,
     circled_items=True,
+    three_line_tables=True,
     chapter_heading="{title}",
     latex_preamble=SCAN_NUMBER_STYLE_LATEX,
     page_fixups=PAGE_FIXUPS | TABLE_EMPTY_CELL_FIXUPS | FIGURE_TEXT_FIXUPS,

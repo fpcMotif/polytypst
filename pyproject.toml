@@ -3,7 +3,7 @@ name = "polytypst"
 version = "0.1.0"
 description = "Universal tool to turn complex PDFs into beautiful Typst, LaTeX, and EPUB with neural OCR and Jev 1.14 vision grounding."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.15"
 dependencies = [
     "pymupdf>=1.24",
     "pypdfium2>=4.30",
@@ -12,13 +12,21 @@ dependencies = [
     "numpy>=1.26",
     "httpx>=0.27",
     "matplotlib>=3.11.2",
+    "polytypst-native",
 ]
+
+[tool.uv.sources]
+polytypst-native = { path = "native" }
 
 [project.scripts]
 polytypst = "polytypst.cli:main"
 polytypst-colab = "polytypst.ocr.colab_cli:main"
 
 [tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-n auto --dist worksteal"
+markers = ["slow: compiles Typst many times; skip with -m 'not slow'"]
 filterwarnings = ["ignore:builtin type .* has no __module__ attribute:DeprecationWarning"]
 
 [tool.ruff.lint]
@@ -42,6 +50,7 @@ build-backend = "setuptools.build_meta"
 dev = [
     "hypothesis>=6.170.5",
     "pytest>=9.1.1",
+    "pytest-xdist>=3.8.0",
     "ruff==0.17.1",
 ]
 

@@ -1,6 +1,7 @@
 import subprocess
 
 import pymupdf
+import pytest
 
 from polytypst.books import module
 from polytypst.compiler.diagrams import parse_array_diagram
@@ -35,6 +36,22 @@ def test_paragraph_and_equation_numbers_come_from_counters():
     assert '#source-paragraph[Lemme]#metadata("paragraph") <par-c1-1-1-3> Soit.' in out
     assert "numbering: source-equation-number, $ g mapsto ( p_1 compose g ) $) <eq-c1-1-1-1-1>" in out
     assert resyncs == []
+
+
+def test_a_three_level_heading_number_comes_from_the_counters():
+    text = "== 1 区域内贸易\n\n=== 1.1 出口\n\n==== 1.1.1 面向发达国家市场的出口情况\n\n正文。"
+    typst, resyncs = number_chapter(text, 6)
+    assert "==== 面向发达国家市场的出口情况" in typst and "1.1.1" not in typst
+    latex, _ = number_chapter(text.replace("====", "####").replace("===", "###").replace("==", "##"), 6, LATEX)
+    assert r"\sourcesubsubsection{面向发达国家市场的出口情况}" in latex
+    assert resyncs == []
+
+
+def test_a_display_equation_with_a_line_break_gets_a_counter_label():
+    text = "== 1 前言\n\n$ p_11 = a \\\np_00 = b $ <eq-13-4>\n"
+    out, _ = number_chapter(text, 13)
+    assert "<eq-13-4>" not in out
+    assert "<eq-c13-13-4>" in out
 
 
 def test_a_number_the_counters_would_miss_is_resynced_and_reported():
@@ -340,6 +357,7 @@ def test_a_latex_figure_caption_escapes_percent_ampersand_and_hash():
     assert "\\caption{前1\\%高收入群体 \\& 第\\#1组}" in out
 
 
+@pytest.mark.slow
 def test_a_latex_figure_caption_prints_its_source_number(tmp_path):
     out, _ = number_chapter("![图 8-8 4 变量 VAR 模型](figures/fig_8-8.png)\n\n见图 8-8。", 1, LATEX)
     linked = link_references(out, 1, {}, labels(out), LATEX)

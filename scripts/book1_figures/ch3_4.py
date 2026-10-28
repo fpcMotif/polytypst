@@ -11,6 +11,7 @@ from scripts.book2_figures.engine import (
     PanelSpec,
     ThemeMode,
     _draw_marker,
+    is_mono,
     render_figure_svg,
 )
 
@@ -21,7 +22,7 @@ def _with_legend_markers(svg: str, markers: Sequence[tuple[str, bool]], mode: Th
     bg = PALETTES[mode].panel_bg
     found = list(LEGEND_CIRCLE.finditer(svg))
     for m, (shape, hollow) in reversed(list(zip(found, markers))):
-        marker = _draw_marker(float(m[1]), float(m[2]), shape, m[3], bg, 3.0, hollow=hollow and mode == "mono")
+        marker = _draw_marker(float(m[1]), float(m[2]), shape, m[3], bg, 3.0, hollow=hollow and is_mono(mode))
         svg = svg[: m.start()] + marker + svg[m.end() :]
     return svg
 
@@ -509,7 +510,8 @@ def _asset_figure(
     panel = PanelSpec(
         xlim=(1979.5, last_year + 0.5),
         ylim=ylim,
-        xticks=[float(y) for y in range(1980, last_year + 1, 2)],
+        xticks=[(float(y), str(y)) for y in range(1980, last_year + 1)],
+        xtick_vertical=True,
         yticks=[ylim[0] + ystep * i for i in range(round((ylim[1] - ylim[0]) / ystep) + 1)],
         xlabel="年",
         ylabel="%",

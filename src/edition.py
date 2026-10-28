@@ -74,6 +74,7 @@ class Edition:
     spec: MonographSpec | None = None
     formats: frozenset[str] = frozenset()
     scan_line_breaks: bool = False
+    build_pages: Callable[[Path | None, set[int]], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -97,7 +98,7 @@ class Book:
     def adhoc(
         cls, source: Path, out_dir: Path | None = None, publisher_key: str = "cambridge", lang: str = "en",
         domain: str = "math",
-    ) -> "Book":
+    ) -> Book:
         """A one-chapter book for a source scan that no `books/<key>/` describes, in `output/<slug>` by default."""
         spec = adhoc_spec(Path(source), SourceScan(source).page_count, publisher_key, lang, domain)
         out_dir = out_dir or OUTPUT / spec.slug
@@ -129,9 +130,16 @@ class Book:
         source: Path | None = None,
         formats: frozenset[str] | None = None,
         footnotes: str = "original",
+        pages: set[int] | None = None,
     ) -> Edition:
+        """Build an edition; with `pages`, set only those pages again through the edition's `build_pages`."""
         name = edition_name or next(iter(self.editions))
         edition = self.editions[name]
+        if pages is not None:
+            if edition.build_pages is None:
+                raise ValueError(f"{name} cannot rebuild only some pages")
+            edition.build_pages(source, pages)
+            return edition
         if self.figures is not None:
             if source is not None or self.spec.source_pdf:
                 scan = SourceScan(source if source is not None else source_pdf(self.spec))
@@ -180,13 +188,17 @@ def facsimile_edition(
         pages = int(pymupdf.open(rebuilt).page_count)
         return {p: [p] for p in range(1, pages + 1)}
 
-    def build(source: Path | None, _formats: frozenset[str], _footnotes: str) -> None:
-        pdf = build_facsimile(source_pdf(spec, source), out_dir, spec.ocr_languages, style)
+    def build_pages(source: Path | None, pages: set[int] | None) -> None:
+        pdf = build_facsimile(source_pdf(spec, source), out_dir, spec.ocr_languages, style, pages)
         print(f"{pdf}: {int(pymupdf.open(pdf).page_count)} pages")
+
+    def build(source: Path | None, _formats: frozenset[str], _footnotes: str) -> None:
+        build_pages(source, None)
 
     return Edition(
         rebuilt, build, summary,
         Parity(page_map, FACSIMILE, style.diagram_dir, style.diagram_text, visual),
         scan_line_breaks=True,
+        build_pages=build_pages if style.strict_lines and not style.flow else None,
     )
 

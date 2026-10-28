@@ -3,6 +3,7 @@ import zipfile
 from pathlib import Path
 
 import pymupdf
+import pytest
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 SERRE_DIR = ROOT_DIR / "output" / "serre_arithmetique"
@@ -599,6 +600,7 @@ def test_kerodon_pdf_zero_raw_latex_leaks_and_complete_sections() -> None:
         assert f"Section {sec_num}:" in full_text, f"Missing Section {sec_num} in Kerodon PDF"
 
 
+@pytest.mark.slow
 def test_web_exporter_domain_specific_rendering_modes(tmp_path: Path) -> None:
     from polytypst.web_exporter import export_all_web_data
 

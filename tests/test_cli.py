@@ -41,6 +41,26 @@ def test_build_rejects_a_format_the_edition_cannot_make(built, capsys):
     assert built == []
 
 
+def test_build_rejects_pages_for_an_edition_built_whole(built, capsys):
+    with pytest.raises(SystemExit):
+        books_cli.main("build", ["probe", "--pages", "3"])
+    assert "--pages" in capsys.readouterr().err
+    assert built == []
+
+
+def test_build_passes_the_pages_to_set_again(monkeypatch, tmp_path):
+    whole, some = [], []
+    edition = Edition(
+        tmp_path / "x.pdf", lambda source, formats, footnotes: whole.append(True),
+        build_pages=lambda source, pages: some.append(pages),
+    )
+    book = Book(MonographSpec(domain="math", slug="x", title="X", author="A"), tmp_path, {"facsimile": edition})
+    monkeypatch.setattr(books_cli, "books", lambda: {"probe": book})
+    monkeypatch.setattr(books_module, "books", lambda: {"probe": book})
+    assert books_cli.main("build", ["probe", "--pages", "3,7-8"]) == 0
+    assert (whole, some) == ([], [{3, 7, 8}])
+
+
 def test_build_passes_the_footnote_numbering(monkeypatch, tmp_path):
     calls = []
     spec = MonographSpec(domain="math", slug="x", title="X", author="A", footnote_style="paren")

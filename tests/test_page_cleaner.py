@@ -4,7 +4,7 @@ import pytest
 from PIL import Image
 
 from polytypst.book_state import book_state
-from polytypst.compiler.monograph import ChapterSpec, MonographSpec
+from polytypst.compiler.monograph import ChapterSpec, FigureLayout, MonographSpec
 from polytypst.compiler.page_cleaner import CleanPage, PageCleaner
 
 SPEC = MonographSpec(
@@ -15,6 +15,26 @@ SPEC = MonographSpec(
     chapters=[ChapterSpec(1, "Holomorphic functions", 1, 40)],
     sections={"1.2": (5, "Power series")},
 )
+
+
+def test_a_note_printed_between_a_figure_and_its_caption_travels_with_that_figure():
+    spec = replace(
+        SPEC,
+        lang="zh",
+        chapters=[ChapterSpec(3, "储蓄", 1, 40)],
+        figures=FigureLayout(caption_format="图 {chapter}-{number}", note_before_caption=True),
+    )
+    page = (
+        "正文段落。\n\n注：根据总务省“劳动力调查”编制。\n\n图 3-4 完全失业率\n\n"
+        "注：1. 根据“一般职业介绍情况”编制。\n\n2. 经季节性调整。\n\n图 3-5 新就业人数\n"
+    )
+    cleaner = PageCleaner.for_spec(spec)
+    clean = cleaner.clean(page, 5)
+    assert clean.body == "正文段落。"
+    assert cleaner.figure_notes == {
+        "3_4": "注：根据总务省“劳动力调查”编制。",
+        "3_5": "注：1. 根据“一般职业介绍情况”编制。\n\n2. 经季节性调整。",
+    }
 
 
 def test_a_section_heading_is_placed_once_and_its_running_head_is_dropped_later():
@@ -88,7 +108,10 @@ def test_the_source_line_of_one_figure_stays_when_the_next_caption_follows_it(so
 
 
 def test_the_figure_manifest_decides_which_page_holds_a_caption(tmp_path):
-    from polytypst.vision.figure_extractor import ExtractedFigure, write_figures_manifest
+    from polytypst.vision.figure_extractor import (
+        ExtractedFigure,
+        write_figures_manifest,
+    )
 
     chinese = replace(
         SPEC,
@@ -124,7 +147,10 @@ def test_the_figure_manifest_decides_which_page_holds_a_caption(tmp_path):
 
 
 def test_a_manifest_figure_whose_caption_the_transcript_lost_is_placed_on_its_page(tmp_path):
-    from polytypst.vision.figure_extractor import ExtractedFigure, write_figures_manifest
+    from polytypst.vision.figure_extractor import (
+        ExtractedFigure,
+        write_figures_manifest,
+    )
 
     chinese = replace(
         SPEC,
@@ -153,7 +179,10 @@ def test_a_manifest_figure_whose_caption_the_transcript_lost_is_placed_on_its_pa
 
 
 def test_a_two_line_caption_takes_its_whole_text_from_the_manifest(tmp_path):
-    from polytypst.vision.figure_extractor import ExtractedFigure, write_figures_manifest
+    from polytypst.vision.figure_extractor import (
+        ExtractedFigure,
+        write_figures_manifest,
+    )
 
     chinese = replace(
         SPEC,

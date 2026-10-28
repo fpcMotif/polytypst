@@ -11,6 +11,7 @@ from polytypst.facsimile import (
     contents_parts,
     counted_lines,
     dropped_headings,
+    figure_crop_typst,
     flow_markup,
     flow_typst,
     glyph_count,
@@ -21,7 +22,10 @@ from polytypst.facsimile import (
     page_starts,
     placed_typst,
     running_head,
+    table_cells,
+    table_text,
     with_foot_lines,
+    without_figure_words,
 )
 from polytypst.ocr.pages import OcrLine
 from polytypst.parity.words import PT_PER_PX
@@ -35,6 +39,61 @@ def scan_page() -> np.ndarray:
         ink[top : top + 60, 210:2190] = True
     ink[3500:3540, 1200:1260] = True
     return ink
+
+
+def test_a_figure_box_places_the_scan_art_in_gray_at_its_place(tmp_path) -> None:
+    import pymupdf
+
+    doc = pymupdf.open()
+    page = doc.new_page(width=400, height=600)
+    page.draw_rect(pymupdf.Rect(100, 200, 300, 300), color=(0, 0, 0), fill=(0.5, 0.5, 0.5))
+    png = tmp_path / "fig.png"
+    out = figure_crop_typst(page, (0.25, 1 / 3, 0.75, 0.5), png)
+    assert out.startswith("#place(top + left, dx: 100.00pt, dy: 200.00pt, image(")
+    assert "width: 200.00pt, height: 100.00pt" in out
+    art = np.asarray(Image.open(png))
+    assert art.ndim == 2 and 100 < int(np.median(art)) < 160
+
+
+def test_transcript_lines_that_repeat_a_figures_own_words_are_dropped() -> None:
+    text = "正文第一段。\n\n美国 日本\n\n图 6-3 日本和美国的经常账户收支\n\n![图 6-3 日本和美国的经常账户收支](figures/fig_6-3.png)\n\n经常账户收支与GDP之比\n"
+    out = without_figure_words(text, ["■美国", "一日本", "经常账户收支与GDP之比", "1980 1982"])
+    assert "美国 日本" not in out and "经常账户收支与GDP之比\n" not in out and "![" not in out
+    assert "正文第一段。" in out and "图 6-3 日本和美国的经常账户收支" in out
+
+
+def test_an_html_table_becomes_one_line_of_cell_text_per_row() -> None:
+    text = (
+        "续表\n\n<table>\n<thead>\n  <tr class=\"table-header\">\n    <th>样本期</th>\n    <th>1992—2007</th>\n  </tr>\n"
+        "</thead>\n<tbody>\n  <tr class=\"row-odd\">\n    <th>完全失业率</th>\n    <th>0.55\\*\\*<br>(2.05)</th>\n  </tr>\n"
+        "  <tr>\n    <td><mark>1.2</mark></td>\n    <td></td>\n  </tr>\n</tbody>\n</table>\n\n注：括号内为t值。\n"
+    )
+    assert table_text(text) == "续表\n\n样本期 1992—2007\n完全失业率 0.55\\*\\* (2.05)\n1.2\n\n注：括号内为t值。\n"
+
+
+def test_html_table_cells_sit_on_the_grid_their_column_and_row_spans_leave() -> None:
+    text = (
+        "<table>\n<tr><th colspan=\"2\">项目</th><th colspan=\"2\">人口变化</th></tr>\n"
+        "<tr><th></th><th></th><th>劳动</th><th>年龄</th></tr>\n"
+        "<tr><th rowspan=\"2\">男性</th><th>1980</th><th>48.9<br>(11.2)</th><th>-40</th></tr>\n"
+        "<tr><th>1985</th><th>195</th><th>-77</th></tr>\n</table>\n"
+    )
+    [cells] = table_cells(text)
+    assert [(c.row, c.col, c.span, c.down, c.text) for c in cells] == [
+        (0, 0, 2, 1, "项目"), (0, 2, 2, 1, "人口变化"), (1, 2, 1, 1, "劳动"), (1, 3, 1, 1, "年龄"),
+        (2, 0, 1, 2, "男性"), (2, 1, 1, 1, "1980"), (2, 2, 1, 1, "48.9 (11.2)"), (2, 3, 1, 1, "-40"),
+        (3, 1, 1, 1, "1985"), (3, 2, 1, 1, "195"), (3, 3, 1, 1, "-77"),
+    ]
+
+
+def test_pipe_table_cells_sit_on_their_columns() -> None:
+    [cells] = table_cells("上文。\n\n| 职务 | 姓名 |\n| :--- | :---: |\n|  | 宫川努<br>（2.6） |\n\n下文。\n")
+    assert [(c.row, c.col, c.text) for c in cells] == [(0, 0, "职务"), (0, 1, "姓名"), (1, 1, "宫川努 （2.6）")]
+
+
+def test_a_pipe_table_becomes_one_line_of_cell_text_per_row() -> None:
+    text = "上文。\n\n| 职务 | 姓名 |\n| :--- | :---: |\n| 主任 | 深尾京司 |\n|  | 宫川努<br>（2.6） |\n\n下文。\n"
+    assert table_text(text) == "上文。\n\n职务 姓名\n主任 深尾京司\n宫川努 （2.6）\n\n下文。\n"
 
 
 def test_frame_is_the_text_block_between_running_head_and_folio() -> None:

@@ -9,26 +9,39 @@ diagrams replace the OCR text inside the scan box where each diagram is found.
 import copy
 import difflib
 import itertools
+import json
+import os
 import re
-import subprocess
 import unicodedata
 from collections import Counter
 from collections.abc import Callable, Sequence
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
 import pymupdf
-from fontTools.ttLib import TTFont
+from fontTools.ttLib import TTFont, TTLibError
 from PIL import Image, ImageFont
 
 from .book_state import book_state
 from .compiler.diagrams import page_diagrams
 from .compiler.typst_math import compile_typst, convert_math_batch
+from .facsimile_figures import (
+    FigureArt,
+    drawing_gaps,
+    figure_typst,
+    gray_svg,
+    slices,
+    svg_ink,
+    without_lines,
+)
+from .facsimile_lines import CAPTION_RE, TableCell, face_index, faint_ink, strict_page
 from .facsimile_text import Chunk, Piece, chunks, match_units
 from .ocr.pages import OcrLine
 from .ocr.transcripts import TranscriptStore
 from .parity.diagrams import DiagramText, diagram_ink, find_diagram
+from .parity.ink_cache import InkCache
 from .parity.source import (
     SCAN_DPI,
     ensure_source_ocr,
@@ -52,6 +65,7 @@ UNREAD_INK_MIN_HEIGHT_PT = 1.0
 UNREAD_LINES_RATIO = 1.6
 UNREAD_VALLEY_SHARE = 0.25
 UNCLAIMED_INK_MARGIN_PT = 1.0
+CJK_CUT_WINDOW = 4
 RUNNING_HEAD_SHARE = 0.12
 FOLIO_SHARE = 0.93
 RULE_MAX_PT = 4.0
@@ -68,10 +82,15 @@ FOLIO_RE = re.compile(r"\W*(\[)?\s*(\d+)\s*\]?\W*")
 TABLE_RE = re.compile(r"\s*<table\b.*</table>\s*", re.DOTALL)
 ROW_RE = re.compile(r"<tr\b[^>]*>(.*?)</tr>", re.DOTALL)
 CELL_RE = re.compile(r"<t[hd]\w*\b[^>]*>(.*?)</t[hd]\w*>", re.DOTALL)
+CELL_TAG_RE = re.compile(r"<t[hd]\w*\b([^>]*)>(.*?)</t[hd]\w*>", re.DOTALL)
+SPAN_RE = re.compile(r"\b(col|row)span\s*=\s*[\"']?(\d+)")
 RUN_IN_RE = re.compile(r"\d+\.\s")
 NOTE_RE = re.compile(r"[①-⑳]|[⁰¹²³⁴⁵⁶⁷⁸⁹]+\)")
 FOOTNOTE_SIZE = 0.857
 FOOTNOTE_RULE = "#v(0.6em)#line(length: 30%, stroke: 0.4pt)"
+COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+PIPE_ROW_RE =re.compile(r"\s*\|.*\|\s*")
+PIPE_RULE_RE = re.compile(r"[\s|:-]*-{3,}[\s|:-]*")
 IMAGE_RE = re.compile(r"\s*!\[([^\]]*)\]\(([^)\s]+)\)\s*")
 ENTRY_RE = re.compile(r"(?<=\s\d)\s+(?=\d+\.\s)|(?<=\s\d\d)\s+(?=\d+\.\s)|(?<=\s\d\d\d)\s+(?=\d+\.\s)")
 ROMAN_FOLIO_RE = re.compile(r"[^\w]*[ivxlc]+[^\w]*")
@@ -109,9 +128,12 @@ class FacsimileStyle:
     diagram_text: DiagramText
     install_diagrams: Callable[[Path], object]
     diagram_boxes: Callable[[], dict[str, tuple[int, int, int, int]]] | None = None
+    figure_boxes: Callable[[], dict[int, list[tuple[float, float, float, float]]]] | None = None
     transcripts: str | None = None
     flow: bool = False
     scan_pages: frozenset[int] = frozenset()
+    strict_lines: bool = False
+    figure_art: Callable[[], dict[int, list[FigureArt]]] | None = None
 
 
 @dataclass(frozen=True)
@@ -139,17 +161,23 @@ class Measure:
             pass
         try:
             self.cmap = set(TTFont(str(style.font_file)).getBestCmap())
-        except Exception:
+        except TTLibError:
             self.cmap = set(TTFont(str(style.font_file), fontNumber=0).getBestCmap())
         self.space = self.font.getlength(" ")
+        self._ink_boxes: dict[str, tuple[float, float, float, float]] = {}
 
     def covers(self, text: str) -> bool:
         return all(ord(c) in self.cmap for c in text)
 
+    def ink_box(self, text: str) -> tuple[float, float, float, float]:
+        if (box := self._ink_boxes.get(text)) is None:
+            box = self._ink_boxes[text] = self.font.getbbox(text, anchor="ls")
+        return box
+
     def width(self, text: str) -> float:
         if not self.covers(text):
             return self.space * 2 * len(text)
-        l, _, r, _ = self.font.getbbox(text, anchor="ls")
+        l, _, r, _ = self.ink_box(text)
         return r - l
 
 
@@ -208,7 +236,7 @@ def ink_bands(ink: np.ndarray, gap: int = 3) -> list[tuple[int, int]]:
 
 def split_by_width(word: Placement, measure: Measure) -> list[Placement]:
     """A placement that holds a whole OCR line, cut into its words in proportion to their measured widths."""
-    parts = word.text.split()
+    parts = re.sub(r"(?<!\w)(附表|图|表)(?=\d)", r"\1 ", word.text).split()
     if len(parts) < 2:
         return [word]
     widths = [measure.width(p) for p in parts]
@@ -353,6 +381,13 @@ def chunk_markup(chunk: Chunk, math: dict[tuple[str, bool], str]) -> str:
     return "".join(out)
 
 
+def with_break_hyphen(piece: str) -> str:
+    """The head of a word broken at a line end: a hyphen after a Latin letter, none after a full-width one."""
+    if not piece or piece.endswith("-") or unicodedata.east_asian_width(piece[-1]) in ("W", "F"):
+        return piece
+    return piece + "-"
+
+
 def split_across_lines(word: str, parts: list[Placement]) -> list[Placement]:
     """A word the scan hyphenates over several lines, cut in proportion to each line's ink width."""
     total = sum(p.right - p.left for p in parts)
@@ -373,10 +408,18 @@ def split_across_lines(word: str, parts: list[Placement]) -> list[Placement]:
                 end += 1
         else:
             end = max(start + 1, round(len(word) * acc / total))
+            if (
+                len(scanned) >= 2
+                and unicodedata.east_asian_width(scanned[-1]) in ("W", "F")
+                and (hits := [m.end() for m in re.finditer(re.escape(scanned[-2:]), word) if start < m.end() < len(word)])
+            ):
+                nearest = min(hits, key=lambda h: abs(h - end))
+                if abs(nearest - end) <= CJK_CUT_WINDOW:
+                    end = nearest
         piece = word[start:end]
         out.append(
             Placement(
-                piece if k == len(parts) - 1 or piece.endswith("-") else piece + "-",
+                piece if k == len(parts) - 1 else with_break_hyphen(piece),
                 p.left,
                 p.right,
                 p.top,
@@ -425,6 +468,31 @@ def transcript_typst(
             box = [words[j] for j in unit.words]
             if valid := [w for w in box if w.text or w.left > 20.0]:
                 box = valid
+        elif len(by_line) > 1 and len(cs) == 1 and len(pieces) > 1 and all(p.kind == "text" for p in pieces):
+            spans = [
+                Placement(
+                    " ".join(w.text for w in ws), ws[0].left, ws[-1].right,
+                    min(w.top for w in ws), max(w.bottom for w in ws), ws[0].baseline, ws[0].line,
+                )
+                for ws in by_line.values()
+            ]
+            styles = [p.style for p in pieces for _ in p.text]
+            joined = "".join(p.text for p in pieces)
+            start = 0
+            for part in split_across_lines(joined, spans):
+                end = start + len(part.text) - (joined[start : start + len(part.text)] != part.text)
+                runs = [
+                    Piece("text", "".join(c for _, c in run), style)
+                    for style, run in itertools.groupby(zip(styles[start:end], joined[start:end]), key=lambda sc: sc[0])
+                ]
+                if end - start < len(part.text):
+                    runs[-1] = replace(runs[-1], text=runs[-1].text + part.text[-1])
+                out.append(
+                    f"#place(top + left, dx: {part.left:.2f}pt, dy: {part.baseline:.2f}pt, "
+                    f"fit({part.right - part.left:.2f}pt, [{chunk_markup(tuple(runs), math)}]))"
+                )
+                start = end
+            continue
         elif len(by_line) > 1 and len(pieces) == 1 and pieces[0].kind == "text":
             spans = [
                 Placement(
@@ -473,7 +541,7 @@ def transcript_typst(
                     f"fit({tail_place.right - tail_place.left:.2f}pt, [{chunk_markup((Piece('text', tail_place.text, tail_piece.style),), math)}]))"
                 )
             head = tail_piece.text[: -len(tail)]
-            cs = [*cs[:-1], (*cs[-1][:-1], Piece("text", head if head.endswith("-") else head + "-", tail_piece.style))]
+            cs = [*cs[:-1], (*cs[-1][:-1], Piece("text", with_break_hyphen(head), tail_piece.style))]
             pieces = [p for c in cs for p in c]
             box = max(head_lines, key=len)
         else:
@@ -538,7 +606,7 @@ def placement_typst(p: Placement, measure: Measure) -> str:
     """A placed word: ink-fitted when the face has every glyph, else advance-fitted."""
     s = measure.size / 100
     if measure.covers(p.text):
-        l, _, r, _ = measure.font.getbbox(p.text, anchor="ls")
+        l, _, r, _ = measure.ink_box(p.text)
         if r > l:
             sx = min(MAX_SCALE, (p.right - p.left) / ((r - l) * s))
             return (
@@ -763,6 +831,61 @@ def table_typst(html: str, math: dict[tuple[str, bool], str]) -> str:
         return ""
     cells = ", ".join(f"[{cell}]" for row in rows for cell in row + [""] * (columns - len(row)))
     return f"#align(center, table(columns: {columns}, stroke: 0.4pt, inset: 3pt, {cells}))"
+
+
+def cell_text(cell: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", cell)).strip()
+
+
+def table_cells(markdown: str) -> list[list[TableCell]]:
+    """Each HTML or pipe table's non-empty cells on its grid, in the order `table_text` reads them. A cell takes the
+    first column its row leaves free of the cells spanning down from the rows above."""
+    tables = []
+    for table in re.finditer(r"<table\b.*?</table>", markdown, flags=re.DOTALL):
+        taken: set[tuple[int, int]] = set()
+        cells = []
+        for r, row in enumerate(ROW_RE.findall(table[0])):
+            col = 0
+            for attrs, inner in CELL_TAG_RE.findall(row):
+                while (r, col) in taken:
+                    col += 1
+                spans = dict(SPAN_RE.findall(attrs))
+                across, down = int(spans.get("col", 1)), int(spans.get("row", 1))
+                taken |= {(r + i, col + j) for i in range(down) for j in range(across)}
+                if text := cell_text(inner):
+                    cells.append(TableCell(r, col, across, text, down))
+                col += across
+        tables.append(cells)
+    rows: list[list[str]] = []
+    for line in [*markdown.split("\n"), ""]:
+        if PIPE_ROW_RE.fullmatch(line):
+            if not PIPE_RULE_RE.fullmatch(line):
+                rows.append(line.strip().strip("|").split("|"))
+        elif rows:
+            tables.append([TableCell(r, c, 1, t) for r, row in enumerate(rows) for c, cell in enumerate(row) if (t := cell_text(cell))])
+            rows = []
+    return [cells for cells in tables if cells]
+
+
+def table_text(markdown: str) -> str:
+    """The transcript with each HTML or pipe table turned into plain text, one line of non-empty cells per row."""
+
+    def row_text(cells: list[str]) -> str:
+        return " ".join(c for cell in cells if (c := cell_text(cell)))
+
+    def rows(table: re.Match[str]) -> str:
+        return "\n".join(line for row in ROW_RE.findall(table[0]) if (line := row_text(CELL_RE.findall(row))))
+
+    out = []
+    for line in re.sub(r"<table\b.*?</table>", rows, markdown, flags=re.DOTALL).split("\n"):
+        if PIPE_ROW_RE.fullmatch(line):
+            if PIPE_RULE_RE.fullmatch(line):
+                continue
+            line = row_text(line.strip().strip("|").split("|"))
+            if not line:
+                continue
+        out.append(line)
+    return "\n".join(out)
 
 
 def chinese_number(digits: str) -> int:
@@ -1268,6 +1391,32 @@ def crop_typst(ink: np.ndarray, band: Band, path: Path) -> str:
     )
 
 
+def without_figure_words(text: str, art_lines: Sequence[str]) -> str:
+    """The transcript without its figure image links and without lines, such as legends, whose every word the
+    scan prints inside a figure's art."""
+    art = "".join(re.sub(r"\W", "", s) for s in art_lines)
+
+    def in_art(line: str) -> bool:
+        if line.lstrip().startswith("#"):
+            return False
+        words = [re.sub(r"\W", "", w) for w in line.split()]
+        return bool(words) and all(w and w in art for w in words)
+
+    lines = text.split("\n")
+    return "\n".join(line for line in lines if not re.fullmatch(r"\s*!\[[^\]]*\]\([^)]*\)\s*", line) and not in_art(line))
+
+
+def figure_crop_typst(page: pymupdf.Page, box: tuple[float, float, float, float], path: Path) -> str:
+    """The scan's own figure art inside `box` (page fractions l, t, r, b) as a gray image, placed where it sits."""
+    w, h = page.rect.width, page.rect.height
+    clip = pymupdf.Rect(box[0] * w, box[1] * h, box[2] * w, box[3] * h)
+    page.get_pixmap(dpi=SCAN_DPI, clip=clip, colorspace=pymupdf.csGRAY).save(path)
+    return (
+        f"#place(top + left, dx: {clip.x0:.2f}pt, dy: {clip.y0:.2f}pt, "
+        f'image("{path.resolve()}", width: {clip.width:.2f}pt, height: {clip.height:.2f}pt))'
+    )
+
+
 def placed_typst(
     ink: np.ndarray,
     frame: Frame,
@@ -1441,10 +1590,33 @@ def preamble(style: FacsimileStyle) -> str:
 """
 
 
+_STRICT_WORKER: dict = {}
+
+
+def _start_strict_worker(scan_ink: InkCache, scan_faint: InkCache, cache: Path, font_file: Path, family: str, size: float) -> None:
+    font = ImageFont.truetype(str(font_file), 100, index=face_index(font_file, family))
+    _STRICT_WORKER.update(ink=scan_ink, faint=scan_faint, cache=cache, font=font, size=size)
+
+
+def _strict_job(
+    job: tuple[int, list, list[Chunk], dict[tuple[str, bool], str], list[list[TableCell]]],
+) -> tuple[int, list[str], list[dict]]:
+    p, skip, page_chunks, math, cells = job
+    w = _STRICT_WORKER
+    lines = read_source_page(w["cache"], p).lines
+    body, found = strict_page(p, w["ink"](p), lines, skip, page_chunks, math, w["font"], w["size"], w["faint"](p), cells)
+    return p, body, found
+
+
 def build_facsimile(
-    source: Path, out_dir: Path, languages: Sequence[str], style: FacsimileStyle
+    source: Path, out_dir: Path, languages: Sequence[str], style: FacsimileStyle, pages: set[int] | None = None
 ) -> Path:
-    """Write and compile the facsimile edition of the `source` scan; returns the PDF path."""
+    """Write and compile the facsimile edition of the `source` scan; returns the PDF path.
+
+    Strict pages are set in parallel, and each one's Typst and mismatches are kept in `facsimile/pages/`.
+    With `pages`, only those strict pages are set again and every other one reuses its kept result."""
+    if pages is not None and not (style.strict_lines and not style.flow):
+        raise ValueError(f"{style.slug} sets pages in one flow, so it cannot rebuild only some pages")
     out_dir.mkdir(parents=True, exist_ok=True)
     work = out_dir / "facsimile"
     work.mkdir(exist_ok=True)
@@ -1452,35 +1624,91 @@ def build_facsimile(
     doc = pymupdf.open(source)
     cache = source_ocr_dir(out_dir)
     ensure_source_ocr(source, cache, languages)
+    scan_ink = InkCache(source, work / "ink", page_ink)
+    scan_faint = InkCache(source, work / "ink", faint_ink)
     diagrams = locate_diagrams(doc, work, style)
     measure = Measure(style)
     store = TranscriptStore(book_state(out_dir) / style.transcripts) if style.transcripts else None
     texts = {p: store.text(p) for p in range(1, doc.page_count + 1)} if store else {}
-    page_chunks = {p: chunks(without_diagrams(t)) for p, t in texts.items() if t}
+    figure_boxes = style.figure_boxes() if style.figure_boxes else {}
+    for p, boxes in figure_boxes.items():
+        if texts.get(p):
+            art = [
+                ln.text
+                for ln in read_source_page(cache, p).lines
+                if any(l <= ln.x + ln.w / 2 <= r and t <= 1 - ln.y - ln.h / 2 <= b for l, t, r, b in boxes)
+                and not (style.strict_lines and CAPTION_RE.match(ln.text))
+            ]
+            texts[p] = without_figure_words(texts[p], art)
+    cleaned = {p: without_diagrams(COMMENT_RE.sub("", t)) for p, t in texts.items() if t}
+    page_chunks = {p: chunks(table_text(t)) for p, t in cleaned.items()}
+    skips = {
+        p: [
+            (d.left - 2, d.top - 2, d.left + d.width + 2, d.top + d.height + 2)
+            for d in diagrams.get(p, [])
+        ] + [
+            (l * doc[p - 1].rect.width, t * doc[p - 1].rect.height, r * doc[p - 1].rect.width, b * doc[p - 1].rect.height)
+            for l, t, r, b in figure_boxes.get(p, [])
+        ]
+        for p in range(1, doc.page_count + 1)
+    }
+    strict_pages = [p for p in page_chunks if p not in style.scan_pages] if style.strict_lines and not style.flow else []
+    kept = work / "pages"
+    kept.mkdir(exist_ok=True)
+    todo = [
+        p for p in strict_pages
+        if pages is None or p in pages or not (kept / f"p_{p:04d}.json").exists()
+    ]
+    math_pages = todo if strict_pages else list(page_chunks)
     items = list(
-        dict.fromkeys(i for cs in page_chunks.values() for i in math_items(cs))
+        dict.fromkeys(i for p in math_pages for i in math_items(page_chunks[p]))
     )
     math = dict(zip(items, convert_math_batch(items), strict=True))
+    family = style.font_stack.split('"')[1]
+    if todo:
+        jobs = [
+            (p, skips[p], page_chunks[p], {i: math[i] for i in math_items(page_chunks[p])}, table_cells(cleaned[p]))
+            for p in todo
+        ]
+        with ProcessPoolExecutor(
+            min(os.cpu_count() or 1, len(todo)), initializer=_start_strict_worker,
+            initargs=(scan_ink, scan_faint, cache, style.font_file, family, style.size),
+        ) as pool:
+            for n, (p, body, found) in enumerate(pool.map(_strict_job, jobs, chunksize=4), 1):
+                (kept / f"p_{p:04d}.json").write_text(json.dumps({"body": body, "found": found}, ensure_ascii=False), encoding="utf-8")
+                if n % 50 == 0:
+                    print(f"set strict page {n}/{len(todo)}", flush=True)
+    strict = {p: json.loads((kept / f"p_{p:04d}.json").read_text(encoding="utf-8")) for p in strict_pages}
     frames = {
         p: frame
         for p in (page_chunks if style.flow else ())
-        if (frame := page_frame(without_edge_lines(page_ink(doc[p - 1])))) is not None
+        if (frame := page_frame(without_edge_lines(scan_ink(p)))) is not None
     }
     seen_headings: set[str] = set()
     sample = sorted(frames)[::PITCH_SAMPLE_EVERY]
-    size = book_pitch([(without_edge_lines(page_ink(doc[p - 1])), frames[p]) for p in sample]) if frames else 0.0
+    size = book_pitch([(without_edge_lines(scan_ink(p)), frames[p]) for p in sample]) if frames else 0.0
     width = float(np.median([f.right - f.left for f in frames.values()])) if frames else 0.0
     pages = []
     crops = 0
     starts = page_starts({
         p: [
             folio_value(pl)
-            for pl in folio_placements(without_edge_lines(page_ink(doc[p - 1])), read_source_page(cache, p).lines, frame)
+            for pl in folio_placements(without_edge_lines(scan_ink(p)), read_source_page(cache, p).lines, frame)
             if not pl.text.startswith("[")
         ]
         for p, frame in frames.items()
     })
     page_offset = 0
+    mismatches: list[dict] = []
+    art = style.figure_art() if style.figure_art else {}
+    grays = {a.svg: gray_svg(a.svg, work / f"gray_{a.svg.name}") for arts in art.values() for a in arts}
+    gray_inks = {svg: InkCache(path, work / "ink", page_ink)(1) for svg, path in grays.items()}
+    drawings = {svg: svg_ink(path, gray_inks[svg]) for svg, path in grays.items()}
+    art_bands = slices(
+        art,
+        {p: without_lines(scan_ink(p), read_source_page(cache, p).lines, CAPTION_RE) for p in art},
+        {svg: drawing_gaps(path, gray_inks[svg]) for svg, path in grays.items()},
+    )
     contents = contents_pages(texts)
     outline = Outline(contents_parts(texts, contents))
     for p in range(1, doc.page_count + 1):
@@ -1489,11 +1717,8 @@ def build_facsimile(
             page_offset = starts[p] - p
         rect = doc[p - 1].rect
         page_diagrams = diagrams.get(p, [])
-        skip = [
-            (d.left - 2, d.top - 2, d.left + d.width + 2, d.top + d.height + 2)
-            for d in page_diagrams
-        ]
-        ink, lines = page_ink(doc[p - 1]), read_source_page(cache, p).lines
+        skip = skips[p]
+        ink, lines = scan_ink(p), read_source_page(cache, p).lines
         if p in style.scan_pages:
             png = work / f"scan_{p}.png"
             doc[p - 1].get_pixmap(dpi=SCAN_DPI).save(png)
@@ -1529,6 +1754,9 @@ def build_facsimile(
             fallback = entries[0][0] if placed and entries and entries[0][1] else ocr_head(ink, frame, lines) or ""
             if head := running_head(ink, frame):
                 body.append(head_typst(head, size, fallback))
+        elif p in strict:
+            body = list(strict[p]["body"])
+            mismatches += strict[p]["found"]
         elif p in page_chunks:
             body = transcript_typst(
                 page_words(ink, lines, skip, measure),
@@ -1543,6 +1771,13 @@ def build_facsimile(
                 for pl in page_placements(ink, lines, skip, measure)
             ]
         body += [diagram_typst(d) for d in page_diagrams]
+        if style.figure_art:
+            body += [figure_typst(band, drawings[band.art.svg], grays[band.art.svg]) for band in art_bands.get(p, [])]
+        elif p not in style.scan_pages:
+            body += [
+                figure_crop_typst(doc[p - 1], box, work / f"figure_{p}_{n}.png")
+                for n, box in enumerate(figure_boxes.get(p, []))
+            ]
         pages.append(
             f"#page(width: {rect.width:.2f}pt, height: {rect.height:.2f}pt, margin: 0pt)[\n"
             + "\n".join(body)
@@ -1551,6 +1786,18 @@ def build_facsimile(
         if p % 50 == 0:
             print(f"placed page {p}/{doc.page_count}", flush=True)
     print(f"{crops} scan crops for lines missing from the transcript", flush=True)
+    if style.strict_lines:
+        report = out_dir / "review" / "facsimile_mismatches.jsonl"
+        report.parent.mkdir(exist_ok=True)
+        report.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in mismatches), encoding="utf-8")
+        kinds = Counter(r["kind"] for r in mismatches)
+        added = kinds["row-label"] + kinds["unread-cell"] + kinds["unread-dropped"]
+        print(
+            f"{len(mismatches) - added} scan lines set without matching their scan line, "
+            f"{kinds['row-label']} table row labels and {kinds['unread-cell']} table cell lines set from the transcript "
+            f"where the OCR missed them, {kinds['unread-dropped']} unread cell texts with no ink to set them on: {report}",
+            flush=True,
+        )
     if outline.labels or outline.refs:
         print(
             f"{len(outline.labels)} numbered headings, {outline.resyncs} counter resyncs; "

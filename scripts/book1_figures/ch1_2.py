@@ -102,6 +102,7 @@ def _fig_1_1(mode: ThemeMode = "mono") -> str:
                 xlim=(1989.5, 2006.9),
                 ylim=(-6.0, 6.0),
                 xticks=_year_ticks(1990, 2006),
+                xtick_vertical=True,
                 yticks=_fixed_ticks(_span(-6, 6, 2), 1),
                 ylabel="%",
                 xlabel="年",
@@ -365,6 +366,7 @@ def _fig_1_4(mode: ThemeMode = "mono") -> str:
         xlim=(1980.4, 2006.6),
         ylim=(-3.0, 8.0),
         xticks=_year_ticks(1981, 2006),
+        xtick_vertical=True,
         yticks=[(v, lab if v in (-3.0, -2.0, 0.0, 2.0, 4.0, 6.0, 8.0) else "") for v, lab in _fixed_ticks(_span(-3, 8, 1), 1)],
         ylabel="%",
         xlabel="年",
@@ -473,7 +475,7 @@ def _fig_1_6(mode: ThemeMode = "mono") -> str:
                 vlines=[(0.0, "", "solid")],
                 legend_loc="bottom",
                 lines=[
-                    LineSeries(x=[p[0] for p in early], y=[p[1] for p in early], label="CPI增长率1985—1995", color_idx=0, marker="diamond", style="none", fixed_style=True),
+                    LineSeries(x=[p[0] for p in early], y=[p[1] for p in early], label="CPI增长率1985—1995", color_idx=0, marker="diamond", style="none", fixed_style=True, hollow=True),
                     LineSeries(x=[p[0] for p in late], y=[p[1] for p in late], label="CPI增长率1996—2006", color_idx=0, marker="cross", style="none", fixed_style=True),
                     LineSeries(x=fit_early_x, y=[-0.3633 * x + 1.1907 for x in fit_early_x], label="线性（CPI增长率1985—1995）", color_idx=0, width=1.4, fixed_style=True),
                     LineSeries(x=fit_late_x, y=[-0.1487 * x + 0.1561 for x in fit_late_x], label="线性（CPI增长率1996—2006）", color_idx=0, style="dashed", width=1.4, fixed_style=True),
@@ -681,7 +683,7 @@ def _fig_2_2(mode: ThemeMode = "mono") -> str:
 
 
 def _fig_2_3(mode: ThemeMode = "mono") -> str:
-    groups = ["~24", "25~29", "30~34", "35~39", "40~44", "45~49", "50~54", "55~59", "60~64", "65~"]
+    groups = ["～24", "25～29", "30～34", "35～39", "40～44", "45～49", "50～54", "55～59", "60～64", "65～"]
     xs = [float(i) for i in range(len(groups))]
     spec = FigureSpec(
         fig_id="2-3",
@@ -712,19 +714,19 @@ def _fig_2_4(mode: ThemeMode = "mono") -> str:
     years = [float(y) for y in range(1981, 2008)]
     groups = [
         (
-            "25~29岁（万日元）",
+            "25～29岁（万日元）",
             [23.9, 25.0, 25.0, 26.6, 27.0, 28.6, 28.5, 28.1, 30.4, 32.4, 34.3, 35.0, 35.2, 34.7, 35.4, 35.6, 35.7, 35.8, 34.5, 33.7, 32.1, 31.8, 31.4, 32.2, 30.9, 31.2, 31.7],
             [20.2, 21.4, 21.5, 22.3, 22.7, 23.8, 22.9, 23.3, 24.5, 25.0, 26.1, 26.6, 26.9, 25.8, 26.2, 26.6, 26.1, 26.4, 25.6, 25.7, 24.9, 24.3, 23.2, 25.7, 24.8, 24.9, 25.0],
             [25.0, 26.3, 26.7, 28.1, 28.2, 29.1, 29.2, 29.6, 31.3, 33.1, 35.5, 36.4, 36.1, 35.7, 36.3, 37.7, 37.9, 37.3, 36.0, 35.1, 33.1, 33.2, 32.9, 34.5, 32.4, 32.3, 34.6],
         ),
         (
-            "50~54岁（万日元）",
+            "50～54岁（万日元）",
             [36.9, 37.3, 39.7, 40.8, 43.2, 43.5, 44.3, 45.1, 47.1, 48.9, 51.6, 55.0, 53.1, 55.2, 54.3, 56.7, 57.7, 57.1, 55.5, 53.9, 52.8, 51.6, 49.9, 49.6, 50.0, 50.1, 51.2],
             [30.1, 31.8, 32.6, 33.4, 34.9, 36.1, 35.0, 35.8, 37.0, 39.3, 39.8, 42.1, 41.2, 41.0, 40.4, 40.6, 41.9, 41.8, 40.9, 40.5, 40.0, 38.8, 38.8, 38.8, 38.3, 36.0, 38.1],
             [39.0, 39.7, 41.9, 42.5, 45.0, 45.9, 45.9, 47.4, 49.7, 51.0, 53.4, 55.2, 54.4, 55.8, 55.0, 56.5, 57.7, 57.3, 56.0, 54.6, 54.0, 51.6, 50.1, 49.7, 49.8, 49.8, 51.2],
         ),
         (
-            "60~64岁（万日元）",
+            "60～64岁（万日元）",
             [22.0, 23.1, 22.5, 24.6, 24.9, 28.3, 25.7, 28.2, 28.6, 29.5, 30.7, 31.1, 32.5, 32.4, 30.9, 31.7, 34.5, 34.1, 32.2, 30.5, 30.1, 29.7, 30.7, 29.4, 28.1, 27.9, 29.3],
             [22.2, 24.6, 24.5, 24.7, 27.1, 28.1, 28.7, 29.7, 30.5, 31.8, 33.0, 33.0, 33.1, 33.7, 33.1, 33.2, 33.2, 34.2, 32.1, 32.4, 32.2, 31.2, 31.8, 31.5, 32.4, 31.8, 30.9],
             [27.5, 27.4, 27.0, 28.8, 32.0, 33.8, 34.9, 36.8, 36.1, 38.3, 41.7, 40.7, 40.8, 41.2, 40.8, 40.9, 42.1, 42.3, 40.4, 38.4, 38.4, 35.3, 36.5, 34.5, 35.3, 33.7, 35.0],
@@ -775,6 +777,7 @@ def _fig_2_5(mode: ThemeMode = "mono") -> str:
                 ylim=(70.0, 90.0),
                 xticks=_year_ticks(1990, 2006, 2),
                 yticks=_fixed_ticks(_span(70, 90, 5), 0),
+                title="序列（1）：雇员人均报酬/就业者人均国民收入；序列（2）：雇员报酬/（国民收入－个人企业收入）",
                 xlabel="年",
                 legend_loc="top",
                 lines=[
@@ -787,6 +790,7 @@ def _fig_2_5(mode: ThemeMode = "mono") -> str:
                 ylim=(60.0, 75.0),
                 xticks=_year_ticks(1990, 2006, 2),
                 yticks=_fixed_ticks(_span(60, 75, 5), 0),
+                title="人工成本/（人工成本+经常利润+应付利息及贴现费用+折旧费）（出自《法人企业统计》，按年度计算）",
                 xlabel="年",
                 legend_loc="none",
                 lines=[LineSeries(x=years, y=labour_cost, color_idx=0, style="dashed", width=1.4, fixed_style=True)],

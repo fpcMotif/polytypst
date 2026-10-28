@@ -74,7 +74,7 @@ class Backend:
     options: Mapping[str, Option]
 
     @classmethod
-    def parse(cls, text: str) -> "Backend":
+    def parse(cls, text: str) -> Backend:
         head, _, query = text.partition("?")
         kind, _, model = head.partition(":")
         spec = KINDS.get(kind)
@@ -106,7 +106,7 @@ class Backend:
         gpu_type: str | None = None,
         colab_workers: int | None = None,
         shards: int | None = None,
-    ) -> "Backend":
+    ) -> Backend:
         kind = mode or DEFAULT_BACKEND
         base = cls.parse(f"{kind}:{ocr_model_name}" if ocr_model_name else kind)
         options = dict(base.options)
@@ -245,6 +245,7 @@ def api_key(env_name: str) -> str:
             ["security", "find-generic-password", "-s", f"polytypst.{env_name}", "-w"],
             capture_output=True,
             text=True,
+            check=False,
         )
         if res.returncode == 0 and res.stdout.strip():
             key = res.stdout.strip()

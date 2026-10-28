@@ -379,8 +379,8 @@ def _fig_8_3(mode: ThemeMode = "mono") -> str:
         xlabel="年",
         ylabel="%",
         bars=[
-            BarSeries(x=years, y=early, label="申请后的6~10年", color_idx=0, width=0.5),
-            BarSeries(x=years[:13], y=[t - e for t, e in zip(total, early)], bottom=early, label="申请后的11~15年", color_idx=1, width=0.5),
+            BarSeries(x=years, y=early, label="申请后的6～10年", color_idx=0, width=0.5),
+            BarSeries(x=years[:13], y=[t - e for t, e in zip(total, early)], bottom=early, label="申请后的11～15年", color_idx=1, width=0.5),
         ],
         legend_loc="bottom",
     )
