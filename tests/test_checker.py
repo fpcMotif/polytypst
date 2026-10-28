@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pymupdf
 
-from polytypst.books import book_by_key, module
+from polytypst.books import book_by_key
 from polytypst.checker import (
     ALL_TIERS,
     LAYOUT_TIER,
@@ -24,7 +24,7 @@ from polytypst.ocr.pages import OcrStalled
 HECKE_SPEC = book_by_key("hecke").spec
 KASHIWARA_SPEC = book_by_key("kashiwara").spec
 KLEIN_SPEC = book_by_key("klein").spec
-KODAIRA_SPEC = module("kodaira", "spec").KODAIRA_SPEC
+KODAIRA_SPEC = book_by_key("kodaira").spec
 SIEGEL_SYMPLECTIC_SPEC = book_by_key("siegel_symplectic").spec
 
 BODY = "This paragraph is ordinary body prose that fills a page with enough characters."
@@ -394,6 +394,13 @@ def test_text_tier_flags_a_circled_note_that_the_body_calls(tmp_path: Path) -> N
     pdf = _notes_pdf(tmp_path, "", called)
     report = audit_pdf(pdf, ZH_NOTE_SPEC, frozenset({TEXT_TIER}))
     assert _note_pages(report, "FOOTNOTE_LEFT_IN_BODY") == [1]
+
+
+def test_text_tier_reads_a_block_whose_first_line_is_blank(tmp_path: Path) -> None:
+    blank_first = f"{ZH_PROSE}\n\n~ \\\n①但因为未就业者占整体就业者比率小。\n"
+    pdf = _notes_pdf(tmp_path, "", blank_first)
+    report = audit_pdf(pdf, ZH_NOTE_SPEC, frozenset({TEXT_TIER}))
+    assert _note_pages(report, "FOOTNOTE_LEFT_IN_BODY") == []
 
 
 def test_a_book_without_a_chapter_0_keeps_the_default_front_matter() -> None:

@@ -68,7 +68,7 @@ def test_one_indented_line_does_not_move_the_left_edge() -> None:
 
 def test_short_lines_on_both_pages_do_not_move_the_right_edge() -> None:
     scan, rebuilt = block(), block()
-    for k in range(0, 27):
+    for k in range(27):
         y = 80 + 20 * k
         scan[px(y) : px(y + 10), px(300) : px(480)] = False
         rebuilt[px(y) : px(y + 10), px(200 + 5 * k) : px(480)] = False

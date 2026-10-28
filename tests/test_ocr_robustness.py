@@ -71,6 +71,7 @@ OCR_STATES: dict[str, str] = {
     "inline_code_with_dollar": "Use `$HOME` and `a$b` in shell.",
     "footnote": "Text with a note.[^1]\n\n[^1]: The note body.",
     "label_like": "See <eq-1> and <eq-1> again and @eq-1.",
+    "cut_sentinel": "The page ends on a cut page break.\n\n@@P",
     "latex_commands_in_prose": "\\section{Intro} \\textbf{bold} \\emph{e} \\cite{x} \\ref{y}",
     "trailing_backslash": "Ends with a backslash \\",
     "percent": "100% sure, 50 % off, \\% escaped.",
@@ -263,6 +264,17 @@ def test_damaged_real_ocr_pages_compile_and_keep_their_neighbour_pages(
         text = _mutate(text, op, at)
     pdf_text = _flat(_build_spec_less_book(tmp_path, [OPENING, text, CLOSING]))
     assert _flat(OPENING) in pdf_text
+    assert _flat(CLOSING) in pdf_text
+
+
+CUT_PAGEBREAK_PAGE = OCR_CORPUS_DIR / "2 通缩经济与货币政策" / "markdown_pages" / "p_272.md"
+
+
+@pytest.mark.skipif(not CUT_PAGEBREAK_PAGE.exists(), reason="the saved OCR page is not under OCR_CORPUS_DIR")
+def test_a_page_cut_inside_its_pagebreak_marker_compiles(tmp_path: Path) -> None:
+    text = _mutate(CUT_PAGEBREAK_PAGE.read_text(encoding="utf-8"), "cut_page", 3556)
+    assert text.endswith("@@P")
+    pdf_text = _flat(_build_spec_less_book(tmp_path, [OPENING, text, CLOSING]))
     assert _flat(CLOSING) in pdf_text
 
 

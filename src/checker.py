@@ -1001,7 +1001,7 @@ class DocumentQualityChecker:
                     continue
                 text = "".join(s["text"] for s in b["lines"][0]["spans"]).strip()
                 body_size = b["lines"][0]["spans"][0]["size"] >= 0.95 * self._body_size
-                uncalled_circled = text[:1] in CIRCLED_DIGITS and text[0] not in above
+                uncalled_circled = bool(text) and text[0] in CIRCLED_DIGITS and text[0] not in above
                 above += "".join(s["text"] for ln in b["lines"] for s in ln["spans"])
                 if body_size and opener.match(text) and not uncalled_circled:
                     self._issue(

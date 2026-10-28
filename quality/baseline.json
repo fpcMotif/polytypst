@@ -1,5 +1,15 @@
 {
   "1_宏观经济与产业结构": {
+    "facsimile": {
+      "CRAMPED_INLINE_DISPLAY_MATH": 119,
+      "ISOLATED_MATH_BLOCK": 2,
+      "MARGIN_OVERFLOW": 79,
+      "NO_LITERAL_TILDE": 6,
+      "UNCLOSED_PARENTHESIS_PAGE_BREAK": 14,
+      "UNRENDERED_MATH_DELIMITER": 1,
+      "facsimile_layout": 1
+    },
+    "illustrated": {},
     "monograph": {
       "CROSS_PAGE_WORD_SPLIT": 1,
       "LATEX_LITERAL_FIGURE_CAPTION": 114,
@@ -19,6 +29,17 @@
     }
   },
   "3_国际经济环境的变化与日本经济": {
+    "illustrated": {
+      "FIGURE_TEXT_LEAK": 21,
+      "LATEX_LITERAL_ITEM_HEAD": 63,
+      "LATEX_UNLINKED_REFERENCE": 1,
+      "LEAKED_RUNNING_HEADER": 2,
+      "TYPST_ITALIC_DIFFERENTIAL": 4,
+      "TYPST_LITERAL_ITEM_HEAD": 63,
+      "TYPST_REFERENCE_WITHOUT_TARGET": 1,
+      "TYPST_UNLINKED_REFERENCE": 1,
+      "UNCLOSED_PARENTHESIS_PAGE_BREAK": 1
+    },
     "monograph": {
       "FIGURE_TEXT_LEAK": 21,
       "LATEX_LITERAL_FIGURE_CAPTION": 1,
@@ -31,6 +52,21 @@
     }
   },
   "4_不良债权与金融危机": {
+    "illustrated": {
+      "CROSS_PAGE_WORD_SPLIT": 1,
+      "FIGURE_TEXT_LEAK": 63,
+      "LATEX_LITERAL_ITEM_HEAD": 112,
+      "LATEX_ORPHANED_FIGURE_CAPTION": 9,
+      "LATEX_REFERENCE_WITHOUT_TARGET": 19,
+      "LATEX_UNLINKED_FIGURE_REFERENCE": 115,
+      "LATEX_UNLINKED_REFERENCE": 3,
+      "TYPST_LITERAL_ITEM_HEAD": 65,
+      "TYPST_REFERENCE_WITHOUT_TARGET": 19,
+      "TYPST_UNLINKED_REFERENCE": 3,
+      "UNCLOSED_PARENTHESIS_PAGE_BREAK": 1,
+      "UNRENDERED_HTML_MARKUP": 1,
+      "UNRENDERED_TABLE_SYNTAX": 6
+    },
     "monograph": {
       "CORRUPTED_FIGURE_CROP": 2,
       "FIGURE_TEXT_LEAK": 63,
@@ -53,6 +89,18 @@
     }
   },
   "5_财政政策与社会保障": {
+    "illustrated": {
+      "FIGURE_TEXT_LEAK": 145,
+      "LATEX_LITERAL_HEADING_NUMBER": 1,
+      "LATEX_LITERAL_ITEM_HEAD": 89,
+      "LATEX_REFERENCE_WITHOUT_TARGET": 6,
+      "LATEX_UNLINKED_REFERENCE": 8,
+      "TYPST_ITALIC_DIFFERENTIAL": 39,
+      "TYPST_LITERAL_HEADING_NUMBER": 2,
+      "TYPST_LITERAL_ITEM_HEAD": 89,
+      "TYPST_REFERENCE_WITHOUT_TARGET": 8,
+      "TYPST_UNLINKED_REFERENCE": 8
+    },
     "monograph": {
       "FIGURE_TEXT_LEAK": 145,
       "LATEX_LITERAL_HEADING_NUMBER": 1,
@@ -69,6 +117,22 @@
     }
   },
   "6_劳动力市场与收入分配": {
+    "illustrated": {
+      "CHAPTER_REGRESSION": 1,
+      "LATEX_LITERAL_FIGURE_CAPTION": 161,
+      "LATEX_LITERAL_HEADING_NUMBER": 245,
+      "LATEX_LITERAL_ITEM_HEAD": 89,
+      "LATEX_ORPHANED_FIGURE_CAPTION": 12,
+      "LATEX_REFERENCE_WITHOUT_TARGET": 10,
+      "LATEX_UNLINKED_FIGURE_REFERENCE": 423,
+      "TYPST_LITERAL_FIGURE_CAPTION": 161,
+      "TYPST_LITERAL_HEADING_NUMBER": 245,
+      "TYPST_LITERAL_ITEM_HEAD": 87,
+      "TYPST_ORPHANED_FIGURE_CAPTION": 8,
+      "TYPST_REFERENCE_WITHOUT_TARGET": 12,
+      "TYPST_UNLINKED_FIGURE_REFERENCE": 274,
+      "UNRENDERED_HTML_MARKUP": 3
+    },
     "monograph": {
       "CHAPTER_REGRESSION": 1,
       "LATEX_LITERAL_HEADING_NUMBER": 1,
@@ -110,6 +174,16 @@
     }
   },
   "algebra2": {
+    "facsimile": {
+      "CRAMPED_INLINE_DISPLAY_MATH": 1373,
+      "EQUATION_NUMBER_COLLISION": 1,
+      "ISOLATED_MATH_BLOCK": 65,
+      "MARGIN_OVERFLOW": 202,
+      "ORPHANED_EQUATION_NUMBER": 5,
+      "SHRUNKEN_DISPLAY_MATH": 219,
+      "UNCLOSED_PARENTHESIS_PAGE_BREAK": 4,
+      "facsimile_layout": 6
+    },
     "illustrated": {
       "FIGURE_TEXT_LEAK": 1,
       "LATEX_LITERAL_ITEM_HEAD": 325,

@@ -22,6 +22,7 @@ from PIL import Image
 from ..book_state import book_state
 from ..ocr.lines import DEFAULT_OCR_LANGUAGES
 from ..ocr.transcripts import TranscriptStore
+from .diagram_cache import with_cached_diagrams
 from .diagrams import (
     FLETCHER_IMPORT,
     SCAN_DIAGRAM_LATEX,
@@ -212,6 +213,7 @@ class RenderedMonograph:
     typst: str
     numbering_resyncs: tuple[str, ...] = ()
     latex_markdown: str | None = None
+    typst_preamble: str = ""
 
 
 _CJK_CHARS = "　-鿿가-힯＀-￯"
@@ -1688,7 +1690,7 @@ class MonographCompiler:
         s = re.sub(r"<(?!eq-|fig-|sec-)", r"\<", s)
         s = re.sub(r"^\s*/\s*", r"\/ ", s, flags=re.MULTILINE)
         s = s.replace("//", r"\/\/").replace("*/", "* /")
-        s = re.sub(r"(?<![@\\])@(?=[\w])(?!@)", r"\@", s)
+        s = re.sub(r"(@@[A-Za-z_]+\d*@@)|(?<!\\)@(?=[\w@])", lambda m: m.group(1) or r"\@", s)
         if spec.lang in ("zh", "ja"):
             s = s.replace("~", "～")
         else:
@@ -2068,7 +2070,7 @@ class MonographCompiler:
                 + "\n"
             )
         ]
-        typst_sections: list[str] = [
+        typst_preamble = [
             self.build_typst_preamble(),
             TYPST_UNBROKEN_NAMES,
             typst_footnote_rules(spec),
@@ -2078,8 +2080,8 @@ class MonographCompiler:
             SOURCE_NUMBER_RULES if spec.cross_references else "",
             SOURCE_EQUATION_LAYOUT if spec.cross_references and (not spec.typst_preamble or "fit-display" in spec.typst_preamble) else "",
             FLETCHER_IMPORT if spec.commutative_diagrams else "",
-            self.build_typst_title_page(),
         ]
+        typst_sections: list[str] = [*typst_preamble, self.build_typst_title_page()]
         numbered_chapters: list[tuple[int, int]] = []
         latex_chapters: dict[int, tuple[str, int]] = {}
         resyncs: list[str] = []
@@ -2230,6 +2232,7 @@ class MonographCompiler:
             typst="\n".join(typst_sections),
             numbering_resyncs=tuple(resyncs),
             latex_markdown=latex_footnotes("\n\n".join(latex_sections)) if latex_chapters else None,
+            typst_preamble="\n".join(typst_preamble),
         )
 
     def _write(self, out_dir: Path, ext: str, content: str | None = None) -> Path:
@@ -2257,13 +2260,25 @@ class MonographCompiler:
         made = run_formats(
             {
                 "tex": (tex_out, lambda: self._write_latex(md_out, tex_out, rendered.latex_markdown)),
-                "pdf": (pdf_out, lambda: compile_typst(typ_out, pdf_out)),
+                "pdf": (pdf_out, lambda: self._compile_pdf(out_dir, rendered, typ_out, pdf_out)),
             },
             formats,
         )
         for path in (md_out, typ_out, *made.values()):
             self._alias(path)
         return build_outputs(md_out, typ_out, made)
+
+    def _compile_pdf(self, out_dir: Path, rendered: RenderedMonograph, typ_out: Path, pdf_out: Path) -> None:
+        fast = with_cached_diagrams(rendered.typst, rendered.typst_preamble, out_dir)
+        if fast == rendered.typst:
+            compile_typst(typ_out, pdf_out)
+            return
+        compiled = out_dir / f".{self.spec.slug}.cached-diagrams.typ"
+        _ = compiled.write_text(fast, encoding="utf-8")
+        try:
+            compile_typst(compiled, pdf_out)
+        finally:
+            compiled.unlink(missing_ok=True)
 
     def _write_latex(self, md_out: Path, tex_out: Path, markdown: str | None = None) -> None:
         xy_inc = r"\usepackage[all,cmtip]{xy}" if self.spec.commutative_diagrams else ""
