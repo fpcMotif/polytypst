@@ -1,0 +1,20 @@
+#import "@preview/fletcher:0.5.8": diagram, node, edge
+#diagram(
+  spacing: (2.2em, 2.0em),
+  node-inset: 3pt,
+  label-size: 0.7em,
+  label-sep: 0.15em,
+  node((0, 0), [E#sub[#text(font: ("STIX Two Math", "New Computer Modern Math"))[𝔪]] ⊗#sub[A#sub[#text(font: ("STIX Two Math", "New Computer Modern Math"))[𝔪]]] A($frak(m)$)]),
+  node((1, 0), [E ⊗#sub[A] A($frak(m)$)]),
+  node((2, 0), [E($frak(m)$)]),
+  node((0, 1), [F#sub[#text(font: ("STIX Two Math", "New Computer Modern Math"))[𝔪]] ⊗#sub[A#sub[#text(font: ("STIX Two Math", "New Computer Modern Math"))[𝔪]]] A($frak(m)$)]),
+  node((1, 1), [F ⊗#sub[A] A($frak(m)$)]),
+  node((2, 1), [F($frak(m)$)]),
+  edge((0, 0), (1, 0), "->"),
+  edge((1, 0), (2, 0), "->"),
+  edge((0, 1), (1, 1), "->"),
+  edge((1, 1), (2, 1), "->"),
+  edge((0, 0), (0, 1), "->", [_u_#sub[#text(font: ("STIX Two Math", "New Computer Modern Math"))[𝔪]] ⊗ 1], label-side: right),
+  edge((1, 0), (1, 1), "->", [_u_ ⊗ 1], label-side: left),
+  edge((2, 0), (2, 1), "->", [_u_($frak(m)$)], label-side: left),
+)

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 290" width="100%" height="100%">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 L 2 5 z" fill="#0f172a" />
+    </marker>
+    <marker id="arr-axis" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 L 2 5 z" fill="#334155" />
+    </marker>
+    <pattern id="hatch" width="7" height="7" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="7" stroke="#0f172a" stroke-width="1.1" />
+    </pattern>
+    <pattern id="hatch-dense" width="5" height="5" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="5" stroke="#0f172a" stroke-width="1.0" />
+    </pattern>
+  </defs>
+  <style>
+    text { font-family: "New Computer Modern", "Latin Modern Roman", "STIX Two Math", "Times New Roman", serif; }
+    .ax { stroke: #334155; stroke-width: 1.25; fill: none; }
+    .c-main { stroke: #0f172a; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .c-dash { stroke: #64748b; stroke-width: 1.15; stroke-dasharray: 5,4; fill: none; }
+    .lbl { font-size: 14.5px; fill: #0f172a; }
+    .it { font-size: 15.5px; font-style: italic; fill: #0f172a; }
+  </style>
+
+  <!-- Axes -->
+  <line x1="40" y1="240" x2="360" y2="240" stroke="#0f172a" stroke-width="1.3" marker-end="url(#arr)" />
+  <text x="368" y="245" class="it">x</text>
+
+  <line x1="60" y1="260" x2="60" y2="40" stroke="#0f172a" stroke-width="1.3" marker-end="url(#arr)" />
+  <text x="42" y="45" class="it">y</text>
+  <text x="44" y="258" class="it">0</text>
+
+  <!-- Curve gamma -->
+  <path d="M 100 80 Q 150 160 220 120 T 320 180" fill="none" stroke="#0f172a" stroke-width="2.4" />
+  <text x="330" y="185" class="it" font-weight="bold" fill="#0f172a">γ</text>
+
+  <!-- Tangent vector dot(gamma) at P -->
+  <line x1="190" y1="130" x2="260" y2="90" stroke="#0f172a" stroke-width="2.2" marker-end="url(#arr)" />
+  <text x="265" y="88" class="it" font-weight="bold" fill="#0f172a">γ̇</text>
+
+  <!-- Normal vector n perpendicular to tangent -->
+  <line x1="190" y1="130" x2="150" y2="60" stroke="#0f172a" stroke-width="2.2" marker-end="url(#arr)" />
+  <text x="142" y="54" class="it" font-weight="bold" fill="#0f172a">n</text>
+
+  <!-- Horizontal dashed line from P -->
+  <line x1="190" y1="130" x2="280" y2="130" class="c-dash" />
+
+  <!-- Angle theta arc between horizontal and tangent -->
+  <path d="M 235 130 A 45 45 0 0 0 228 108" fill="none" stroke="#64748b" stroke-width="1.6" />
+  <text x="242" y="118" class="it" fill="#64748b">θ</text>
+
+  <!-- Point P -->
+  <circle cx="190" cy="130" r="3.8" fill="#ffffff" stroke="#0f172a" stroke-width="1.6" />
+  <text x="175" y="148" class="it" font-weight="bold">P</text>
+
+</svg>

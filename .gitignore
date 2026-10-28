@@ -36,15 +36,19 @@ web/env.d.ts
 *.tiff
 *.svg
 !src/**/*.svg
+!books/**/*.svg
 
 # Generated Typst and TeX documents (data/deliverables outside polytypst package)
 *.typ
 *.typst
 !src/**/*.typ
 !src/**/*.typst
+!books/**/*.typ
+!books/**/*.typst
 *.tex
 *.aux
 !src/**/*.tex
+!books/**/*.tex
 
 # Large book data and local experiments
 shitouji/

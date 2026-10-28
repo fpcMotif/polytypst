@@ -1,0 +1,20 @@
+#import "@preview/fletcher:0.5.8": diagram, node, edge
+#diagram(
+  spacing: (2.9em, 1.9em),
+  node-inset: 3pt,
+  label-size: 0.7em,
+  label-sep: 0.15em,
+  node((0, 0), [E ⊗ (F′ ∩ F″)]),
+  node((1, 0), [E ⊗ F′]),
+  node((2, 0), [E ⊗ (F′/(F′ ∩ F″))]),
+  node((0, 1), [E ⊗ F″]),
+  node((1, 1), [E ⊗ F]),
+  node((2, 1), [E ⊗ (F/F″)]),
+  edge((0, 0), (1, 0), "->"),
+  edge((1, 0), (2, 0), "->"),
+  edge((0, 1), (1, 1), "->"),
+  edge((1, 1), (2, 1), "->"),
+  edge((0, 0), (0, 1), "->"),
+  edge((1, 0), (1, 1), "->"),
+  edge((2, 0), (2, 1), "->", [1#sub[E] ⊗ _j_], label-side: right),
+)
