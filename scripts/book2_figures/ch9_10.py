@@ -123,6 +123,7 @@ def _fig_9_2(mode: ThemeMode = "mono") -> str:
         xticks=list(range(1970, 1985)),
         yticks=[0, 50, 100, 150, 200, 250, 300, 350],
         xlabel="年",
+        xtick_vertical=True,
         zero_line=False,
         legend_loc="bottom",
         lines=[
@@ -149,6 +150,7 @@ def _fig_9_2(mode: ThemeMode = "mono") -> str:
         xticks=list(range(1985, 2008, 2)),
         yticks=[0, 50, 100, 150, 200, 250, 300, 350],
         xlabel="年",
+        xtick_vertical=True,
         zero_line=False,
         legend_loc="bottom",
         lines=[
@@ -244,6 +246,7 @@ def _fig_9_3(mode: ThemeMode = "mono") -> str:
             (1.6, "1.6"),
         ],
         xlabel="（年第一季度）",
+        xtick_vertical=True,
         ylabel="房价",
         y2label="房租",
         zero_line=False,
@@ -303,6 +306,7 @@ def _fig_9_4(mode: ThemeMode = "mono") -> str:
         xlim=(1986, 2008),
         ylim=(0.0, 0.7),
         xticks=list(range(1986, 2009)),
+        xtick_vertical=True,
         yticks=[
             (0.0, "0.0"),
             (0.1, "0.1"),
@@ -418,14 +422,16 @@ def _fig_9_6(mode: ThemeMode = "mono") -> str:
         "0.39",
     ]
     bin_pos = [
-        2.99, 3.53, 4.02, 4.52, 5.17, 5.67, 6.33, 6.90, 7.48, 8.13,
-        8.79, 9.29, 9.78, 10.27, 10.68, 11.10, 11.59, 12.08, 12.58, 13.04,
-        13.48, 13.97, 14.55, 15.01,
+        2.96, 3.34, 3.72, 4.09, 4.47, 5.22, 5.60, 5.98, 6.36, 6.74,
+        7.12, 7.50, 7.87, 8.25, 8.63, 9.00, 9.38, 9.76, 10.14, 10.52,
+        10.90, 11.27, 11.65, 12.03, 12.41, 12.79, 12.95, 13.17, 13.54, 13.92,
+        14.30, 14.68, 14.96,
     ]
     adjust_prob = [
-        0.000, 0.000, 0.004, 0.005, 0.007, 0.007, 0.010, 0.012, 0.018, 0.024,
-        0.030, 0.033, 0.032, 0.035, 0.039, 0.046, 0.057, 0.071, 0.079, 0.083,
-        0.119, 0.150, 0.162, 0.168,
+        0.000, 0.001, 0.004, 0.0055, 0.007, 0.008, 0.009, 0.010, 0.012, 0.0135,
+        0.017, 0.0195, 0.0235, 0.027, 0.0305, 0.0325, 0.0335, 0.034, 0.036, 0.039,
+        0.046, 0.055, 0.064, 0.073, 0.078, 0.082, 0.083, 0.0935, 0.120, 0.147,
+        0.160, 0.166, 0.170,
     ]
 
     panel = PanelSpec(
@@ -1740,6 +1746,7 @@ def _fig_10_4(mode: ThemeMode = "mono") -> str:
         xticks=[
             (round(1970 + (px - 47) / 27.71, 2), label) for px, label in tick_labels
         ],
+        xtick_vertical=True,
         yticks=[0, 20, 40, 60, 80, 100, 120],
         xlabel="年-月",
         ylabel="%",
@@ -1761,26 +1768,23 @@ def _fig_10_4(mode: ThemeMode = "mono") -> str:
                 color_idx=0,
                 width=0.9,
             ),
+            *(
+                LineSeries(x=[x, x], y=[98.5, 111.4], color_idx=0, width=1.2)
+                for x in (1989.25, 1997.25)
+            ),
         ],
         annotations=[
-            Annotation(
-                x=1989.25,
-                y=97.0,
-                text="开征消费税（1989-4）",
-                dx=-6,
-                dy=-34,
-                color_idx=0,
-                align="end",
-            ),
-            Annotation(
-                x=1997.25,
-                y=97.0,
-                text="提高消费税率（1997-4）",
-                dx=6,
-                dy=-34,
-                color_idx=0,
-                align="start",
-            ),
+            Annotation(x=x, y=y, text=text, arrow=False, dx=0, dy=0, color_idx=0)
+            for x, y, text in (
+                (1992.85, 108.5, "开征消费税"),
+                (1992.85, 101.5, "（1989-4）"),
+                (2001.5, 108.5, "提高消费税率"),
+                (2001.5, 101.5, "（1997-4）"),
+            )
+        ]
+        + [
+            Annotation(x=x, y=111.4, text="", dx=-10, dy=0, color_idx=0)
+            for x in (1990.0, 1998.2)
         ],
     )
     spec = FigureSpec(
@@ -1810,13 +1814,14 @@ def _fig_10_5(mode: ThemeMode = "mono") -> str:
         legend_loc="bottom",
         lines=[
             LineSeries(
-                x=years,
-                y=tornqvist_idx,
+                x=years[:1],
+                y=tornqvist_idx[:1],
                 label="托恩奎斯特指数",
                 color_idx=5,
                 marker="diamond",
                 width=2.0,
             ),
+            LineSeries(x=years, y=tornqvist_idx, color_idx=5, width=2.0),
             LineSeries(
                 x=years, y=laspeyres_idx, label="拉氏指数", color_idx=10, width=2.0
             ),
@@ -1830,7 +1835,7 @@ def _fig_10_5(mode: ThemeMode = "mono") -> str:
         ],
         annotations=[
             Annotation(
-                x=2003.2,
+                x=2002.74,
                 y=y,
                 text=text,
                 arrow=False,
@@ -1840,9 +1845,9 @@ def _fig_10_5(mode: ThemeMode = "mono") -> str:
                 dy=0,
             )
             for y, text in (
-                (99.75, "建立在2005年和2000年的比较结果"),
-                (99.45, "上的拉氏指数和托恩奎斯特指数的"),
-                (99.15, "乖离率（年化率）-0.12%"),
+                (99.22, "建立在2005年和2000年的比较结果"),
+                (98.93, "上的拉氏指数和托恩奎斯特指数的"),
+                (98.62, "乖离率（年化率）-0.12%"),
             )
         ],
     )
@@ -1936,17 +1941,31 @@ def _fig_10_6(mode: ThemeMode = "mono") -> str:
         zero_line=False,
         legend_loc="bottom",
         vlines=[
-            (
-                1995.54,
-                "担心物价过度下跌，引导银行间拆借市场利率走低（1995/07）",
-                "solid",
-            ),
-            (1999.08, "实施零利率政策（1999/02）", "solid"),
-            (2000.58, "取消零利率政策（2000/08）", "solid"),
-            (2001.17, "实施量化宽松政策（2001/03）", "solid"),
-            (2006.17, "取消量化宽松政策（2006/03）", "solid"),
-            (2006.50, "取消零利率政策（2006/07）", "solid"),
-            (2007.08, "第2次加息（2007/02）", "solid"),
+            (1995.54, "", "solid"),
+            (1999.08, "", "solid"),
+            (2000.58, "", "solid"),
+            (2001.17, "", "solid"),
+            (2006.17, "", "solid"),
+            (2006.50, "", "solid"),
+            (2007.08, "", "solid"),
+        ],
+        annotations=[
+            Annotation(x=x, y=y, text=text, arrow=False, dx=0, dy=0, align=align, fontsize=9.0)
+            for x, y, text, align in (
+                (1991.74, 3.28, "担心物价过度下跌，引导银行间拆借市", "start"),
+                (1991.74, 3.05, "场利率走低（1995/07）", "start"),
+                (1998.80, 3.28, "实施零利率政策（1999/02）", "start"),
+                (1999.50, 3.05, "取消零利率政策（2000/08）", "start"),
+                (2000.88, 2.66, "实施量化宽松政策（2001/03）", "start"),
+                (2004.10, 2.28, "取消量化宽松政策", "middle"),
+                (2004.10, 2.05, "（2006/03）", "middle"),
+                (2001.33, 1.16, "取消零利率政策（2006/07）", "start"),
+                (2001.90, 0.67, "第2次加息（2007/02）", "start"),
+            )
+        ]
+        + [
+            Annotation(x=x, y=y, text="", dx=dx, dy=0)
+            for x, y, dx in ((2006.17, 2.25, -14), (2006.50, 1.26, -24), (2007.08, 0.77, -57))
         ],
         lines=[
             LineSeries(

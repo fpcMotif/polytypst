@@ -22,6 +22,7 @@ from PIL import Image
 from ..book_state import book_state
 from ..ocr.lines import DEFAULT_OCR_LANGUAGES
 from ..ocr.transcripts import TranscriptStore
+from ..vision.figure_extractor import load_figures_manifest
 from .diagram_cache import with_cached_diagrams
 from .diagrams import (
     FLETCHER_IMPORT,
@@ -45,6 +46,8 @@ from .typst_math import (
 )
 
 MONOGRAPH_FORMATS = frozenset({"tex", "pdf"})
+FIG_NOTE = "@@FIGNOTE@@"
+END_FIG_NOTE = "@@ENDFIGNOTE@@"
 
 PageParts = tuple[int, str, list[Figure], list[Figure]]
 Rewrite = tuple[str, str]
@@ -81,6 +84,7 @@ class FigureLayout:
     top_zone_lines: int = 2
     top_pages: frozenset[int] = frozenset()
     svg_single_pct: int | None = None
+    svg_scan_text_width: float | None = None
     svg_paired_pct: int = 90
     pair_figures: bool = True
     png_single_divisor: int = 1350
@@ -141,6 +145,7 @@ class MonographSpec:
     citation_abbreviations: dict[str, str] = field(default_factory=dict)
     commutative_diagrams: bool = False
     page_fixups: dict[int, tuple[Rewrite, ...]] = field(default_factory=dict)
+    transcript_fixups: dict[int, tuple[Rewrite, ...]] = field(default_factory=dict)
     heading_rewrites: tuple[Rewrite, ...] = ()
     heading_hook: Callable[[str, int], str | None] | None = None
     paginate_like_source: bool = False
@@ -366,6 +371,7 @@ def adhoc_spec(
         FigureLayout(
             caption_pattern=r"^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?(?:Fig(?:ure)?\.?|Abb\.|图)\s*(?:(?P<chapter>\d+)[\.\-])?(?P<number>\d+[a-z]?)\.?(?:\*\*)?(?:[:\s]+(?P<title>[^\n]+))?$",
             svg_single_pct=100 if full_width_figures else None,
+            svg_scan_text_width=0.78 if full_width_figures else None,
             pair_figures=not full_width_figures,
         )
         if comp.language.code == "zh"
@@ -1100,6 +1106,7 @@ class MonographCompiler:
         self.cleaner: PageCleaner = PageCleaner.for_spec(spec)
         self._figure_labels: set[str] = set()
         self._sourced_figures: dict[str, str] = {}
+        self._scan_boxes: dict[Path, dict[str, tuple[float, float, float, float]]] = {}
 
     def build_typst_preamble(self) -> str:
         if self.spec.typst_preamble:
@@ -1294,6 +1301,11 @@ class MonographCompiler:
   #v(0.45em)
   #text(9pt, font: {font_expr})[#if it.supplement != none [#strong[#it.supplement #context it.counter.display(it.numbering)]#if it.body != [] [{caption_separator}]]#it.body]
 ]
+#let fig-note(body) = block(above: -0.6em, below: 1.6em, width: 100%, sticky: false)[
+  #set text(8.5pt)
+  #set par(first-line-indent: 0pt, spacing: 0.45em, leading: 0.6em)
+  #body
+]
 """
 
     def build_typst_title_page(self) -> str:
@@ -1368,11 +1380,21 @@ class MonographCompiler:
                     return candidate
         return None
 
+    def _scan_box(self, asset: Path) -> tuple[float, float, float, float] | None:
+        manifest = asset.parent.parent / "figures_manifest.json"
+        if manifest not in self._scan_boxes:
+            self._scan_boxes[manifest] = (
+                {f.figure_id: f.box for f in load_figures_manifest(manifest) if f.box} if manifest.exists() else {}
+            )
+        return self._scan_boxes[manifest].get(asset.stem.removeprefix("fig_").replace("_", "-"))
+
     def _figure_width_pct(self, asset: Path, paired: bool) -> int:
         layout = self.spec.figures
         if asset.suffix == ".svg":
             if paired:
                 return layout.svg_paired_pct
+            if layout.svg_scan_text_width and (scan_box := self._scan_box(asset)):
+                return min(100, round((scan_box[2] - scan_box[0]) / layout.svg_scan_text_width * 100))
             if layout.svg_single_pct is not None:
                 return layout.svg_single_pct
             m_vb = re.search(r'viewBox="([^"]+)"', asset.read_text(encoding="utf-8"))
@@ -1476,10 +1498,10 @@ class MonographCompiler:
                 f"    [{f2}]\n"
                 f"  )\n"
                 f"]\n\n"
-            ) + "".join(f"{note}\n\n" for fid, _ in figs if (note := self.cleaner.figure_notes.get(fid)))
+            ) + "".join(f"{FIG_NOTE}\n\n{note}\n\n{END_FIG_NOTE}\n\n" for fid, _ in figs if (note := self.cleaner.figure_notes.get(fid)))
         return "".join(
             f"\n\n#align(center)[\n  {self.make_figure_typst(fid, cap, fig_dir)}\n]\n\n"
-            + (f"{note}\n\n" if (note := self.cleaner.figure_notes.get(fid)) else "")
+            + (f"{FIG_NOTE}\n\n{note}\n\n{END_FIG_NOTE}\n\n" if (note := self.cleaner.figure_notes.get(fid)) else "")
             for fid, cap in figs
         )
 
@@ -1575,12 +1597,14 @@ class MonographCompiler:
         def keep_unprinted_sources(m: re.Match[str]) -> str:
             blocks = [fig_blocks[int(i)] for i in re.findall(r"@@FIGBLOCK(\d+)@@", m.group(1))]
             sources = [line.strip() for line in m.group(2).split("\n") if line.strip()]
-            return m.group(1) + "".join(f"{line}\n\n" for line in self._drop_printed_sources(blocks, sources))
+            kept = self._drop_printed_sources(blocks, sources)
+            return m.group(1) + (f"{FIG_NOTE}\n\n" + "".join(f"{line}\n\n" for line in kept) + f"{END_FIG_NOTE}\n\n" if kept else "")
 
         s = re.sub(
-            r"((?:@@FIGBLOCK\d+@@\s*)+)((?:[（(]资料来源[：:][^\n]*\s*)+)",
+            rf"((?:@@FIGBLOCK\d+@@\s*)+(?:{FIG_NOTE}.*?{END_FIG_NOTE}\s*)?)((?:[（(]资料来源[：:][^\n]*\s*)+)",
             keep_unprinted_sources,
             s,
+            flags=re.DOTALL,
         )
         s = re.sub(r"^(\s*)=", r"\1\\=", s, flags=re.MULTILINE)
         s = re.sub(r"^>\s?", "", s, flags=re.MULTILINE)
@@ -1870,7 +1894,7 @@ class MonographCompiler:
             full_title = m.group(1).strip()
             if len(full_title) > 60 or "，" in full_title or "。" in full_title:
                 return m.group(0)
-            return f"\n\n#v(0.6em)\n#block(sticky: true)[#align(center)[#strong[{full_title}]]]\n#v(0.2em)\n\n"
+            return f"\n\n#v(0.6em)\n#block(sticky: true, width: 100%)[#align(center)[#strong[{full_title}]]]\n#v(0.2em)\n\n"
 
         s = re.sub(
             r"^\s*(?:#+\s*)?((?:附)?表\s*\d+[-.]\d+[^\n]*)\s*$",
@@ -1879,6 +1903,8 @@ class MonographCompiler:
             flags=re.MULTILINE,
         )
         s = re.sub(r"@@FIGBLOCK(\d+)@@", lambda m: fig_blocks[int(m.group(1))], s)
+        s = re.sub(rf"\s*{END_FIG_NOTE}\s*{FIG_NOTE}\s*", "\n\n", s)
+        s = re.sub(rf"{FIG_NOTE}\s*", "#fig-note[", s).replace(f"\n\n{END_FIG_NOTE}", "]").replace(END_FIG_NOTE, "]")
         s = "\n\n".join(map(keep_notes_with_calls, s.split("\n\n")))
         s = re.sub(r"@@FNEND@@(?=\()", r"@@FNEND@@\\", s)
         s = re.sub(

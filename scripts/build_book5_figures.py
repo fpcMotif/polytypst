@@ -8,7 +8,7 @@ from pathlib import Path
 import pymupdf
 
 from polytypst.books import book_by_key
-from scripts.book2_figures.engine import ThemeMode
+from scripts.book2_figures.engine import ThemeMode, chart_svg, scan_canvas
 
 BOOK_DIR = book_by_key("5_财政政策与社会保障").out_dir
 
@@ -37,6 +37,7 @@ def main() -> None:
     parser.add_argument(
         "--png", type=Path, help="also write a 150-dpi PNG of each SVG into this folder"
     )
+    parser.add_argument("--style", choices=("a", "b"), default="a", help="a: the redraw style; b: the scan's chart style in the body fonts")
     parser.add_argument(
         "--module",
         choices=MODULES,
@@ -53,7 +54,8 @@ def main() -> None:
     for fid in args.ids or sorted(
         generators, key=lambda f: tuple(int(p) for p in f.split("-"))
     ):
-        svg = generators[fid]("mono")
+        with scan_canvas(BOOK_DIR, fid):
+            svg = chart_svg(generators[fid], args.style)
         (fig_dir / f"fig_{fid}.svg").write_text(svg, encoding="utf-8")
         if args.png:
             args.png.mkdir(parents=True, exist_ok=True)

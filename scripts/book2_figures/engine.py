@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import json
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
+from functools import cache
 from html import escape
 from pathlib import Path
 from typing import Literal
@@ -13,7 +17,43 @@ ThemeMode = Literal["mono", "color", "dark", "scan"]
 FONT_STACK = "'Songti SC', 'STIX Two Text', 'PingFang SC', 'Noto Serif CJK SC', serif"
 SANS_STACK = "'PingFang SC', 'Helvetica Neue', 'STIX Two Text', sans-serif"
 SERIF_STACK = "'Times New Roman', 'STIX Two Text', 'Songti SC', serif"
+BODY_SERIF_STACK = "'Source Serif 4', 'Songti SC', serif"
+ChartStyle = Literal["a", "b"]
 PRINT_SCALE = 0.6
+SCAN_TEXT_WIDTH = 0.78
+SCAN_LINE_PT = 330.0
+SCAN_PAGE_ASPECT = 1.51
+PT_PER_PX = 0.625
+_scan_canvas_size: ContextVar[tuple[float, float] | None] = ContextVar("scan_canvas_size", default=None)
+
+
+def chart_svg(generator: Callable[[ThemeMode], str], style: ChartStyle) -> str:
+    if style == "a":
+        return generator("mono")
+    svg = generator("scan")
+    for stack in (FONT_STACK, SANS_STACK, SERIF_STACK):
+        svg = svg.replace(stack, BODY_SERIF_STACK)
+    return svg
+
+
+@cache
+def _scan_boxes(manifest: Path) -> dict[str, tuple[float, float, float, float]]:
+    entries = json.loads(manifest.read_text(encoding="utf-8")) if manifest.exists() else []
+    return {str(e["figure_id"]): tuple(e["box"]) for e in entries if e.get("box")}
+
+
+@contextmanager
+def scan_canvas(book_dir: Path, fid: str) -> Iterator[None]:
+    box = _scan_boxes(book_dir / "figures_manifest.json").get(fid)
+    size = None
+    if box:
+        width = min(1.0, (box[2] - box[0]) / SCAN_TEXT_WIDTH) * SCAN_LINE_PT / PT_PER_PX
+        size = (width, width * (box[3] - box[1]) / (box[2] - box[0]) * SCAN_PAGE_ASPECT)
+    token = _scan_canvas_size.set(size)
+    try:
+        yield
+    finally:
+        _scan_canvas_size.reset(token)
 
 
 @dataclass(frozen=True)
@@ -191,6 +231,7 @@ class LineSeries:
     area_fill: bool = False
     fixed_style: bool = False
     hollow: bool | None = None
+    solid_fill: bool = False
 
 
 @dataclass
@@ -240,6 +281,21 @@ class Annotation:
 
 
 @dataclass
+class TextBox:
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+    lines: Sequence[str]
+    fontsize: float = 11.5
+
+
+@dataclass
+class ArrowPath:
+    points: Sequence[tuple[float, float]]
+
+
+@dataclass
 class PanelSpec:
     title: str = ""
     xlim: tuple[float, float] = (0.0, 10.0)
@@ -264,6 +320,8 @@ class PanelSpec:
     )
     legend_loc: Literal["top", "bottom", "none"] = "top"
     xtick_vertical: bool = False
+    text_boxes: Sequence[TextBox] = field(default_factory=list)
+    arrow_paths: Sequence[ArrowPath] = field(default_factory=list)
 
 
 @dataclass
@@ -589,6 +647,8 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
     style = get_style(mode)
     grid_dash = f' stroke-dasharray="{style.grid_dash}"' if style.grid_dash else ""
     W, H = round(spec.width * PRINT_SCALE), round(spec.height * PRINT_SCALE)
+    if canvas := _scan_canvas_size.get():
+        W, H = round(canvas[0]), round(canvas[1])
     rows = max(1, spec.rows)
     cols = max(1, spec.cols)
     grid_left = 18.0
@@ -599,7 +659,8 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
     note_lines = _wrap_title(spec.note, grid_right - grid_left - 16.0, NOTE_SIZE)
     bottom_pad = 18.0 + NOTE_LINE_H * len(note_lines)
     frames = [_panel_frame(panel, cell_w, cols, pal, mode) for panel in spec.panels[: rows * cols]]
-    cell_h_min = max(f.pad_t + f.pad_b + max(MIN_PLOT_H, PLOT_ASPECT * f.pw) for f in frames)
+    plot_aspect = 0.0 if canvas else PLOT_ASPECT
+    cell_h_min = max(f.pad_t + f.pad_b + max(MIN_PLOT_H, plot_aspect * f.pw) for f in frames)
     H = max(H, math.ceil(grid_top + rows * cell_h_min + bottom_pad))
     out: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">',
@@ -716,7 +777,7 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
 
         yticks = _norm_ticks(panel.yticks, panel.ylim, 5)
         if len(yticks) > 1:
-            yticks = _thin_ticks(yticks, map_y1, 13.0)
+            yticks = _thin_ticks(yticks, map_y1, 0.8 * style.tick_size)
         scatter = bool(panel.scatters) or (bool(panel.lines) and all(ln.style == "none" for ln in panel.lines))
         grid = style.scatter_grid or not scatter
         for yv, ylab in yticks:
@@ -921,6 +982,8 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
                             + [f"{seg[-1][0]:.2f},{z_py:.2f}"]
                         )
                         afill = pal.band_fills[ln.color_idx % len(pal.band_fills)]
+                        if ln.solid_fill:
+                            afill = pal.fills[ln.color_idx % len(pal.fills)]
                         if not is_mono(mode) or ln.area_fill:
                             out.append(f'<polygon points="{" ".join(area_pts)}" fill="{afill}" stroke="none"/>')
                     d_str = _dashed_path_d(seg, dash)
@@ -943,6 +1006,18 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
                                     hollow=_marker_hollow(ln, mode),
                                 )
                             )
+
+        for ap in panel.arrow_paths:
+            pts = [(map_x(px), map_y1(py)) for px, py in ap.points]
+            out.append(
+                f'<polyline points="{" ".join(f"{px:.2f},{py:.2f}" for px, py in pts)}" fill="none" '
+                f'stroke="{pal.fg}" stroke-width="1.2"/>'
+            )
+            (ax0, ay0), (ax1, ay1) = pts[-2], pts[-1]
+            seg_len = math.hypot(ax1 - ax0, ay1 - ay0) or 1.0
+            ux, uy = (ax1 - ax0) / seg_len, (ay1 - ay0) / seg_len
+            head = [(ax1, ay1), (ax1 - 7 * ux - 3.5 * uy, ay1 - 7 * uy + 3.5 * ux), (ax1 - 7 * ux + 3.5 * uy, ay1 - 7 * uy - 3.5 * ux)]
+            out.append(f'<polygon points="{" ".join(f"{px:.2f},{py:.2f}" for px, py in head)}" fill="{pal.fg}"/>')
 
         for ann in panel.annotations:
             y_fn = map_y2 if ann.axis == "y2" else map_y1
@@ -972,6 +1047,22 @@ def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
             f'<rect x="{px0:.2f}" y="{py0:.2f}" width="{pw:.2f}" height="{ph:.2f}" '
             f'fill="none" stroke="{pal.axis}" stroke-width="{style.frame_width}"/>'
         )
+
+        for tb in panel.text_boxes:
+            bx0, bx1 = map_x(tb.x0), map_x(tb.x1)
+            by0, by1 = map_y1(tb.y0), map_y1(tb.y1)
+            top, bot = min(by0, by1), max(by0, by1)
+            out.append(
+                f'<rect x="{bx0:.2f}" y="{top:.2f}" width="{bx1 - bx0:.2f}" height="{bot - top:.2f}" '
+                f'fill="{pal.panel_bg}" stroke="{pal.fg}" stroke-width="1.0"/>'
+            )
+            step = (bot - top) / len(tb.lines)
+            for i, text in enumerate(tb.lines):
+                out.append(
+                    f'<text x="{bx0 + 4:.2f}" y="{top + step * (i + 0.5) + tb.fontsize * 0.35:.2f}" '
+                    f'font-family="{FONT_STACK}" font-size="{tb.fontsize:.1f}" font-weight="500" fill="{pal.fg}">'
+                    f"{escape(text)}</text>"
+                )
 
         if leg_rows:
             for row_idx, row in enumerate(leg_rows):

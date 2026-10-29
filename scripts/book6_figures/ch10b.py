@@ -37,7 +37,7 @@ def _fig_10_14(mode: ThemeMode = "mono") -> str:
         ylabel="倍",
         zero_line=False,
         lines=[
-            LineSeries(x=_years(1984, 2007), y=ys, label=label, color_idx=i, marker=marker, width=1.6)
+            LineSeries(x=_years(1984, 2007), y=ys, label=label, color_idx=i, marker=marker, width=1.6, hollow=label in ("30~34岁", "25~29岁"))
             for i, (label, marker, ys) in enumerate(series)
         ],
         annotations=[
@@ -61,8 +61,8 @@ def _fig_10_15(mode: ThemeMode = "mono") -> str:
             ylabel="倍",
             zero_line=False,
             bars=[
-                BarSeries(x=[-0.2, 0.8], y=[v - 1.4 for v in v2000], bottom=[1.4, 1.4], label="2000年", color_idx=0, width=0.4),
-                BarSeries(x=[0.2, 1.2], y=[v - 1.4 for v in v2005], bottom=[1.4, 1.4], label="2005年", color_idx=1, width=0.4),
+                BarSeries(x=[-0.2, 0.8], y=[v - 1.4 for v in v2000], bottom=[1.4, 1.4], label="2000年", color_idx=1, width=0.4),
+                BarSeries(x=[0.2, 1.2], y=[v - 1.4 for v in v2005], bottom=[1.4, 1.4], label="2005年", color_idx=0, width=0.4),
             ],
             annotations=[
                 Annotation(x=x, y=v, text=f"{v:.2f}", arrow=False, dx=0.0, dy=-8.0)
@@ -144,7 +144,7 @@ def _gender_panel(
         zero_line=False,
         lines=[
             LineSeries(x=years, y=male, label=male_label, color_idx=0, marker="diamond", width=1.8),
-            LineSeries(x=years, y=female, label=female_label, color_idx=1, marker="square", width=1.8),
+            LineSeries(x=years, y=female, label=female_label, color_idx=1, marker="square", width=1.8, hollow=False),
         ],
         legend_loc="bottom",
     )
@@ -274,8 +274,8 @@ def _fig_10_22(mode: ThemeMode = "mono") -> str:
         yticks=[-10.0, -5.0, 0.0, 5.0, 10.0],
         xlabel="年龄",
         bars=[
-            BarSeries(x=[x + dx for x in xs], y=ys, label=label, color_idx=i, width=0.27)
-            for i, (label, dx, ys) in enumerate(by_size)
+            BarSeries(x=[x + dx for x in xs], y=ys, label=label, color_idx=shade, width=0.27)
+            for shade, (label, dx, ys) in zip((2, 3, 0), by_size)
         ],
         legend_loc="bottom",
     )
@@ -286,7 +286,7 @@ def _fig_10_22(mode: ThemeMode = "mono") -> str:
         xticks=ages,
         yticks=[(v, f"{v:.1f}") for v in (-10.0, -5.0, 0.0, 5.0, 10.0, 15.0)],
         xlabel="年龄",
-        bars=[BarSeries(x=xs, y=[2.71, 7.41, 9.01, 10.90, 8.53, -7.31, -4.97], color_idx=0, width=0.4)],
+        bars=[BarSeries(x=xs, y=[2.71, 7.41, 9.01, 10.90, 8.53, -7.31, -4.97], color_idx=2, width=0.4)],
         legend_loc="none",
     )
     spec = FigureSpec(
@@ -394,7 +394,7 @@ def _fig_10_25(mode: ThemeMode = "mono") -> str:
         xlabel="年",
         zero_line=False,
         lines=[
-            LineSeries(x=years, y=ys, label=label, color_idx=i, marker=marker, width=1.4)
+            LineSeries(x=years, y=ys, label=label, color_idx=i, marker=marker, width=1.4, hollow=label in ("35~39岁", "25~29岁", "20~24岁"))
             for i, (label, marker, ys) in enumerate(series)
         ],
         legend_loc="bottom",

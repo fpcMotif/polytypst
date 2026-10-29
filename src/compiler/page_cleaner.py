@@ -730,6 +730,9 @@ class PageCleaner:
     def clean(self, md_text: str, pno: int) -> CleanPage:
         spec = self.spec
         layout = spec.figures
+        for pattern, repl in spec.transcript_fixups.get(pno, ()):
+            rep_arg = repl if re.search(r"\\[1-9]|\\g<", repl) else (lambda _, r=repl: r)
+            md_text = re.sub(pattern, rep_arg, md_text, flags=re.DOTALL)
         if spec.repair_math:
             md_text = repair_page_math(md_text)
         md_text = re.sub(r"<!--.*?-->", "", md_text, flags=re.DOTALL)
@@ -752,6 +755,17 @@ class PageCleaner:
         bot_figs: list[Figure] = []
         seen_figs_on_page: set[str] = set()
         caption_rest = ""
+        last_caption: tuple[str, int] | None = None
+
+        def claim_sources_after_caption() -> None:
+            nonlocal last_caption
+            if last_caption:
+                fid, at = last_caption
+                trailing = [b.strip() for b in body_lines[at:] if b.strip()]
+                if trailing and all(FIGURE_SOURCE_OR_NOTE_RE.match(b) for b in trailing):
+                    del body_lines[at:]
+                    self.figure_notes[fid] = "\n\n".join(filter(None, [self.figure_notes.get(fid), *trailing]))
+            last_caption = None
 
         for line in md_text.splitlines():
             lt = line.strip()
@@ -832,6 +846,7 @@ class PageCleaner:
                         top_figs.append((fid, cap))
                     else:
                         bot_figs.append((fid, cap))
+                    last_caption = (fid, len(body_lines))
                 continue
 
             if spec.normalize_headings:
@@ -853,8 +868,11 @@ class PageCleaner:
                     continue
                 line = normalize_run_in(lt, upper=spec.theorem_heads_upper)
 
+            if line.strip() and not FIGURE_SOURCE_OR_NOTE_RE.match(line) and not NOTE_ITEM_RE.match(line):
+                claim_sources_after_caption()
             body_lines.append(line)
 
+        claim_sources_after_caption()
         s = "\n".join(body_lines).strip()
         s = re.sub(r"\\\s+(begin|end)\b", r"\\\1", s)
         s = _DOUBLE_BACKSLASH_MACRO_RE.sub(r"\\", s)

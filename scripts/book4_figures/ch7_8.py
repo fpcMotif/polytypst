@@ -146,7 +146,7 @@ def _fig_7_1(mode: ThemeMode = "mono") -> str:
             lines([("赞成", series(ALL_FAVOR)), ("有条件赞成", series(ALL_CONDITIONAL)), ("反对（批判）", series(ALL_AGAINST))]),
             60,
             10,
-            "（件数）",
+            "件数",
         ),
         _asahi_panel(
             front_title,
@@ -192,7 +192,7 @@ def _fig_7_2(mode: ThemeMode = "mono") -> str:
     favor_all = _monthly({m: LATE_FAVOR.get(m, 0) + LATE_CONDITIONAL.get(m, 0) for m in range(ASAHI_MONTHS)}, late)
     title = "对不良债权的公共资金导入（15版以后）"
     top = _asahi_panel(
-        title, _asahi_lines([("赞成", favor), ("有条件赞成", conditional), ("反对", against)]), 10, 1, "（件数）"
+        title, _asahi_lines([("赞成", favor), ("有条件赞成", conditional), ("反对", against)]), 10, 1, "件数"
     )
     bottom = _asahi_panel(title, _asahi_lines([("赞成（包括有条件赞成）", favor_all), ("反对", against)]), 10, 1)
     spec = FigureSpec(
@@ -241,7 +241,7 @@ def _poll_panel(labels: list[str], bars: list[BarSeries], lines: list[LineSeries
         ylim=(0, 90),
         xticks=[(float(i), lab) for i, lab in enumerate(labels)],
         yticks=[float(v) for v in range(0, 91, 10)],
-        ylabel="（%）",
+        ylabel="%",
         legend_loc="bottom",
         bars=bars,
         lines=lines,
@@ -289,7 +289,6 @@ def _fig_7_3(mode: ThemeMode = "mono") -> str:
         ylim=(0, 12),
         xticks=[(float(i), lab) for i, lab in enumerate(labels)],
         yticks=[float(v) for v in range(13)],
-        ylabel="（件）",
         legend_loc="bottom",
         bars=bars,
     )
@@ -313,8 +312,9 @@ def _fig_7_5(mode: ThemeMode = "mono") -> str:
     bars = _grouped(groups, [("赞成不良债权处理", 0, False), ("反对不良债权处理", 4, False), ("其他", 1, False)], [0, 1, 2], 0.24)
     spec = FigureSpec(
         fig_id="7-5",
+        # Scan typo: the scan prints 不良债而增加; meant 不良债权而增加.
         title=(
-            "图 7-5 朝日新闻社舆论调查“政府表示，失业人数将因在2年以内最终处理大型银行的不良债而增加。"
+            "图 7-5 朝日新闻社舆论调查“政府表示，失业人数将因在2年以内最终处理大型银行的不良债权而增加。"
             "您对于即使失业人数增加，仍然推进不良债权的最终处理，是赞成还是反对？”"
         ),
         panels=[_poll_panel(LABELS_29, bars, _poll_lines(29))],
@@ -431,7 +431,7 @@ def _fig_8_1(mode: ThemeMode = "mono") -> str:
         ylim=(0, 30),
         xticks=[(0, "1992/3"), (4, "1994/3"), (8, "1996/3"), (12, "1998/3"), (16, "2000/3"), (20, "2002/3"), (24, "2004/3"), (28, "2006/3")],
         yticks=[0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0],
-        ylabel="（万亿日元）",
+        ylabel="万亿日元",
         xlabel="年/月末",
         legend_loc="bottom",
         bars=bars,
@@ -486,8 +486,8 @@ def _fig_8_2(mode: ThemeMode = "mono") -> str:
         xlabel="年",
         yticks=[500.0, 1000.0, 1500.0, 2000.0],
         y2ticks=[0.0, 5000.0, 10000.0, 15000.0, 20000.0, 25000.0],
-        ylabel="（件数）",
-        y2label="（亿日元）",
+        ylabel="件数",
+        y2label="亿日元",
         legend_loc="bottom",
         bars=[BarSeries(x=xs, y=debt, label="负债总额（右轴）", color_idx=3, width=0.72, axis="y2", opacity=1.0)],
         lines=[
@@ -515,7 +515,7 @@ def _fig_8_3(mode: ThemeMode = "mono") -> str:
         ylim=(-50000, 450000),
         xticks=[float(y) for y in range(1980, 2007, 2)],
         yticks=[float(v) for v in range(-50000, 450001, 50000)],
-        ylabel="（10亿日元）",
+        ylabel="10亿日元",
         xlabel="年",
         legend_loc="bottom",
         bars=[
@@ -542,7 +542,7 @@ def _fig_8_4(mode: ThemeMode = "mono") -> str:
         ylim=(0, 15),
         xticks=list(zip(xs, labels)),
         yticks=[0.0, 5.0, 10.0, 15.0],
-        ylabel="（万亿日元）",
+        ylabel="万亿日元",
         xlabel="年.月",
         legend_loc="top",
         bars=[
@@ -577,7 +577,7 @@ def _fig_8_5(mode: ThemeMode = "mono") -> str:
         ylim=(-0.1, 0.7),
         xticks=[(12.0 * i, lab) for i, lab in enumerate(labels)],
         yticks=[(v / 10, f"{v / 10:.1f}") for v in range(-1, 8)],
-        ylabel="（%）",
+        ylabel="%",
         xlabel="年.月",
         legend_loc="none",
         lines=[LineSeries(x=[p[0] for p in pts], y=[p[1] for p in pts], color_idx=1, style="solid", width=2.4)],
@@ -606,7 +606,7 @@ def _fig_8_6(mode: ThemeMode = "mono") -> str:
         ylim=(0, 250000),
         xticks=[(float(y), f"{y}年度") for y in years],
         yticks=[float(v) for v in range(0, 250001, 50000)],
-        ylabel="（亿日元）",
+        ylabel="亿日元",
         legend_loc="bottom",
         vlines=[(1987.5, "", "solid")],
         bars=[
@@ -641,7 +641,7 @@ def _fig_8_7(mode: ThemeMode = "mono") -> str:
         ylim=(0, 80000),
         xticks=[(10.0 + i, lab) for i, lab in enumerate(labels)],
         yticks=[0.0, 20000.0, 40000.0, 60000.0, 80000.0],
-        ylabel="（亿日元）",
+        ylabel="亿日元",
         xlabel="年.月",
         legend_loc="none",
         bars=[
@@ -649,23 +649,23 @@ def _fig_8_7(mode: ThemeMode = "mono") -> str:
             _drop_empty(BarSeries(x=xs, y=p, bottom=s, color_idx=2, width=0.2, opacity=1.0, hatch=True)),
             _drop_empty(BarSeries(x=xs, y=c, bottom=[a + b for a, b in zip(s, p)], color_idx=0, width=0.2, opacity=1.0)),
         ],
-        lines=[LineSeries(x=[11.0, 14.9], y=[23500, 23500], color_idx=0, style="solid", width=1.2)],
+        lines=[LineSeries(x=[10.8, 14.3], y=[23500, 23500], color_idx=0, style="solid", width=1.2)],
         annotations=[
-            _label(19.15, 73000, "以季度为统计口径", align="end"),
-            _label(10.1, 35000, "（金融机", align="start"),
-            _label(10.1, 29500, "能稳定", align="start"),
-            _label(10.1, 24000, "化法）", align="start"),
-            _label(12.8, 26000, "（早期健全化法）"),
-            _label(15.0, 26500, "（危机应对1号措施）", align="start"),
-            _label(12.0, 47000, "优先股", align="start"),
-            _label(11.6, 13500, "次级债券 次级贷款", align="start"),
-            _label(14.2, 12000, "普通股", align="start"),
-            _label(15.45, 13500, "（组织重组法）", align="start"),
-            _label(19.2, 20000, "（金融机能强化法）", align="end"),
-            _label(16.5, 6800, "次级贷款", align="start"),
-            _label(16.5, 1800, "60亿日元", align="start"),
-            _label(19.2, 9000, "优先股", align="end"),
-            _label(19.2, 3500, "405亿日元", align="end"),
+            _label(19.15, 71200, "以季度为统计口径", align="end"),
+            _label(9.92, 30100, "（金融机", align="start"),
+            _label(9.92, 25500, "能稳定", align="start"),
+            _label(9.92, 20900, "化法）", align="start"),
+            _label(12.6, 23700, "（早期健全化法）"),
+            _label(14.4, 20500, "（危机应对1号措施）", align="start"),
+            _label(12.0, 48000, "优先股", align="start"),
+            _label(11.6, 12300, "次级债券 次级贷款", align="start"),
+            _label(14.0, 10500, "普通股", align="start"),
+            _label(15.36, 11300, "（组织重组法）", align="start"),
+            _label(19.17, 13500, "（金融机能强化法）", align="end"),
+            _label(16.1, 5100, "次级贷款", align="start"),
+            _label(16.1, 500, "60亿日元", align="start"),
+            _label(19.17, 7300, "优先股", align="end"),
+            _label(19.17, 2300, "405亿日元", align="end"),
         ],
     )
     spec = FigureSpec(
@@ -679,13 +679,13 @@ def _fig_8_7(mode: ThemeMode = "mono") -> str:
     spec = _with_arrows(
         spec,
         [
-            (12.0, 46000, 11.1, 38000),
+            (11.6, 49500, 11.15, 38000),
             (11.6, 14500, 11.1, 9000),
             (14.85, 13800, 15.15, 17600),
-            (16.35, 9000, 15.85, 300),
-            (18.2, 15800, 18.72, 700),
-            (12.0, 23500, 11.0, 23500),
-            (14.0, 23500, 14.9, 23500),
+            (16.05, 10500, 15.7, 300),
+            (17.65, 12000, 18.5, 300),
+            (12.0, 23500, 10.8, 23500),
+            (13.5, 23500, 14.3, 23500),
         ],
         mode,
     )

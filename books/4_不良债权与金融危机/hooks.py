@@ -1,11 +1,17 @@
 import re
 import tomllib
+from dataclasses import replace
 from pathlib import Path
 
 import pymupdf
 from PIL import Image
 
 from polytypst.parity.source import source_pdf
+from polytypst.vision.figure_extractor import (
+    FIGURES_MANIFEST_NAME,
+    load_figures_manifest,
+    write_figures_manifest,
+)
 
 FOLDER = Path(__file__).parent
 _BOOK = tomllib.loads((FOLDER / "book.toml").read_text(encoding="utf-8"))
@@ -74,6 +80,7 @@ def draw_figures(out_dir: Path) -> list[Path]:
 
     scan = pymupdf.open(source_pdf(book_by_key(FOLDER.name).spec))
     paths = []
+    sheets: dict[str, tuple[tuple[float, float, float, float], tuple[int, int]]] = {}
     for fig_id, boxes in RECROPS.items():
         panels = []
         for number, (x0, y0, x1, y1) in boxes:
@@ -89,4 +96,21 @@ def draw_figures(out_dir: Path) -> list[Path]:
         path = out_dir / "figures" / f"fig_{fig_id}.png"
         sheet.save(path)
         paths.append(path)
+        sheets[fig_id] = (_stacked_box([box for _, box in boxes]), sheet.size)
+    manifest = out_dir / FIGURES_MANIFEST_NAME
+    if manifest.exists():
+        write_figures_manifest(
+            manifest,
+            [
+                replace(f, box=sheets[f.figure_id][0], width_px=sheets[f.figure_id][1][0], height_px=sheets[f.figure_id][1][1])
+                if f.figure_id in sheets
+                else f
+                for f in load_figures_manifest(manifest)
+            ],
+        )
     return paths
+
+
+def _stacked_box(boxes: list[tuple[float, float, float, float]]) -> tuple[float, float, float, float]:
+    top = boxes[0][1]
+    return (min(b[0] for b in boxes), top, max(b[2] for b in boxes), top + sum(b[3] - b[1] for b in boxes))

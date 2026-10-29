@@ -96,27 +96,10 @@ chapter_heading = '{title}'
 # Full-width figures that are taller than wide shrink to 330pt, about 60% of the 545pt text block,
 # so a figure, its caption and some text share a page.
 typst_front_matter = '''
-
-#set par(first-line-indent: (amount: 2em, all: true))
-#show heading.where(level: 1): it => {
-  let back-matter = it.body.has("text") and it.body.text == "后记"
-  v(if back-matter { 0em } else { 2.4em })
-  align(left)[
-    #text(16pt, weight: "bold", font: ("Songti SC", "STSong", "New Computer Modern"))[#if it.numbering != none [#numbering(it.numbering, ..counter(heading).at(it.location()))#h(1em)]#it.body]
-  ]
-  v(0.6em)
-  line(length: 100%, stroke: 0.6pt + black)
-  v(if back-matter { 0.8em } else { 1.4em })
-}
+@STYLE:japan_economy@
 #show heading.where(level: 2): set heading(numbering: (..n) => str(n.pos().at(1)) + "\u{2002}")
 #show heading.where(level: 3): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
-#let head-number(it) = if it.numbering != none and counter(heading).at(it.location()).first() > 0 { counter(heading).display(it.numbering) }
-#let head-font = ("Songti SC", "STSong", "New Computer Modern")
-#show heading.where(level: 2): it => block(above: 2em, below: 0.9em, sticky: true, text(13pt, weight: "bold", font: head-font)[#head-number(it)#it.body])
-#show heading.where(level: 3): it => block(above: 1.5em, below: 0.7em, sticky: true, text(11pt, weight: "bold", font: head-font)[#head-number(it)#it.body])
 #show heading.where(level: 4): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
-#show heading.where(level: 4): it => block(above: 1.3em, below: 0.6em, sticky: true, text(10pt, weight: "bold", font: head-font)[#head-number(it)#it.body])
-#show table: it => layout(size => if measure(it, width: size.width).height < 0.4 * size.height { block(breakable: false, it) } else { it })
 #set page(header: context {
   let page-number = counter(page).get().first()
   let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
@@ -126,8 +109,8 @@ typst_front_matter = '''
       let c = chaps.last()
       if c.numbering != none [#numbering(c.numbering, ..counter(heading).at(c.location()))#h(0.8em)#c.body] else [#c.body]
     } else [宏观经济与产业结构]
-    let head = text(8.5pt, font: ("Songti SC", "STSong", "New Computer Modern"))[#title]
-    let folio = text(9.5pt, font: ("Songti SC", "STSong", "New Computer Modern"))[#page-number]
+    let head = text(8.5pt, font: serif)[#title]
+    let folio = text(9.5pt, font: serif)[#page-number]
     if calc.odd(page-number) {
       grid(columns: (1fr, auto), align(left, head), align(right, folio))
     } else {
@@ -153,6 +136,7 @@ ocr_languages = ['zh-Hans', 'en-US']
 caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
 caption_format = '图 {chapter}-{number}'
 svg_single_pct = 100
+svg_scan_text_width = 0.78
 pair_figures = false
 note_before_caption = true
 
@@ -181,7 +165,14 @@ note_before_caption = true
 301 = [['(?m)^(\|[^\n]*\| 0\.046 \|)  \|$', '\1 ⁠ |'], ['(?m)^(\|[^\n]*\| 0\.493 \|)  \|$', '\1 ⁠ |']]
 302 = [['(?m)^(\|[^\n]*\| 0\.111 \|)  \|$', '\1 ⁠ |']]
 382 = [['(?m)^(\|  \| 估算值 \| \$t\$ 值 \|)  \|', '\1 ⁠ |']]
-213 = [['\A.*\Z', '']]
+7 = [['(柳川\s*范之[^\n]*?经济学研究科)教授', '\1副教授']]
+8 = [['(政策研究研究生院大学)教授', '\1副教授']]
+58 = [['柯布一道格拉斯', '柯布—道格拉斯']]
+278 = [['柯布一道格拉斯', '柯布—道格拉斯']]
+280 = [['柯布一道格拉斯', '柯布—道格拉斯']]
+297 = [['_e(?![A-Za-z])', '_\ell']]
+331 = [['年平均值为([)）])为', '年平均值\1为']]
+213 =[['\A.*\Z', '']]
 41 = [
   ['(?m)^资本投入量（实际、潜在）估算[ \t]*\n?', ''],
   ['(?m)^制造业实际利用率（使用采矿业指数）[ \t]*\n?', ''],

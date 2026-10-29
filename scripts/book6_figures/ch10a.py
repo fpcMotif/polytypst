@@ -209,7 +209,8 @@ def _fig_10_4_1(mode: ThemeMode = "mono") -> str:
         [62.23, 62.76, 61.66, 60.31],
         [58.52, 59.26, 57.13, 57.13],
     ]
-    panel = _period_panel(values, (50.0, 95.0), [(float(v), str(v)) for v in range(50, 96, 5)], "")
+    scan_labels = ["50", "55", "60", "65", "70", "75", "80", "90", "95"]
+    panel = _period_panel(values, (50.0, 95.0), [(50.0 + 45.0 * i / 8, lab) for i, lab in enumerate(scan_labels)], "")
     spec = FigureSpec(fig_id="10-4.1", title="图 10-4.1 中薪阶层占比（中位数的 75%～150%）", panels=[panel], width=860, height=560)
     return render_figure_svg(spec, mode)
 
@@ -353,6 +354,7 @@ def _fig_10_8(mode: ThemeMode = "mono") -> str:
         y2ticks=[float(v) for v in range(0, 41, 10)],
         xlabel="年",
         ylabel="%",
+        y2label="两极分化↑",
         zero_line=False,
         lines=lines,
         legend_loc="bottom",

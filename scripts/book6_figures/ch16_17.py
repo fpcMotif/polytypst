@@ -297,10 +297,11 @@ def _fig_16_11(mode: ThemeMode = "mono") -> str:
             ],
             annotations=[Annotation(2.5 + 6 * g, 92.0, age, dx=0.0, dy=0.0, arrow=False) for g, age in enumerate(["55~59", "60~64", "65~69"])],
             legend_loc="bottom",
+            xtick_vertical=True,
         )
         for title, rows in (("男性", men), ("女性", women))
     ]
-    spec = FigureSpec(fig_id="16-11", title="图 16-11 老年人就业和养老金的衔接（1983—2004 年按年龄组和性别划分）", panels=panels, rows=2, width=1200, height=900)
+    spec = FigureSpec(fig_id="16-11", title="图 16-11 老年人就业和养老金的衔接（1983—2004 年按年龄组和性别划分）", panels=panels, cols=2, width=1300, height=620)
     return render_figure_svg(spec, mode)
 
 
@@ -504,6 +505,7 @@ def _fig_17_2(mode: ThemeMode = "mono") -> str:
             bars(offjt, 0.0, "OffJT的实施率", 3),
         ],
         legend_loc="bottom",
+        xtick_vertical=True,
     )
     spec = FigureSpec(
         fig_id="17-2",
@@ -532,6 +534,7 @@ def _fig_17_3(mode: ThemeMode = "mono") -> str:
             BarSeries(x=[y - 1989 + w / 2 for y in self_dev], y=list(self_dev.values()), label="自我发展的实施率", color_idx=3, width=w),
         ],
         legend_loc="bottom",
+        xtick_vertical=True,
     )
     spec = FigureSpec(
         fig_id="17-3",
@@ -671,7 +674,7 @@ def _intl_figure(fid: str, title: str, panels: list[tuple[str, tuple[float, floa
                 legend_loc="bottom" if k == len(panels) - 1 else "none",
             )
         )
-    spec = FigureSpec(fig_id=fid, title=title, panels=specs, rows=2, cols=2, width=1000, height=800)
+    spec = FigureSpec(fig_id=fid, title=title, panels=specs, rows=3, cols=1, width=860, height=1250)
     return render_figure_svg(spec, mode)
 
 

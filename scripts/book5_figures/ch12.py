@@ -620,7 +620,7 @@ def _fig_12_6(mode: ThemeMode = "mono") -> str:
         legend_loc="bottom",
     )
     spec = FigureSpec(
-        fig_id="12-6", title="图 12-6 地方政府资本账户收支", panels=[panel]
+        fig_id="12-6", title="图 12-6 地方政府资本账户收支", panels=[panel], height=640
     )
     return render_figure_svg(spec, mode)
 

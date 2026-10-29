@@ -179,7 +179,7 @@ def _fig_9_4(mode: ThemeMode = "mono") -> str:
         xlim=(1979.5, 2005.5),
         ylim=(0.0, 2.0),
         xticks=[(float(y), str(y)) for y in range(1980, 2005, 2)] + [(2005.0, "2005")],
-        yticks=[(v / 10, f"{v / 10:.1f}") for v in range(0, 21, 2)],
+        yticks=[(v / 10, "0.4" if v == 2 else f"{v / 10:.1f}") for v in range(0, 21, 2)],
         y2lim=(0.0, 2.0),
         y2ticks=[(2.0 - v / 150.0, str(v)) for v in range(0, 301, 50)],
         xlabel="年",
@@ -380,6 +380,7 @@ def _fig_10_2(mode: ThemeMode = "mono") -> str:
         xlim=(1946.3, 2006.7),
         ylim=(0.0, 300.0),
         xticks=[(float(y), str(y)) for y in range(1947, 2007, 3)],
+        xtick_vertical=True,
         yticks=[0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0],
         y2lim=(0.0, 5.0),
         y2ticks=[0.0, 1.0, 2.0, 3.0, 4.0, 5.0],
@@ -394,7 +395,7 @@ def _fig_10_2(mode: ThemeMode = "mono") -> str:
         annotations=[
             Annotation(x=1949.0, y=270.0, text="第1次生育高峰", dx=30.0, dy=-4.0, arrow=False, align="start"),
             Annotation(x=1949.4, y=270.0, text="270万人", dx=40.0, dy=10.0, align="start"),
-            Annotation(x=1949.0, y=4.32, text="4.32", dx=40.0, dy=36.0, arrow=False, align="start", axis="y2"),
+            Annotation(x=1949.0, y=4.32, text="4.32", dx=10.0, dy=4.0, arrow=False, align="start", axis="y2"),
             Annotation(x=1966.0, y=136.0, text="136万人", dx=0.0, dy=-90.0, align="middle"),
             Annotation(x=1966.0, y=136.0, text="丙午", dx=0.0, dy=-118.0, arrow=False, align="middle"),
             Annotation(x=1966.0, y=1.58, text="1.58", dx=0.0, dy=22.0, arrow=False, align="middle", axis="y2"),
@@ -456,7 +457,7 @@ def _fig_10_3(mode: ThemeMode = "mono") -> str:
 
 
 def _fig_10_4(mode: ThemeMode = "mono") -> str:
-    ages = ["15～19", "20～24", "25～29", "30～34", "35～39", "40～44", "45～49", "50～54", "55～59", "60～64", "65～"]
+    ages = ["15～19", "20～24", "20～29", "30～34", "35～39", "40～44", "45～49", "50～54", "55～59", "60～64", "65～"]
     xs = [float(i) for i in range(len(ages))]
     series = [
         ("1990年", [17.6, 74.8, 61.1, 51.3, 63.0, 69.0, 72.0, 65.0, 53.7, 38.8, 16.2], 0, "solid", "square"),

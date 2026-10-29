@@ -4,10 +4,12 @@ from collections.abc import Callable
 
 from scripts.book2_figures.engine import (
     Annotation,
+    ArrowPath,
     BarSeries,
     FigureSpec,
     LineSeries,
     PanelSpec,
+    TextBox,
     ThemeMode,
     render_figure_svg,
 )
@@ -18,10 +20,6 @@ def _text_lines(x: float, y_top: float, step: float, texts: list[str], size: flo
         Annotation(x=x, y=y_top - i * step, text=t, dx=0.0, dy=0.0, arrow=False, fontsize=size, align="start")
         for i, t in enumerate(texts)
     ]
-
-
-def _arrow(x: float, y: float, dx: float, dy: float) -> Annotation:
-    return Annotation(x=x, y=y, text="", dx=dx, dy=dy, arrow=True)
 
 
 def fig_6_1(mode: ThemeMode = "mono") -> str:
@@ -41,31 +39,34 @@ def fig_6_1(mode: ThemeMode = "mono") -> str:
         panels=[
             PanelSpec(
                 xlim=(-0.6, len(values) - 0.4),
-                ylim=(0.0, 180.0),
-                xticks=[(i, labels[i]) for i in range(0, len(values), 4)],
+                ylim=(0.0, 120.0),
+                xticks=[(i, labels[i]) for i in range(len(values))],
+                xtick_vertical=True,
                 yticks=[0, 20, 40, 60, 80, 100, 120],
                 ylabel="10亿美元",
                 legend_loc="none",
-                bars=[BarSeries(x=xs, y=values, color_idx=1, width=0.5, hatch=True)],
-                annotations=[
-                    *_text_lines(9.8, 168.0, 13.0, [
+                bars=[BarSeries(x=xs, y=values, color_idx=3, width=0.5, hatch=True)],
+                arrow_paths=[
+                    ArrowPath([(1.6, 38.4), (1.6, 107.5), (3.2, 107.5)]),
+                    ArrowPath([(11.6, 105.9), (11.6, 81.0)]),
+                    ArrowPath([(19.1, 71.4), (19.1, 61.8), (24.9, 61.8)]),
+                ],
+                text_boxes=[
+                    TextBox(8.1, 134.4, 29.7, 105.9, [
                         "•亚洲金融危机（▼）",
                         "•日本国内的不良债权问题，经营健全化计划（▼）",
                         "•新资产评估·信用风险管理方法的导入（▼）",
-                    ]),
-                    *_text_lines(14.3, 108.0, 13.0, [
+                    ], fontsize=10.0),
+                    TextBox(12.1, 100.2, 30.0, 71.4, [
                         "•日系银行的经营及财务状况的改善（▲）",
                         "•媲美欧美银行（？）唯一的海外市场（▲）",
                         "•国际业务的再强化（▲）",
-                    ]),
-                    *_text_lines(-0.3, 168.0, 13.0, [
+                    ], fontsize=10.0),
+                    TextBox(0.5, 38.4, 12.2, 9.0, [
                         "•日系企业的直接投资（▲）",
                         "•亚洲市场的魅力（高增长、",
                         "资金需求、收益性）（▲）",
-                    ]),
-                    _arrow(12.3, 80.0, 0.0, -95.0),
-                    _arrow(25.5, 63.0, -130.0, -18.0),
-                    _arrow(4.0, 98.0, 0.0, -55.0),
+                    ], fontsize=10.0),
                 ],
             )
         ],
@@ -98,24 +99,27 @@ def fig_6_3(mode: ThemeMode = "mono") -> str:
                 xlim=(-0.6, len(years) - 0.4),
                 ylim=(0.0, 300.0),
                 xticks=[(i, str(y)) for i, y in enumerate(years)],
+                xtick_vertical=True,
                 yticks=[0, 50, 100, 150, 200, 250, 300],
                 ylabel="万亿日元",
                 xlabel="年",
                 legend_loc="none",
                 bars=layers,
-                annotations=[
-                    *_text_lines(9.0, 282.0, 18.0, [
+                arrow_paths=[
+                    ArrowPath([(8.4, 254.0), (6.5, 221.0)]),
+                    ArrowPath([(13.9, 183.0), (16.1, 91.0)]),
+                    ArrowPath([(19.7, 120.0), (20.4, 92.6)]),
+                ],
+                text_boxes=[
+                    TextBox(8.46, 293.8, 19.8, 240.2, [
                         "•泡沫经济破灭导致的资产质量恶化",
                         "•巴塞尔自有资本比率规制的严格限制",
-                    ]),
-                    *_text_lines(13.5, 210.0, 18.0, [
+                    ], fontsize=11.0),
+                    TextBox(13.2, 232.0, 21.4, 183.0, [
                         "•考虑经营健全化计划下撤退",
                         "成本（后述）国际业务缩小",
-                    ]),
-                    *_text_lines(16.5, 138.0, 18.0, ["•国际业务再强化"]),
-                    _arrow(6.4, 228.0, 75.0, -33.0),
-                    _arrow(17.6, 88.0, -90.0, -110.0),
-                    _arrow(20.6, 96.0, -32.0, -40.0),
+                    ], fontsize=11.0),
+                    TextBox(15.9, 152.0, 21.8, 120.0, ["•国际业务再强化"], fontsize=11.0),
                 ],
             )
         ],

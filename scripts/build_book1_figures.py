@@ -8,7 +8,7 @@ from pathlib import Path
 import pymupdf
 
 from polytypst.books import book_by_key
-from scripts.book2_figures.engine import ThemeMode
+from scripts.book2_figures.engine import ThemeMode, chart_svg, scan_canvas
 
 BOOK_DIR = book_by_key("1_宏观经济与产业结构").out_dir
 
@@ -43,6 +43,7 @@ def main() -> None:
     )
     parser.add_argument("ids", nargs="*", help="figure ids such as 1-1 or 12-4; all when omitted")
     parser.add_argument("--png", type=Path, help="also write a 150-dpi PNG of each SVG into this folder")
+    parser.add_argument("--style", choices=("a", "b"), default="a", help="a: the redraw style; b: the scan's chart style in the body fonts")
     args = parser.parse_args()
 
     fig_dir = BOOK_DIR / "figures"
@@ -53,9 +54,10 @@ def main() -> None:
     if unknown:
         raise SystemExit(f"no generator for {unknown}")
     for fid in args.ids or sorted(generators, key=figure_order):
-        svg = generators[fid]("mono")
+        with scan_canvas(BOOK_DIR, fid):
+            svg = chart_svg(generators[fid], args.style)
+            (scan_dir / f"fig_{fid}.svg").write_text(generators[fid]("scan"), encoding="utf-8")
         (fig_dir / f"fig_{fid}.svg").write_text(svg, encoding="utf-8")
-        (scan_dir / f"fig_{fid}.svg").write_text(generators[fid]("scan"), encoding="utf-8")
         if args.png:
             args.png.mkdir(parents=True, exist_ok=True)
             doc = pymupdf.open("svg", svg.encode("utf-8"))

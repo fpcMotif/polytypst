@@ -45,9 +45,10 @@ def _fig_10_1(mode: ThemeMode = "mono") -> str:
     panel = PanelSpec(
         xlim=(1986.75, 2008.6),
         ylim=(-50.0, 50.0),
-        xticks=[(float(y), f"{y}年1月") for y in (1988, 1993, 1998, 2003, 2008)],
+        xticks=[(float(y), f"{y}年1月") for y in range(1987, 2009)],
+        xtick_vertical=True,
         yticks=[float(v) for v in range(-50, 51, 10)],
-        ylabel="（%）",
+        ylabel="%",
         lines=[
             LineSeries(x=_quarters(1987, small), y=small, label="中小企业", color_idx=2, style="dotted", width=2.4),
             LineSeries(x=_quarters(1987, mid), y=mid, label="中坚企业", color_idx=1, style="dashed", width=2.0),
@@ -65,7 +66,7 @@ def _employment_response(fig_id: str, title: str, sme: list[float], large: list[
         ylim=(-3.0, 0.5),
         xticks=xs,
         yticks=[-3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5],
-        ylabel="（%）",
+        ylabel="%",
         lines=[
             LineSeries(x=xs, y=sme, label="中小、中坚企业", color_idx=0, style="solid", width=2.2),
             LineSeries(x=xs, y=large, label="大企业", color_idx=1, style="dashed", width=2.4),
@@ -107,14 +108,15 @@ def _fig_11_2(mode: ThemeMode = "mono") -> str:
         xticks=[float(y) for y in range(1981, 2006, 2)],
         yticks=[float(v) for v in range(0, 141, 20)],
         xlabel="年",
-        ylabel="（万亿日元）",
+        ylabel="万亿日元",
         legend_loc="bottom",
         lines=[
             LineSeries(x=years, y=cabinet, label="内阁府", color_idx=0, style="solid", marker="circle", width=2.0),
             LineSeries(x=fsa_years, y=fsa, label="金融厅", color_idx=1, style="dashed", marker="square", width=2.2),
         ],
     )
-    spec = FigureSpec(fig_id="11-2", title="图 11-2 不良债务处理金额（累计金额）的变化", panels=[panel])
+    # Scan typo: the scan prints 不良债务; meant 不良债权.
+    spec = FigureSpec(fig_id="11-2", title="图 11-2 不良债权处理金额（累计金额）的变化", panels=[panel])
     return render_figure_svg(spec, mode)
 
 
@@ -140,7 +142,7 @@ def _fig_11_3(mode: ThemeMode = "mono") -> str:
         xticks=[float(y) for y in range(1981, 2006, 2)],
         yticks=[float(v) for v in range(0, 3001, 500)],
         xlabel="年",
-        ylabel="（万亿日元）",
+        ylabel="万亿日元",
         legend_loc="bottom",
         lines=[
             LineSeries(x=years, y=sna, label="SNA", color_idx=2, style="solid", marker="circle", width=1.8),
@@ -204,8 +206,8 @@ def _fig_12_1(mode: ThemeMode = "mono") -> str:
         yticks=[float(v) for v in range(0, 401, 50)],
         y2ticks=[float(v) for v in range(0, 601, 100)],
         xlabel="年",
-        ylabel="（指数）",
-        y2label="（万亿日元）",
+        ylabel="指数",
+        y2label="万亿日元",
         legend_loc="bottom",
         lines=[
             LineSeries(x=years, y=stock, label="股价", color_idx=2, style="dotted", width=2.4),
@@ -277,10 +279,11 @@ def _fig_12_7(mode: ThemeMode = "mono") -> str:
         ("中南美", [-1.6, -2.3, -4.6, -4.6, -2.3, -3.0, -5.1, -2.1, -6.3, -4.35, -0.5, -4.05, -0.9], 4, 0.95),
         ("大洋洲", [-0.5, 0.4, 0.7, -0.25, 0.0, 0.0, -0.25, -0.5, -0.65, -0.7, -0.5, -1.3, -1.4], 1, 0.95),
         ("西欧", [-2.5, -1.9, -7.6, -8.0, -4.9, -0.2, -0.4, -8.7, -3.8, -9.0, -3.7, -5.4, -6.9], 3, 0.95),
+        ("东欧、俄罗斯", [0.0] * 13, 2, 0.6),
         ("中东", [0.0, 0.3, 0.3, 0.0, 0.0, -0.2, 0.0, 0.0, -0.2, -0.15, 0.0, -0.15, 0.0], 4, 0.45),
         ("非洲", [-0.1, 0.0, 0.0, 0.0, -0.1, -0.5, 0.0, -0.15, 0.0, -0.1, -0.2, -0.1, -0.3], 0, 0.95),
     ]
-    panel = _flow_panel(FLOW_YEARS, _signed_stack(FLOW_YEARS, segments), (-25.0, 5.0), 5.0, "（万亿日元）")
+    panel = _flow_panel(FLOW_YEARS, _signed_stack(FLOW_YEARS, segments), (-25.0, 5.0), 5.0, "万亿日元")
     spec = FigureSpec(fig_id="12-7", title="图 12-7 日本向世界的证券投资（股票投资、债券投资）", panels=[panel], height=560)
     return render_figure_svg(spec, mode)
 
@@ -289,8 +292,8 @@ def _fig_12_8(mode: ThemeMode = "mono") -> str:
     segments: list[Segment] = [
         ("直接投资", [-1.05, -1.55, -1.0, -0.15, -0.25, -1.0, -1.05, -0.65, 0.0, -1.85, -2.0, -2.3, -2.4], 4, 0.95),
         ("股票投资", [-0.45, 0.45, 0.2, -0.15, -0.1, 0.0, 0.2, 0.0, 0.0, -0.3, -0.6, -0.5, 0.25], 1, 0.95),
-        ("债券投资", [0.0, 0.25, 0.35, -0.15, -0.1, 0.0, 0.0, 0.0, 0.0, 0.0, -0.2, -0.5, -0.1], 3, 0.95),
-        ("贷款", [1.0, -5.4, 5.3, 10.8, 1.55, 0.75, -1.4, 2.65, 1.4, 0.0, 2.3, -2.55, -0.5], 0, 0.95),
+        ("债券投资", [0.0, 0.25, 0.35, -0.15, -0.1, 0.0, 0.0, 0.0, 0.0, 0.0, -0.2, -0.5, -0.25], 3, 0.95),
+        ("贷款", [1.0, -5.4, 5.3, 10.8, 1.55, 0.75, -1.4, 2.65, 1.4, 0.0, 2.3, -2.55, -0.55], 0, 0.95),
     ]
     loan_outflow_2004 = [
         BarSeries(x=[2004.0], y=[-1.2], color_idx=0, bottom=[0.0], width=0.5, opacity=0.95),
@@ -298,7 +301,7 @@ def _fig_12_8(mode: ThemeMode = "mono") -> str:
         BarSeries(x=[2004.0], y=[-0.45], color_idx=3, bottom=[-1.65], width=0.5, opacity=0.95),
     ]
     bars = _signed_stack(FLOW_YEARS, segments) + loan_outflow_2004
-    panel = _flow_panel(FLOW_YEARS, bars, (-8.0, 12.0), 2.0, "（万亿日元）")
+    panel = _flow_panel(FLOW_YEARS, bars, (-8.0, 12.0), 2.0, "万亿日元")
     spec = FigureSpec(fig_id="12-8", title="图 12-8 日本向亚洲的资本流动", panels=[panel])
     return render_figure_svg(spec, mode)
 
@@ -340,8 +343,8 @@ def _fig_12_10(mode: ThemeMode = "mono") -> str:
         yticks=[float(v) for v in range(0, 8001, 1000)],
         y2ticks=[float(v) for v in range(80, 161, 10)],
         xlabel="年",
-        ylabel="（亿日元）",
-        y2label="（日元）",
+        ylabel="亿日元",
+        y2label="日元",
         legend_loc="bottom",
         vlines=[(2004.5, "", "dashed")],
         bars=bars,

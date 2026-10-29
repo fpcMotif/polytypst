@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from html import escape
+from typing import Literal
 
 from scripts.book2_figures.engine import (
     FONT_STACK,
@@ -175,16 +176,18 @@ def gen_fig_1_1(mode: ThemeMode = "mono") -> str:
 def gen_fig_1_2(mode: ThemeMode = "mono") -> str:
     xs = _half_years(1990, 2001)
     r_act = [
-        7.4, 8.2, 8.0, 6.7, 5.0, 4.1, 3.4, 2.6, 2.2, 2.3,
-        1.8, 0.7, 0.6, 0.5, 0.5, 0.6, 0.8, 0.7, 0.3, 0.2,
-        0.1, 0.3, 0.1, 0.0,
+        7.4, 8.3, 8.0, 6.7, 5.0, 3.9, 3.3, 2.5, 2.25, 2.25,
+        1.7, 0.65, 0.55, 0.5, 0.5, 0.6, 0.8, 0.65, 0.25, 0.17,
+        0.08, 0.35, 0.17, -0.08,
     ]
     r_diff = [
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -2.0, -1.1, 0.8,
-        -1.7, -0.7, -0.6, 0.9, 1.1, 0.8, -0.8, -0.7, -0.3, 0.9,
-        1.2, 0.6, 0.3, 0.3,
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -2.15, -1.15, 0.75,
+        -1.8, -0.75, -0.7, 0.85, 1.05, 0.75, -0.85, -0.8, -0.42, 0.85,
+        1.25, 0.55, 0.28, 0.3,
     ]
     r_sim = [a + d for a, d in zip(r_act, r_diff)]
+    scan_missing_bars = (15, 21, 22)
+    r_bar = [0.0 if i in scan_missing_bars else d for i, d in enumerate(r_diff)]
 
     gap_act = [
         2.3, 3.3, 3.1, 2.1, 1.1, 0.1, -0.4, -2.4, -2.4, -1.9,
@@ -254,7 +257,7 @@ def gen_fig_1_2(mode: ThemeMode = "mono") -> str:
                 yticks=list(range(-3, 10)),
                 ylabel="%",
                 xlabel="年",
-                bars=[BarSeries(x=xs, y=r_diff, label="模拟结果－实际值", color_idx=2, width=0.38, hatch=True)],
+                bars=[BarSeries(x=xs, y=r_bar, label="模拟结果－实际值", color_idx=2, width=0.38, hatch=True)],
                 lines=[
                     LineSeries(x=xs, y=r_act, label="实际值", color_idx=0, width=2.3),
                     LineSeries(x=xs, y=r_sim, label="非线性规则", color_idx=1, style="dashed", width=2.1),
@@ -296,7 +299,7 @@ def gen_fig_1_2(mode: ThemeMode = "mono") -> str:
 def gen_fig_2_1(mode: ThemeMode = "mono") -> str:
     spec = FigureSpec(
         fig_id="2-1",
-        title="图 2-1 Borio 和 Filardo（2007）估算国内供需缺口和全球供需缺口参数的时间变化",
+        title="图 2-1 Borio 和 Filardo（2007）估算的国内供需缺口和全球供需缺口参数的时间变化",
         note="注：条形代表各国家估算值的简单平均值。",
         width=820,
         height=460,
@@ -311,6 +314,7 @@ def gen_fig_2_1(mode: ThemeMode = "mono") -> str:
                     (4.0, "1985—2005"),
                 ],
                 yticks=[0.0, 0.1, 0.2, 0.3],
+                legend_loc="none",
                 bars=[
                     BarSeries(x=[1.0, 2.0], y=[-0.039, 0.286], label="全球缺口（ϕ）", color_idx=0, width=0.55),
                     BarSeries(
@@ -323,8 +327,8 @@ def gen_fig_2_1(mode: ThemeMode = "mono") -> str:
                     ),
                 ],
                 annotations=[
-                    Annotation(x=1.5, y=0.41, text="全球缺口（ϕ）", dy=0.0, arrow=False, color_idx=0, fontsize=13.0),
-                    Annotation(x=3.5, y=0.41, text="国内缺口（β）", dy=0.0, arrow=False, color_idx=1, fontsize=13.0),
+                    Annotation(x=1.5, y=0.40, text="全球缺口（ϕ）", dy=0.0, arrow=False, color_idx=0, fontsize=13.0),
+                    Annotation(x=3.5, y=0.40, text="国内缺口（β）", dy=0.0, arrow=False, color_idx=1, fontsize=13.0),
                 ],
             )
         ],
@@ -412,7 +416,6 @@ def gen_fig_2_2(mode: ThemeMode = "mono") -> str:
             continue
         sy0 = map_y(y0)
         sy1 = map_y(y1_val)
-        out.append(f'<circle cx="{xx:.2f}" cy="{sy0:.2f}" r="3.0" fill="{col}"/>')
         line_y2 = sy1 + 6.0 if is_jp else sy1 - 6.0
         out.append(
             f'<line x1="{xx:.2f}" y1="{sy0:.2f}" x2="{xx:.2f}" y2="{line_y2:.2f}" stroke="{col}" stroke-width="{sw}"/>'
@@ -452,7 +455,7 @@ def gen_fig_2_3(mode: ThemeMode = "mono") -> str:
     uk_se = [0.28] * 26 + [0.34] * 12
 
     jp_y = [
-        0.02, -0.15, -0.18, -0.20, -0.16, -0.26, -0.22, -0.22, -0.21, -0.18,
+        0.02, -0.15, -0.18, -0.17, -0.25, -0.20, -0.20, -0.22, -0.21, -0.18,
         -0.14, -0.18, -0.16, -0.04, -0.06, 0.12, 0.15, 0.15, 0.06, 0.05,
         0.06, 0.22, 0.30, 0.26, 0.28, 0.30, 0.32, 0.31, 0.34, 0.22,
         0.18, 0.09, 0.18, 0.16, 0.14, 0.15, 0.16, 0.12,
@@ -471,7 +474,7 @@ def gen_fig_2_3(mode: ThemeMode = "mono") -> str:
         0.16, 0.17, 0.16, 0.15, 0.18, 0.12, 0.06, 0.21, 0.08, 0.15,
         0.23, 0.22, 0.15, 0.20, 0.20, 0.18, 0.14, 0.12, 0.11, 0.08,
         0.15, 0.14, 0.20, 0.20, 0.26, 0.22, 0.01, -0.10, -0.16, -0.22,
-        -0.42, -0.12, 0.15, 0.21, 0.19, 0.21, 0.21, 0.20,
+        -0.36, 0.05, 0.15, 0.21, 0.19, 0.21, 0.21, 0.20,
     ]
     us_se = [0.18 if i < 25 else 0.11 for i in range(38)]
 
@@ -479,9 +482,10 @@ def gen_fig_2_3(mode: ThemeMode = "mono") -> str:
         return PanelSpec(
             title=title,
             xlim=(1987.5, 2006.0),
-            ylim=(-2.0, 1.4),
+            ylim=(-2.0, 1.45),
             xticks=[1990, 1995, 2000, 2005],
-            yticks=[-2.0, -1.2, -0.4, 0.4, 1.2],
+            yticks=[(v / 10, f"{v / 10:.1f}") for v in range(-20, 13, 4)],
+            legend_loc="none",
             bands=[
                 BandSeries(
                     x=xs,
@@ -498,11 +502,11 @@ def gen_fig_2_3(mode: ThemeMode = "mono") -> str:
     spec = FigureSpec(
         fig_id="2-3",
         title="图 2-3 使用 Ihrig 等（2007）的各国数据估算结果示例",
-        note="资料来源：Ihrig 等（2007），阴影部分为 90% 显著性区间（10 年窗口滚动回归）",
+        note="资料来源：Ihrig 等（2007），阴影部分为 90% 具有显著性",
         rows=2,
         cols=2,
         width=900,
-        height=600,
+        height=760,
         panels=[
             make_panel("英国", uk_y, uk_se, 0),
             make_panel("日本", jp_y, jp_se, 1),
@@ -571,7 +575,6 @@ def gen_fig_2_4(mode: ThemeMode = "mono") -> str:
         fig_id="2-4",
         title="图 2-4 木村等人（2008）对诱导式菲利普斯曲线的估算结果",
         subtitle="通货膨胀率：CPI，测算期：40 个季度",
-        note="深色阴影为 ±1 标准偏差区间，浅色阴影为 ±2 标准偏差区间。",
         rows=3,
         cols=2,
         width=920,
@@ -589,6 +592,7 @@ def gen_fig_2_4(mode: ThemeMode = "mono") -> str:
                         x=xs,
                         y_low=[v - 2 * s for v, s in zip(k_boj, k_boj_se)],
                         y_high=[v + 2 * s for v, s in zip(k_boj, k_boj_se)],
+                        label="置信区间（±2标准偏差）",
                         color_idx=1,
                         show_edges=False,
                     ),
@@ -596,6 +600,7 @@ def gen_fig_2_4(mode: ThemeMode = "mono") -> str:
                         x=xs,
                         y_low=[v - s for v, s in zip(k_boj, k_boj_se)],
                         y_high=[v + s for v, s in zip(k_boj, k_boj_se)],
+                        label="置信区间（±1标准偏差）",
                         color_idx=0,
                         show_edges=False,
                     ),
@@ -681,7 +686,7 @@ def gen_fig_2_4(mode: ThemeMode = "mono") -> str:
                 xticks=xt,
                 yticks=[-3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0],
                 xlabel="（估算起始期，年）",
-                lines=[LineSeries(x=xs, y=lr_boj, label="长期斜率 κ/(1−Σλ)", color_idx=0, width=2.2)],
+                lines=[LineSeries(x=xs, y=lr_boj, label="效果完全显现下时的斜率（κ/(1−Σλ)）", color_idx=0, width=2.2)],
             ),
             PanelSpec(
                 xlim=(1976.0, 1997.0),
@@ -689,7 +694,7 @@ def gen_fig_2_4(mode: ThemeMode = "mono") -> str:
                 xticks=xt,
                 yticks=[-6.0, -5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0],
                 xlabel="（估算起始期，年）",
-                lines=[LineSeries(x=xs, y=lr_hp, label="长期斜率 κ/(1−Σλ)", color_idx=0, width=2.2)],
+                lines=[LineSeries(x=xs, y=lr_hp, label="效果完全显现下时的斜率（κ/(1−Σλ)）", color_idx=0, width=2.2)],
             ),
         ],
     )
@@ -699,37 +704,66 @@ def gen_fig_2_4(mode: ThemeMode = "mono") -> str:
 def gen_fig_2_5(mode: ThemeMode = "mono") -> str:
     xs60 = [1995.0 + 0.5 * i for i in range(25)]
     g60_no = [
-        -0.02, -0.02, -0.03, -0.03, -0.04, -0.03, -0.02, 0.0, 0.11, 0.14,
-        0.15, 0.16, 0.18, 0.19, 0.20, 0.21, 0.22, 0.23, 0.25, 0.22,
-        0.21, 0.21, 0.20, 0.20, 0.17,
+        -0.025, -0.012, -0.012, -0.02, -0.022, -0.022, -0.035, -0.02, 0.015, 0.03,
+        0.125, 0.135, 0.135, 0.15, 0.16, 0.20, 0.225, 0.21, 0.235, 0.225,
+        0.215, 0.22, 0.21, 0.205, 0.18,
     ]
-    g60_no_se = [0.045] * 25
+    g60_no_se = [0.045] * 10 + [0.05] * 8 + [0.07] + [0.05] * 6
 
     xs40 = [1990.0 + 0.5 * i for i in range(35)]
     g40_no = [
-        -0.03, -0.02, -0.01, 0.0, -0.03, -0.02, 0.0, 0.02, 0.01, 0.01,
-        0.09, 0.11, 0.11, 0.12, 0.15, 0.22, 0.28, 0.31, 0.29, 0.31,
-        0.29, 0.28, 0.29, 0.30, 0.25, 0.20, 0.21, 0.12, 0.14, 0.12,
-        0.10, 0.11, 0.06, 0.05, 0.03,
+        -0.035, -0.022, -0.03, -0.02, -0.005, 0.005, -0.02, -0.015, 0.0, 0.0,
+        0.10, 0.105, 0.11, 0.125, 0.14, 0.20, 0.25, 0.29, 0.30, 0.31,
+        0.295, 0.30, 0.28, 0.28, 0.23, 0.21, 0.20, 0.13, 0.14, 0.125,
+        0.12, 0.11, 0.07, 0.05, 0.03,
     ]
-    g40_no_se = [0.065] * 35
+    g40_no_se = [
+        0.095, 0.085, 0.075, 0.065, 0.06, 0.055, 0.05, 0.05, 0.05, 0.05,
+        0.05, 0.05, 0.055, 0.06, 0.065, 0.07, 0.07, 0.07, 0.07, 0.07,
+        0.07, 0.07, 0.07, 0.07, 0.07, 0.07, 0.07, 0.07, 0.065, 0.065,
+        0.065, 0.065, 0.065, 0.065, 0.065,
+    ]
 
+    xs_int = [
+        1995.0, 1995.47, 1995.9, 1996.13, 1996.42, 1996.79, 1997.23, 1997.6, 1998.03, 1998.4,
+        1998.62, 1998.84, 1999.13, 1999.57, 1999.87, 2000.09, 2000.6, 2000.89, 2001.11, 2001.4,
+        2001.7, 2001.92, 2002.2, 2002.5, 2002.87, 2003.17, 2003.39, 2003.68, 2003.97, 2004.19,
+        2004.63, 2004.93, 2005.22, 2005.44, 2005.66, 2005.88, 2006.1, 2006.54, 2006.83, 2007.12,
+    ]
     g60_int = [
-        0.45, 0.6, 0.75, 0.8, 0.9, 1.0, 1.1, 1.15, 1.2, 1.4,
-        0.75, 1.15, 0.6, 0.2, 0.5, 1.0, 1.5, 1.8, 1.5, 1.4,
-        1.2, 1.15, 1.3, 1.3, 1.25,
+        0.46, 0.52, 0.60, 0.62, 0.75, 0.78, 0.82, 1.02, 1.10, 1.12,
+        1.17, 1.12, 1.12, 1.39, 0.95, 0.72, 0.72, 1.14, 0.85, 0.62,
+        0.25, 0.18, 0.40, 0.60, 1.00, 1.50, 1.45, 1.80, 1.60, 1.47,
+        1.47, 1.20, 1.22, 1.18, 1.12, 1.12, 1.30, 1.32, 1.20, 1.25,
     ]
-    g60_int_se = [0.28, 0.29, 0.30, 0.31, 0.32, 0.33, 0.34, 0.35, 0.36, 0.37, 0.37, 0.55, 0.70, 0.87, 0.85, 0.78, 0.70, 0.65, 0.60, 0.55, 0.50, 0.50, 0.50, 0.47, 0.47]
+    g60_int_se = [
+        0.28, 0.29, 0.29, 0.30, 0.30, 0.30, 0.31, 0.31, 0.32, 0.32,
+        0.32, 0.32, 0.33, 0.36, 0.37, 0.37, 0.48, 0.56, 0.62, 0.70,
+        0.80, 0.84, 0.75, 0.68, 0.64, 0.78, 0.70, 0.66, 0.64, 0.62,
+        0.60, 0.58, 0.55, 0.52, 0.50, 0.50, 0.48, 0.48, 0.47, 0.46,
+    ]
 
+    xs_cross = [
+        1995.2, 1995.6, 1996.1, 1996.47, 1996.98, 1997.48, 1998.06, 1998.5, 1998.85, 1999.14,
+        1999.65, 2000.15, 2000.8, 2001.02, 2001.38, 2001.67, 2001.96, 2002.32, 2002.54, 2002.9,
+        2003.19, 2003.4, 2003.69, 2003.98, 2004.27, 2004.63, 2004.91, 2005.27, 2005.71, 2005.92,
+        2006.14, 2006.57, 2006.79, 2007.08,
+    ]
     cross_60 = [
-        -2.2, -2.8, -3.3, -3.8, -4.2, -4.7, -5.2, -5.5, -6.0, -5.0,
-        -3.0, -5.0, -3.0, -0.8, -2.0, -5.0, -7.0, -8.3, -6.2, -5.5,
-        -5.0, -5.4, -6.0, -5.8, -5.8,
+        -2.2, -2.6, -2.9, -3.7, -4.0, -5.0, -5.3, -5.6, -5.2, -5.5,
+        -6.8, -3.3, -3.3, -5.6, -3.8, -2.8, -0.3, -1.5, -2.3, -3.8,
+        -7.0, -6.6, -8.5, -7.3, -6.6, -6.6, -5.3, -5.4, -5.0, -5.0,
+        -5.9, -6.0, -5.6, -5.8,
     ]
-    cross_60_se = [1.3, 1.35, 1.4, 1.45, 1.5, 1.5, 1.55, 1.6, 1.65, 1.7, 1.9, 2.5, 3.5, 4.6, 4.4, 4.0, 3.8, 3.6, 3.2, 3.0, 2.8, 2.6, 2.5, 2.4, 2.4]
+    cross_60_se = [
+        1.4, 1.4, 1.4, 1.45, 1.5, 1.5, 1.55, 1.6, 1.65, 1.7,
+        1.85, 1.85, 2.4, 3.2, 3.6, 4.0, 4.5, 4.4, 4.2, 4.1,
+        3.95, 3.7, 3.5, 3.3, 3.15, 3.05, 2.9, 2.75, 2.6, 2.55,
+        2.5, 2.45, 2.4, 2.4,
+    ]
 
-    xt60: list[float | tuple[float, str]] = [(float(y), str(y)) for y in range(1995, 2008, 2)]
-    xt40: list[float | tuple[float, str]] = [(float(y), str(y)) for y in range(1990, 2008, 3)]
+    xt60: list[float | tuple[float, str]] = [(float(y), str(y)) for y in range(1995, 2008)]
+    xt40: list[float | tuple[float, str]] = [(float(y), str(y)) for y in range(1990, 2008)]
 
     def make_panel(
         title: str,
@@ -740,6 +774,8 @@ def gen_fig_2_5(mode: ThemeMode = "mono") -> str:
         ylim: tuple[float, float],
         xticks: list[float | tuple[float, str]],
         yticks: list[float | tuple[float, str]],
+        ylabel: str,
+        legend_loc: Literal["top", "bottom", "none"] = "none",
     ) -> PanelSpec:
         return PanelSpec(
             title=title,
@@ -747,7 +783,9 @@ def gen_fig_2_5(mode: ThemeMode = "mono") -> str:
             ylim=ylim,
             xticks=xticks,
             yticks=yticks,
-            xlabel="估算结束期（年）",
+            ylabel=ylabel,
+            legend_loc=legend_loc,
+            xlabel="估算结束期",
             bands=[
                 BandSeries(
                     x=xvals,
@@ -768,7 +806,7 @@ def gen_fig_2_5(mode: ThemeMode = "mono") -> str:
                     edge_style="dashed",
                 ),
             ],
-            lines=[LineSeries(x=xvals, y=yvals, label="估算值", color_idx=0, width=2.3)],
+            lines=[LineSeries(x=xvals, y=yvals, color_idx=0, width=2.3)],
         )
 
     spec = FigureSpec(
@@ -780,44 +818,49 @@ def gen_fig_2_5(mode: ThemeMode = "mono") -> str:
         height=640,
         panels=[
             make_panel(
-                "（1）不含与开放度的交叉项（60期）：国内供需缺口",
+                "（1）不含与开放度的交叉项（60期）",
                 xs60,
                 g60_no,
                 g60_no_se,
-                (1995.0, 2007.0),
+                (1995.0, 2007.2),
                 (-0.2, 0.5),
                 xt60,
                 [-0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5],
+                "国内供需缺口",
             ),
             make_panel(
-                "（参考）不含与开放度的交叉项（40期）：国内供需缺口",
+                "（参考）不含与开放度的交叉项（40期）",
                 xs40,
                 g40_no,
                 g40_no_se,
-                (1990.0, 2007.0),
+                (1990.0, 2007.2),
                 (-0.3, 0.5),
                 xt40,
                 [-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5],
+                "国内供需缺口",
             ),
             make_panel(
-                "（2）包含与开放度的交叉项（60期）：国内供需缺口",
-                xs60,
+                "（2）包含与开放度的交叉项（60期）",
+                xs_int,
                 g60_int,
                 g60_int_se,
-                (1995.0, 2007.0),
+                (1995.0, 2007.2),
                 (-2.0, 4.0),
                 xt60,
                 [-2, -1, 0, 1, 2, 3, 4],
+                "国内供需缺口",
             ),
             make_panel(
-                "（2）包含与开放度的交叉项（60期）：国内供需缺口×开放度",
-                xs60,
+                "　",
+                xs_cross,
                 cross_60,
                 cross_60_se,
-                (1995.0, 2007.0),
+                (1995.0, 2007.2),
                 (-20.0, 15.0),
                 xt60,
                 [-20, -15, -10, -5, 0, 5, 10, 15],
+                "国内供需缺口×开放度",
+                legend_loc="bottom",
             ),
         ],
     )
@@ -858,7 +901,7 @@ def gen_fig_2_6(mode: ThemeMode = "mono") -> str:
         0.15, 0.14, 0.135, 0.14, 0.15, 0.16, 0.168,
     ]
 
-    xt: list[float | tuple[float, str]] = [(float(y), str(y)) for y in range(1980, 2007, 4)] + [(2006.0, "2006")]
+    xt: list[float | tuple[float, str]] = [(float(y), str(y)) for y in range(1980, 2007, 2)]
     spec = FigureSpec(
         fig_id="2-6",
         title="图 2-6 开放度和进口份额的变化",
@@ -900,19 +943,19 @@ def gen_fig_2_6(mode: ThemeMode = "mono") -> str:
 
 def gen_fig_3_1(mode: ThemeMode = "mono") -> str:
     pts = [
-        (1985.5, 6.3), (1985.85, 8.2), (1986.2, 4.5), (1986.6, 4.7), (1987.0, 4.2),
-        (1987.4, 3.3), (1987.9, 3.6), (1988.3, 3.5), (1988.8, 4.1), (1989.2, 4.3),
-        (1989.7, 5.4), (1990.2, 6.7), (1990.7, 7.6), (1991.1, 8.28), (1991.5, 7.5),
-        (1992.0, 5.6), (1992.5, 4.1), (1993.0, 3.2), (1993.5, 3.1), (1994.0, 2.2),
-        (1994.4, 2.05), (1994.9, 2.28), (1995.2, 2.15), (1995.4, 1.3), (1995.75, 0.46),
-        (1996.5, 0.47), (1997.5, 0.48), (1998.5, 0.43), (1998.8, 0.25), (1999.2, 0.03),
-        (2000.5, 0.02), (2000.65, 0.25), (2001.1, 0.25), (2001.25, 0.01), (2002.5, 0.002),
-        (2004.5, 0.001), (2006.4, 0.002), (2006.6, 0.25), (2007.1, 0.26), (2007.2, 0.50),
-        (2007.8, 0.50),
+        (1985.5, 6.2), (1985.81, 8.3), (1985.98, 7.0), (1986.22, 4.5), (1986.46, 4.7),
+        (1986.7, 3.9), (1986.95, 4.4), (1987.26, 3.3), (1987.67, 3.5), (1987.91, 4.0),
+        (1988.22, 3.5), (1988.51, 4.1), (1988.87, 4.2), (1989.11, 4.4), (1989.48, 5.4),
+        (1989.84, 6.4), (1990.32, 7.5), (1990.8, 8.2), (1991.16, 8.25), (1991.52, 7.5),
+        (1991.89, 5.7), (1992.25, 4.8), (1992.61, 4.0), (1993.09, 3.3), (1993.45, 3.2),
+        (1993.69, 2.5), (1994.3, 2.0), (1994.78, 2.3), (1995.14, 2.2), (1995.26, 1.3),
+        (1995.5, 0.9), (1995.69, 0.45), (1997.43, 0.48), (1998.51, 0.45), (1998.87, 0.25),
+        (1999.23, 0.02), (2000.44, 0.02), (2000.61, 0.25), (2001.16, 0.25), (2001.33, 0.02),
+        (2006.34, 0.02), (2006.58, 0.25), (2007.07, 0.27), (2007.19, 0.5), (2007.9, 0.5),
     ]
     xs = [p[0] for p in pts]
     ys: list[float | None] = [p[1] for p in pts]
-    xt: list[float | tuple[float, str]] = [(y + 0.5, f"{y}-7") for y in range(1985, 2008, 2)]
+    xt: list[float | tuple[float, str]] = [(y + 0.5, f"{y}-7") for y in range(1985, 2008)]
     spec = FigureSpec(
         fig_id="3-1",
         title="图 3-1 日本国内银行间拆借市场利率的变化情况",
@@ -927,7 +970,8 @@ def gen_fig_3_1(mode: ThemeMode = "mono") -> str:
                 yticks=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                 ylabel="（月平均，单位：%）",
                 zero_line=False,
-                lines=[LineSeries(x=xs, y=ys, label="隔夜拆借利率", color_idx=0, width=2.3, area_fill=True)],
+                legend_loc="none",
+                lines=[LineSeries(x=xs, y=ys, color_idx=0, width=2.3, area_fill=True)],
             )
         ],
     )
@@ -952,7 +996,9 @@ def gen_fig_3_2(mode: ThemeMode = "mono") -> str:
         106.5, 107.2, 108.0, 110.7, 111.6, 112.9, 113.7, 113.2, 113.5, 113.7,
         114.3,
     ]
-    xt: list[float | tuple[float, str]] = [(float(y), f"{y}-1") for y in range(1995, 2008)]
+    xt: list[float | tuple[float, str]] = [
+        (y + h / 2, f"{y}-{1 + 6 * h}") for y in range(1995, 2008) for h in (0, 1)
+    ]
     spec = FigureSpec(
         fig_id="3-2",
         title="图 3-2 日本消费者物价上涨率及景气动向指数的变化情况",
@@ -969,6 +1015,7 @@ def gen_fig_3_2(mode: ThemeMode = "mono") -> str:
                 y2lim=(-1.5, 1.5),
                 y2ticks=[-1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5],
                 y2label="（同比，%）",
+                legend_loc="bottom",
                 hlines=[(100.0, "", "solid")],
                 bars=[
                     BarSeries(
@@ -1121,11 +1168,13 @@ def gen_fig_3_5(mode: ThemeMode = "mono") -> str:
         height=680,
         panels=[
             PanelSpec(
-                title="案例 1",
+                title="案例1",
                 xlim=(0.0, 10.0),
                 ylim=(0.0, 10.0),
                 xticks=[(9.0, "（对象期间）")],
-                yticks=[(5.0, "（利率）")],
+                yticks=[(-1.0, "")],
+                ylabel="（利率）",
+                legend_loc="none",
                 zero_line=False,
                 lines=[
                     LineSeries(x=[0.4, 9.9], y=[2.9, 7.7], label="市场实际利率", color_idx=1, width=2.5),
@@ -1137,11 +1186,13 @@ def gen_fig_3_5(mode: ThemeMode = "mono") -> str:
                 ],
             ),
             PanelSpec(
-                title="案例 2",
+                title="案例2",
                 xlim=(0.0, 10.0),
                 ylim=(0.0, 10.0),
                 xticks=[(9.0, "（对象期间）")],
-                yticks=[(5.0, "（利率）")],
+                yticks=[(-1.0, "")],
+                ylabel="（利率）",
+                legend_loc="none",
                 zero_line=False,
                 lines=[
                     LineSeries(x=[0.4, 7.7], y=[3.9, 6.2], label="实际均衡利率", color_idx=0, width=2.5),
@@ -1160,11 +1211,13 @@ def gen_fig_3_5(mode: ThemeMode = "mono") -> str:
                 ],
             ),
             PanelSpec(
-                title="案例 3",
+                title="案例3",
                 xlim=(0.0, 10.0),
                 ylim=(0.0, 10.0),
                 xticks=[(9.0, "（对象期间）")],
-                yticks=[(5.0, "（利率）")],
+                yticks=[(-1.0, "")],
+                ylabel="（利率）",
+                legend_loc="none",
                 zero_line=False,
                 lines=[
                     LineSeries(x=[1.0, 3.55, 9.7], y=[1.6, 5.7, 8.6], label="实际均衡利率", color_idx=0, width=2.5),
@@ -1183,9 +1236,9 @@ def gen_fig_3_5(mode: ThemeMode = "mono") -> str:
 def gen_fig_3_6(mode: ThemeMode = "mono") -> str:
     pal = get_palette(mode)
     W, H = 860, 480
-    c_ret = pal.fills[0]
+    c_ret = pal.panel_bg if mode == "mono" else pal.fills[0]
     c_rf = pal.panel_bg
-    c_exp = "#cbd5e1" if mode == "mono" else pal.fills[2]
+    c_exp = pal.panel_bg if mode == "mono" else pal.fills[2]
     c_prem = "#475569" if mode == "mono" else pal.fills[1]
     stroke_col = pal.fg if mode == "mono" else pal.axis
 
@@ -1231,9 +1284,9 @@ def gen_fig_3_6(mode: ThemeMode = "mono") -> str:
         f'<rect x="642" y="294" width="192" height="44" fill="{pal.panel_bg}" stroke="{pal.axis}" stroke-width="1.3"/>',
         f'<text x="738" y="321" text-anchor="middle" font-family="{FONT_STACK}" font-size="14" font-weight="600" fill="{pal.fg}">无风险利率</text>',
         f'<rect x="44" y="382" width="372" height="68" fill="{pal.panel_bg}" stroke="{pal.axis}" stroke-width="1.3"/>',
-        f'<text x="230" y="422" text-anchor="middle" font-family="{FONT_STACK}" font-size="14.5" font-weight="600" fill="{pal.fg}">案例 1：风险溢价较低的案例</text>',
+        f'<text x="230" y="422" text-anchor="middle" font-family="{FONT_STACK}" font-size="14.5" font-weight="600" fill="{pal.fg}">案例1　风险溢价较低的案例</text>',
         f'<rect x="462" y="382" width="372" height="68" fill="{pal.panel_bg}" stroke="{pal.axis}" stroke-width="1.3"/>',
-        f'<text x="648" y="422" text-anchor="middle" font-family="{FONT_STACK}" font-size="14.5" font-weight="600" fill="{pal.fg}">案例 2：风险溢价较高的案例</text>',
+        f'<text x="648" y="422" text-anchor="middle" font-family="{FONT_STACK}" font-size="14.5" font-weight="600" fill="{pal.fg}">案例2　风险溢价较高的案例</text>',
         "</svg>",
     ]
     return "\n".join(out)
@@ -1332,8 +1385,8 @@ def gen_fig_3_8(mode: ThemeMode = "mono") -> str:
                 zero_line=False,
                 vlines=[(4.5, "", "dashed")],
                 bars=[
-                    BarSeries(x=xs_left, y=no_eff, label="无长期政策效应", color_idx=0, width=0.32),
-                    BarSeries(x=xs_right, y=with_eff, label="有长期政策效应", color_idx=1, width=0.32, hatch=True),
+                    BarSeries(x=xs_left, y=no_eff, label="无长期政策效应", color_idx=1, width=0.32, hatch=True),
+                    BarSeries(x=xs_right, y=with_eff, label="有长期政策效应", color_idx=0, width=0.32),
                 ],
                 annotations=[
                     Annotation(x=2.0, y=0.42, text="实行零利率政策时", dy=0, arrow=False, color_idx=0, fontsize=12.5),
@@ -1350,7 +1403,7 @@ def gen_fig_3_9(mode: ThemeMode = "mono") -> str:
         (-0.04, 11.8, "造纸及纸浆"),
         (0.09, 11.1, "木材及木制品"),
         (0.00, -2.3, "食品"),
-        (0.38, -1.2, "金属制品"),
+        (0.37, -1.4, "金属制品"),
         (0.72, 5.8, "石油和煤炭制品"),
         (1.40, 15.9, "纺织"),
         (1.75, 17.3, "陶瓷及土石制品"),
@@ -1365,7 +1418,27 @@ def gen_fig_3_9(mode: ThemeMode = "mono") -> str:
     ]
     sx = [p[0] for p in pts]
     sy = [p[1] for p in pts]
-    slabs = [p[2] for p in pts]
+    label_centers = {
+        "造纸及纸浆": (-0.42, 14.8),
+        "木材及木制品": (0.65, 11.5),
+        "食品": (-0.34, -2.4),
+        "金属制品": (0.81, -1.7),
+        "石油和煤炭制品": (0.88, 3.4),
+        "纺织": (1.13, 17.2),
+        "陶瓷及土石制品": (1.81, 20.6),
+        "其他": (1.97, 14.6),
+        "化学": (1.72, 6.6),
+        "精密机械": (2.63, 8.9),
+        "机电": (2.71, 19.6),
+        "有色金属": (3.37, 13.9),
+        "钢铁": (3.58, 25.4),
+        "运输机械": (4.28, 8.3),
+        "通用机械": (4.47, 26.2),
+    }
+    labels = [
+        Annotation(x=lx, y=ly - 1.0, text=name, dy=0.0, arrow=False, fontsize=12.0)
+        for name, (lx, ly) in label_centers.items()
+    ]
     spec = FigureSpec(
         fig_id="3-9",
         title="图 3-9 制造业大型企业的设备投资与出口的关系（按行业）",
@@ -1380,14 +1453,15 @@ def gen_fig_3_9(mode: ThemeMode = "mono") -> str:
                 yticks=[-5, 0, 5, 10, 15, 20, 25, 30],
                 xlabel="2003—2006年度销售额增长率的平均出口贡献度（%）",
                 ylabel="（2003—2006年度设备投资平均增长率，%）",
-                scatters=[(sx, sy, slabs, 0, False)],
+                scatters=[(sx, sy, [], 0, False)],
+                annotations=labels,
+                legend_loc="none",
                 lines=[
                     LineSeries(
-                        x=[-0.5, 4.8],
-                        y=[4.0, 21.8],
-                        label="线性拟合趋势",
+                        x=[-0.5, 4.85],
+                        y=[3.9, 21.6],
                         color_idx=1,
-                        style="dashed",
+                        style="dotted",
                         width=2.0,
                     )
                 ],
@@ -1415,7 +1489,7 @@ def gen_fig_3_10(mode: ThemeMode = "mono") -> str:
         104, 109, 105, 105, 104, 103, 110, 108, 104, 105, 106, 103,
         100, 96, 92, 91, 91, 89, 88, 86, 82, 86, 87, 86,
     ]
-    xt: list[float | tuple[float, str]] = [(float(y), f"{y}-1") for y in range(1990, 2008, 2)]
+    xt: list[float | tuple[float, str]] = [(float(y), f"{y}-1") for y in range(1990, 2008)]
     spec = FigureSpec(
         fig_id="3-10",
         title="图 3-10 日元的名义有效汇率与实际有效汇率的变化情况",
@@ -1428,7 +1502,7 @@ def gen_fig_3_10(mode: ThemeMode = "mono") -> str:
                 ylim=(50.0, 190.0),
                 xticks=xt,
                 yticks=[50, 70, 90, 110, 130, 150, 170, 190],
-                hlines=[(100.0, "", "dashed")],
+                legend_loc="bottom",
                 lines=[
                     LineSeries(x=xs, y=nom, label="名义有效汇率", color_idx=0, width=2.4),
                     LineSeries(x=xs, y=real, label="实际有效汇率", color_idx=1, width=2.3),
@@ -1449,7 +1523,7 @@ def gen_fig_3_11(mode: ThemeMode = "mono") -> str:
     spec = FigureSpec(
         fig_id="3-11",
         title="图 3-11 日本对外净资产的增减情况",
-        note="资料来源：财务省《日本对外资产负债余额》",
+        note="资料来源：财务省“日本对外资产负债余额”",
         width=840,
         height=440,
         panels=[
@@ -1460,9 +1534,10 @@ def gen_fig_3_11(mode: ThemeMode = "mono") -> str:
                 yticks=[-20, -10, 0, 10, 20, 30, 40, 50, 60],
                 ylabel="万亿日元",
                 xlabel="年",
+                legend_loc="bottom",
                 bars=[
-                    BarSeries(x=xs_l, y=net_chg, label="对外净资产增减", color_idx=0, width=0.28),
-                    BarSeries(x=xs_r, y=fx_eff, label="汇率的影响因素", color_idx=1, width=0.28, hatch=True),
+                    BarSeries(x=xs_l, y=net_chg, label="对外净资产增减", color_idx=1, width=0.28, hatch=True),
+                    BarSeries(x=xs_r, y=fx_eff, label="汇率的影响因素", color_idx=0, width=0.28),
                 ],
             )
         ],
@@ -1501,7 +1576,8 @@ def gen_fig_3_12(mode: ThemeMode = "mono") -> str:
                 ylabel="（单位：10亿日元）",
                 xlabel="年",
                 zero_line=False,
-                bars=[BarSeries(x=xs_full, y=vals, label="特别融资余额", color_idx=0, width=0.085)],
+                legend_loc="none",
+                bars=[BarSeries(x=xs_full, y=vals, color_idx=0, width=0.085)],
             )
         ],
     )
@@ -1509,64 +1585,62 @@ def gen_fig_3_12(mode: ThemeMode = "mono") -> str:
 
 
 def gen_fig_3_13(mode: ThemeMode = "mono") -> str:
-    neg_pts = [
-        (-29.5, -6.2, "ca"),
-        (-22.8, -4.4, "us"),
-        (-16.2, -6.2, "de"),
-        (-13.6, -5.4, ""),
-        (-11.8, -7.9, "fr"),
-        (-9.6, -4.2, "uk20"),
-        (-7.2, -0.8, "fr81"),
-        (-6.9, -4.3, "ca20"),
-        (-7.0, -6.2, "be"),
-        (-3.8, -6.8, ""),
-        (-3.5, -0.8, ""),
-        (-1.6, -2.5, ""),
-        (-1.5, -5.0, ""),
-        (-1.4, -6.6, ""),
-        (-1.4, -8.3, ""),
-        (-0.8, -0.2, ""),
-        (-25.4, -13.6, "sp"),
-        (-19.2, -22.2, "au'90"),
-        (-14.6, -22.8, "nz"),
-        (-12.2, -21.2, "au"),
-        (-9.9, -21.6, "nz'20"),
-        (-4.0, -21.3, ""),
-        (-2.6, -19.2, ""),
+    pts = [
+        (-29.6, -6.35), (-22.8, -4.55), (-16.4, -6.35), (-13.7, -5.5), (-11.75, -8.0),
+        (-7.3, -0.8), (-6.9, -4.4), (-6.9, -6.35), (-3.6, -0.8), (-2.1, -0.55),
+        (-1.07, -0.15), (-1.5, -2.7), (-3.0, -4.3), (-1.4, -5.1), (-4.0, -6.6),
+        (-1.5, -6.9), (-1.4, -8.5), (-25.2, -13.7), (-19.3, -22.2), (-14.8, -22.7),
+        (-12.2, -21.1), (-10.0, -21.6), (-4.15, -21.2), (-2.85, -19.2),
+        (2.14, -1.29), (4.5, -1.63), (5.6, -1.46), (8.55, -2.3), (10.2, -2.15),
+        (10.2, -3.2), (9.26, -4.55), (6.17, -3.26), (7.83, -3.52), (4.04, -3.7),
+        (4.04, -4.55), (2.97, -5.5), (4.63, -5.58), (6.53, -5.32), (6.05, -6.87),
+        (8.19, -6.44), (2.49, -8.58), (4.15, -7.98), (4.63, -9.44), (7.6, -8.84),
+        (6.17, -10.56), (9.85, -9.61), (5.04, -12.6), (3.98, -15.1), (5.4, -16.1),
+        (13.8, -0.17), (16.1, -1.03), (18.9, -0.43), (21.25, -1.03), (21.8, -1.63),
+        (14.4, -2.23), (17.2, -2.32), (22.2, -3.7), (26.5, -2.66), (13.2, -4.46),
+        (14.8, -4.55), (14.8, -7.98), (25.0, -5.84), (25.0, -6.78),
+        (40.5, -6.27), (46.1, -5.06), (52.6, -3.43), (72.5, -3.43), (37.1, -11.0), (49.2, -12.7),
+        (16.9, -18.5), (18.0, -17.2), (19.7, -17.9), (22.8, -20.0), (31.0, -23.0),
+        (18.4, -29.4), (45.8, -31.0), (42.0, -48.0),
     ]
-    pos_pts = [
-        (2.2, -1.2, ""), (4.5, -1.6, ""), (5.8, -1.4, ""), (8.5, -2.2, ""), (10.5, -2.1, ""),
-        (13.8, -0.1, ""), (16.4, -0.8, ""), (18.8, -0.3, ""), (21.2, -1.4, ""), (22.0, -1.0, ""),
-        (26.5, -2.6, ""), (22.2, -3.6, ""), (17.5, -2.0, ""), (14.2, -2.2, ""), (13.6, -4.5, ""),
-        (15.0, -4.5, ""), (14.8, -7.8, ""), (25.2, -5.6, ""), (25.0, -6.5, ""), (37.2, -10.8, ""),
-        (40.5, -6.2, ""), (46.2, -5.0, ""), (49.2, -12.4, ""), (52.8, -3.4, ""), (72.6, -3.4, ""),
-        (3.8, -4.2, ""), (4.2, -3.5, ""), (6.2, -3.2, ""), (7.8, -3.4, ""), (9.8, -3.2, ""),
-        (9.2, -4.5, ""), (7.0, -5.2, ""), (6.0, -6.6, ""), (8.2, -6.4, ""), (7.6, -8.6, ""),
-        (9.8, -8.2, ""), (6.2, -10.2, ""), (4.8, -9.2, ""), (2.6, -8.4, ""), (4.2, -7.8, ""),
-        (3.2, -5.4, ""), (4.8, -5.6, ""), (5.2, -12.4, ""), (4.0, -15.0, ""), (5.5, -16.2, ""),
-        (17.0, -18.6, ""), (18.0, -17.4, ""), (19.5, -17.8, ""), (22.8, -19.8, ""), (31.2, -23.0, ""),
-        (18.5, -29.6, ""), (45.8, -31.0, ""), (42.0, -48.6, ""),
+    label_centers = [
+        ("ca", -29.85, -8.1), ("us", -23.6, -6.5), ("de", -17.1, -8.5), ("uk20", -14.7, -3.35),
+        ("fr81", -12.0, -1.1), ("ca20", -7.3, -2.7), ("be", -6.5, -8.4), ("fr", -12.05, -10.55),
+        ("sp", -25.8, -15.9), ("au’90", -25.3, -23.6), ("nz", -15.0, -24.2), ("au", -11.9, -19.3),
     ]
+    labels = [
+        Annotation(x=lx, y=ly - 1.0, text=name, dy=0.0, arrow=False, fontsize=12.0)
+        for name, lx, ly in label_centers
+    ]
+    labels.append(Annotation(x=-10.0, y=-21.6, text="nz’20", dx=18.0, dy=26.0, arrow=True, fontsize=12.0))
     spec = FigureSpec(
         fig_id="3-13",
         title="图 3-13 通货紧缩案例与经济活动",
         note="资料来源：Bordo 和 Filardo，2005",
         width=840,
-        height=500,
+        height=780,
         panels=[
             PanelSpec(
                 xlim=(-40.0, 80.0),
                 ylim=(-60.0, 0.0),
                 xticks=[-40, -20, 0, 20, 40, 60, 80],
                 yticks=[-60, -50, -40, -30, -20, -10, 0],
-                xlabel="产出的变化（%）",
-                ylabel="物价的峰谷变化（%）",
+                xlabel="产出的变化",
+                ylabel="物价的峰谷变化",
                 zero_line=False,
+                legend_loc="none",
                 vlines=[(0.0, "", "solid")],
-                scatters=[
-                    ([p[0] for p in neg_pts], [p[1] for p in neg_pts], [p[2] for p in neg_pts], 1, False),
-                    ([p[0] for p in pos_pts], [p[1] for p in pos_pts], [p[2] for p in pos_pts], 0, False),
+                lines=[
+                    LineSeries(
+                        x=[p[0] for p in pts],
+                        y=[p[1] for p in pts],
+                        color_idx=0,
+                        style="none",
+                        marker="diamond",
+                        hollow=False,
+                    )
                 ],
+                annotations=labels,
             )
         ],
     )
@@ -1603,7 +1677,7 @@ def gen_fig_3_14(mode: ThemeMode = "mono") -> str:
     spec = FigureSpec(
         fig_id="3-14",
         title="图 3-14 信用利差——近几年的日本与 20 世纪 30 年代美国的比较",
-        note="注：横轴上方为美国年份（1930—1939年），下方为日本年份（1995—2004年）。资料来源：Baba、Nishioka、Oda、Shirakawa、Ueda、Ugai，2005",
+        note="资料来源：Baba、Nishioka、Oda、Shirakawa、Ueda、Ugai，2005",
         width=860,
         height=440,
         panels=[
@@ -1613,8 +1687,9 @@ def gen_fig_3_14(mode: ThemeMode = "mono") -> str:
                 xticks=xt,
                 yticks=[0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0],
                 ylabel="%",
-                xlabel="美国（1930—1939年） / 日本（1995—2004年）",
+                xlabel="（美国）/（日本）",
                 zero_line=False,
+                legend_loc="bottom",
                 lines=[
                     LineSeries(x=xs_all_us, y=ys_all_us, label="美国信用利差", color_idx=1, width=2.4),
                     LineSeries(x=xs_jp, y=jp_sp, label="日本信用利差", color_idx=0, width=2.5),
@@ -1658,9 +1733,9 @@ def gen_fig_3_15(mode: ThemeMode = "mono") -> str:
                     LineSeries(x=xs, y=world_all, label="全球（包括美国）", color_idx=0, width=2.5),
                     LineSeries(x=xs_ex_us, y=world_ex_us, label="全球（不包括美国）", color_idx=1, width=2.3),
                 ],
+                legend_loc="none",
                 annotations=[
-                    Annotation(x=1998.0, y=42.0, text="全球（包括美国）", dy=-8, arrow=False, color_idx=0),
-                    Annotation(x=2001.5, y=24.0, text="全球（不包括美国）", dy=18, arrow=False, color_idx=1),
+                    Annotation(x=1997.5, y=44.0, text="全球（不包括美国）", dy=0.0, arrow=False, color_idx=0),
                 ],
             )
         ],

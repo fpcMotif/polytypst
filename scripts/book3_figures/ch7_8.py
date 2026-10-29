@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import date, timedelta
 
 from scripts.book2_figures.engine import (
     BarSeries,
@@ -37,7 +38,7 @@ def fig_7_1(mode: ThemeMode = "mono") -> str:
         xlim=(1979.6, 2008.4),
         ylim=(90.0, 320.0),
         xticks=_year_ticks(2008, "2008年"),
-        yticks=[100.0, 150.0, 200.0, 250.0, 300.0, 320.0],
+        yticks=[100.0, 90.0, 150.0, 200.0, 250.0, 300.0, 320.0],
         zero_line=False,
         lines=[
             LineSeries(x=years, y=usd, label="日元/美元汇率", color_idx=0, style="dotted", marker="circle"),
@@ -243,11 +244,12 @@ def fig_7_6(mode: ThemeMode = "mono") -> str:
         (30.1, 144.0), (30.5, 146.4), (30.9, 146.8), (31.6, 146.8), (31.9, 144.9), (32.4, 143.7),
         (32.7, 142.0), (33.1, 143.0),
     ]
-    week_labels = ["2/23", "3/30", "5/4", "6/8", "7/13", "8/17", "9/21"]
+    mondays = [date(1987, 2, 23) + timedelta(weeks=i) for i in range(34)]
     panel = PanelSpec(
         xlim=(0.0, 33.2),
         ylim=(135.0, 165.0),
-        xticks=[(5.0 * i, f"1987/{label}") for i, label in enumerate(week_labels)],
+        xticks=[(float(i), f"1987/{d.month}/{d.day}") for i, d in enumerate(mondays)],
+        xtick_vertical=True,
         yticks=[135.0, 140.0, 145.0, 150.0, 155.0, 160.0, 165.0],
         ylabel="日元/美元汇率",
         zero_line=False,
@@ -481,7 +483,8 @@ def fig_8_1(mode: ThemeMode = "mono") -> str:
     panel = PanelSpec(
         xlim=(1954.5, 2006.5),
         ylim=(0.0, 25.0),
-        xticks=[(float(y), str(y)) for y in range(1955, 2006, 5)],
+        xticks=[(float(y), str(y)) for y in range(1955, 2006, 2)],
+        xtick_vertical=True,
         yticks=[(v, f"{v:.1f}") for v in (0.0, 5.0, 10.0, 15.0, 20.0, 25.0)],
         ylabel="储蓄率（%）",
         zero_line=False,

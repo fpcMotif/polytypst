@@ -60,7 +60,7 @@ def _fig_9_22(mode: ThemeMode = "mono") -> str:
         xticks=_year_ticks(1994, 2005),
         yticks=[(-6.0, "-6.0"), (-4.0, "-4.0"), (-2.0, "-2.0"), (0.0, "0.0"), (2.0, "2.0"), (4.0, "4.0"), (6.0, "6.0")],
         xlabel="历年/季度",
-        ylabel="（%）",
+        ylabel="%",
         vspans=[VSpan(1997.2, 1999.1), VSpan(2000.65, 2002.15)],
         lines=[
             LineSeries(x=x, y=real, label="实际GDP", color_idx=1, style="dashed"),
@@ -98,7 +98,7 @@ def _fig_9_23(mode: ThemeMode = "mono") -> str:
         xticks=_year_ticks(1995, 2005),
         yticks=[(v / 10, f"{v / 10:.1f}") for v in range(-30, 16, 5)],
         xlabel="历年/季度",
-        ylabel="（%）",
+        ylabel="%",
         vspans=[VSpan(1997.4, 1999.13), VSpan(2000.63, 2002.12)],
         lines=[
             LineSeries(x=x, y=cpi, label="消费者物价指数（全国，不含生鲜食品）", color_idx=0, style="solid", width=2.6),
@@ -161,7 +161,7 @@ def _fig_9_24(mode: ThemeMode = "mono") -> str:
         xticks=_year_ticks(1996, 2006),
         yticks=[(v / 10, f"{v / 10:.1f}") for v in range(-15, 16, 5)],
         xlabel="历年/季度",
-        ylabel="（%）",
+        ylabel="%",
         lines=[
             LineSeries(x=x1, y=y1, label="2000年基准（不含生鲜食品）", color_idx=0, style="solid", width=2.4),
             LineSeries(x=x2, y=y2, label="1995年基准（不含生鲜食品）", color_idx=2, style="dashed", width=2.0),
@@ -218,7 +218,7 @@ def _fig_9_30(mode: ThemeMode = "mono") -> str:
         xticks=_ODD_YEARS_7308,
         yticks=[-5.0, 0.0, 5.0, 10.0, 15.0],
         xlabel="历年/季度",
-        ylabel="（%）",
+        ylabel="%",
         lines=[
             LineSeries(x=x, y=reserves, label="外汇储备的增加或减少", color_idx=2, style="dotted", width=1.6),
             LineSeries(x=x, y=current, label="经常收支", color_idx=0, style="solid", width=2.8),
@@ -281,7 +281,7 @@ def _fig_9_31(mode: ThemeMode = "mono") -> str:
         xticks=_ODD_YEARS_7308,
         yticks=[-4.0, 0.0, 4.0, 8.0, 12.0, 16.0],
         xlabel="历年/季度",
-        ylabel="（万亿日元）",
+        ylabel="万亿日元",
         bands=[
             BandSeries(
                 x=x, y_low=[0.0] * len(x), y_high=intervention, label="外汇干预金额", color_idx=0, show_edges=False
@@ -328,8 +328,8 @@ def _fig_9_27(mode: ThemeMode = "mono") -> str:
         yticks=[-10.0, -8.0, -6.0, -4.0, -2.0, 0.0, 2.0, 4.0],
         y2ticks=[-25.0, -20.0, -15.0, -10.0, -5.0, 0.0, 5.0, 10.0],
         xlabel="历年/季度",
-        ylabel="（%）",
-        y2label="（%）",
+        ylabel="%",
+        y2label="%",
         lines=[
             LineSeries(x=x, y=private, label="面向民间的信贷", color_idx=0, style="solid", width=1.4),
             LineSeries(x=x, y=loans, label="其中的贷款", color_idx=1, style="solid", marker="circle", width=1.6),
@@ -387,8 +387,8 @@ def _fig_9_25(mode: ThemeMode = "mono") -> str:
         xticks=[(float(m), month_labels_from_april_1998[m]) for m in range(0, 117, 3)],
         yticks=[0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0],
         y2ticks=[(0.0, "0.0"), (0.5, "0.5"), (1.0, "1.0"), (1.5, "1.5"), (2.0, "2.0"), (2.5, "2.5")],
-        ylabel="（万亿日元）",
-        y2label="（%）",
+        ylabel="万亿日元",
+        y2label="%",
         zero_line=False,
         bars=[BarSeries(x=x, y=deposits, label="日本银行活期存款余额", color_idx=1, width=0.7)],
         lines=[
@@ -477,7 +477,7 @@ def _fig_9_26(mode: ThemeMode = "mono") -> str:
         xticks=_year_ticks(2000, 2005),
         yticks=[-8.0, -6.0, -4.0, -2.0, 0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0],
         xlabel="历年/月",
-        ylabel="（%）",
+        ylabel="%",
         bars=bars,
         lines=[LineSeries(x=x, y=m2cd, label="M2+CD", color_idx=0, style="solid", width=2.0)],
         legend_loc="bottom",
@@ -527,7 +527,7 @@ def _fig_9_21(mode: ThemeMode = "mono") -> str:
         xticks=_year_ticks(1985, 2006),
         yticks=[0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0],
         xlabel="历年/月",
-        ylabel="（万亿日元）",
+        ylabel="万亿日元",
         zero_line=False,
         bands=[
             BandSeries(x=x, y_low=unsecured, y_high=total, label="有抵押", color_idx=2, show_edges=False),
@@ -617,7 +617,7 @@ def _fig_9_20(mode: ThemeMode = "mono") -> str:
         xticks=_year_ticks(1985, 2005),
         yticks=[-10.0, 0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0],
         xlabel="历年/月",
-        ylabel="（万亿日元）",
+        ylabel="万亿日元",
         lines=[
             LineSeries(x=x1, y=y1, label="买入长期国债余额", color_idx=2, style="dotted", width=2.2),
             LineSeries(x=x2, y=y2, label="拆借市场余额", color_idx=0, style="solid", width=3.0),
@@ -655,7 +655,7 @@ def _fig_9_19(mode: ThemeMode = "mono") -> str:
         xticks=[(pos, str(1998 + k)) for k, pos in enumerate(year_label_positions)],
         yticks=[0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0],
         xlabel="历年/月",
-        ylabel="（万亿日元）",
+        ylabel="万亿日元",
         zero_line=False,
         bars=[
             BarSeries(x=x, y=repo, label="政府长期国债的逆回购对象", color_idx=4, width=0.8),
@@ -704,7 +704,7 @@ def _fig_9_18(mode: ThemeMode = "mono") -> str:
         xticks=_year_ticks(1998, 2006),
         yticks=[0.0, 5.0, 10.0, 15.0, 20.0, 25.0],
         xlabel="历年/月",
-        ylabel="（万亿日元）",
+        ylabel="万亿日元",
         zero_line=False,
         vlines=_POLICY_VLINES,
         bands=[
@@ -840,7 +840,7 @@ def _fig_9_17(mode: ThemeMode = "mono") -> str:
         xticks=_year_ticks(1998, 2006),
         yticks=[0.0, 20.0, 40.0, 60.0, 80.0, 100.0, 120.0, 140.0],
         xlabel="历年/月",
-        ylabel="（万亿日元）",
+        ylabel="万亿日元",
         zero_line=False,
         vlines=[(1999.07, "", "solid"), (2000.6, "", "solid"), (2001.2, "", "solid")],
         bands=[
@@ -851,14 +851,14 @@ def _fig_9_17(mode: ThemeMode = "mono") -> str:
             Annotation(x=1999.07, y=132.0, text="实施零利率政策", arrow=False, dx=0, dy=0, fontsize=10.5),
             Annotation(x=2000.6, y=122.0, text="取消零利率政策", arrow=False, dx=0, dy=0, fontsize=10.5),
             Annotation(x=2001.2, y=132.0, text="实施量化宽松政策", arrow=False, dx=0, dy=0, fontsize=10.5),
-            Annotation(x=2002.92, y=81.0, text="CP买入对象", dx=10, dy=-70, fontsize=10.5),
-            Annotation(x=2004.1, y=114.0, text="国债", dx=10, dy=-40, fontsize=10.5),
-            Annotation(x=2005.2, y=102.0, text="买入汇票", arrow=False, dx=0, dy=0, fontsize=10.5),
-            Annotation(x=2000.6, y=68.0, text="短期国债 买入对象", arrow=False, dx=0, dy=0, fontsize=9.5),
-            Annotation(x=2003.5, y=70.0, text="买入短期国债", arrow=False, dx=0, dy=0, fontsize=10.5),
-            Annotation(x=2001.8, y=52.5, text="回购国债", arrow=False, dx=0, dy=0, fontsize=10.5),
-            Annotation(x=2004.3, y=25.0, text="买入长期国债", arrow=False, dx=0, dy=0, fontsize=10.5),
-            Annotation(x=1999.6, y=14.0, text="贷款", arrow=False, dx=0, dy=0, fontsize=10.5),
+            Annotation(x=2002.92, y=81.0, text="CP买入对象", dx=-5, dy=-125, fontsize=10.5),
+            Annotation(x=2004.1, y=114.0, text="国债", dx=5, dy=-42, fontsize=10.5),
+            Annotation(x=2005.1, y=99.0, text="买入汇票", arrow=False, dx=0, dy=0, fontsize=10.5),
+            Annotation(x=2000.6, y=64.0, text="短期国债 买入对象", arrow=False, dx=0, dy=0, fontsize=9.5),
+            Annotation(x=2002.9, y=66.0, text="买入短期国债", arrow=False, dx=0, dy=0, fontsize=10.5),
+            Annotation(x=2001.7, y=49.0, text="回购国债", arrow=False, dx=0, dy=0, fontsize=10.5),
+            Annotation(x=2004.3, y=20.0, text="买入长期国债", arrow=False, dx=0, dy=0, fontsize=10.5),
+            Annotation(x=1998.9, y=1.0, text="贷款", arrow=False, dx=0, dy=0, fontsize=10.5),
         ],
         legend_loc="none",
     )
@@ -922,7 +922,7 @@ def _fig_9_28(mode: ThemeMode = "mono") -> str:
         xticks=_ODD_YEARS_7308[:-1],
         yticks=[320.0, 270.0, 220.0, 170.0, 120.0, 70.0],
         xlabel="历年/季度",
-        ylabel="（日元）",
+        ylabel="日元",
         zero_line=False,
         lines=[
             LineSeries(x=x1, y=y1, label="名义日元汇率和名义名义美元汇率", color_idx=5, style="solid", width=2.2),
