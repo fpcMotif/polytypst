@@ -128,3 +128,23 @@ uv run pytest -q
 `tests/test_book_snapshots.py` compares each book spec with `tests/fixtures/book_snapshots.json`, so it fails for each new fixup. When it fails only for your fixups, write the fixture again from `snapshot()` in `tests/book_snapshot.py`. Then run `lint` again: a fixed error leaves `lint.jsonl`, because `lint` reads each page with its fixups.
 
 Done when the build exits 0, no audit rule rises, the tests pass, and each fixed text is in the built `.typ` file.
+
+## Step 7. Check tables, figures and layout
+
+Steps 1 to 6 check the words of the transcript. This step checks how the rebuilt PDF shows them. `PDF` is the rebuilt PDF that step 6 wrote in `output/KEY/`. Find it with `fd -e pdf . "output/KEY"`.
+
+1. Check each table and figure against its scan page. `docs/render-check.md` is the runbook and the grading bar.
+
+   ```bash
+   uv run python scripts/render_check.py BOOK --pdf "PDF" --scan "SCAN" --run
+   ```
+
+2. Check the page layout: lost paragraphs, heading numbers, footnotes, captions on the wrong page, and text past the margin. `docs/reviewing-books.md` is the runbook.
+
+   ```bash
+   uv run polytypst review "output/KEY" --scan "SCAN"
+   ```
+
+Fix each content error of grade `C` in `books/KEY/book.toml` as in step 4. A presentation flaw of grade `B` or `C` and a layout finding usually come from shared code, so record it as a finding and do not patch it in the book.
+
+Done when every caption has a line in `output/render_check/BOOK/`, and the review wrote its findings.
