@@ -1,6 +1,6 @@
 # Page check: run, verify and fix
 
-You run the page check of one book, verify each issue that the checking agents record, fix the real ones in the book, and record each verdict. The checking agents follow `docs/page-check.md`, one agent for each range of pages. Their issues are claims: in the first Book 4 run, 40 of 177 were false. An issue reaches the book only after a verifier read its zoom.
+You run the page check of one book and verify each issue that the checking agents record. Then you fix the real ones in the book, and record each verdict. The checking agents follow `docs/page-check.md`, one agent for each range of pages. Their issues are claims: in the first Book 4 run, 40 of 177 were false. An issue reaches the book only after a verifier read its zoom.
 
 Run every command from `/Users/martinfan/devv/polytypst.mixed`. `BOOK` is the book number, such as `4`. `KEY` is the folder name under `books/`, such as `4_不良债权与金融危机`. `CHECK` is `output/page_check/BOOK/`.
 
@@ -26,7 +26,7 @@ Give each issue to a verifier subagent that reads its zoom. Use Sonnet, with abo
 | `false_positive` | The transcript text, or a difference of spacing or mark width only |
 | `sum` | A table whose parts do not give its printed total |
 
-The verifier reads the zoom for every verdict. A verdict from the text alone is wrong when the scan prints the typo: in Book 4, 26 text-only verdicts of `false_positive` were `scan_typo` or `real`. Check every `scan_typo` and every swap of the two sides against the zoom yourself before you fix it.
+The verifier reads the zoom for every verdict. A verdict from the text alone is wrong when the scan prints the typo. In Book 4, 26 text-only verdicts of `false_positive` were `scan_typo` or `real`. Check every `scan_typo` and every swap of the two sides against the zoom yourself before you fix it.
 
 Done when every issue has a verdict that a verifier took from the zoom.
 
@@ -72,6 +72,14 @@ Write one JSON line for each false negative to `CHECK/false_negatives.jsonl`:
 ```
 
 Give `fixed_by` as `""` for a false negative that you did not fix. The false-positive rate is the count of `false_positive` verdicts divided by the count of verdicts other than `sum`.
+
+To show the scan typos or the real issues to a person, build a sheet of scan strips. Each card is one line cut from the scan at 300 dpi:
+
+```bash
+uv run python scripts/scan_sheet.py BOOK --scan "SCAN" --verdicts scan_typo > "CHECK/scan_typos.html"
+```
+
+`--verdicts real` shows the transcript errors. For a hand-picked set with notes, write one JSON line for each card and pass `--cases FILE` instead. `CHECK/scan_typos.jsonl` for Book 4 is an example. The command names each card that it cannot place on stderr. Give that card a `band`.
 
 Done when `verdicts.jsonl` has one line for each issue in `CHECK/p*.jsonl`.
 
