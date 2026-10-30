@@ -36,7 +36,7 @@
 
 #show table: it => layout(size => if measure(it, width: size.width).height < 0.4 * size.height { block(breakable: false, it) } else { it })
 #show table: set text(size: 8.5pt, number-width: "tabular")
-#show table: set par(first-line-indent: 0pt, justify: false, leading: 0.5em)
+#show table: set par(first-line-indent: 0pt, justify: false, leading: 0.5em, linebreaks: "simple")
 #set table(inset: (x: 0.45em, y: 0.42em))
 
 #set footnote.entry(separator: line(length: 30%, stroke: 0.4pt), gap: 0.45em, clearance: 1em)
