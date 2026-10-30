@@ -44,7 +44,8 @@ cross_references = true
 # The scan numbers sections "2" and subsections "2.1" with no period or §. Its running heads carry
 # the book title on even pages and the numbered chapter title on odd pages.
 typst_front_matter = '''
-
+@STYLE:japan_economy@
+#show heading.where(level: 1): it => { counter(footnote).update(0); it }
 #show heading.where(level: 2): set heading(numbering: (..n) => str(n.pos().at(1)) + "\u{2002}")
 #show heading.where(level: 3): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
 #set page(header: context {
@@ -53,8 +54,8 @@ typst_front_matter = '''
   if page-number > 4 and not on-chapter-page {
     let chaps = query(heading.where(level: 1).before(here()))
     let title = if calc.odd(page-number) and chaps != () [#chaps.last().body] else [劳动力市场与收入分配]
-    let head = text(8.5pt, font: ("Songti SC", "STSong", "New Computer Modern"))[#title]
-    let folio = text(9.5pt, font: ("Songti SC", "STSong", "New Computer Modern"))[#page-number]
+    let head = text(8.5pt, font: serif)[#title]
+    let folio = text(9.5pt, font: serif)[#page-number]
     if calc.odd(page-number) {
       grid(columns: (1fr, auto), align(left, head), align(right, folio))
     } else {
@@ -75,7 +76,9 @@ ocr_languages = ['zh-Hans', 'en-US']
 caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+(?:\.\d+)?[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
 caption_format = '图 {chapter}-{number}'
 svg_single_pct = 100
+svg_scan_text_width = 0.78
 pair_figures = false
+note_before_caption = true
 # Crops are 600 dpi; the scan's text block is 2966 px wide, so a figure keeps its scan share of the line.
 png_single_divisor = 2966
 png_single_range = [45, 100]

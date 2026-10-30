@@ -191,6 +191,20 @@ def test_a_facsimile_edition_takes_its_style_from_toml_and_hooks(tmp_path: Path)
     assert edition.parity is not None and edition.parity.diagrams == folder / "diagrams"
 
 
+def test_a_style_token_becomes_the_shared_style_file(shelf: Path):
+    (shelf / "styles").mkdir()
+    (shelf / "styles" / "series.typ").write_text("#set text(size: 10.5pt)\n", encoding="utf-8")
+    folder = write(shelf / "probe", MINIMAL + "typst_front_matter = '''#let a = 1\n@STYLE:series@\n#let b = 2'''\n")
+    spec = catalog.load_toml("probe", folder).spec
+    assert spec.typst_front_matter == "#let a = 1\n#set text(size: 10.5pt)\n\n#let b = 2"
+
+
+def test_an_unknown_style_token_is_an_error(shelf: Path):
+    folder = write(shelf / "probe", MINIMAL + "typst_front_matter = '@STYLE:missing@'\n")
+    with pytest.raises(catalog.BookFileError, match="styles/missing.typ"):
+        _ = catalog.load_toml("probe", folder)
+
+
 def test_engine_tokens_become_the_compilers_own_title_page_and_preamble(tmp_path: Path):
     folder = write(tmp_path / "probe", MINIMAL + (
         "typst_front_matter = '''#let before = 1\n@ENGINE_TITLE_PAGE@'''\n"

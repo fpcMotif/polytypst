@@ -163,7 +163,7 @@ def test_pages_printed_sideways_in_the_scan_are_set_on_flipped_pages():
 def test_a_table_caption_sticks_to_its_table():
     spec = MonographSpec(domain="math", slug="t", title="T", author="A", chapters=[ChapterSpec(1, "C", 1, 1)])
     out = MonographCompiler(spec).format_typst("表 5-2 政府经济预期与实际值（2）\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n")
-    assert "#block(sticky: true)[#align(center)[#strong[表 5-2 政府经济预期与实际值（2）]]]" in out
+    assert "#block(sticky: true, width: 100%)[#align(center)[#strong[表 5-2 政府经济预期与实际值（2）]]]" in out
 
 
 def test_index_chapter_formats_in_two_columns():

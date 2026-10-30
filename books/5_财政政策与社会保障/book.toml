@@ -36,6 +36,9 @@ header_zone_lines = 4
 cross_references = true
 heading_rewrites = [['^(#{2,3}\s+\d{1,2})\s+(?=\d)', '\1 ⁠']]
 chapter_heading = '{title}'
+typst_front_matter = '''
+@STYLE:japan_economy@
+@ENGINE_TITLE_PAGE@'''
 pdf_name_markers = ['财政政策与社会保障']
 pdf_page_count = 455
 source_pdf = '5 财政政策与社会保障.pdf'
@@ -45,11 +48,13 @@ ocr_languages = ['zh-Hans', 'en-US']
 caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
 caption_format = '图 {chapter}-{number}'
 svg_single_pct = 100
+svg_scan_text_width = 0.78
 pair_figures = false
 png_single_divisor = 2900
 png_single_range = [55, 92]
 png_max_height_ratio = 0.9
 png_min_pct_tall = 50
+note_before_caption = true
 
 [editions.monograph]
 summary = '14 chapters, monochrome academic monograph'

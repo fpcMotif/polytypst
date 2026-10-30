@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import argparse
 import shutil
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from polytypst.books import book_by_key
-from scripts.book2_figures.engine import ThemeMode, save_figure_outputs
+from scripts.book2_figures.engine import (
+    ThemeMode,
+    chart_svg,
+    save_figure_outputs,
+    scan_canvas,
+)
 
 BOOK_DIR = book_by_key("3_国际经济环境的变化与日本经济").out_dir
 PREFACE_CHART = "preface_exchange_rate"
@@ -35,11 +41,15 @@ def write_preface_chart(svg: str) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Redraw book 3's chart figures as SVGs beside the scan crops.")
+    parser.add_argument("--style", choices=("a", "b"), default="a", help="a: the redraw style; b: the scan's chart style in the body fonts")
+    args = parser.parse_args()
     generators = load_all_generators()
     keep_scan_crops(BOOK_DIR / "figures", BOOK_DIR / "figures_raw")
 
     def _render_one(fid: str) -> str:
-        svg = generators[fid]("mono")
+        with scan_canvas(BOOK_DIR, fid):
+            svg = chart_svg(generators[fid], args.style)
         if fid == PREFACE_CHART:
             write_preface_chart(svg)
         else:

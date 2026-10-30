@@ -42,21 +42,12 @@ def fig_11_1(mode: ThemeMode = "mono") -> str:
         yticks=[(v, f"{v:.1f}") for v in range(-8, 11, 2)],
         ylabel="百分率（%）",
         bars=bars,
-        annotations=[
-            Annotation(x=2.45, y=y, text=text, dx=0, dy=0, arrow=False, fontsize=9.5, align="start")
-            for y, text in [
-                (-2.6, "（GDP份额）"),
-                (-3.8, "1970年 ⇒ 2006年"),
-                (-5.0, "制造业 37.5% ⇒ 23.2%"),
-                (-6.2, "服务产业 47.2% ⇒ 68.2%"),
-                (-7.4, "其他 15.2% ⇒ 8.6%"),
-            ]
-        ],
         legend_loc="top",
     )
     spec = FigureSpec(
         fig_id="11-1",
         title="图 11-1 每10年名义 GDP占比变化",
+        note="（GDP份额）1970年 制造业37.5% 服务产业47.2% 其他15.2% ⇒ 2006年 制造业23.2% 服务产业68.2% 其他8.6%",
         panels=[panel],
         width=860,
         height=560,
@@ -200,7 +191,7 @@ def fig_11_5(mode: ThemeMode = "mono") -> str:
     values = [28.25, 29.5, 29.2, 29.6, 29.35, 29.3, 29.05, 28.5, 28.55, 28.2, 27.7,
               28.4, 29.1, 29.5, 28.9, 28.6, 27.65, 27.45, 26.3, 27.3, 27.0, 26.0]
     notes = [
-        Annotation(x=1995.4, y=29.5, text="1995年29.5%", dx=0, dy=-6, arrow=False, fontsize=10.5, align="start"),
+        Annotation(x=1995.4, y=29.5, text="1995年29.5%", dx=6, dy=0, arrow=False, fontsize=10.5, align="start"),
         Annotation(x=1992, y=27.7, text="1992年27.7%", dx=0, dy=16, arrow=False, fontsize=10.5, align="start"),
         Annotation(x=2003.3, y=26.0, text="2003年26.0%", dx=0, dy=16, arrow=False, fontsize=10.5, align="end"),
     ]
@@ -261,12 +252,6 @@ def fig_11_7(mode: ThemeMode = "mono") -> str:
                  122, 126]
     finance = [176, 180, 163, 166, 172, 170, 178, 177, 185, 202, 210, 171, 137, 159, 179, 135, 116, 93, 120, 106, 95,
                90, 102]
-    shares = [
-        (1140, "1991年 ⇒ 2003年"),
-        (1055, "制造业 26.5% ⇒ 14.2%"),
-        (970, "服务业 26.4% ⇒ 32.6%"),
-        (885, "批发零售等 33.4% ⇒ 42.9%"),
-    ]
     panel = PanelSpec(
         xlim=(1980.5, 2003.5),
         ylim=(0.0, 1200.0),
@@ -284,15 +269,12 @@ def fig_11_7(mode: ThemeMode = "mono") -> str:
             LineSeries(x=years, y=finance, label="金融、保险业", color_idx=3, style="dashdot", marker="triangle",
                        width=2.0),
         ],
-        annotations=[
-            Annotation(x=1981.0, y=y, text=text, dx=0, dy=0, arrow=False, fontsize=10.0, align="start")
-            for y, text in shares
-        ],
         legend_loc="bottom",
     )
     spec = FigureSpec(
         fig_id="11-7",
         title="图 11-7 未就业者希望入职产业",
+        note="1991年 制造业 26.5% 服务业 26.4% 批发零售等 33.4%　2003年 制造业 14.2% 服务业 32.6% 批发零售等 42.9%",
         panels=[panel],
         width=860,
         height=600,

@@ -19,12 +19,13 @@ book commands (see `polytypst COMMAND --help`):
   polytypst new-book KEY --title T ...    write books/KEY/book.toml for a new book
   polytypst review FOLDER [--scan SCAN]   measure any output folder against its scan and track changes
   polytypst checklist FINDINGS.jsonl      render review findings as a Markdown checklist
+  polytypst profile BOOK --step S         time a step by owner (Python, native libraries) and Typst cold/edited/repeat
   polytypst evidence zoom|sweep|diff|report   box a span on the scan, sweep the cleaner, render findings as HTML
 """
 
 
 def main() -> None:
-    if sys.argv[1:2] in (["books"], ["build"], ["parity"], ["measure"], ["audit"], ["rules"], ["new-book"], ["review"], ["checklist"]):
+    if sys.argv[1:2] in (["books"], ["build"], ["parity"], ["measure"], ["audit"], ["rules"], ["new-book"], ["review"], ["checklist"], ["profile"]):
         from .books_cli import main as books_main
 
         sys.exit(books_main(sys.argv[1], sys.argv[2:]))

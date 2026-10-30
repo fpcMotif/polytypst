@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import subprocess
@@ -8,7 +9,12 @@ from concurrent.futures import ThreadPoolExecutor
 from html import escape
 from pathlib import Path
 
-from scripts.book2_figures.engine import ThemeMode, save_figure_outputs
+from scripts.book2_figures.engine import (
+    ThemeMode,
+    chart_svg,
+    save_figure_outputs,
+    scan_canvas,
+)
 
 CHAPTER_COUNTS: list[tuple[int, int]] = [
     (1, 2),
@@ -455,6 +461,9 @@ def build_typst_showcases(book_dir: Path, titles: dict[str, str]) -> list[Path]:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Redraw book 2's chart figures in monochrome, color and dark SVGs.")
+    parser.add_argument("--style", choices=("a", "b"), default="a", help="a: the redraw style; b: the scan's chart style in the body fonts")
+    args = parser.parse_args()
     book_dir = Path("output/2 通缩经济与货币政策")
     fids = expected_figure_ids()
     generators = load_all_generators()
@@ -473,11 +482,12 @@ def main() -> None:
 
     def _render_one(fid: str) -> tuple[str, str]:
         fn = generators[fid]
-        svgs: dict[ThemeMode, str] = {
-            "mono": fn("mono"),
-            "color": fn("color"),
-            "dark": fn("dark"),
-        }
+        with scan_canvas(book_dir, fid):
+            svgs: dict[ThemeMode, str] = {
+                "mono": chart_svg(fn, args.style),
+                "color": fn("color"),
+                "dark": fn("dark"),
+            }
         save_figure_outputs(fid, svgs, book_dir=book_dir, dpi=300)
         return fid, extract_svg_title(svgs["color"], fid)
 

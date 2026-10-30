@@ -103,7 +103,7 @@ def fig_3_2(mode: ThemeMode = "mono") -> str:
         y2lim=(0.0, 300.0),
         y2ticks=[0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0],
         xlabel="年",
-        ylabel="百亿美元",
+        ylabel="万亿美元",
         y2label="日元/美元",
         bars=[
             BarSeries(
@@ -213,6 +213,7 @@ def fig_3_4(mode: ThemeMode = "mono") -> str:
         xlim=(1975.0, 2009.1),
         ylim=(60.0, 180.0),
         xticks=_odd_year_ticks(1975, 2009),
+        xtick_vertical=True,
         yticks=[60.0, 80.0, 100.0, 120.0, 140.0, 160.0, 180.0],
         xlabel="年",
         ylabel="1973年3月＝100（指数）",
@@ -253,7 +254,7 @@ def fig_3_5(mode: ThemeMode = "mono") -> str:
         True, False, True, False, True, True, False, True, True, False,
         True, True, False, True, False,
     ]
-    shifted = {1: "end", 2: "start", 5: "end", 6: "start", 14: "end", 15: "start"}
+    shifted = {0: "start", 2: "start", 5: "end", 6: "start", 14: "end", 15: "start", 21: "start"}
     aligns = [shifted.get(i, "middle") for i in range(len(xs))]
     panel = PanelSpec(
         xlim=(1982.5, 2007.6),
@@ -460,6 +461,7 @@ def fig_4_1(mode: ThemeMode = "mono") -> str:
         xlim=(1979.5, 2002.5),
         ylim=(0.0, 180.0),
         xticks=[(float(y), str(y)) for y in range(1980, 2003)],
+        xtick_vertical=True,
         yticks=[0.0, 20.0, 40.0, 60.0, 80.0, 100.0, 120.0, 140.0, 160.0, 180.0],
         y2lim=(0.0, 300.0),
         y2ticks=[0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0],
@@ -529,13 +531,13 @@ def fig_4_2(mode: ThemeMode = "mono") -> str:
     )
     bottom = PanelSpec(
         xlim=(1970.0, 2005.0),
-        ylim=(0.5, 4.0),
+        ylim=(0.0, 4.0),
         xticks=xticks,
-        yticks=[(v, f"{v:.1f}") for v in (1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0)],
-        y2lim=(0.3, 2.016),
+        yticks=[(v, f"{v:.1f}") for v in (0.0, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0)],
+        y2lim=(0.0, 2.0),
         y2ticks=[(1.0, "1.0"), (2.0, "2.0")],
         xlabel="年",
-        ylabel="万亿日元，1990年价格",
+        ylabel="兆日元，1990年价格",
         y2label="万公顷",
         zero_line=False,
         lines=[
@@ -543,7 +545,7 @@ def fig_4_2(mode: ThemeMode = "mono") -> str:
             LineSeries(x=xs, y=area_rural, label="转用面积（右轴）", color_idx=1, style="dashed", marker="circle", width=2.0, axis="y2"),
         ],
         annotations=[
-            Annotation(x=2004.4, y=0.75, text="3大都市圈以外的都道府县", dx=0.0, dy=0.0, arrow=False, align="end"),
+            Annotation(x=2004.4, y=3.75, text="3大都市圈以外的都道府县", dx=0.0, dy=0.0, arrow=False, align="end"),
         ],
         legend_loc="bottom",
     )
@@ -635,7 +637,8 @@ def fig_5_1(mode: ThemeMode = "mono") -> str:
         xlim=(-0.6, 34.6),
         ylim=(30.0, 50.0),
         xticks=[(float(2 * i), lab) for i, lab in enumerate(labels)],
-        yticks=[(30.0, "30.0"), (35.0, "35.0"), (40.0, "40.0"), (45.0, "45.0"), (50.0, "50.0")],
+        xtick_vertical=True,
+        yticks=[(30.0, "30.0"), (35.0, "36.0"), (40.0, "40.0"), (45.0, "45.0"), (50.0, "50.0")],
         y2lim=(5.0, 30.0),
         y2ticks=[(v, f"{v:.1f}") for v in (5.0, 10.0, 15.0, 20.0, 25.0, 30.0)],
         ylabel="%",
@@ -771,16 +774,22 @@ INTERVENTIONS: list[tuple[float, float]] = [
 
 
 def fig_5_3(mode: ThemeMode = "mono") -> str:
-    tick_dates = [
-        (1991.0, "1991/1/1"), (1992.27, "1992/4/9"), (1993.55, "1993/7/19"), (1994.82, "1994/10/26"),
-        (1996.09, "1996/2/2"), (1997.36, "1997/5/13"), (1998.64, "1998/8/20"), (1999.91, "1999/11/29"),
-        (2001.18, "2001/3/7"), (2002.45, "2002/6/14"), (2003.73, "2003/9/23"),
+    tick_labels = [
+        "1991/1/1", "1991/4/26", "1991/8/21", "1991/12/16", "1992/4/9", "1992/8/4", "1992/11/27",
+        "1993/3/24", "1993/7/19", "1993/11/11", "1994/3/8", "1994/7/1", "1994/10/26", "1995/2/20",
+        "1995/6/15", "1995/10/10", "1996/2/2", "1996/5/29", "1996/9/23", "1997/1/16", "1997/5/13",
+        "1997/9/5", "1997/12/31", "1998/4/27", "1998/8/20", "1998/12/15", "1999/4/9", "1999/8/4",
+        "1999/11/29", "2000/3/23", "2000/7/18", "2000/11/10", "2001/3/7", "2001/7/2", "2001/10/25",
+        "2002/2/19", "2002/6/14", "2002/10/9", "2003/2/3", "2003/5/29", "2003/9/23", "2004/1/16",
+        "2004/5/12",
     ]
+    tick_dates = [(1991.0 + i * (2004.36 - 1991.0) / 42, lab) for i, lab in enumerate(tick_labels)]
     panel = PanelSpec(
-        xlim=(1991.0, 2004.67),
+        xlim=(1990.88, 2004.67),
         ylim=(-30000.0, 20000.0),
         xticks=tick_dates,
-        yticks=[-30000.0, -25000.0, -20000.0, -15000.0, -10000.0, -5000.0, 0.0, 5000.0, 10000.0, 15000.0, 20000.0],
+        xtick_vertical=True,
+        yticks=[(-30000.0, "−130000"), -25000.0, -20000.0, -15000.0, -10000.0, -5000.0, 0.0, 5000.0, 10000.0, 15000.0, 20000.0],
         y2lim=(80.0, 160.0),
         y2ticks=[80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0, 160.0],
         ylabel="亿日元",
@@ -836,11 +845,19 @@ RESERVE_POINTS: list[tuple[float, float]] = [
 ]
 
 
+_RESERVE_TICKS = [
+    lab
+    for y in range(1980, 2008, 3)
+    for lab in (f"{y}M1", f"{y}M1", f"{y + 1}M7", f"{y + 2}M4")
+][:38]
+
+
 def fig_5_4(mode: ThemeMode = "mono") -> str:
     panel = PanelSpec(
         xlim=(1980.0, 2008.45),
         ylim=(0.0, 10000.0),
-        xticks=[(float(y), f"{y}M1") for y in range(1980, 2008, 3)],
+        xticks=[(1980.08 + 0.76 * i, lab) for i, lab in enumerate(_RESERVE_TICKS)],
+        xtick_vertical=True,
         yticks=[float(v) for v in range(0, 10001, 1000)],
         ylabel="亿美元",
         zero_line=False,
@@ -848,9 +865,10 @@ def fig_5_4(mode: ThemeMode = "mono") -> str:
             LineSeries(
                 x=[p[0] for p in RESERVE_POINTS],
                 y=[p[1] for p in RESERVE_POINTS],
-                color_idx=0,
+                color_idx=1,
                 width=1.6,
                 area_fill=True,
+                solid_fill=True,
             ),
         ],
         legend_loc="none",

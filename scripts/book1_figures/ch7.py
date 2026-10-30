@@ -57,8 +57,8 @@ def _fig_7_1(mode: ThemeMode = "mono") -> str:
     return render_figure_svg(spec, mode)
 
 
-AGE_GROUPS = ["15～19岁", "20～24岁", "25～29岁", "30～34岁", "35～39岁", "40～44岁",
-              "45～49岁", "50～54岁", "55～59岁", "60～64岁", "65岁及以上"]
+AGE_GROUPS = ["15~19岁", "20~24岁", "25~29岁", "30~34岁", "35~39岁", "40~44岁",
+              "45~49岁", "50~54岁", "55~59岁", "60~64岁", "65岁及以上"]
 LEGEND_ORDER = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
 
 
@@ -202,16 +202,16 @@ def _participation_lines(series: Sequence[Sequence[float]], oldest_width: float)
     years = [1980.0, 1985.0, 1990.0, 1995.0, 2000.0, 2005.0]
     styles = [
         ("各年龄总和", 0, "dashed", None, 1.4),
-        ("15～19岁", 0, "dotted", "square", 1.4),
-        ("20～24岁", 1, "dotted", "triangle", 1.4),
-        ("25～29岁", 2, "solid", "cross", 1.4),
-        ("30～34岁", 0, "solid", None, 1.1),
-        ("35～39岁", 5, "solid", "triangle", 2.6),
-        ("40～44岁", 2, "solid", "square", 2.6),
-        ("45～49岁", 2, "solid", "diamond", 2.6),
-        ("50～54岁", 4, "solid", "square", 1.4),
-        ("55～59岁", 0, "solid", "circle", 1.4),
-        ("60～64岁", 1, "solid", "circle", 1.4),
+        ("15~19岁", 0, "dotted", "square", 1.4),
+        ("20~24岁", 1, "dotted", "triangle", 1.4),
+        ("25~29岁", 2, "solid", "cross", 1.4),
+        ("30~34岁", 0, "solid", None, 1.1),
+        ("35~39岁", 5, "solid", "triangle", 2.6),
+        ("40~44岁", 2, "solid", "square", 2.6),
+        ("45~49岁", 2, "solid", "diamond", 2.6),
+        ("50~54岁", 4, "solid", "square", 1.4),
+        ("55~59岁", 0, "solid", "circle", 1.4),
+        ("60~64岁", 1, "solid", "circle", 1.4),
         ("65岁及以上", 0, "solid", None, oldest_width),
     ]
     return [

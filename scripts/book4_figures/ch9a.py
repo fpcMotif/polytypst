@@ -60,7 +60,7 @@ def _fig_9_1(mode: ThemeMode = "mono") -> str:
                 xticks=_year_ticks(1985, 2008, suffix="-1"),
                 yticks=list(range(-3, 5)),
                 xlabel="暦年/四半期",
-                ylabel="（%）",
+                ylabel="%",
                 lines=[
                     LineSeries(xs, core, label="核心CPI", color_idx=5, style="solid", width=1.5),
                     LineSeries(xs, most_core, label="最核心CPI", color_idx=2, style="dotted", width=1.6),
@@ -99,7 +99,7 @@ def _fig_9_2(mode: ThemeMode = "mono") -> str:
                 xticks=_year_ticks(1991, 2008),
                 yticks=list(range(-5, 5)),
                 xlabel="历年/季度",
-                ylabel="（%）",
+                ylabel="%",
                 vspans=[VSpan(1990.85, 1993.86), VSpan(1997.1, 1999.1), VSpan(2000.59, 2002.1), VSpan(2007.59, 2008.65)],
                 lines=[
                     LineSeries(xs, gap_model, label="GDP缺口模型", color_idx=0, style="solid", width=2.0),
@@ -173,7 +173,7 @@ def _fig_9_7(mode: ThemeMode = "mono") -> str:
                 xticks=_year_ticks(1990, 2007),
                 yticks=[-5, 0, 5, 10],
                 xlabel="历年/季度",
-                ylabel="（%）",
+                ylabel="%",
                 lines=[
                     LineSeries(xs, long_rate, label="名目长期金利", color_idx=0, style="solid", width=2.6),
                     LineSeries(xs, gdp_growth, label="名目GDP成长率", color_idx=1, style="dotted", width=1.8),
@@ -272,7 +272,7 @@ def _fig_9_9(mode: ThemeMode = "mono") -> str:
                 ylim=(0.0, 9.0),
                 xticks=_year_ticks(1981, 2004),
                 yticks=_one_decimal([float(v) for v in range(10)]),
-                ylabel="（%）",
+                ylabel="%",
                 lines=[
                     LineSeries(xs, loan, label="新协议贷款利率", color_idx=1, style="dotted", width=1.6),
                     LineSeries(xs, real_loan, label="实际新协议贷款利率", color_idx=5, style="solid", width=1.4),
@@ -315,7 +315,7 @@ def _fig_9_10(mode: ThemeMode = "mono") -> str:
                 ylim=(0.0, 9.0),
                 xticks=_year_ticks(1981, 2005),
                 yticks=_one_decimal([float(v) for v in range(10)]),
-                ylabel="（%）",
+                ylabel="%",
                 lines=[
                     LineSeries(xs, loan, label="新协议贷款利率", color_idx=5, style="solid", width=2.6),
                     LineSeries(xs, call, label="名义拆借利率", color_idx=0, style="dashed", width=2.6),
@@ -351,7 +351,7 @@ def _fig_9_11(mode: ThemeMode = "mono") -> str:
     xs = _steps(1982.0, protected, 0.25)
     spec = FigureSpec(
         fig_id="9-11",
-        title="图 9-11 日本国内银行的贷款利率差细目（根据银行账目划分）",
+        title="图 9-11 日本国内银行的贷款利差细目（根据银行账目划分）",
         panels=[
             PanelSpec(
                 xlim=(1981.85, 1999.5),
@@ -359,7 +359,7 @@ def _fig_9_11(mode: ThemeMode = "mono") -> str:
                 xticks=_year_ticks(1982, 1998, every=2),
                 yticks=_one_decimal([-1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5]),
                 xlabel="历年/季度",
-                ylabel="（%）",
+                ylabel="%",
                 bars=[
                     BarSeries(xs, protected, label="受保护利差", color_idx=0, width=0.24, opacity=1.0),
                     BarSeries(xs, intrinsic, label="固有利差", color_idx=4, width=0.24, bottom=intrinsic_base, opacity=1.0),
@@ -445,7 +445,7 @@ def _fig_9_12(mode: ThemeMode = "mono") -> str:
                 xticks=_year_ticks(1995, 2006),
                 yticks=_one_decimal([-0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5]),
                 xlabel="历年/日",
-                ylabel="（%）",
+                ylabel="%",
                 lines=[
                     LineSeries([p[0] for p in official], [p[1] for p in official], label="官方利率", color_idx=2, style="dashed", width=1.3),
                     LineSeries([p[0] for p in call], [p[1] for p in call], label="无担保隔夜拆借利率", color_idx=0, width=2.6),
@@ -516,8 +516,8 @@ def _fig_9_13(mode: ThemeMode = "mono") -> str:
                 yticks=[(v / 100, f"{v / 100:.2f}") for v in range(0, 55, 5)],
                 y2ticks=list(range(0, 55, 5)),
                 xlabel="历年/月",
-                ylabel="（%）",
-                y2label="（万亿日元）",
+                ylabel="%",
+                y2label="万亿日元",
                 bars=[
                     BarSeries(months, post, label="日本邮政公社的存款（右轴）", color_idx=4, width=1 / 12, bottom=boj, axis="y2", opacity=1.0),
                     BarSeries(months, boj, label="不包括日本邮政公社的日本银行活期存款（右轴）", color_idx=1, width=1 / 12, axis="y2", opacity=1.0),
@@ -599,7 +599,7 @@ def _fig_9_14(mode: ThemeMode = "mono") -> str:
                 xticks=_year_ticks(1985, 2006),
                 yticks=list(range(-10, 45, 5)),
                 xlabel="历年/月",
-                ylabel="（%）",
+                ylabel="%",
                 lines=[
                     LineSeries(*_xy(m1), label="M1", color_idx=1, style="dotted", width=1.5),
                     LineSeries(*_xy(m2cd), label="M2＋CD", color_idx=1, style="solid", width=1.2),
@@ -655,7 +655,7 @@ def _fig_9_15(mode: ThemeMode = "mono") -> str:
                 xticks=_year_ticks(1995, 2006),
                 yticks=list(range(-15, 45, 5)),
                 xlabel="历年/月",
-                ylabel="（%）",
+                ylabel="%",
                 bars=[
                     BarSeries(months, currency, label="货币发行额+货币流通额", color_idx=0, width=1 / 12, opacity=1.0),
                     BarSeries(months, deposits, label="活期存款余额", color_idx=4, width=1 / 12, bottom=deposits_bottom, opacity=1.0),

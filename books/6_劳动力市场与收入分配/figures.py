@@ -1,10 +1,16 @@
 """Rebuild the figure crops whose panels run across two scan pages."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import pymupdf
 
 from polytypst.parity.source import source_pdf
+from polytypst.vision.figure_extractor import (
+    FIGURES_MANIFEST_NAME,
+    load_figures_manifest,
+    write_figures_manifest,
+)
 
 # Each box is (left, top, right, bottom) as fractions of the scan page.
 Box = tuple[float, float, float, float]
@@ -18,6 +24,7 @@ STACKED: dict[str, tuple[tuple[int, Box], ...]] = {
 SPLIT: dict[str, tuple[int, Box]] = {
     "10-26": (340, (0.13, 0.1, 0.79, 0.632)),
     "10-26-panels": (339, (0.12, 0.33, 0.83, 0.855)),
+    "17-5": (541, (0.12, 0.1, 0.88, 0.38)),
 }
 UNCAPTIONED = ("10-26-panels",)
 
@@ -55,8 +62,27 @@ def crop_cross_page_figures(out_dir: Path, source: Path | None) -> None:
     from polytypst.books import book_by_key
 
     scan = pymupdf.open(source_pdf(book_by_key("6_劳动力市场与收入分配").spec, source))
+    crops: dict[str, tuple[Box, pymupdf.Pixmap]] = {}
     for name, parts in STACKED.items():
-        _stack([_crop(scan, page, box, FIGURE_DPI) for page, box in parts]).save(figure_path(out_dir, name))
+        crops[name] = (_stacked_box([box for _, box in parts]), _stack([_crop(scan, page, box, FIGURE_DPI) for page, box in parts]))
     for name, (page, box) in SPLIT.items():
         dpi = UNCAPTIONED_DPI if name in UNCAPTIONED else FIGURE_DPI
-        _crop(scan, page, box, dpi).save(figure_path(out_dir, name))
+        crops[name] = (box, _crop(scan, page, box, dpi))
+    for name, (_, pixmap) in crops.items():
+        pixmap.save(figure_path(out_dir, name))
+    manifest = out_dir / FIGURES_MANIFEST_NAME
+    if manifest.exists():
+        write_figures_manifest(
+            manifest,
+            [
+                replace(f, box=crops[f.figure_id][0], width_px=crops[f.figure_id][1].width, height_px=crops[f.figure_id][1].height)
+                if f.figure_id in crops
+                else f
+                for f in load_figures_manifest(manifest)
+            ],
+        )
+
+
+def _stacked_box(boxes: list[Box]) -> Box:
+    top = boxes[0][1]
+    return (min(b[0] for b in boxes), top, max(b[2] for b in boxes), top + sum(b[3] - b[1] for b in boxes))

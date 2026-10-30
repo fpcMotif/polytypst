@@ -82,10 +82,10 @@ def _form_figure(fig_id: str, panels: list[tuple[str, list[str], list[list[float
         fig_id=fig_id,
         title=TITLES[fig_id],
         panels=[_form_panel(t, ages, rows, i == 0) for i, (t, ages, rows) in enumerate(panels)],
-        rows=2,
-        cols=2,
-        width=1250,
-        height=700,
+        rows=3,
+        cols=1,
+        width=860,
+        height=1150,
     )
     return render_figure_svg(spec, mode)
 
@@ -161,7 +161,7 @@ def _fig_13_5(mode: ThemeMode = "mono") -> str:
 
 def _odd_markers(xs: list[float], ys: list[float], color_idx: int, marker: str) -> LineSeries:
     return LineSeries(
-        x=xs, y=[y if i % 2 else None for i, y in enumerate(ys)], color_idx=color_idx, marker=marker, width=1.8
+        x=xs, y=[y if i % 2 else None for i, y in enumerate(ys)], color_idx=color_idx, marker=marker, width=1.8, hollow=False
     )
 
 
@@ -271,10 +271,11 @@ def _fig_14_3(mode: ThemeMode = "mono") -> str:
         ylabel="万人",
         zero_line=False,
         lines=[
-            LineSeries(x=years, y=[float(v) for v in ys], label=label, color_idx=i, marker=marker, width=1.8)
+            LineSeries(x=years, y=[float(v) for v in ys], label=label, color_idx=i, marker=marker, width=1.8, hollow=False)
             for i, (label, marker, ys) in enumerate(series)
         ],
         legend_loc="bottom",
+        xtick_vertical=True,
     )
     spec = FigureSpec(fig_id="14-3", title=TITLES["14-3"], panels=[panel], width=1000, height=520)
     return render_figure_svg(spec, mode)
@@ -439,11 +440,12 @@ def _fig_15_1(mode: ThemeMode = "mono") -> str:
         ylabel="%",
         zero_line=False,
         lines=[
-            LineSeries(x=years, y=ys, label=label, color_idx=i, marker=marker, width=1.8)
+            LineSeries(x=years, y=ys, label=label, color_idx=i, marker=marker, width=1.8, hollow=False)
             for i, (label, marker, ys) in enumerate(series)
         ]
         + [_odd_markers(years, ys, i, marker) for i, (_, marker, ys) in enumerate(series)],
         legend_loc="bottom",
+        xtick_vertical=True,
     )
     spec = FigureSpec(fig_id="15-1", title=TITLES["15-1"], panels=[panel], width=1000, height=540)
     return render_figure_svg(spec, mode)
@@ -487,7 +489,7 @@ def _fig_15_3(mode: ThemeMode = "mono") -> str:
         zero_line=False,
         lines=[
             LineSeries(x=years, y=[99.7, 99.4, 98.9, 98.6, 98.3, 98.4, 98.1, 96.6, 95.6, 95.8, 94.6, 94.8, 95.7, 96.9, 97.9, 98.1], label="就业率", color_idx=0, marker="square", width=1.8),
-            LineSeries(x=years, y=[3.40, 3.21, 2.56, 1.96, 1.88, 1.87, 1.93, 1.65, 1.33, 1.32, 1.34, 1.36, 1.29, 1.52, 1.60, 1.80], label="有效职位空缺率", color_idx=1, marker="diamond", width=1.8, axis="y2"),
+            LineSeries(x=years, y=[3.40, 3.21, 2.56, 1.96, 1.88, 1.87, 1.93, 1.65, 1.33, 1.32, 1.34, 1.36, 1.29, 1.52, 1.60, 1.80], label="有效职位空缺率", color_idx=1, marker="diamond", width=1.8, axis="y2", hollow=False),
         ],
         legend_loc="bottom",
     )

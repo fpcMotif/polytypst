@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Sequence
+from typing import Literal
 
 from scripts.book2_figures.engine import (
     PALETTES,
@@ -136,24 +137,19 @@ def _fig_3_2(mode: ThemeMode = "mono") -> str:
 
 
 def _fig_3_3(mode: ThemeMode = "mono") -> str:
+    xs = [
+        1991.13, 1991.42, 1991.68, 1991.94, 1992.17, 1992.41, 1992.65, 1992.9, 1993.16, 1993.65, 1993.91, 1994.19,
+        1994.43, 1994.71, 1995.18, 1995.5, 1995.69, 1995.97, 1996.17, 1996.41, 1996.68, 1996.96, 1997.2, 1997.44,
+        1997.71, 1997.95, 1998.27, 1998.49, 1998.74, 1999.02, 1999.25, 1999.53, 1999.81, 1999.99, 2000.24, 2000.52,
+        2000.76, 2001.0, 2001.26, 2001.51, 2001.77, 2002.02, 2002.28, 2002.54, 2003.04, 2003.29, 2003.53, 2003.8,
+        2004.04, 2004.32, 2004.56, 2004.79, 2005.03, 2005.35, 2005.58, 2005.82, 2006.06, 2006.26, 2006.49, 2006.69,
+        2006.85, 2007.36, 2007.56, 2007.72, 2007.84,
+    ]
     values = [
-        47.4, 47.4, 47.4, 47.4, 47.4, 47.2, 46.9, 46.6, 46.2, 45.9, 45.5, 45.0,
-        44.4, 43.8, 43.7, 43.9, 44.0, 43.8, 43.5, 43.2, 43.2, 43.2, 43.2, 43.8,
-        44.3, 44.9, 45.0, 44.4, 43.7, 43.0, 42.2, 41.4, 41.7, 43.1, 44.5, 45.3,
-        45.3, 45.3, 45.4, 45.6, 45.9, 46.0, 46.0, 46.0, 46.0, 45.3, 44.6, 43.9,
-        43.1, 42.2, 41.6, 42.0, 42.6, 43.1, 43.7, 44.4, 45.0, 45.2, 45.2, 45.4,
-        45.4, 45.6, 45.7, 45.3, 44.9, 44.7, 44.6, 44.5, 44.5, 44.0, 43.5, 43.0,
-        43.1, 43.2, 43.4, 43.3, 43.0, 42.7, 41.2, 39.6, 38.0, 38.2, 39.0, 39.7,
-        39.6, 39.0, 38.5, 38.0, 37.8, 37.6, 37.8, 38.4, 39.0, 39.6, 40.3, 40.9,
-        41.2, 41.2, 41.2, 41.3, 41.9, 42.5, 42.8, 42.8, 42.8, 42.8, 43.0, 43.4,
-        43.5, 43.1, 42.6, 42.4, 42.6, 42.9, 43.0, 42.8, 42.5, 42.0, 40.8, 39.5,
-        38.6, 38.9, 39.2, 39.3, 37.7, 36.1, 34.9, 35.0, 35.2, 35.5, 36.3, 37.2,
-        38.0, 38.4, 38.7, 38.9, 38.4, 37.8, 37.2, 36.7, 36.3, 36.0, 35.6, 35.2,
-        34.9, 35.3, 36.0, 36.6, 37.7, 39.3, 40.8, 41.2, 41.0, 40.9, 41.1, 41.7,
-        42.4, 43.0, 43.5, 43.8, 44.3, 44.8, 45.5, 45.8, 45.6, 45.5, 45.5, 45.7,
-        46.0, 46.0, 45.9, 45.9, 45.9, 45.8, 45.6, 45.5, 46.0, 46.5, 47.0, 47.0,
-        47.0, 47.0, 46.6, 46.3, 46.0, 45.9, 45.7, 45.8, 45.9, 46.1, 46.4, 46.3,
-        46.2, 46.1, 46.0, 45.9, 45.8, 45.5, 45.0, 44.5, 43.8, 42.9, 41.7,
+        47.5, 47.5, 46.5, 45.3, 43.6, 44.1, 43.2, 43.2, 45.4, 41.0, 45.3, 45.3, 46.0, 46.0, 41.4, 43.7, 45.1, 45.3,
+        45.8, 44.7, 44.5, 43.0, 43.4, 42.8, 37.6, 40.0, 37.8, 37.5, 39.4, 41.1, 41.1, 42.8, 42.8, 43.6, 42.3, 43.1,
+        42.3, 38.5, 39.4, 34.5, 35.2, 38.0, 38.9, 36.6, 34.6, 36.9, 41.2, 40.7, 42.9, 44.4, 45.8, 45.4, 46.0, 45.8,
+        45.5, 47.0, 47.1, 46.3, 45.8, 46.0, 46.5, 45.9, 45.1, 43.8, 41.3,
     ]
     panel = PanelSpec(
         xlim=(1991.0, 2008.0),
@@ -161,7 +157,7 @@ def _fig_3_3(mode: ThemeMode = "mono") -> str:
         xticks=[float(y) for y in range(1991, 2008, 2)],
         yticks=[float(v) for v in range(0, 61, 10)],
         xlabel="年",
-        lines=[LineSeries(x=_monthly(1991, values), y=values, label="资产价值增长方式", color_idx=0, width=1.8)],
+        lines=[LineSeries(x=xs, y=values, label="资产价值增长方式", color_idx=0, width=1.8)],
         legend_loc="bottom",
     )
     spec = FigureSpec(fig_id="3-3", title="图 3-3 “资产价值增长方式”趋势", panels=[panel], width=860, height=500)
@@ -244,11 +240,11 @@ def _fig_3_5(mode: ThemeMode = "mono") -> str:
         60.8, 59.0, 57.1, 56.9, 56.0, 54.5, 54.3, 54.3, 54.2, 52.7, 51.4, 52.8,
         51.8, 50.5, 49.2, 48.3, 47.4, 46.7, 46.0, 45.4, 45.2, 45.5, 45.8, 45.4,
         43.9, 45.4, 46.3, 46.0, 45.8, 46.5, 46.1, 46.1, 46.1, 46.0, 45.8, 45.6,
-        46.4, 49.0, 47.8, 47.4, 47.6, 47.0, 47.3, 47.6, 47.1, 48.2, 49.0, 48.2,
+        46.4, 50.2, 47.8, 47.4, 47.6, 47.0, 47.3, 47.6, 47.1, 48.2, 49.0, 48.2,
         48.1, 50.7, 51.4, 52.3, 52.9, 53.3, 53.6, 53.9, 55.2, 55.6, 55.4, 56.3,
         57.3, 57.3, 57.3, 56.5, 56.0, 56.0, 56.0, 55.9, 55.7, 54.7, 54.3, 53.7,
         52.0, 50.8, 49.5, 49.6, 49.4, 48.7, 48.3, 49.1, 47.8, 47.9, 48.8, 48.6,
-        48.6, 48.8, 49.5, 49.5, 47.0, 48.7, 49.5, 49.0, 50.0, 50.1, 50.0, 51.6,
+        48.6, 48.8, 49.5, 49.5, 46.0, 48.7, 49.5, 49.0, 50.0, 50.1, 50.0, 51.6,
         53.3, 53.3, 54.4, 56.0, 57.4, 59.4, 60.9, 61.6, 62.2, 62.9, 63.3, 62.6,
         62.0, 61.2, 60.6, 60.8, 60.5, 59.3, 58.5, 57.6, 56.8, 56.0, 55.8, 55.9,
         56.9, 58.0, 58.9, 59.3, 59.4, 59.5, 59.4, 60.5, 61.2, 61.2, 61.1, 62.0,
@@ -304,7 +300,7 @@ def _fig_3_7(mode: ThemeMode = "mono") -> str:
     total = [4007, 4075, 4057, 4146, 4277, 4380, 4547, 4679, 4757, 4782, 4782, 4849,
              4970, 4984, 4924, 4924, 5005, 4956, 4956, 4988, 5005, 5095, 5180]
     panel = PanelSpec(
-        xlim=(1984.4, 2007.6),
+        xlim=(1984.5, 2007.5),
         ylim=(0.0, 6000.0),
         xticks=[float(y) for y in range(1985, 2006, 5)],
         yticks=[float(v) for v in range(0, 6001, 1000)],
@@ -388,6 +384,7 @@ def _fig_3_10(mode: ThemeMode = "mono") -> str:
         xlim=(-0.7, len(balance) - 0.3),
         ylim=(0.0, 10000.0),
         xticks=[(x, str(1991 + i)) for i, x in enumerate(year_label_bar_positions)],
+        xtick_vertical=True,
         yticks=[float(v) for v in range(0, 10001, 1000)],
         xlabel="年",
         ylabel="千日元",
@@ -401,11 +398,15 @@ def _fig_3_10(mode: ThemeMode = "mono") -> str:
 COUNTRY_STYLE = [("日本", "circle", 1), ("美国", "triangle", 3), ("英国", "triangle", 0), ("韩国", "circle", 4)]
 
 
-def _country_lines(xs: list[float], series: Sequence[Sequence[float | None]]) -> list[LineSeries]:
+def _country_lines(
+    xs: list[float], series: Sequence[Sequence[float | None]], unmarked: dict[str, Sequence[float]]
+) -> list[LineSeries]:
     lines = []
     for (label, marker, ci), ys in zip(COUNTRY_STYLE, series):
+        skip = unmarked.get(label, ())
+        marked = [None if x in skip else y for x, y in zip(xs, ys)]
         lines.append(LineSeries(x=xs, y=ys, label=label, color_idx=ci, marker=marker, width=1.5, fixed_style=True))
-        lines.append(LineSeries(x=xs, y=ys, color_idx=ci, marker=marker, style="none", fixed_style=True))
+        lines.append(LineSeries(x=xs, y=marked, color_idx=ci, marker=marker, style="none", fixed_style=True))
     return lines
 
 
@@ -417,21 +418,23 @@ def _country_figure(
     ystep: float,
     ylabel: str,
     mode: ThemeMode,
+    unmarked: dict[str, Sequence[float]] | None = None,
+    legend_loc: Literal["top", "bottom"] = "bottom",
 ) -> str:
     xs = _years(1970, 2005)
     panel = PanelSpec(
         xlim=(1969.5, 2005.5),
         ylim=ylim,
         xticks=[float(y) for y in range(1970, 2005, 2)],
+        xtick_vertical=True,
         yticks=[ylim[0] + ystep * i for i in range(round((ylim[1] - ylim[0]) / ystep) + 1)],
         xlabel="年",
         ylabel=ylabel,
-        lines=_country_lines(xs, series),
-        legend_loc="bottom",
+        lines=_country_lines(xs, series, unmarked or {}),
+        legend_loc=legend_loc,
     )
     spec = FigureSpec(fig_id=fig_id, title=title, panels=[panel], width=1300, height=620)
-    markers = [(marker, ci % 2 == 1) for _, marker, ci in COUNTRY_STYLE]
-    return _with_legend_markers(render_figure_svg(spec, mode), markers, mode)
+    return render_figure_svg(spec, mode)
 
 
 def _fig_4_1(mode: ThemeMode = "mono") -> str:
@@ -462,10 +465,12 @@ def _fig_4_2(mode: ThemeMode = "mono") -> str:
         [5.7, 5.42, 5.06, 5.18, 5.15, 4.8, 4.73, 4.77, 4.93, 4.92, 4.6, 4.0, 4.15, 4.15, 4.46, 4.63, 4.27, 4.57, 5.05,
          5.41, 5.3, 5.0, 4.86, 4.7, 4.75, 4.87, 5.08, 5.61, 6.67, 6.76, 7.0, 7.01, 6.93, 6.64, 6.71, 7.17],
         [None, None, None, None, None, None, None, 5.15, 6.7, 7.15, 6.2, 5.78, 6.29, 6.97, 7.47, 7.62, 8.33, 9.48, 9.87,
-         11.0, 11.9, 12.47, 11.56, 11.25, 11.95, 13.37, 13.28, 12.1, 8.75, 9.79, 11.55, 10.67, 10.68, 10.33, 10.26,
+         11.0, 11.9, 12.47, 11.56, 11.25, 11.95, 13.37, 13.28, 12.1, 8.58, 9.79, 11.55, 10.67, 10.68, 10.33, 10.26,
          10.49],
     ]
-    return _country_figure("4-2", "图 4-2 设备投资/资本存量比率的国际比较", series, (0.0, 16.0), 2.0, "%", mode)
+    return _country_figure(
+        "4-2", "图 4-2 设备投资/资本存量比率的国际比较", series, (0.0, 16.0), 2.0, "%", mode, {"美国": [1993.0]}
+    )
 
 
 def _fig_4_3(mode: ThemeMode = "mono") -> str:
@@ -493,7 +498,9 @@ def _fig_4_4(mode: ThemeMode = "mono") -> str:
         [None, None, None, None, None, None, None, None, None, None, 3.9, 4.6, 5.1, 5.4, 5.5, 6.1, 7.0, 7.0, 6.9, 6.9,
          6.8, 7.4, 8.2, 8.9, 9.6, 10.0, 13.5, 17.0, 21.9, 27.8, 34.9, 34.0, 31.0, 26.6, 28.8, 30.4],
     ]
-    return _country_figure("4-4", "图 4-4 IT 投资/所有投资比率的变化", series, (0.0, 80.0), 10.0, "%", mode)
+    return _country_figure(
+        "4-4", "图 4-4 IT 投资/所有投资比率的变化", series, (0.0, 80.0), 10.0, "%", mode, legend_loc="top"
+    )
 
 
 def _asset_figure(
@@ -508,7 +515,7 @@ def _asset_figure(
 ) -> str:
     xs = _years(1980, last_year)
     panel = PanelSpec(
-        xlim=(1979.5, last_year + 0.5),
+        xlim=(1980.0, float(last_year)),
         ylim=ylim,
         xticks=[(float(y), str(y)) for y in range(1980, last_year + 1)],
         xtick_vertical=True,

@@ -87,6 +87,7 @@ def _fig_9_3(mode: ThemeMode = "mono") -> str:
         zero_line=False,
         lines=_public_private(xs, public, private),
         legend_loc="bottom",
+        xtick_vertical=True,
     )
     spec = FigureSpec(fig_id="9-3", title="图 9-3 初中教师中女性的比率", panels=[panel], width=900, height=500)
     return render_figure_svg(spec, mode)
@@ -158,7 +159,7 @@ def _fig_9_5(mode: ThemeMode = "mono") -> str:
             xlim=(1972.0, 1988.0),
             ylim=(0.0, 200.0),
             xticks=[float(y) for y in range(1972, 1989, 2)],
-            yticks=[float(v) for v in range(0, 201, 20)],
+            yticks=list(zip([25.0 * i for i in range(9)], ["0", "20", "80", "100", "120", "140", "160", "180", "200"])),
             xlabel="2007年度全国学力调查平均分数（初中三年级语文A）  年",
             ylabel="2006年度初中图书预算措施率（%）",
             zero_line=False,
@@ -262,7 +263,7 @@ def _fig_11_4(mode: ThemeMode = "mono") -> str:
         )
         for title, (label, ys) in zip(titles, fixed.items())
     ]
-    spec = FigureSpec(fig_id="11-4", title="图 11-4 女性相对工资", panels=panels, rows=2, cols=2, width=1000, height=700)
+    spec = FigureSpec(fig_id="11-4", title="图 11-4 女性相对工资", panels=panels, rows=3, cols=1, width=860, height=1050)
     return render_figure_svg(spec, mode)
 
 
@@ -418,25 +419,22 @@ def _fig_12_4(mode: ThemeMode = "mono") -> str:
     countries = ["意大利", "芬兰", "葡萄牙", "德国", "加拿大", "瑞典", "日本", "美国", "挪威", "英国", "西班牙", "土耳其", "比利时", "法国", "英国", "澳大利亚", "新西兰", "荷兰"]
     y1987 = [46.8, 39.6, 36.6, 33.2, 29.8, 30.2, 30.1, 28.0, 27.0, 25.1, 23.8, 21.0, 20.0, 16.0, 16.0, 15.9, 12.5, 7.1]
     y2003: list[float | None] = [79.2, 21.3, 25.6, None, 23.9, 16.3, 20.8, 14.3, 10.6, 30.9, 33.9, 38.6, 45.9, 19.2, 18.0, 8.7, 15.5, 12.4]
-    panels = []
-    for half in (range(9), range(9, 18)):
-        idx = list(half)
-        panels.append(
-            PanelSpec(
-                xlim=(-0.6, len(idx) - 0.4),
-                ylim=(0.0, 90.0),
-                xticks=[(float(k), countries[i]) for k, i in enumerate(idx)],
-                yticks=[float(v) for v in range(0, 91, 10)],
-                ylabel="变异系数（×100）",
-                zero_line=False,
-                bars=[
-                    BarSeries(x=[k - 0.19 for k in range(len(idx))], y=[y1987[i] for i in idx], label="1987年", color_idx=2, width=0.36),
-                    BarSeries(x=[k + 0.19 for k, i in enumerate(idx) if y2003[i] is not None], y=[v for i in idx if (v := y2003[i]) is not None], label="2003年", color_idx=0, width=0.36),
-                ],
-                legend_loc="bottom" if idx[0] else "none",
-            )
-        )
-    spec = FigureSpec(fig_id="12-4", title="图 12-4 OECD 成员国失业率的地区间差距（1987 年、2003 年）", panels=panels, rows=2, cols=1, width=1000, height=800)
+    idx = list(range(18))
+    panel = PanelSpec(
+        xlim=(-0.6, len(idx) - 0.4),
+        ylim=(0.0, 90.0),
+        xticks=[(float(k), countries[i]) for k, i in enumerate(idx)],
+        yticks=[float(v) for v in range(0, 91, 10)],
+        ylabel="变异系数（×100）",
+        zero_line=False,
+        bars=[
+            BarSeries(x=[k - 0.19 for k in range(len(idx))], y=[y1987[i] for i in idx], label="1987年", color_idx=2, width=0.36),
+            BarSeries(x=[k + 0.19 for k, i in enumerate(idx) if y2003[i] is not None], y=[v for i in idx if (v := y2003[i]) is not None], label="2003年", color_idx=0, width=0.36),
+        ],
+        legend_loc="bottom",
+        xtick_vertical=True,
+    )
+    spec = FigureSpec(fig_id="12-4", title="图 12-4 OECD 成员国失业率的地区间差距（1987 年、2003 年）", panels=[panel], width=1000, height=560)
     return render_figure_svg(spec, mode)
 
 
@@ -548,6 +546,7 @@ def _two_series_gini_panel(title: str, ylim: tuple[float, float], prefectures: l
         ],
         annotations=annotations,
         legend_loc="none",
+        xtick_vertical=True,
     )
 
 
@@ -578,7 +577,7 @@ def _fig_12_7(mode: ThemeMode = "mono") -> str:
             ],
         ),
     ]
-    spec = FigureSpec(fig_id="12-7", title="图 12-7 地区间每小时工资差距", panels=panels, rows=2, cols=1, width=860, height=900)
+    spec = FigureSpec(fig_id="12-7", title="图 12-7 地区间每小时工资差距", panels=panels, rows=1, cols=2, width=1000, height=620)
     return render_figure_svg(spec, mode)
 
 
@@ -733,8 +732,8 @@ def _fig_12_12(mode: ThemeMode = "mono") -> str:
         ylabel="%",
         zero_line=False,
         bars=[
-            BarSeries(x=years, y=within, label="县内其他市区町村", color_idx=2, width=2.6),
-            BarSeries(x=years, y=outside, label="县外", color_idx=4, width=2.6, bottom=within),
+            BarSeries(x=years, y=within, label="县内其他市区町村", color_idx=0, width=2.6),
+            BarSeries(x=years, y=outside, label="县外", color_idx=1, width=2.6, bottom=within),
         ],
         annotations=[
             *labels,

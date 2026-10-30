@@ -1,10 +1,18 @@
+import json
 import re
 
+import pytest
+
 from scripts.book2_figures.engine import (
+    PT_PER_PX,
+    SCAN_LINE_PT,
+    SCAN_PAGE_ASPECT,
     FigureSpec,
     LineSeries,
     PanelSpec,
+    chart_svg,
     render_figure_svg,
+    scan_canvas,
 )
 
 YEARS = [float(y) for y in range(1980, 2007)]
@@ -80,3 +88,29 @@ def test_scan_style_draws_no_grid_behind_a_scatter():
     )
     assert grid_lines(svg(points, "mono"))
     assert not grid_lines(svg(points, "scan"))
+
+
+def test_chart_style_b_is_the_scan_style_set_in_the_body_fonts_and_style_a_is_mono():
+    def generator(mode: str) -> str:
+        return svg(year_panel(), mode)
+
+    b = chart_svg(generator, "b")
+    fonts = set(re.findall(r'font-family="([^"]+)"', b))
+    assert fonts == {"'Source Serif 4', 'Songti SC', serif"}
+    assert grid_lines(b) == grid_lines(svg(year_panel(), "scan"))
+    assert chart_svg(generator, "a") == svg(year_panel(), "mono")
+
+
+def test_a_chart_drawn_on_its_scan_canvas_prints_at_the_scan_size_and_type_scale(tmp_path):
+    manifest = [{"figure_id": "3-2", "box": [0.11, 0.1, 0.5, 0.25]}, {"figure_id": "3-3", "box": [0.11, 0.1, 0.89, 0.4]}]
+    (tmp_path / "figures_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    with scan_canvas(tmp_path, "3-2"):
+        half = svg(year_panel(), "mono")
+    with scan_canvas(tmp_path, "3-3"):
+        full = svg(year_panel(), "mono")
+    half_width = float(re.search(r'viewBox="0 0 (\S+) ', half)[1])
+    width, height = (float(v) for v in re.search(r'viewBox="0 0 (\S+) (\S+)"', full).groups())
+    assert half_width * PT_PER_PX == pytest.approx(SCAN_LINE_PT / 2, abs=1)
+    assert width * PT_PER_PX == pytest.approx(SCAN_LINE_PT, abs=1)
+    assert height / width == pytest.approx(0.3 / 0.78 * SCAN_PAGE_ASPECT, rel=0.02)
+    assert re.search(r'viewBox="0 0 516 ', svg(year_panel(), "mono"))

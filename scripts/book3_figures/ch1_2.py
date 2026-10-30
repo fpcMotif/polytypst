@@ -130,6 +130,7 @@ def fig_1_2(mode: ThemeMode = "mono") -> str:
             xlim=(1985.0, 2007.6),
             ylim=(0.0, 250.0),
             xticks=xticks,
+            xtick_vertical=True,
             yticks=[0, 50, 100, 150, 200, 250],
             xlabel="年",
             lines=[

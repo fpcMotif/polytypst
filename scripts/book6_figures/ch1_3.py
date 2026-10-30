@@ -32,7 +32,7 @@ def _fig_1_1(mode: ThemeMode = "mono") -> str:
         ylabel="%",
         zero_line=False,
         lines=[
-            LineSeries(x=YEARS_1990_2006, y=ys, label=label, color_idx=i, marker=marker, width=1.8)
+            LineSeries(x=YEARS_1990_2006, y=ys, label=label, color_idx=i, marker=marker, width=1.8, hollow=False)
             for i, (label, marker, ys) in enumerate(series)
         ],
         legend_loc="bottom",
@@ -75,7 +75,7 @@ def _wage_index_figure(fig_id: str, title: str, series: list[tuple[str, str, lis
         ylabel="(1995年=1)",
         zero_line=False,
         lines=[
-            LineSeries(x=years, y=ys, label=label, color_idx=i, marker=marker, width=1.8)
+            LineSeries(x=years, y=ys, label=label, color_idx=i, marker=marker, width=1.8, hollow=False)
             for i, (label, marker, ys) in enumerate(series)
         ],
         legend_loc="bottom",
@@ -248,17 +248,17 @@ def _fig_3_1(mode: ThemeMode = "mono") -> str:
 
 def _fig_3_2(mode: ThemeMode = "mono") -> str:
     points = [
-        (2.13, 3.50), (1.71, 3.74), (1.40, 3.63), (1.68, 3.49), (2.02, 3.45), (4.80, 2.92), (5.39, 2.71), (6.10, 2.64),
-        (4.70, 2.68), (2.82, 3.04), (2.00, 3.23), (1.59, 3.83), (1.82, 4.06), (1.68, 4.01), (0.81, 4.92), (0.80, 5.62),
-        (1.10, 5.63), (0.90, 5.93), (0.81, 6.29), (0.70, 6.13), (1.00, 5.49), (1.10, 5.14), (1.10, 4.75),
+        (2.15, 3.55), (1.72, 3.78), (1.40, 3.69), (1.71, 3.55), (2.02, 3.50), (4.83, 2.98), (5.40, 2.75), (6.11, 2.69),
+        (4.71, 2.73), (2.81, 3.09), (2.02, 3.26), (1.61, 3.85), (1.82, 4.11), (1.69, 3.94), (0.81, 4.94), (0.81, 5.64),
+        (1.11, 5.65), (0.91, 5.96), (0.81, 6.34), (0.70, 6.18), (1.01, 5.54), (1.11, 5.18), (1.11, 4.80),
     ]
     annotations = [
-        Annotation(x=0.81, y=6.29, text="2002年", dx=30, dy=-25, align="start"),
-        Annotation(x=1.10, y=4.75, text="2006年", dx=30, dy=-80, align="start"),
-        Annotation(x=1.82, y=4.06, text="1996年", dx=-5, dy=-60, align="middle"),
-        Annotation(x=1.40, y=3.63, text="1986年", dx=-50, dy=-35, align="end"),
-        Annotation(x=4.80, y=2.92, text="1989年", dx=-20, dy=-45, align="middle"),
-        Annotation(x=2.82, y=3.04, text="1993年", dx=-50, dy=30, align="end"),
+        Annotation(x=0.81, y=6.34, text="2002年", dx=30, dy=-25, align="start"),
+        Annotation(x=1.11, y=4.80, text="2006年", dx=30, dy=-80, align="start"),
+        Annotation(x=1.82, y=4.11, text="1996年", dx=-5, dy=-60, align="middle"),
+        Annotation(x=1.40, y=3.69, text="1986年", dx=-50, dy=-35, align="end"),
+        Annotation(x=4.83, y=2.98, text="1989年", dx=-20, dy=-45, align="middle"),
+        Annotation(x=2.81, y=3.09, text="1993年", dx=-35, dy=18, align="end"),
     ]
     return _uv_figure(
         "3-2", "图 3-2 失业率和空岗率（就业趋势调查）变化", points, (0.0, 7.0), 1.0, 0.5, (2.1, 7.0), annotations, mode
@@ -306,7 +306,7 @@ def _cv_figure(
         ylabel=ylabel,
         zero_line=False,
         lines=[
-            LineSeries(x=[float(start + j) for j in range(len(ys))], y=ys, label=label, color_idx=i, marker=marker, width=1.8)
+            LineSeries(x=[float(start + j) for j in range(len(ys))], y=ys, label=label, color_idx=i, marker=marker, width=1.8, hollow=False)
             for i, (label, marker, start, ys) in enumerate(series)
         ],
         legend_loc="bottom",
@@ -480,8 +480,8 @@ def _fig_3_11(mode: ThemeMode = "mono") -> str:
         ],
         annotations=[
             Annotation(x=2007.2, y=1.0, text="GDP缺口", dx=-75, dy=-50, align="end"),
-            Annotation(x=1993.0, y=0.55, text="完全失业率", dx=-30, dy=130),
-            Annotation(x=1993.0, y=0.55, text="（刻度右侧，轴反转）", dx=-30, dy=160, arrow=False),
+            Annotation(x=1991.3, y=0.26, text="完全失业率", dx=-52, dy=105),
+            Annotation(x=1991.3, y=0.26, text="（刻度右侧，轴反转）", dx=-7, dy=135, arrow=False),
         ],
         legend_loc="none",
     )

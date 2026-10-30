@@ -5,6 +5,7 @@ import dataclasses
 import hashlib
 import importlib
 import importlib.util
+import re
 import sys
 import tomllib
 import types
@@ -210,10 +211,20 @@ SPEC_HOOKS = _hook_fields(MonographSpec)
 FACSIMILE_HOOKS = _hook_fields(FacsimileStyle)
 TITLE_PAGE_TOKEN = "@ENGINE_TITLE_PAGE@"
 PREAMBLE_TOKEN = "@ENGINE_PREAMBLE@"
+STYLE_TOKEN = re.compile(r"@STYLE:([\w-]+)@")
+
+
+def _style_file(match: re.Match[str]) -> str:
+    path = BOOKS_DIR / "styles" / f"{match.group(1)}.typ"
+    if not path.is_file():
+        raise BookFileError(f"{match.group(0)}: no style file at {path}")
+    return path.read_text(encoding="utf-8")
 
 
 def _engine_text(spec: MonographSpec) -> MonographSpec:
     """Put the compiler's own title page and preamble where the spec's Typst names their tokens."""
+    if STYLE_TOKEN.search(spec.typst_front_matter):
+        spec = dataclasses.replace(spec, typst_front_matter=STYLE_TOKEN.sub(_style_file, spec.typst_front_matter))
     if TITLE_PAGE_TOKEN in spec.typst_front_matter:
         own = MonographCompiler(dataclasses.replace(spec, typst_front_matter="")).build_typst_title_page()
         spec = dataclasses.replace(spec, typst_front_matter=spec.typst_front_matter.replace(TITLE_PAGE_TOKEN, own))

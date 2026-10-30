@@ -36,6 +36,7 @@ cross_references = true
 # Table 5-2 is the book's only 11-column table, and the scan rules every cell.
 # Its grey shading takes a tint of the sage band on the scan's cover.
 typst_front_matter = '''
+@STYLE:japan_economy@
 #show emph: set text(font: ("Source Serif 4", "Songti SC", "STSong"))
 #show table.where(columns: (1.8fr,) + (1fr,) * 10): it => {
   set table.cell(stroke: 0.4pt + rgb("#2f3d31"), fill: white)
@@ -61,7 +62,9 @@ caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-]
 caption_format = '图 {chapter}-{number}'
 top_pages = [46, 192, 300, 313, 332]
 svg_single_pct = 100
+svg_scan_text_width = 0.78
 pair_figures = false
+note_before_caption = true
 png_single_divisor = 2700
 png_single_range = [60, 100]
 png_max_height_ratio = 1.3

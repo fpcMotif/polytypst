@@ -1,6 +1,6 @@
 """Render PDF pages, or a region of each, to PNG files for a look at print size.
 
-Usage: uv run python scripts/page_png.py PDF OUT_PREFIX --pages 58,59 [--dpi 150] [--clip L,T,R,B]
+Usage: uv run python scripts/page_png.py PDF OUT_PREFIX --pages 58,59 [--dpi 150] [--clip L,T,R,B] [--rotate 90]
 
 Pages count from 1. Each page goes to OUT_PREFIX + "p58.png", and the script prints each path.
 --clip keeps the box L,T,R,B given in shares of the page, such as 0,0.4,1,0.8 for the middle band,
@@ -21,6 +21,7 @@ def main() -> None:
     parser.add_argument("--pages", required=True, help="comma-separated 1-based pages")
     parser.add_argument("--dpi", type=int, default=150)
     parser.add_argument("--clip", help="L,T,R,B in shares of the page")
+    parser.add_argument("--rotate", type=int, default=0, help="degrees clockwise, such as 90 for a table printed sideways")
     args = parser.parse_args()
 
     doc = pymupdf.open(args.pdf)
@@ -32,7 +33,8 @@ def main() -> None:
             r = page.rect
             clip = pymupdf.Rect(r.x0 + left * r.width, r.y0 + top * r.height, r.x0 + right * r.width, r.y0 + bottom * r.height)
         out = f"{args.prefix}p{n}.png"
-        page.get_pixmap(dpi=args.dpi, clip=clip).save(out)
+        zoom = args.dpi / 72
+        page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom).prerotate(args.rotate), clip=clip).save(out)
         print(out)
 
 

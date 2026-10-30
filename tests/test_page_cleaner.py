@@ -37,6 +37,35 @@ def test_a_note_printed_between_a_figure_and_its_caption_travels_with_that_figur
     }
 
 
+def test_a_source_printed_under_a_page_bottom_caption_travels_with_that_figure():
+    spec = replace(
+        SPEC,
+        lang="zh",
+        chapters=[ChapterSpec(1, "地价", 1, 40)],
+        figures=FigureLayout(caption_format="图 {chapter}-{number}", note_before_caption=True),
+    )
+    page = "正文段落。\n\n图 1-1 经济增长与地价上升率\n\n（资料来源：《国民经济计算年报》（内阁府））\n"
+    cleaner = PageCleaner.for_spec(spec)
+    clean = cleaner.clean(page, 27)
+    assert clean.body == "正文段落。"
+    assert cleaner.figure_notes == {"1_1": "（资料来源：《国民经济计算年报》（内阁府））"}
+
+
+def test_a_transcript_fixup_corrects_a_caption_and_a_figure_note_before_the_cleaner_takes_them():
+    spec = replace(
+        SPEC,
+        lang="zh",
+        chapters=[ChapterSpec(11, "流失", 1, 40)],
+        figures=FigureLayout(caption_format="图 {chapter}-{number}", note_before_caption=True),
+        transcript_fixups={5: (("不良债务处理", "不良债权处理"), ("（期末余额）。", "（期末余额））。"))},
+    )
+    page = "正文段落。\n\n注：买入余额（買入残高（期末余额）。\n\n图 11-2 不良债务处理金额的变化\n"
+    cleaner = PageCleaner.for_spec(spec)
+    clean = cleaner.clean(page, 5)
+    assert clean.top_figures + clean.bottom_figures == [("11_2", "图 11-2 不良债权处理金额的变化")]
+    assert cleaner.figure_notes == {"11_2": "注：买入余额（買入残高（期末余额））。"}
+
+
 def test_a_section_heading_is_placed_once_and_its_running_head_is_dropped_later():
     cleaner = PageCleaner.for_spec(SPEC)
     first = cleaner.clean("## 1.2 Power Series\n\nEvery power series converges in a disc.", 5)

@@ -17,11 +17,13 @@ class InkCache:
     pages in memory, read-only as callers share them. The folder name hashes the scan file's path, size and change time and the source of the module
     that defines `draw`, so a new scan, a changed threshold or a changed function draws the pages again."""
 
+    scratch: Path | None = None
+
     def __init__(self, source: Path, folder: Path, draw: Callable[[pymupdf.Page], np.ndarray]) -> None:
         stat = source.stat()
         code = inspect.getsource(inspect.getmodule(draw) or draw)
         key = hashlib.sha1(f"{source.resolve()}|{stat.st_size}|{stat.st_mtime_ns}|{code}".encode()).hexdigest()[:16]
-        self.folder = folder / f"{draw.__name__}_{key}"
+        self.folder = (InkCache.scratch or folder) / f"{draw.__name__}_{key}"
         self.source = source
         self.draw = draw
         self._doc: pymupdf.Document | None = None

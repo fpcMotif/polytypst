@@ -631,7 +631,7 @@ def _fig_6_21(mode: ThemeMode = "mono") -> str:
         legend_loc="none",
     )
     spec = FigureSpec(
-        fig_id="6-21", title="图 6-21 出口商品的高附加值化和中期经济增长率（1982—2006 年）", panels=[panel], width=760, height=640
+        fig_id="6-21", title="图 6-21 出口商品的高附加值化和中期经济增长率（1982—2006 年）", panels=[panel], width=880, height=720
     )
     return render_figure_svg(spec, mode)
 
@@ -639,7 +639,7 @@ def _fig_6_21(mode: ThemeMode = "mono") -> str:
 def _fig_9_1(mode: ThemeMode = "mono") -> str:
     pal = get_palette(mode)
     W, H = 500, 170
-    base_y, top_y = 120.0, 10.0
+    base_y, top_y = 120.0, 6.2
     xs = {"left": 60.0, "u0": 130.0, "ut": 230.0, "right": 326.0}
     out = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">',
@@ -652,7 +652,7 @@ def _fig_9_1(mode: ThemeMode = "mono") -> str:
     ]
     serif = "'Times New Roman', 'STIX Two Text', serif"
 
-    def label(x: float, y: float, main: str, sub: str = "", size: float = 15.0) -> str:
+    def label(x: float, y: float, main: str, sub: str = "", size: float = 18.0) -> str:
         anchor = "end" if sub else "middle"
         text = (
             f'<text x="{x:.1f}" y="{y:.1f}" text-anchor="{anchor}" font-family="{serif}" font-size="{size}" '
@@ -660,18 +660,32 @@ def _fig_9_1(mode: ThemeMode = "mono") -> str:
         )
         if sub:
             text += (
-                f'<text x="{x + 1:.1f}" y="{y + size * 0.32:.1f}" font-family="{serif}" font-size="{size * 0.62:.1f}" '
+                f'<text x="{x + 0.5:.1f}" y="{y + size * 0.32:.1f}" font-family="{serif}" font-size="{size * 0.62:.1f}" '
                 f'font-style="italic" fill="{pal.fg}">{escape(sub)}</text>'
             )
         return text
 
+    def threshold(x: float, y: float, inner: str, rest: str, rest_upright: str) -> str:
+        sub = 11.0
+        return (
+            f'<text x="{x:.1f}" y="{y:.1f}" text-anchor="end" font-family="{serif}" font-size="18" '
+            f'font-style="italic" fill="{pal.fg}">m|</text>'
+            f'<text x="{x - 0.6:.1f}" y="{y + 6.2:.1f}" font-family="{serif}" font-size="{sub}" font-style="italic" '
+            f'fill="{pal.fg}">U<tspan font-size="8" dy="2.2">{escape(inner)}</tspan>'
+            f'<tspan dy="-2.2">{escape(rest)}</tspan><tspan font-style="normal">{escape(rest_upright)}</tspan></text>'
+        )
+
     out += [
-        label((xs["u0"] + xs["ut"]) / 2, 68.0, "X", "t", 16.0),
-        label((xs["ut"] + xs["right"]) / 2, 68.0, "X", "h", 16.0),
-        label(xs["left"], 145.0, "M−1"),
-        label(xs["right"], 145.0, "M"),
-        label(xs["u0"] + 2, 145.0, "m|", "Ut=U0"),
-        label(xs["ut"] + 2, 145.0, "m|", "Uh=Ut"),
+        label(179.5, 65.0, "X", "t"),
+        label(279.0, 65.0, "X", "h"),
+        (
+            f'<text x="58.8" y="143.5" text-anchor="end" font-family="{serif}" font-size="18" '
+            f'font-style="italic" fill="{pal.fg}">M</text>'
+            f'<text x="58.8" y="143.5" font-family="{serif}" font-size="18" fill="{pal.fg}">−1</text>'
+        ),
+        label(xs["right"], 143.5, "M"),
+        threshold(xs["u0"] - 0.5, 145.5, "t", "=U", "0"),
+        threshold(xs["ut"] - 0.5, 145.5, "h", "=Ut", ""),
         "</svg>",
     ]
     return "\n".join(out)

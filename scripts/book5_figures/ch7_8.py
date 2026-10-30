@@ -41,6 +41,10 @@ def _markers(
     return LineSeries(x=mx, y=my, marker=marker, color_idx=color_idx, width=0.0)
 
 
+def _excel_series_key(x: float, y: float) -> Annotation:
+    return Annotation(x=x, y=y, text="◆ 序列1", dy=0.0, arrow=False, fontsize=10.0, align="start")
+
+
 def _fig_7_2(mode: ThemeMode = "mono") -> str:
     years = [
         "1980",
@@ -963,6 +967,7 @@ def _fig_7_8(mode: ThemeMode = "mono") -> str:
         ylabel=ylabel,
         zero_line=False,
         lines=[_markers(x1, [float(v) for v in y1], "diamond", 0)],
+        annotations=[_excel_series_key(0.683, 1250.0)],
         legend_loc="none",
     )
     p2 = PanelSpec(
@@ -981,6 +986,7 @@ def _fig_7_8(mode: ThemeMode = "mono") -> str:
                 y=[10930 * 0.51 - 4101.6, 10930 * 0.645 - 4101.6],
                 color_idx=2,
                 width=2.4,
+                fixed_style=True,
             ),
         ],
         annotations=[
@@ -992,7 +998,8 @@ def _fig_7_8(mode: ThemeMode = "mono") -> str:
                 arrow=False,
                 fontsize=10.0,
                 align="end",
-            )
+            ),
+            _excel_series_key(0.700, 4450.0),
         ],
         legend_loc="none",
     )
@@ -1012,6 +1019,7 @@ def _fig_7_8(mode: ThemeMode = "mono") -> str:
                 y=[-867.44 * 0.51 + 1958.5, -867.44 * 0.65 + 1958.5],
                 color_idx=2,
                 width=2.4,
+                fixed_style=True,
             ),
         ],
         annotations=[
@@ -1023,7 +1031,8 @@ def _fig_7_8(mode: ThemeMode = "mono") -> str:
                 arrow=False,
                 fontsize=10.0,
                 align="end",
-            )
+            ),
+            _excel_series_key(0.660, 1740.0),
         ],
         legend_loc="none",
     )

@@ -531,6 +531,7 @@ def _fig_5_12(mode: ThemeMode = "mono") -> str:
         zero_line=False,
         bands=bands,
         legend_loc="bottom",
+        xtick_vertical=True,
     )
     spec = FigureSpec(fig_id="5-12", title="图 5-12 月平均劳动时间明细", panels=[panel], width=860, height=540)
     return render_figure_svg(spec, mode)
