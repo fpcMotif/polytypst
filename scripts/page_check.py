@@ -36,12 +36,12 @@ if "POLYTYPST_BOOKS" not in os.environ:
 from polytypst.book_state import book_state
 
 BOOKS = {
-    1: "1_宏观经济与产业结构",
-    2: "2 通缩经济与货币政策",
-    3: "3_国际经济环境的变化与日本经济",
-    4: "4_不良债权与金融危机",
-    5: "5_财政政策与社会保障",
-    6: "6_劳动力市场与收入分配",
+    "1": "1_宏观经济与产业结构",
+    "2": "2 通缩经济与货币政策",
+    "3": "3_国际经济环境的变化与日本经济",
+    "4": "4_不良债权与金融危机",
+    "5": "5_财政政策与社会保障",
+    "6": "6_劳动力市场与收入分配",
 }
 RESULTS = Path("output/page_check")
 KINDS = {"word", "number", "table_cell", "table_shape", "missing_text", "extra_text", "order", "mark", "math", "sum", "scan_typo"}
@@ -58,12 +58,24 @@ class Tally:
     bad_lines: list[str]
 
 
-def transcript_path(book: int, page: int) -> Path:
-    return book_state(Path(BOOKS[book])) / "markdown_pages" / f"p_{page:03d}.md"
+def book_key(book: str) -> str:
+    """The transcript store name of BOOK: one of the six economics books by number, or any folder name under books/."""
+    return BOOKS.get(book, book)
 
 
-def transcript_pages(book: int) -> list[int]:
-    store = book_state(Path(BOOKS[book])) / "markdown_pages"
+def scan_pdf(book: str) -> Path:
+    from polytypst.books import books
+    from polytypst.parity.source import source_pdf
+
+    return source_pdf(books()[book_key(book)].spec)
+
+
+def transcript_path(book: str, page: int) -> Path:
+    return book_state(Path(book_key(book))) / "markdown_pages" / f"p_{page:03d}.md"
+
+
+def transcript_pages(book: str) -> list[int]:
+    store = book_state(Path(book_key(book))) / "markdown_pages"
     return sorted(int(m[1]) for p in store.glob("p_*.md") if (m := re.fullmatch(r"p_(\d+)\.md", p.name)))
 
 
@@ -92,15 +104,15 @@ def prose_lines(markdown: str) -> list[tuple[int, str]]:
     return kept
 
 
-def ocr_lines(book: int, page: int) -> list[tuple[float, float, str]]:
-    path = book_state(Path(BOOKS[book])) / "source_ocr" / f"p{page:03d}.json"
+def ocr_lines(book: str, page: int) -> list[tuple[float, float, str]]:
+    path = book_state(Path(book_key(book))) / "source_ocr" / f"p{page:03d}.json"
     boxes = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
     # The local OCR measures y up from the bottom of the page.
     lines = [(1 - b["y"] - b["h"], 1 - b["y"], b["x"], b["text"]) for b in boxes]
     return [(top, bottom, text) for top, bottom, _, text in sorted(lines, key=lambda b: (round(b[0], 2), b[2]))]
 
 
-def suspects(book: int, page: int) -> list[str]:
+def suspects(book: str, page: int) -> list[str]:
     t_chars: list[tuple[str, int]] = [(c, n) for n, line in prose_lines(transcript_path(book, page).read_text(encoding="utf-8")) for c in norm(line)]
     o_chars: list[tuple[str, float, float]] = [(c, top, bottom) for top, bottom, text in ocr_lines(book, page) for c in norm(text)]
     if not o_chars:
@@ -172,9 +184,9 @@ def cell_diffs(t_row: list[str], s_row: list[str]) -> list[str]:
     return diffs
 
 
-def tally(book: int) -> Tally:
+def tally(book: str) -> Tally:
     t = Tally(set(transcript_pages(book)), set(), set(), Counter(), [])
-    for path in sorted((RESULTS / str(book)).glob("p*.jsonl")):
+    for path in sorted((RESULTS / book).glob("p*.jsonl")):
         for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             try:
                 record = json.loads(line)
@@ -192,13 +204,13 @@ def tally(book: int) -> Tally:
     return t
 
 
-def chunks(t: Tally, book: int, size: int) -> list[tuple[int, int, int]]:
+def chunks(t: Tally, book: str, size: int) -> list[tuple[str, int, int]]:
     todo = sorted(t.pages - t.checked)
     return [(book, todo[i], todo[min(i + size, len(todo)) - 1]) for i in range(0, len(todo), size)]
 
 
-def check_chunk(book: int, first: int, last: int, model: str) -> str:
-    (RESULTS / str(book) / "png").mkdir(parents=True, exist_ok=True)
+def check_chunk(book: str, first: int, last: int, model: str) -> str:
+    (RESULTS / book / "png").mkdir(parents=True, exist_ok=True)
     log = RESULTS / "logs" / f"{book}_{first}-{last}.log"
     log.parent.mkdir(parents=True, exist_ok=True)
     prompt = f"Follow this runbook with BOOK={book} FIRST={first} LAST={last}."
@@ -226,7 +238,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     for name in ("text", "suspects", "cells", "tablediff"):
         p = sub.add_parser(name)
-        p.add_argument("book", type=int, choices=BOOKS)
+        p.add_argument("book", help="a book number from 1 to 6, or a folder name under books/")
         p.add_argument("page", type=int)
         if name == "tablediff":
             p.add_argument("table", type=int, help="table number on the page, from 1, as `cells` prints it")
@@ -261,7 +273,7 @@ def main() -> None:
         print("\n".join(table_diff(tables[args.table - 1], scan)))
         return
 
-    books = [int(b) for b in args.books.split(",")]
+    books = args.books.split(",")
     if args.command == "run":
         todo = [chunk for book in books for chunk in chunks(tally(book), book, args.size)]
         print(f"{len(todo)} chunks, {args.jobs} at a time, logs in {RESULTS / 'logs'}", flush=True)

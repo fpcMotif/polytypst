@@ -45,7 +45,7 @@ def rebuilt_pages(pdf: pymupdf.Document) -> dict[str, int]:
     return pages
 
 
-def scan_pages(book: int) -> dict[str, int]:
+def scan_pages(book: str) -> dict[str, int]:
     import page_check
 
     pages: dict[str, int] = {}
@@ -69,7 +69,7 @@ def render(doc: pymupdf.Document, page: int, path: Path) -> None:
     sheet.get_pixmap(matrix=pymupdf.Matrix(DPI / 72, DPI / 72)).save(path)
 
 
-def check_batch(book: int, labels: list[str], out: Path, model: str) -> str:
+def check_batch(book: str, labels: list[str], out: Path, model: str) -> str:
     log = out.with_suffix(".log")
     prompt = f"Follow this runbook with BOOK={book} DIR={out.parent} ITEMS={','.join(labels)} OUT={out}."
     with log.open("w", encoding="utf-8") as stream:
@@ -83,7 +83,7 @@ def check_batch(book: int, labels: list[str], out: Path, model: str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("book", type=int)
+    parser.add_argument("book", help="a book number from 1 to 6, or a folder name under books/")
     parser.add_argument("--pdf", required=True, type=Path, help="the rebuilt PDF")
     parser.add_argument("--scan", required=True, type=Path, help="the scan PDF")
     parser.add_argument("--labels", default="", help="comma-separated labels to render, such as 表1-1,图2-3")
@@ -93,7 +93,7 @@ def main() -> None:
     parser.add_argument("--jobs", type=int, default=8, help="omp agents at once")
     parser.add_argument("--model", default="gemini-3.8-flash")
     args = parser.parse_args()
-    args.out = args.out or Path("output/render_check") / str(args.book)
+    args.out = args.out or Path("output/render_check") / args.book
 
     rebuilt_doc, scan_doc = pymupdf.open(args.pdf), pymupdf.open(args.scan)
     rebuilt, scan = rebuilt_pages(rebuilt_doc), scan_pages(args.book)

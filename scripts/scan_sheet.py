@@ -89,7 +89,7 @@ def page_html(title: str, intro: str, cards: list[str]) -> str:
     )
 
 
-def find_band(book: int, case: Case) -> tuple[float, float] | None:
+def find_band(book: str, case: Case) -> tuple[float, float] | None:
     import page_check
 
     if case.band:
@@ -107,7 +107,7 @@ def strip_png(doc: pymupdf.Document, page: int, band: tuple[float, float], dpi: 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("book", type=int)
+    parser.add_argument("book", help="a book number from 1 to 6, or a folder name under books/")
     parser.add_argument("--scan", required=True, type=Path, help="the scan PDF")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--cases", type=Path, help="a JSONL file with one card per line")
@@ -120,7 +120,7 @@ def main() -> None:
     if args.cases:
         cases = cases_from_jsonl(args.cases.read_text(encoding="utf-8"))
     else:
-        verdicts = Path("output/page_check") / str(args.book) / "verdicts.jsonl"
+        verdicts = Path("output/page_check") / args.book / "verdicts.jsonl"
         cases = cases_from_verdicts(verdicts.read_text(encoding="utf-8"), args.verdicts)
     doc = pymupdf.open(args.scan)
     cards = []
