@@ -200,7 +200,7 @@ class TranscriptStore:
                     source = made_by[page.number] = UNKNOWN
             if source == BLANK:
                 continue
-            if source is None or retranscribe:
+            if source is None or (retranscribe and source != transcriber.provenance):
                 pending.append(page)
             elif source != transcriber.provenance:
                 kept[source] += 1

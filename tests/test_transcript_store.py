@@ -169,6 +169,20 @@ def test_a_page_the_transcriber_skips_stops_the_run_and_stays_pending(
     assert retry.seen == [2]
 
 
+def test_a_retranscribe_rerun_redoes_only_the_pages_this_backend_has_not_made(
+    tmp_path: Path, page_render: PageRender
+) -> None:
+    pages = [page_render(n) for n in (1, 2, 3)]
+    store = TranscriptStore(tmp_path / "md")
+    _ = store.transcribe(pages, FakeTranscriber("old:model"))
+    with pytest.raises(TranscriptsPending):
+        _ = store.transcribe(pages, FakeTranscriber("new:model", skip=[2]), retranscribe=True)
+    rerun = FakeTranscriber("new:model")
+    _ = store.transcribe(pages, rerun, retranscribe=True)
+    assert rerun.seen == [2]
+    assert provenance(tmp_path / "md") == {"1": "new:model", "2": "new:model", "3": "new:model"}
+
+
 def test_pages_finished_before_a_crash_are_saved(
     tmp_path: Path, page_render: PageRender
 ) -> None:
