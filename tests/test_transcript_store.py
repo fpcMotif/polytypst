@@ -7,7 +7,11 @@ from conftest import COVER, COVER_INK, INK, PAPER, PageRender, sheet
 
 from polytypst.ocr.blank import BLANK_TRANSCRIPT, is_blank_page
 from polytypst.ocr.pages import PageImage, Transcript
-from polytypst.ocr.transcripts import TranscriptStore, normalize_ocr_markdown
+from polytypst.ocr.transcripts import (
+    TranscriptsPending,
+    TranscriptStore,
+    normalize_ocr_markdown,
+)
 
 
 class FakeTranscriber:
@@ -151,14 +155,15 @@ def test_retranscribe_redoes_the_pages_it_is_given(
     assert provenance(tmp_path / "md") == {"1": "old:model", "2": "new:model"}
 
 
-def test_a_page_the_transcriber_skips_stays_pending(
-    tmp_path: Path, page_render: PageRender, capsys: pytest.CaptureFixture[str]
+def test_a_page_the_transcriber_skips_stops_the_run_and_stays_pending(
+    tmp_path: Path, page_render: PageRender
 ) -> None:
     pages = [page_render(n) for n in (1, 2, 3)]
     store = TranscriptStore(tmp_path / "md")
-    result = store.transcribe(pages, FakeTranscriber(skip=[2]))
-    assert list(result) == [1, 3]
-    assert "1 page still pending: 2" in capsys.readouterr().out
+    with pytest.raises(TranscriptsPending, match="1 page still pending: 2") as pending:
+        _ = store.transcribe(pages, FakeTranscriber(skip=[2]))
+    assert pending.value.pages == [2]
+    assert store.text(1) is not None and store.text(3) is not None
     retry = FakeTranscriber()
     _ = store.transcribe(pages, retry)
     assert retry.seen == [2]

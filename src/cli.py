@@ -158,6 +158,7 @@ def main() -> None:
     from .edition import Book
     from .ocr.pages import OCRBackendError
     from .ocr.scan import SourceScanError
+    from .ocr.transcripts import TranscriptsPending
 
     try:
         book = book_for_scan(args.source, args.book)
@@ -184,6 +185,8 @@ def main() -> None:
         sys.exit(f"OCR backend {args.backend} failed: {exc}")
     except SourceScanError as exc:
         sys.exit(f"Cannot read the source scan: {exc}")
+    except TranscriptsPending as exc:
+        sys.exit(f"{exc}. The build did not run. Run the same command again to transcribe only these pages.")
     edition = next(iter(book.editions.values()))
     formats = edition.formats
     if args.formats:

@@ -13,6 +13,14 @@ PROVENANCE_NAME = "transcripts.json"
 UNKNOWN = "unknown"
 BLANK = "blank"
 
+
+class TranscriptsPending(RuntimeError):
+    def __init__(self, pages: list[int]) -> None:
+        noun = "page" if len(pages) == 1 else "pages"
+        super().__init__(f"{len(pages)} {noun} still pending: {_page_ranges(pages)}")
+        self.pages = pages
+
+
 _FENCED_RE = re.compile(
     r"\A\s*```(?:markdown|md|latex|tex)?\s*\n(.*?)\n\s*```\s*\Z", re.DOTALL
 )
@@ -225,8 +233,7 @@ class TranscriptStore:
             self._write(transcript.number, text, source, made_by)
             written.add(transcript.number)
         if missing := [p.number for p in pending if p.number not in written]:
-            noun = "page" if len(missing) == 1 else "pages"
-            print(f"{len(missing)} {noun} still pending: {_page_ranges(missing)}")
+            raise TranscriptsPending(missing)
         return {
             p.number: text for p in pages if (text := self.text(p.number)) is not None
         }

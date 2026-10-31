@@ -283,6 +283,30 @@ def test_top_level_help_lists_the_book_commands(monkeypatch, capsys):
     assert "modern-firm" not in out
 
 
+def test_pending_pages_stop_the_scan_command_before_the_build(monkeypatch, tmp_path, capsys):
+    from polytypst.ocr.transcripts import TranscriptsPending
+
+    class PendingBook(Book):
+        def transcribe(self, *_):
+            raise TranscriptsPending([41, 42, 43, 44, 45])
+
+    built = []
+    book = PendingBook(
+        MonographSpec(domain="math", slug="x", title="X", author="A"),
+        tmp_path,
+        {"monograph": Edition(tmp_path / "x.pdf", lambda source, formats, footnotes: built.append(formats))},
+    )
+    monkeypatch.setattr(books_module, "book_for_scan", lambda source, key: book)
+    scan = tmp_path / "scan.pdf"
+    scan.write_bytes(b"%PDF")
+    monkeypatch.setattr("sys.argv", ["polytypst", str(scan), "--no-verify"])
+    with pytest.raises(SystemExit) as stop:
+        cli.main()
+    assert stop.value.code not in (0, None)
+    assert "41-45" in str(stop.value.code)
+    assert built == []
+
+
 def test_book_build_runs_figures_and_shares_page_parser(tmp_path):
     import argparse
 
