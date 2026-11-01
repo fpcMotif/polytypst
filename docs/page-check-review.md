@@ -25,6 +25,8 @@ uv run python scripts/book_check.py lint BOOK
 | `spaced_decimal` | A number with a space before its point, such as `-0 .4%` | Book 4 p349 |
 | `lone_book_mark` | A 《 or 》 without its pair in the paragraph or across the page break | Book 4 p115 |
 | `running_head` | A running head, such as `120 不良债权与金融危机`, in the built text | Book 4 p120 |
+| `dead_fixup` | A `[transcript_fixups]` or `[page_fixups]` rule that does not match its target page text | Book 5 p159, Book 6 p21 |
+| `multiline_delete` | A deletion fixup that swallows multiple lines under `re.DOTALL` or `> 300` chars | Book 2 p29, Book 6 p334 |
 
 When a verifier confirms a new class of error in two places, add a rule for it to `scripts/book_check.py` with a test in `tests/test_book_check.py`.
 
@@ -83,11 +85,11 @@ Choose the table by where the text is on the page:
 
 | The text is in | Fix it in |
 |---|---|
-| The body text or a table | `[page_fixups]`, which rewrite the page after the cleaner |
-| A figure caption, the notes under a figure, or a footnote | `[transcript_fixups]`, which rewrite the transcript before the cleaner takes these parts out of the page |
+| The body text or a Markdown pipe table | `[page_fixups]`, which rewrite the page after the cleaner |
+| An HTML `<table>` (`<th>`, `<td>`), a figure caption, the notes under a figure, or a footnote | `[transcript_fixups]`, which rewrite the transcript before the cleaner converts HTML tables and takes these parts out of the page |
 | The title of a chart that the build draws again | The chart's script in `scripts/bookN_figures/`, and the caption fixup |
 
-Each table maps a scan page to a list of `[pattern, replacement]` pairs. `docs/scanned-books.md` describes both tables.
+Each table maps a scan page to a list of `[pattern, replacement]` pairs. `apply_page_fixups` compiles each pattern with `re.DOTALL`, so match within one line with `[^\n]*`, not `.*`. `docs/scanned-books.md` describes both tables.
 
 When you find an error that no issue named, it is a false negative. Fix it in the same way, and start its comment with `False negative (the page check missed it):`.
 

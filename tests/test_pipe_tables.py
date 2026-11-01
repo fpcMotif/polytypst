@@ -1,5 +1,6 @@
 from polytypst.compiler.monograph import (
     format_pipe_tables_as_typst,
+    merge_continued_pipe_tables,
     panel_grid,
     rotate_text_tables,
 )
@@ -173,3 +174,34 @@ def test_math_in_cells_keeps_its_subscripts():
     assert "[$Delta P_h$]" in out
     assert "[$x^*$]" in out
     assert r"[#strong[a\_b]]" in out
+
+
+def test_a_continued_table_merges_with_its_preceding_table_and_drops_the_repeated_header():
+    text = (
+        "附表 1-1 进口渗透率\n\n单位：%\n\n"
+        "| 年份 | 1980 | 1985 |\n| --- | --- | --- |\n| 制造业合计 | 5.41 | 5.53 |\n\n"
+        "续表\n\n"
+        "| 年份 | 1980 | 1985 |\n| --- | --- | --- |\n| 有机化学基础产品 | 1.32 | 1.23 |\n\n"
+        "@@PAGEBREAK@@\n\n续表\n\n"
+        "| 年份 | 1980 | 1985 |\n| --- | --- | --- |\n| 精密机械 | 1.20 | 12.01 |\n"
+    )
+    merged = merge_continued_pipe_tables(text)
+    assert "续表" not in merged
+    assert "@@PAGEBREAK@@" not in merged
+    assert merged.count("| 年份 | 1980 | 1985 |") == 1
+    out = format_pipe_tables_as_typst(text, three_line=True)
+    assert out.count("#table(") == 1
+    assert "[制造业合计]" in out and "[有机化学基础产品]" in out and "[精密机械]" in out
+
+
+def test_a_continued_table_without_repeated_headers_keeps_all_continuation_rows():
+    text = (
+        "| 时间 | 过程 |\n| --- | --- |\n| 1989年12月 | 股价峰值 |\n\n"
+        "续表\n\n"
+        "| 1991年9月 | 地价峰值 |\n| --- | --- |\n| 1992年8月 | 股价暴跌 |\n"
+    )
+    merged = merge_continued_pipe_tables(text)
+    assert "续表" not in merged
+    assert "| 1991年9月 | 地价峰值 |" in merged
+    assert "| 1992年8月 | 股价暴跌 |" in merged
+

@@ -1,0 +1,18 @@
+slug = "ls_advanced_calculus5"
+title = "Advanced Calculus"
+author = "Lynn H. Loomis and Shlomo Sternberg"
+domain = "math"
+source_pdf = "LS_Advanced_Calculus5.pdf"
+pdf_page_count = 592
+cross_references = false
+chapters = [
+  { number = 1, title = "Advanced Calculus", start_page = 1, end_page = 592 },
+]
+
+latex_preamble = '''
+\providecommand{\lt}{<}
+\providecommand{\gt}{>}
+\providecommand{\R}{\mathbb{R}}
+\providecommand{\infin}{\infty}
+\providecommand{\×}{\times}
+'''

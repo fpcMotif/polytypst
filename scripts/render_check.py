@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pymupdf
 
-CAPTION = re.compile(r"^(附表|表|图)[\s ]*(\d+-\d+|[A-Z])(?:\s|$)")
+CAPTION = re.compile(r"^(附表|表|图|Figure|Fig\.|Table)[\s ]*(\d+(?:-\d+)?|[A-Z])(?:\.|\s|$)")
 CAPTION_MAX_CHARS = 80
 SENTENCE = re.compile(r"。|^(附表|表|图)[\s ]*(?:\d+-\d+|[A-Z])\s*(显示|所示|表明|中|是|给出|列出|反映|的)")
 DPI = 110
@@ -33,7 +33,12 @@ def caption_label(text: str) -> str | None:
     text = text.strip()
     if len(text) > CAPTION_MAX_CHARS or SENTENCE.search(text) or not (m := CAPTION.match(text)):
         return None
-    return f"{m[1]}{m[2]}"
+    kind = m[1]
+    if kind in ("图", "Figure", "Fig."):
+        kind = "图"
+    elif kind in ("表", "Table"):
+        kind = "表"
+    return f"{kind}{m[2]}"
 
 
 def rebuilt_pages(pdf: pymupdf.Document) -> dict[str, int]:

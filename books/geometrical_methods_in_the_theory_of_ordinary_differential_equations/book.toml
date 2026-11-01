@@ -1,0 +1,10 @@
+slug = "geometrical_methods_in_the_theory_of_ordinary_differential_equations"
+title = "Geometrical Methods in the Theory of Ordinary Differential Equations"
+author = "V. I. Arnold"
+domain = "math"
+source_pdf = "Geometrical Methods in the Theory of Ordinary Differential Equations .pdf"
+pdf_page_count = 360
+cross_references = false
+chapters = [
+  { number = 1, title = "Geometrical Methods in the Theory of Ordinary Differential Equations", start_page = 1, end_page = 360 },
+]

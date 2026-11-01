@@ -1,0 +1,178 @@
+slug = 'analysis_elliott_h_lieb_michael_loss_2001'
+title = 'Analysis'
+author = 'Elliott H. Lieb and Michael Loss'
+publisher = 'American Mathematical Society'
+series = 'Graduate Studies in Mathematics, Vol. 14'
+year = 2001
+domain = 'math'
+preface_page = 18
+chapters = [
+  { number = 1, title = 'Measure and Integration', start_page = 24, end_page = 63 },
+  { number = 2, title = '$L^p$-Spaces', start_page = 64, end_page = 100 },
+  { number = 3, title = 'Rearrangement Inequalities', start_page = 102, end_page = 119 },
+  { number = 4, title = 'Integral Inequalities', start_page = 120, end_page = 147 },
+  { number = 5, title = 'The Fourier Transform', start_page = 148, end_page = 159 },
+  { number = 6, title = 'Distributions', start_page = 160, end_page = 194 },
+  { number = 7, title = 'The Sobolev Spaces $H^1$ and $H^{1/2}$', start_page = 196, end_page = 222 },
+  { number = 8, title = 'Sobolev Inequalities', start_page = 224, end_page = 261 },
+  { number = 9, title = 'Potential Theory and Coulomb Energies', start_page = 262, end_page = 281 },
+  { number = 10, title = "Regularity of Solutions of Poisson's Equation", start_page = 282, end_page = 290 },
+  { number = 11, title = 'Introduction to the Calculus of Variations', start_page = 292, end_page = 323 },
+  { number = 12, title = 'More About Eigenvalues', start_page = 324, end_page = 353 },
+]
+references_page = 360
+index_pages = [366, 377]
+running_header_regexes = [
+  '^([0-9IVXLCDM]+\.?\s*)?(?:measure and integration|l\^p-spaces|rearrangement inequalities|integral inequalities|the fourier transform|distributions|the sobolev spaces|sobolev inequalities|potential theory and coulomb energies|regularity of solutions|introduction to the calculus of variations|more about eigenvalues|list of symbols|references|index|contents|preface)\b',
+]
+cross_references = true
+latex_preamble = '''
+\providecommand{\bigtimes}{\mathop{\raisebox{-0.2ex}{\Large$\times$}}}
+\ifPDFTeX
+  \DeclareUnicodeCharacter{25A0}{\ensuremath{\blacksquare}}
+  \DeclareUnicodeCharacter{25A1}{\ensuremath{\square}}
+  \DeclareUnicodeCharacter{25CF}{\ensuremath{\bullet}}
+  \DeclareUnicodeCharacter{25B6}{\ensuremath{\blacktriangleright}}
+  \DeclareUnicodeCharacter{25BA}{\ensuremath{\blacktriangleright}}
+  \DeclareUnicodeCharacter{2264}{\ensuremath{\leq}}
+  \DeclareUnicodeCharacter{2265}{\ensuremath{\geq}}
+  \DeclareUnicodeCharacter{03A9}{\ensuremath{\Omega}}
+  \DeclareUnicodeCharacter{211D}{\ensuremath{\mathbb{R}}}
+\fi
+\makeatletter
+\AtBeginDocument{%
+  \pdfstringdefDisableCommands{%
+    \def\Delta{Delta}%
+    \def\Omega{Omega}%
+    \def\nabla{nabla}%
+    \def\infty{infty}%
+    \def\mathbb#1{#1}%
+    \def\mathcal#1{#1}%
+    \def\mathrm#1{#1}%
+  }%
+}
+\makeatother
+'''
+pdf_name_markers = ['Analysis', 'Lieb', 'Loss']
+pdf_page_count = 378
+source_pdf = 'Analysis - Elliott H. Lieb, Michael Loss (2001）.pdf'
+
+[editions.monograph]
+summary = 'monograph'
+
+[page_fixups]
+# Scan typo: the scan prints 'f_j(x)'; meant 'f^j(x)'.
+40 = [
+  ['while \$f_j\(x\)\$ is unchanged', 'while $f^j(x)$ is unchanged'],
+]
+# Scan typo: the scan prints 'this a'; meant 'this is a'.
+44 = [
+  ['this a trivial consequence', 'this is a trivial consequence'],
+]
+# Scan typo: the scan prints '\mu(\mathrm{d}y)'; meant '\mu_2(\mathrm{d}y)'.
+49 = [
+  ['f\(x, y\) \\mu\(\\mathrm\{d\}y\)', 'f(x, y) \mu_2(\mathrm{d}y)'],
+]
+# Scan typo: the scan prints '[a - \delta, b + \delta]'; meant '[a + \delta, b - \delta]'.
+59 = [
+  ['\[a \+ \\delta, b \+ \\delta\]', '[a + \delta, b - \delta]'],
+]
+# Scan typo: the scan prints '1/p_i'; meant '1/p_j'.
+# Scan typo: the scan prints 'g^p'; meant 'g^q'.
+69 = [
+  ['\\sum_\{j=1\}\^m 1/p_i = 1', '\sum_{j=1}^m 1/p_j = 1'],
+  ['\\int_\{\\Omega\} g\^p \\, \\mathrm\{d\}\\mu = \\int_A g\^p', '\int_{\Omega} g^q \, \mathrm{d}\mu = \int_A g^q'],
+]
+# Scan typo: the scan prints '$L^p(\Omega)$, functions'; meant '$L^p(\Omega)$ functions'.
+86 = [
+  ['\$L\^p\(\\Omega\)\$, functions', '$L^p(\Omega)$ functions'],
+]
+# Scan typo: the scan prints '[H(x - y) - H(x)]'; meant '[\chi_H(x - y) - \chi_H(x)]'.
+89 = [
+  ['\[H\(x - y\) - H\(x\)\]', '[\chi_H(x - y) - \chi_H(x)]'],
+]
+# False negative (the page check missed it): the scan prints '(because $f$ would have to be zero on all intervals of the form $(-\infty, 0)$ or $(1/n, \infty)$ for any $n$.'; meant '... for any $n$.)'.
+92 = [
+  ['for any \$n\$\.', 'for any $n$.)'],
+]
+# Scan typo: the scan prints '(x_k, y)'; meant '(x_{i_k}, y)'.
+97 = [
+  ['\\lim_\{k \\to \\infty\} \(x_k, y\) = \(x, y\)', '\lim_{k \to \infty} (x_{i_k}, y) = (x, y)'],
+]
+# Scan typo: the scan prints 'does not convergence'; meant 'does not converge'.
+98 = [
+  ['does not convergence', 'does not converge'],
+]
+# Scan typo: the scan prints 'C_q/2'; meant 'C_q^q/2'.
+100 = [
+  ['\|T\^q - S\^q\|\^\{-1\} C_q/2', '|T^q - S^q|^{-1} C_q^q/2'],
+]
+# Scan typo: the scan prints 'montonicity'; meant 'monotonicity'.
+114 = [
+  ['montonicity', 'monotonicity'],
+]
+# Scan typo: the scan prints 'C_Z' (transcribed as 'C_z'); meant 'C_Z'.
+123 = [
+  ['the number\* \$C_z\$', 'the number* $C_Z$'],
+]
+# Scan typo: the scan prints '\widehat{f}^{j(l)}(h)'; meant '\widehat{f}^{j(l)}(k)'.
+152 = [
+  ['\\widehat\{f\}\^\{j\(l\)\}\(h\)', '\widehat{f}^{j(l)}(k)'],
+]
+# Scan typo: the scan prints '\|f^m - f\|_{H^{1/2}(\mathbb{R}^n)}' (transcribed as '\|f_m - f\|_{H^{1/2}(\mathbb{R}^n)}'); meant '\|f^m - f\|_{H^{1/2}(\mathbb{R}^n)}'.
+211 = [
+  ['\\\|f_m - f\\\|_\{H\^\{1/2\}\(\\mathbb\{R\}\^n\)\}', '\|f^m - f\|_{H^{1/2}(\mathbb{R}^n)}'],
+]
+# Scan typo: the scan prints 'by, Theorem 6.17'; meant 'by Theorem 6.17'.
+219 = [
+  ['by, Theorem 6\.17', 'by Theorem 6.17'],
+]
+# Scan typo: the scan prints '\partial_i f'; meant '\partial_i |f|'.
+220 = [
+  ['\\partial_i f\\\|_2 \\to 0', '\partial_i |f|\|_2 \to 0'],
+]
+# Scan typo: the scan prints 'C'^{1-\alpha}' (transcribed as 'C^{1-\alpha}'); meant 'C'^{1-\alpha}'.
+235 = [
+  ['\\leq C\^\{1-\\alpha\}', '\leq C^{\prime 1-\alpha}'],
+]
+# Scan typo: the scan prints '\|\nabla h_j\|_p'; meant '\|\nabla h^j\|_p'.
+244 = [
+  ['\\\|\\nabla h_j\\\|_p \\to 0', '\|\nabla h^j\|_p \to 0'],
+]
+# Scan typo: the scan prints '\|\nabla f\|_2'; meant '\|\nabla f\|_2^2'.
+252 = [
+  ['is just \$\\\|\\nabla f\\\|_2\$', 'is just $\|\nabla f\|_2^2$'],
+]
+# Scan typo: the scan prints '\mathrm{d}0'; meant '\mathrm{d}t'.
+258 = [
+  ['\\mathrm\{d\}0', '\mathrm{d}t'],
+]
+# Scan typo: the scan prints 'F_i \geq'; meant 'F_1 \geq'.
+279 = [
+  ['satisfies \$F_i \\geq', 'satisfies $F_1 \geq'],
+]
+# Scan typo: the scan prints '|f(x) - f(y)|'; meant '|g(x) - g(y)|'.
+283 = [
+  ['\|f\(x\) - f\(y\)\| \\leq b\(K\)', '|g(x) - g(y)| \leq b(K)'],
+]
+# Scan typo: the scan prints '\int_{\mathbb{R}^n}'; meant '\int_{\mathbb{R}^1}'.
+297 = [
+  ['T_\{\\psi\} \+ \\int_\{\\mathbb\{R\}\^n\}', 'T_{\psi} + \int_{\mathbb{R}^1}'],
+]
+# Scan typo: the scan prints 'j_1, \ldots, j_N' (transcribed as 'j_i, \ldots, j_N'); meant 'j_1, \ldots, j_N'.
+338 = [
+  ['unless \$j_i, \\ldots, j_N\$', 'unless $j_1, \ldots, j_N$'],
+]
+# Scan typo: the scan prints 'fonctionelle' (transcribed as 'fonctionnelle'); meant 'fonctionnelle'.
+361 = [
+  ['Analyse fonction+elle', 'Analyse fonctionnelle'],
+]
+# Scan typo: the scan prints 'Couloumb'; meant 'Coulomb'.
+362 = [
+  ['Couloumb', 'Coulomb'],
+]
+# Scan typo: the scan prints 'Philosphia' (transcribed as 'Philosophia'); meant 'Philosophia'.
+363 = [
+  ['Philoso?phia Naturalis', 'Philosophia Naturalis'],
+]
+

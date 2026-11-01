@@ -1,0 +1,10 @@
+slug = "newtonprincipia"
+title = "Newton's Principia"
+author = "Sir Isaac Newton"
+domain = "physics"
+source_pdf = "newtonprincipia.pdf"
+pdf_page_count = 594
+cross_references = true
+chapters = [
+  { number = 1, title = "Newton's Principia", start_page = 1, end_page = 594 },
+]

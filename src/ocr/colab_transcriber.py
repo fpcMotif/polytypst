@@ -21,7 +21,7 @@ class ColabTranscriber:
             for i in range(0, len(pages), self.batch_size)
         ]
         for idx, batch in enumerate(batches, start=1):
-            print(f"Colab batch {idx}/{len(batches)}: {len(batch)} pages")
+            print(f"Colab batch {idx}/{len(batches)}: {len(batch)} pages", flush=True)
             with tempfile.TemporaryDirectory(prefix="colab_batch_") as tmp:
                 out_dir = Path(tmp)
                 _ = self.cluster.run_cluster(batch, out_dir)
