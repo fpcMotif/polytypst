@@ -40,6 +40,7 @@ class DomainProfile:
     equation_numbering: str
     theorem_heads: tuple[str, ...]
     proof_end_mark: bool
+    proof_blocks: bool = False
 
 
 PUBLISHER_PRESETS: dict[str, PublisherPreset] = {
@@ -265,6 +266,7 @@ DOMAIN_PROFILES: dict[str, DomainProfile] = {
         key="math",
         equation_numbering="(1.1)",
         proof_end_mark=True,
+        proof_blocks=True,
         theorem_heads=(
             "Theorem",
             "Lemma",
@@ -281,6 +283,7 @@ DOMAIN_PROFILES: dict[str, DomainProfile] = {
         key="physics",
         equation_numbering="(1.1)",
         proof_end_mark=True,
+        proof_blocks=True,
         theorem_heads=(
             "Postulate",
             "Law",
@@ -350,7 +353,6 @@ class CompositionConfig:
         style = self.publisher.heading_style
         use_sc = self.language.code != "zh"
         sc_body = "#smallcaps(it.body)" if use_sc else "#it.body"
-        italic_h3 = 'style: "italic", ' if self.language.code != "zh" else ""
         if style == "centered-smallcaps":
             h1 = f"""#show heading.where(level: 1): it => {{
   v(2.8em)
@@ -367,6 +369,9 @@ class CompositionConfig:
     if label != none {{
       align(center, text(11pt, tracking: 0.12em, font: {font_expr})[#smallcaps(label)])
       v(0.9em)
+    }} else if it.numbering != none {{
+      align(center, text(11pt, weight: "regular", tracking: 0.14em, font: {font_expr})[CHAPTER #counter(heading).display()])
+      v(0.4em)
     }}
   }}
   align(center)[
@@ -421,15 +426,66 @@ class CompositionConfig:
   v(1.4em)
 }}"""
         h4_body = "#smallcaps(it.body)" if use_sc else "#it.body"
-        return f"""{h1}
+        return f"""#show heading: set block(sticky: true)
+#show heading: set text(hyphenate: false)
 
-#show heading.where(level: 2): it => block(above: 1.75em, below: 0.75em, sticky: true)[
-  #text(12.5pt, weight: "bold", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
-]
+{h1}
 
-#show heading.where(level: 3): it => block(above: 1.3em, below: 0.5em, sticky: true)[
-  #text(10.5pt, weight: "bold", {italic_h3}font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
-]
+#show heading.where(level: 2): it => {{
+  let body-str = repr(it.body)
+  let s = lower(body-str)
+  let is-thm = (
+    s.contains("theorem")
+    or s.contains("lemma")
+    or s.contains("corollary")
+    or s.contains("proposition")
+    or (s.contains("definition") and not s.contains("definition of"))
+    or s.contains("remark")
+    or s.contains("example")
+    or s.contains("assumption")
+    or s.contains("claim")
+    or s.contains("conjecture")
+    or s.contains("axiom")
+    or s.contains("notation")
+  )
+  if is-thm {{
+    block(above: 1.35em, below: 0.55em, sticky: true)[
+      #text(10.5pt, weight: "bold", style: "normal", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+    ]
+  }} else {{
+    block(above: 1.9em, below: 0.9em, sticky: true)[
+      #text(12pt, weight: "bold", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]{sc_body}]
+    ]
+  }}
+}}
+
+#show heading.where(level: 3): it => {{
+  let body-str = repr(it.body)
+  let s = lower(body-str)
+  let is-thm = (
+    s.contains("theorem")
+    or s.contains("lemma")
+    or s.contains("corollary")
+    or s.contains("proposition")
+    or (s.contains("definition") and not s.contains("definition of"))
+    or s.contains("remark")
+    or s.contains("example")
+    or s.contains("assumption")
+    or s.contains("claim")
+    or s.contains("conjecture")
+    or s.contains("axiom")
+    or s.contains("notation")
+  )
+  if is-thm {{
+    block(above: 1.35em, below: 0.55em, sticky: true)[
+      #text(10.5pt, weight: "bold", style: "normal", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+    ]
+  }} else {{
+    block(above: 1.6em, below: 0.7em, sticky: true)[
+      #text(11pt, weight: "bold", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+    ]
+  }}
+}}
 
 #show heading.where(level: 4): it => block(above: 1.1em, below: 0.45em, sticky: true)[
   #text(10pt, weight: "bold", font: {font_expr})[{h4_body}]

@@ -16,9 +16,14 @@ TYPST_RULES = r"""
 #let source-roman = counter("source-roman")
 #let source-circled = counter("source-circled")
 #let source-heading-number(..nums) = {
-  let n = nums.pos().slice(1)
+  let pos = nums.pos()
+  let n = pos.slice(1)
   if n.len() == 1 { "§ " + str(n.first()) + "." }
-  else if n.len() == 2 { n.map(str).join(".") + "." }
+  else if n.len() == 2 {
+    let parts = if n.first() == 0 and pos.first() > 0 { (pos.first(), n.last()) } else { n }
+    let dot = if source-article.get().first() > 0 { "." } else { "" }
+    parts.map(str).join(".") + dot
+  }
   else if n.len() > 2 { "(" + n.map(str).join(".") + ")" }
 }
 #let source-article-number(..nums) = str(source-article.get().first() + 1) + "."
@@ -95,9 +100,10 @@ TYPST_EQUATION_LAYOUT = r"""
 """
 
 LATEX_RULES = (
+    r"\renewcommand\thechapter{\arabic{chapter}}"
     r"\newcounter{sourcesection}\newcounter{sourcesubsection}[sourcesection]"
     r"\newcounter{sourceparagraph}[sourcesubsection]\newcounter{sourcearticle}\newcounter{sourceroman}\newcounter{sourcecircled}"
-    r"\renewcommand\thesourcesubsection{\arabic{sourcesection}.\arabic{sourcesubsection}}"
+    r"\renewcommand\thesourcesubsection{\ifnum\value{sourcesection}>0 \arabic{sourcesection}\else\thechapter\fi.\arabic{sourcesubsection}}"
     r"\renewcommand\thesourceparagraph{\thesourcesubsection.\arabic{sourceparagraph}}"
     r"\counterwithin*{equation}{sourceparagraph}"
     r"\renewcommand\theequation{\ifnum\value{sourceparagraph}>0 \thesourceparagraph.\arabic{equation}\else\ifnum\value{sourcesubsection}>0 \thesourcesubsection.\arabic{equation}\else\arabic{equation}\fi\fi}"
@@ -120,6 +126,19 @@ _ROMAN_VALUES = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6, "VII": 7, 
 _SECTION_RE = re.compile(r"^(?:§\s*)?(\d+)\.?\s+(\D.*)$")
 _SUBSECTION_RE = re.compile(r"^(\d+)\.(\d+)\.?\s+(.*)$")
 _SUBSUBSECTION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)\.?\s+(\D.*)$")
+_CHAPTER_HEADING_RE = re.compile(r"^(?:Chapter\s+)?(\d+)[:.]?\s+(\D.*)$", re.I)
+_THM_COMPOUND_RE = re.compile(
+    r"(?i)\b(?P<kind>Theorems?|Lemmas?|Corollar(?:y|ies)|Propositions?|Definitions?|Remarks?|Examples?|Exercises?|Sections?|Sects?\.)\s+(?P<n1>\d+\.\d+)(?:\s*,\s*(?P<n2>\d+\.\d+))?\s*(?P<conj>and|&|,)\s*(?P<n3>\d+\.\d+)"
+)
+_THM_REF_RE = re.compile(
+    r"(?i)\b(?P<kind>Theorems?|Lemmas?|Corollar(?:y|ies)|Propositions?|Definitions?|Remarks?|Examples?|Exercises?|Sections?|Sects?\.)\s+(?P<number>\d+\.\d+)"
+)
+_CHAP_REF_RE = re.compile(r"(?i)\b(?P<kind>Chapters?|Chap\.)\s+(?P<number>\d+)")
+_SEC_ITEM_RE = re.compile(r"\b(?P<sec>\d+\.\d+)\((?P<item>\d+)\)")
+_PROSE_EQ_EN_RE = re.compile(
+    r"(?i)(?P<pre>\b(?:equations?|inequalit(?:y|ies)|relations?|formulas?|conditions?|identit(?:y|ies)|where|yields?|proves?|gives?|recall|see|in|of|to|for|from|with|between|and|as)\s+)\((?P<eq1>\d+)\)"
+    r"(?:(?P<mid>\s*(?:and|&|,)\s*)\((?P<eq2>\d+)\))?"
+)
 _PARAGRAPH_HEADING_RE = re.compile(rf"^\(({_NUMBER})\.?\)\s*(.*)$")
 _REF_RE = re.compile(rf"\((?:(?P<chapter>0|I{{1,3}}|IV|VI{{0,3}}|IX|X), ?)?(?P<number>{_NUMBER})\.?\)")
 _FIG_REF_RE = re.compile(r"(?i)(?:\bFig(?:ure)?(?:\.|\b)|图)\s*(?P<fig>\d+(?:[.\-]\d+){0,2}[a-z]?)(?![\d\-]|\.\d)")
@@ -151,7 +170,7 @@ _LATEX_FIG_RE = re.compile(
 )
 _PAGE_MARK = r"(?:#src-top\(\d+\);)?"
 _BIB_ENTRY_RE = re.compile(rf"(?m)^{_PAGE_MARK}\\?\[(?P<key>\d+(?: bis)?|[A-Z]{{2,4}})\\?\] ")
-_LABEL_RE = re.compile(r"(?:<|\\label\{)((?:eq|par)-c\d+(?:-\d+)+|art-\d+|eq-art-\d+-\d+|(?:fig|tbl)-[\w-]+)")
+_LABEL_RE = re.compile(r"(?:<|\\label\{)((?:eq|par)-c\d+(?:-\d+)+|art-\d+|eq-art-\d+-\d+|(?:fig|tbl|sec)-[\w-]+)")
 
 
 class _Writer(Protocol):
@@ -165,9 +184,10 @@ class _Writer(Protocol):
     def set_article(self, n: int) -> str: ...
     def set_roman(self, n: int) -> str: ...
     def set_equation(self, n: int) -> str: ...
-    def section(self, title: str) -> str: ...
-    def subsection(self, title: str) -> str: ...
-    def subsubsection(self, title: str) -> str: ...
+    def chapter_heading(self, number: int, title: str, label: str) -> str: ...
+    def section(self, title: str, label: str | None = None) -> str: ...
+    def subsection(self, title: str, label: str | None = None) -> str: ...
+    def subsubsection(self, title: str, label: str | None = None) -> str: ...
     def article(self, title: str, label: str) -> str: ...
     def unnumbered(self, marks: str, title: str) -> str: ...
     def paragraph(self, kind: str, label: str) -> str: ...
@@ -184,7 +204,7 @@ class _Writer(Protocol):
 
 class TypstWriter:
     events = re.compile(
-        rf"(?m)^(?P<heading>={{2,4}} .+)$"
+        rf"(?m)^(?P<heading>={{1,4}} .+)$"
         rf"|#strong\[(?:(?P<kind>{_KINDS})\s+)?\((?P<bold>{_NUMBER})\.?\)\.?\]"
         rf"|^(?:#h\([^)]*\);)?(?P<top>#src-top\(\d+\);)?\((?P<plain>{_NUMBER})\.?\)(?= )"
         r"|^(?P<rtop>(?:#h\([^)]*\);)?(?:#src-top\(\d+\);)?)(?P<rprefix>#strong\[附注\.?\]\s+)?(?:#strong\[)?(?P<roman>I{1,3}|IV|VI{0,3}|IX|X)\.(?:\])?(?= )"
@@ -208,14 +228,20 @@ class TypstWriter:
     def set_equation(self, n: int) -> str:
         return f"#counter(math.equation).update({n})\n"
 
-    def section(self, title: str) -> str:
-        return f"== {title}"
+    def chapter_heading(self, number: int, title: str, label: str) -> str:
+        return f'#counter(heading).update(({number - 1},))\n#heading(level: 1, numbering: "1")[{title}] <{label}>'
 
-    def subsection(self, title: str) -> str:
-        return f"=== {title}"
+    def section(self, title: str, label: str | None = None) -> str:
+        lbl = f" <{label}>" if label else ""
+        return f"== {title}{lbl}"
 
-    def subsubsection(self, title: str) -> str:
-        return f"==== {title}"
+    def subsection(self, title: str, label: str | None = None) -> str:
+        lbl = f" <{label}>" if label else ""
+        return f"=== {title}{lbl}"
+
+    def subsubsection(self, title: str, label: str | None = None) -> str:
+        lbl = f" <{label}>" if label else ""
+        return f"==== {title}{lbl}"
 
     def article(self, title: str, label: str) -> str:
         return f"#heading(level: 3, numbering: source-article-number)[{title}]{label}"
@@ -257,7 +283,7 @@ class TypstWriter:
 
 class LatexWriter:
     events = re.compile(
-        rf"(?m)^(?P<heading>#{{2,4}} .+)$"
+        rf"(?m)^(?P<heading>#{{1,4}} .+)$"
         rf"|\*\*(?:(?P<kind>{_KINDS})\s+)?\((?P<bold>{_NUMBER})\.?\)\.?\*\*"
         rf"|^\((?P<plain>{_NUMBER})\.?\)(?= )"
         r"|^(?P<rprefix>\*\*附注\.?\*\*\s+)?(?:\*\*)?(?P<roman>I{1,3}|IV|VI{0,3}|IX|X)\.(?:\*\*)?(?= )"
@@ -280,14 +306,20 @@ class LatexWriter:
     def set_equation(self, n: int) -> str:
         return rf"\setcounter{{equation}}{{{n}}}"
 
-    def section(self, title: str) -> str:
-        return rf"\sourcesection{{{title}}}"
+    def chapter_heading(self, number: int, title: str, label: str) -> str:
+        return f"\\setcounter{{chapter}}{{{number - 1}}}\n\\chapter{{{title}}}\\label{{{label}}}\\hypertarget{{{label}}}{{}}"
 
-    def subsection(self, title: str) -> str:
-        return rf"\sourcesubsection{{{title}}}"
+    def section(self, title: str, label: str | None = None) -> str:
+        lbl = rf"\label{{{label}}}\hypertarget{{{label}}}{{}}" if label else ""
+        return rf"\sourcesection{{{title}}}{lbl}"
 
-    def subsubsection(self, title: str) -> str:
-        return rf"\sourcesubsubsection{{{title}}}"
+    def subsection(self, title: str, label: str | None = None) -> str:
+        lbl = rf"\label{{{label}}}\hypertarget{{{label}}}{{}}" if label else ""
+        return rf"\sourcesubsection{{{title}}}{lbl}"
+
+    def subsubsection(self, title: str, label: str | None = None) -> str:
+        lbl = rf"\label{{{label}}}\hypertarget{{{label}}}{{}}" if label else ""
+        return rf"\sourcesubsubsection{{{title}}}{lbl}"
 
     def article(self, title: str, label: str) -> str:
         return rf"\sourcearticle{{{title}}}{label}"
@@ -365,6 +397,8 @@ class _Numbering:
 
     def heading(self, scan: tuple[int, ...], kind: str) -> str:
         depth = len(scan)
+        if not self.levels and len(scan) == 2 and scan[0] == self.chapter:
+            self.levels = (self.chapter, 0)
         parents = (*self.levels, *(0,) * depth)[: depth - 1]
         current = self.levels[depth - 1] if len(self.levels) >= depth else 0
         computed = (*parents, current + 1)
@@ -470,18 +504,45 @@ def number_chapter(
         return update + writer.paragraph(kind, state.label("par", scan))
 
     def heading(marks: str, title: str) -> str:
+        if len(marks) == 1:
+            if m := _CHAPTER_HEADING_RE.match(title):
+                num, rest = int(m.group(1)), m.group(2)
+                state.chapter = num
+                state.levels = ()
+                state.equation = 0
+                state.seen.add(f"sec-{num}")
+                return writer.chapter_heading(num, rest, f"sec-{num}")
+            if writer is LATEX and state.chapter > 0:
+                state.levels = ()
+                state.equation = 0
+                state.seen.add(f"sec-{state.chapter}")
+                return writer.chapter_heading(state.chapter, title, f"sec-{state.chapter}")
+            state.unnumbered_heading()
+            return writer.unnumbered(marks, title)
         if m := _PARAGRAPH_HEADING_RE.match(title):
             return paragraph(_parse(m.group(1)), m.group(2))
         if m := _SUBSUBSECTION_RE.match(title):
-            scan = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
-            return state.heading(scan, "subsection") + writer.subsubsection(m.group(4))
+            c, s, sub = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            scan = (c, s, sub)
+            lbl = f"sec-{c}-{s}-{sub}"
+            if lbl not in state.seen:
+                state.seen.add(lbl)
+            return state.heading(scan, "subsection") + writer.subsubsection(m.group(4), lbl)
         if m := _SUBSECTION_RE.match(title):
-            return state.heading((int(m.group(1)), int(m.group(2))), "section") + writer.subsection(m.group(3))
+            c, s = int(m.group(1)), int(m.group(2))
+            scan = (c, s)
+            lbl = f"sec-{c}-{s}"
+            if lbl not in state.seen:
+                state.seen.add(lbl)
+            return state.heading(scan, "section") + writer.subsection(m.group(3), lbl)
         if m := _SECTION_RE.match(title):
             n, rest = int(m.group(1)), m.group(2)
             if len(marks) == 3 and not title.lstrip().startswith("§"):
                 return state.article_heading(n) + writer.article(rest, state.article_label(n))
-            return state.heading((n,), "§") + writer.section(rest)
+            lbl = f"sec-{n}"
+            if lbl not in state.seen:
+                state.seen.add(lbl)
+            return state.heading((n,), "§") + writer.section(rest, lbl)
         state.unnumbered_heading()
         return writer.unnumbered(marks, title)
 
@@ -608,6 +669,65 @@ def link_references(
             return rf"{prefix}\ref{{{name}}}"
         return _fmt_ref(name, None, m.string[m.end() : m.end() + 1])
     out = _sub_outside_math(_tbl_ref_re, link_tbl, out, writer)
+
+    def link_thm_compound(m: re.Match[str]) -> str:
+        kind = m.group("kind")
+        n1 = m.group("n1")
+        n2 = m.group("n2")
+        n3 = m.group("n3")
+        conj = m.group("conj")
+        t1 = "sec-" + n1.replace(".", "-")
+        t3 = "sec-" + n3.replace(".", "-")
+        p1 = writer.link(t1, n1) if t1 in known else n1
+        p3 = writer.link(t3, n3) if t3 in known else n3
+        if n2:
+            t2 = "sec-" + n2.replace(".", "-")
+            p2 = writer.link(t2, n2) if t2 in known else n2
+            return f"{kind} {p1}, {p2} {conj} {p3}"
+        return f"{kind} {p1} {conj} {p3}"
+
+    def link_thm(m: re.Match[str]) -> str:
+        target = "sec-" + m.group("number").replace(".", "-")
+        if target not in known:
+            return m.group(0)
+        link = writer.link(target, m.group(0))
+        after = m.string[m.end() : m.end() + 1]
+        if writer is TYPST and after.startswith("("):
+            return link + "\u200b"
+        return link
+
+    def link_chap(m: re.Match[str]) -> str:
+        target = f"sec-{m.group('number')}"
+        if target not in known:
+            return m.group(0)
+        return writer.link(target, m.group(0))
+
+    def link_sec_item(m: re.Match[str]) -> str:
+        sec = m.group("sec")
+        target = "sec-" + sec.replace(".", "-")
+        if target not in known:
+            return m.group(0)
+        return writer.link(target, sec) + f"({m.group('item')})"
+
+    def link_prose_eq_en(m: re.Match[str]) -> str:
+        eq1 = m.group("eq1")
+        name1 = f"eq-c{chapter}-{eq1}"
+        mid = m.group("mid") or ""
+        eq2 = m.group("eq2")
+        if name1 not in known:
+            return m.group(0)
+        part1 = writer.link(name1, f"({eq1})")
+        if not eq2:
+            return m.group("pre") + part1
+        name2 = f"eq-c{chapter}-{eq2}"
+        part2 = writer.link(name2, f"({eq2})") if name2 in known else f"({eq2})"
+        return f"{m.group('pre')}{part1}{mid}{part2}"
+
+    out = _sub_outside_math(_THM_COMPOUND_RE, link_thm_compound, out, writer)
+    out = _sub_outside_math(_THM_REF_RE, link_thm, out, writer)
+    out = _sub_outside_math(_CHAP_REF_RE, link_chap, out, writer)
+    out = _sub_outside_math(_SEC_ITEM_RE, link_sec_item, out, writer)
+    out = _sub_outside_math(_PROSE_EQ_EN_RE, link_prose_eq_en, out, writer)
     if not any(k.startswith("art-") for k in known):
         return out
 

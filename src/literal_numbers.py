@@ -39,6 +39,14 @@ _HEADING_NUMBER = {
     "typst": re.compile(r"(?m)^={2,4}\s+(?:§\s*\d+|\d+(?:\.\d+)*\.?\s+\D)"),
     "latex": re.compile(r"(?m)^\\(?:(?:sub)*section|source(?:section|subsection|article))\{(?:\\S\s*)?\d+(?:\.\d+)*\.?\s+\D"),
 }
+_CHAPTER_HEADING = {
+    "typst": re.compile(r"(?m)^=\s+(?:Chapter\s+)?\d+[:.]?\s+\D"),
+    "latex": re.compile(r"(?m)^\\chapter\{(?:Chapter\s+)?\d+[:.]?\s+\D|^#\s+(?:Chapter\s+)?\d+[:.]?\s+\D"),
+}
+_THM_REF_RE = re.compile(
+    r"(?i)\b(?:Theorems?|Lemmas?|Corollar(?:y|ies)|Propositions?|Definitions?|Remarks?|Examples?|Exercises?|Sections?|Sects?\.)\s+(?P<number>\d+\.\d+)"
+)
+_CHAP_REF_RE = re.compile(r"(?i)\b(?:Chapters?|Chap\.)\s+(?P<number>\d+)")
 _FIGURE_CAPTION = {
     "typst": re.compile(
         r"#figure\([\s\S]*?caption:\s*\[(?:#strong\[)?(?i:Fig(?:ure)?(?:\.|\b)|图)\s*\d+[\s\S]*?\)(?!\s*<fig-)"
@@ -124,6 +132,8 @@ def literal_numbering_counts(
         counts["LITERAL_NUMBER_IN_MATH"] += sum(
             len(_MATH_NUMBER_RE.findall(m.group(0))) for m in math.finditer(chapter)
         )
+        if writer.chapter_start in source:
+            counts["LITERAL_HEADING_NUMBER"] += len(_CHAPTER_HEADING[kind].findall(chapter[:1000]))
         counts["LITERAL_HEADING_NUMBER"] += len(_HEADING_NUMBER[kind].findall(chapter))
         counts["LITERAL_FIGURE_CAPTION"] += len(_FIGURE_CAPTION[kind].findall(chapter))
         if require_vector_figures:
@@ -152,6 +162,15 @@ def literal_numbering_counts(
             counts["UNLINKED_REFERENCE"] += sum(
                 1 for m in rx.finditer(text) if f"art-{m.group('art')}" in known
             )
+        for m in _THM_REF_RE.finditer(text):
+            num = m.group("number")
+            target = "sec-" + num.replace(".", "-")
+            if target in known:
+                counts["UNLINKED_REFERENCE"] += 1
+        for m in _CHAP_REF_RE.finditer(text):
+            target = f"sec-{m.group('number')}"
+            if target in known:
+                counts["UNLINKED_REFERENCE"] += 1
     return {rule: n for rule, n in counts.items() if n}
 
 

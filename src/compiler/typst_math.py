@@ -760,14 +760,10 @@ def sanitize_math_code(code: str, is_display: bool = False) -> str:
     if r"\|" in code:
         code = re.sub(
             r"\\\|\s*([^|\n]+?)\s*\\\|",
-            lambda m: (
-                f" lr(|| {m.group(1)} ||) "
-                if "," in m.group(1)
-                else f" norm({m.group(1)}) "
-            ),
+            r" norm(\1) ",
             code,
         )
-        code = code.replace(r"\|", " || ")
+        code = code.replace(r"\|", " ")
     code = LEFT_RIGHT_ABS_RE.sub(_abs_call, code)
     code = BIG_ABS_RE.sub(_abs_call, code)
     code = code.replace(r"\left", "").replace(r"\right", "").replace(r"\middle", "")
@@ -797,9 +793,9 @@ def sanitize_math_code(code: str, is_display: bool = False) -> str:
     code = re.sub(r"\\ne(?:q)?(?![a-zA-Z])", "!=", code)
     code = code.replace(r"\quad", " quad ").replace(r"\qquad", " quad quad ")
     code = (
-        code.replace(r"\cdots", " dots.h.c ")
-        .replace(r"\ldots", " dots.h ")
-        .replace(r"\dots", " dots.h ")
+        code.replace(r"\cdots", " dots.c ")
+        .replace(r"\ldots", " … ")
+        .replace(r"\dots", " … ")
         .replace(r"\vdots", " dots.v ")
         .replace(r"\ddots", " dots.down ")
         .replace(r"\pm", " plus.minus ")
@@ -1024,8 +1020,18 @@ def prepare_latex_math(code: str, is_display: bool) -> str:
     code = code.strip()
     for pattern, repl in LATEX_MACRO_REWRITES:
         code = pattern.sub(repl, code)
+    code = re.sub(
+        r"_(?:\{\s*\\(?:text|mathrm|rm|operatorname)\s*\{loc\}\s*\}|\{\s*(?:\\rm\s+)?loc\s*\}|loc\b)",
+        r"_{\\operatorname{loc}}",
+        code,
+    )
+    code = REL_SPACING_BEFORE_RE.sub(" ", code)
+    code = REL_SPACING_AFTER_RE.sub(r"\1 ", code)
     code = _mark_norms(code)
     code = STARRED_OPERATOR_RE.sub(_mark_limits_operator, code)
+    code = _rewrite_abs(code)
+    code = _rewrite_sized_delimiters(code)
+    code = re.sub(r"(?<!\.)\.\.\.(?!\.)", "…", code)
     code = ENV_CASES_RE.sub(_fix_single_col_cases, code)
     code = re.sub(r"\n\s*\n", "\n", code).strip()
     if not is_display:
@@ -1084,8 +1090,8 @@ def _unmark_norms(body: str) -> str:
 
 
 def _is_balanced(text: str) -> bool:
-    depth = {"{": 0, "(": 0}
-    closer = {"}": "{", ")": "("}
+    depth = {"{": 0, "(": 0, "[": 0}
+    closer = {"}": "{", ")": "(", "]": "["}
     for ch in text:
         if ch in depth:
             depth[ch] += 1
@@ -1094,6 +1100,198 @@ def _is_balanced(text: str) -> bool:
             if depth[closer[ch]] < 0:
                 return False
     return all(d == 0 for d in depth.values())
+
+
+def _has_barrier_at_depth_zero(s: str) -> bool:
+    depth = 0
+    i = 0
+    while i < len(s):
+        ch = s[i]
+        if ch in "({[":
+            depth += 1
+        elif ch in ")}]":
+            depth = max(0, depth - 1)
+        elif depth == 0:
+            if ch in ("=", "<", ">", ":", ";", "&"):
+                return True
+            if s[i : i + 2] == "\\\\":
+                return True
+            m = re.match(
+                r"\\(le|ge|leq|geq|in|notin|subset|supset|subseteq|supseteq|neq|ne|approx|sim|equiv|to|mapsto|rightarrow|coloneqq)\b",
+                s[i:],
+            )
+            if m:
+                return True
+        i += 1
+    return False
+
+
+def _parse_scripts(s: str, pos: int) -> tuple[str, int]:
+    scripts = ""
+    while pos < len(s):
+        if s[pos] in ("_", "^"):
+            op = s[pos]
+            pos += 1
+            if pos < len(s) and s[pos] == "{":
+                depth = 1
+                i = pos + 1
+                while i < len(s) and depth > 0:
+                    if s[i] == "{" and s[i - 1] != "\\":
+                        depth += 1
+                    elif s[i] == "}" and s[i - 1] != "\\":
+                        depth -= 1
+                    i += 1
+                scripts += f"{op}{{{s[pos + 1 : i - 1]}}}"
+                pos = i
+            elif pos < len(s) and s[pos] == "\\":
+                m = re.match(r"\\[a-zA-Z]+", s[pos:])
+                if m:
+                    scripts += f"{op}{m.group(0)}"
+                    pos += m.end()
+                else:
+                    scripts += f"{op}\\"
+                    pos += 1
+            elif pos < len(s) and (s[pos].isalnum() or s[pos] in ("*", "'")):
+                scripts += f"{op}{s[pos]}"
+                pos += 1
+            else:
+                pos -= 1
+                break
+        elif s[pos] == "'":
+            scripts += "'"
+            pos += 1
+        else:
+            break
+    return scripts, pos
+
+
+EXPLICIT_ABS_DELIM_RE = re.compile(
+    r"(\\left\s*\||"
+    r"\\right\s*\||"
+    r"\\[bB]igg?[lr]?\s*\||"
+    r"\\lvert|\\rvert)"
+)
+
+
+def _rewrite_abs(code: str) -> str:
+    changed = True
+    while changed:
+        changed = False
+        matches = list(EXPLICIT_ABS_DELIM_RE.finditer(code))
+        if len(matches) < 2:
+            break
+        for i in range(len(matches) - 1):
+            m1 = matches[i]
+            m2 = matches[i + 1]
+            t1 = re.sub(r"\s+", "", m1.group(0))
+            t2 = re.sub(r"\s+", "", m2.group(0))
+            if t1.startswith((r"\right", r"\rvert", r"\bigr", r"\Bigr", r"\biggr", r"\Biggr")):
+                continue
+            if t2.startswith((r"\left", r"\lvert", r"\bigl", r"\Bigl", r"\biggl", r"\Biggl")):
+                continue
+            inner = code[m1.end() : m2.start()]
+            if not _is_balanced(inner) or not inner.strip():
+                continue
+            scripts, end_pos = _parse_scripts(code, m2.end())
+            replacement = f"\\operatorname{{polytypstabs}}({inner.strip()}){scripts}"
+            code = code[: m1.start()] + replacement + code[end_pos:]
+            changed = True
+            break
+
+    changed = True
+    while changed:
+        changed = False
+        bars = [m.start() for m in re.finditer(r"(?<!\\)\|", code)]
+        if len(bars) < 2:
+            break
+        for i in range(len(bars) - 1):
+            p1 = bars[i]
+            p2 = bars[i + 1]
+            if p1 + 1 < len(code) and code[p1 + 1] in ("_", "^"):
+                continue
+            inner = code[p1 + 1 : p2]
+            if not inner.strip():
+                continue
+            if not _is_balanced(inner):
+                continue
+            if _has_barrier_at_depth_zero(inner):
+                continue
+            if re.search(r"(?:[+\-*/]|\\times|\\cdot)\s*$", inner):
+                continue
+            if re.search(r"^\s*(?:[*/]|\\times|\\cdot)", inner):
+                continue
+            scripts, end_pos = _parse_scripts(code, p2 + 1)
+            replacement = f"\\operatorname{{polytypstabs}}({inner.strip()}){scripts}"
+            code = code[: p1] + replacement + code[end_pos:]
+            changed = True
+            break
+    return code
+
+
+SIZED_CHEVRON_RE = re.compile(
+    r"(?:\\left|\\bigl|\\Bigl|\\biggl|\\Biggl)\s*\\langle\s*(.*?)\s*(?:\\right|\\bigr|\\Bigr|\\biggr|\\Biggr)\s*\\rangle",
+    re.DOTALL,
+)
+
+
+def _rewrite_sized_delimiters(code: str) -> str:
+    code = SIZED_CHEVRON_RE.sub(r"\\operatorname{polytypstlrchevron}(\1)", code)
+    code = re.sub(
+        r"(?:\\left|\\bigl|\\Bigl|\\biggl|\\Biggl)\s*\[\s*(.*?)\s*(?:\\right|\\bigr|\\Bigr|\\biggr|\\Biggr)\s*\]",
+        r"\\operatorname{polytypstlrbracket}(\1)",
+        code,
+    )
+    code = re.sub(
+        r"(?:\\left|\\bigl|\\Bigl|\\biggl|\\Biggl)\s*\\\{\s*(.*?)\s*(?:\\right|\\bigr|\\Bigr|\\biggr|\\Biggr)\s*\\\}",
+        r"\\operatorname{polytypstlrbrace}(\1)",
+        code,
+    )
+    code = re.sub(r"\\[bB]igg?[lr]?\s*\(", r"\\left(", code)
+    code = re.sub(r"\\[bB]igg?[lr]?\s*\)", r"\\right)", code)
+    return code
+
+
+def _find_balanced_parens(s: str, start: int) -> int:
+    count = 0
+    for i in range(start, len(s)):
+        if s[i] == "(":
+            count += 1
+        elif s[i] == ")":
+            count -= 1
+            if count == 0:
+                return i
+    return -1
+
+
+def _replace_call_wrapper(body: str, marker: str, open_wrap: str, close_wrap: str) -> str:
+    while True:
+        idx = body.find(marker)
+        if idx == -1:
+            break
+        paren_start = body.find("(", idx)
+        if paren_start == -1:
+            break
+        paren_end = _find_balanced_parens(body, paren_start)
+        if paren_end == -1:
+            break
+        prefix_start = body.rfind("op(\"" + marker + "\")", 0, paren_start)
+        if prefix_start == -1:
+            prefix_start = body.rfind("\"" + marker + "\"", 0, paren_start)
+        if prefix_start == -1:
+            prefix_start = idx
+        inner = body[paren_start + 1 : paren_end].strip()
+        if inner.endswith("\\"):
+            inner = inner[:-1].rstrip()
+        body = body[:prefix_start] + open_wrap + inner + close_wrap + body[paren_end + 1 :]
+    return body
+
+
+REL_SPACING_BEFORE_RE = re.compile(
+    r"\s*(?:\\[:;!]|~)\s*(?=(?:=|lt|gt|<|>|\\le\b|\\ge\b|\\leq\b|\\geq\b|\\in\b|\\notin\b|\\subset\b|\\supset\b|\\subseteq\b|\\supseteq\b|\\neq\b|\\ne\b|\\approx\b|\\sim\b|\\equiv\b|\\to\b|\\mapsto\b|\\rightarrow\b|:=|\\coloneqq))"
+)
+REL_SPACING_AFTER_RE = re.compile(
+    r"((?:=|lt|gt|<|>|\\le\b|\\ge\b|\\leq\b|\\geq\b|\\in\b|\\notin\b|\\subset\b|\\supset\b|\\subseteq\b|\\supseteq\b|\\neq\b|\\ne\b|\\approx\b|\\sim\b|\\equiv\b|\\to\b|\\mapsto\b|\\rightarrow\b|:=|\\coloneqq))\s*(?:\\[:;!]|~)\s*"
+)
 
 
 def _pair_escaped_bars(body: str) -> str:
@@ -1140,6 +1338,17 @@ def polish_pandoc_math(body: str) -> str:
     unsubscripted_bars = len(re.findall(r"\\\|(?![_^])", body))
     if unsubscripted_bars % 2 == 0 and unsubscripted_bars > 0:
         body = _pair_escaped_bars(body)
+    body = _replace_call_wrapper(body, "polytypstabs", "abs(", ")")
+    body = _replace_call_wrapper(body, "polytypstlrchevron", "lr(chevron.l ", " chevron.r)")
+    body = _replace_call_wrapper(body, "polytypstlrbracket", "lr([ ", " ])")
+    body = _replace_call_wrapper(body, "polytypstlrbrace", "lr({ ", " })")
+    body = re.sub(r"([\^_])\s*\(\s*\\?\*\s*\)", r"\1ast", body)
+    body = re.sub(r"([\^_])\s*\\?\*", r"\1ast", body)
+    body = body.replace(r"\*", "ast.op")
+    body = body.replace("dots.h.c", "dots.c")
+    body = body.replace("dots.h", "…")
+    body = re.sub(r"\.\s*\.\s*\.", "…", body)
+    body = re.sub(r"\bdots(?!\.[a-z])\b", "…", body)
     body = re.sub(r"\bsqrt\(\s*\)", "sqrt(med)", body)
     body = re.sub(r"\bangle\.([lr])\b", r"chevron.\1", body)
     body = re.sub(r"\bsect(?![A-Za-z0-9])", "inter", body)
@@ -1214,18 +1423,6 @@ def convert_math_batch(items: list[tuple[str, bool]]) -> list[str]:
         for key in _typst_rejects(finished):
             _PANDOC_CACHE[todo[key]] = _as_math_string(todo[key][0])
     return [_PANDOC_CACHE[k] for k in items]
-
-
-def _find_balanced_parens(s: str, start: int) -> int:
-    count = 0
-    for i in range(start, len(s)):
-        if s[i] == "(":
-            count += 1
-        elif s[i] == ")":
-            count -= 1
-            if count == 0:
-                return i
-    return -1
 
 
 def _fix_typst_single_arg_frac(text: str) -> str:
@@ -1331,6 +1528,12 @@ def finish_typst_math(s: str) -> str:
     s = re.sub(r"t\s+e\s+x\s+t\s*\(\s*(\"[^\"]*\")\s*\)", r"upright(\1)", s)
     s = re.sub(r"(?<=[(\s])\^([a-zA-Z0-9]+)", r'""^\1', s)
     s = re.sub(r"(?<=[(\s])_([a-zA-Z0-9]+)", r'""_\1', s)
+    s = re.sub(r'_\(\s*(?:upright\s*\(\s*)?l\s+o\s+c\s*\)?\s*\)', r'_("loc")', s)
+    s = re.sub(r'_\s*l\s+o\s+c\b', r'_("loc")', s)
+    s = re.sub(r'(?<![a-zA-Z"_\\])\bsupp\b(?![a-zA-Z"])', 'op("supp")', s)
+    s = s.replace("dots.h.c", "dots.c")
+    s = s.replace("dots.h", "…")
+    s = re.sub(r"\bdots(?!\.[a-z])\b", "…", s)
     return _fix_typst_single_arg_frac(s)
 
 

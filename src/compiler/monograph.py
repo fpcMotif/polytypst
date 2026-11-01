@@ -537,7 +537,7 @@ def split_first_paragraph(text: str) -> tuple[str, str]:
 
 
 
-def latex_safe_markdown(text: str) -> str:
+def latex_safe_markdown(text: str, *, proof_blocks: bool = False, proof_end_mark: bool = False) -> str:
     """Repair OCR math that LaTeX rejects but Typst tolerates."""
     text = _LATEX_ACCENT_SUPERSCRIPT_RE.sub(r"{}^{\1\2}", text)
     text = _LATEX_UNICODE_GREEK_RE.sub(
@@ -563,12 +563,30 @@ def latex_safe_markdown(text: str) -> str:
         text,
     )
     text = re.sub(r"(?<!\$)((?<!\\)\$[^$\n]+\$)[ \t]+([-‑]\w)", r"\1\2", text)
+    if proof_blocks:
+        def _norm_latex_proof_of(m: re.Match[str]) -> str:
+            target = m.group(1).title()
+            rest = m.group(2) if m.group(2) else ""
+            tail = f" {rest.strip()}" if rest.strip() else ""
+            return f"\\emph{{Proof of {target}.}}{tail}"
+
+        text = re.sub(r"(?:\*+|\\emph\{)PROOF\.\s*([^\*\}]+)(?:\*+|\})", r"\\emph{Proof.} \1", text)
+        text = re.sub(r"(?:\*+|\\emph\{|\\textbf\{)(?:PROOF|Proof)\.(?:\*+|\})", r"\\emph{Proof.}", text)
+        text = re.sub(r"^PROOF\.", r"\\emph{Proof.}", text, flags=re.MULTILINE)
+        text = re.sub(r"(?:\*+|\\emph\{|\\textbf\{)PROOF OF\s+(.+?)(?:\.\s+([A-Z“\"$][^\*\}]*))?\.?(?:\*+|\})", _norm_latex_proof_of, text, flags=re.IGNORECASE)
+
+    if proof_end_mark:
+        text = re.sub(r"(\\begin\{equation\*?\}[\s\S]*?)(?:\\quad|\s)*\\blacksquare(\s*\\end\{equation\*?\})", r"\1\2\n\\hfill$\\blacksquare$", text)
+        text = re.sub(r"(\$\$[\s\S]*?)(?:\\quad|\s)*\\blacksquare\s*(\$\$)", r"\1\2\n\\hfill$\\blacksquare$", text)
+        text = re.sub(r"(?:[ \t]*[■□]|\$\\blacksquare\$|\$\\square\$)", r"\\hfill$\\blacksquare$", text)
+        text = re.sub(r"(\\hfill\$\\blacksquare\$)[ \t]+(-|\S)", r"\1\n\n\2", text)
+
     def _escape_amp(m: re.Match[str]) -> str:
         blk = m.group(0)
         if blk.startswith(("$", "|", "\\")):
             return blk
         return re.sub(r"(?<!\\)&", r"\&", blk)
-    return re.sub(r"\$\$[\s\S]*?\$\$|(?<!\\)\$(?:[^$\n\\]|\\.)+\$|^\|[^\n]+\|$|[^$|\n]+", _escape_amp, text, flags=re.MULTILINE)
+    return re.sub(r"\\begin\{equation\*?\}[\s\S]*?\\end\{equation\*?\}|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$\$[\s\S]*?\$\$|(?<!\\)\$(?:[^$\n\\]|\\.)+\$|^\|[^\n]+\|$|[^$|\n]+", _escape_amp, text, flags=re.MULTILINE)
 
 def _split_trailing_note_block(text: str) -> tuple[str, str]:
     """Split a trailing reference/rule block off the prose that precedes it."""
@@ -1108,9 +1126,126 @@ def _column_weights(header: list[list[str]], body: list[list[str]], ncols: int, 
     return "(" + ", ".join([stub, *rest]) + ")"
 
 
+CONTINUED_TABLE_HEAD_RE = re.compile(r"^(?:@@PAGEBREAK@@\s*)?(?:#+\s*)?续表[^\n]*")
+CONTINUED_TABLE_PAIR_RE = re.compile(
+    r"((?:^[ \t]*\|[^\n]+\|[ \t]*\n)+)"
+    r"(?:[ \t]*\n)+(?:@@PAGEBREAK@@\s*)?(?:#+\s*)?续表[^\n]*\n(?:[ \t]*\n)*"
+    r"((?:^[ \t]*\|[^\n]+\|[ \t]*\n?)+)",
+    re.MULTILINE,
+)
+
+
+def _starts_continued_table(text: str) -> bool:
+    return bool(CONTINUED_TABLE_HEAD_RE.match(text.lstrip()))
+
+
+def _split_after_continued_table(text: str) -> tuple[str, str]:
+    m = re.search(
+        r"^(?:@@PAGEBREAK@@\s*)?(?:#+\s*)?续表[^\n]*(?:\n[ \t]*)*(?:\n[ \t]*\|[^\n]+\|[ \t]*)+"
+        r"(?:\n+(?:注|资料来源|（注|\(注|（资料来源|\(资料来源)[^\n]*(?:\n(?![ \t]*\n)[^\n]+)*)*",
+        text.lstrip(),
+        re.MULTILINE,
+    )
+    if not m:
+        return text, ""
+    stripped = text.lstrip()
+    return stripped[: m.end()].rstrip(), stripped[m.end() :].lstrip()
+
+
+def _parse_pipe_rows(block: str) -> tuple[list[list[str]], str]:
+    rows: list[list[str]] = []
+    sep = ""
+    for raw in block.strip().splitlines():
+        line = raw.strip()
+        if not (line.startswith("|") and line.endswith("|")):
+            continue
+        if not sep and rows and all(c in " |-:—–" for c in line):
+            sep = line
+            continue
+        rows.append([c.strip() for c in line.split("|")[1:-1]])
+    return rows, sep
+
+
+def _norm_header_cell(cell: str) -> str:
+    s = re.sub(r"<br\s*/?>", "", cell)
+    s = re.sub(r"[\s*_$^²{}（）()—–\-\u2060.,·:：]", "", s)
+    return s
+
+
+def _is_data_like_cell(cell: str) -> bool:
+    s = cell.strip()
+    return bool(re.match(r"^(?:\d{4}\s*[年.\-—–/]|[-−+]?\d+(?:\.\d+)?%?$|（[1-9]\）|\([1-9]\))", s))
+
+
+def _header_rows_match(r1: list[str], r2: list[str]) -> bool:
+    n1 = [_norm_header_cell(c) for c in r1]
+    n2 = [_norm_header_cell(c) for c in r2]
+    if n1 == n2:
+        return True
+    if _is_data_like_cell(r1[0]) or _is_data_like_cell(r2[0]):
+        return False
+    non_empty1 = [c for c in n1 if c]
+    non_empty2 = [c for c in n2 if c]
+    if non_empty1 and set(non_empty1) == set(non_empty2):
+        return True
+    matches = sum(1 for a, b in zip(n1, n2) if a and (a == b or a in b or b in a))
+    needed = max(1, (max(len(non_empty1), len(non_empty2)) + 1) // 2)
+    return matches >= needed and matches >= 2
+
+
+def _repeated_header_count(rows1: list[list[str]], rows2: list[list[str]]) -> int:
+    max_k = min(4, len(rows1), len(rows2))
+    k = 0
+    while k < max_k and _header_rows_match(rows1[k], rows2[k]):
+        k += 1
+    if k > 0:
+        return k
+    for sub_k in (3, 2):
+        if len(rows2) >= sub_k and len(rows1) > sub_k:
+            target = [[_norm_header_cell(c) for c in r] for r in rows2[:sub_k]]
+            for start in range(1, len(rows1) - sub_k + 1):
+                window = [[_norm_header_cell(c) for c in r] for r in rows1[start : start + sub_k]]
+                if window == target or all(_header_rows_match(a, b) for a, b in zip(window, rows2[:sub_k])):
+                    return sub_k
+    return 0
+
+
+def merge_continued_pipe_tables(text: str) -> str:
+    def _merge_pair(m: re.Match[str]) -> str:
+        t1, t2 = m.group(1), m.group(2)
+        rows1, sep1 = _parse_pipe_rows(t1)
+        rows2, _ = _parse_pipe_rows(t2)
+        if not rows1 or not rows2 or not sep1:
+            return f"{t1.rstrip()}\n\n{t2.lstrip()}"
+        ncols1 = max(len(r) for r in rows1)
+        ncols2 = max(len(r) for r in rows2)
+        if ncols1 != ncols2:
+            return f"{t1.rstrip()}\n\n{t2.lstrip()}"
+        for r in rows1:
+            r.extend([""] * (ncols1 - len(r)))
+        for r in rows2:
+            r.extend([""] * (ncols2 - len(r)))
+        drop = _repeated_header_count(rows1, rows2)
+        merged_rows = rows1 + rows2[drop:]
+        lines = [
+            "| " + " | ".join(merged_rows[0]) + " |",
+            sep1,
+            *("| " + " | ".join(r) + " |" for r in merged_rows[1:]),
+        ]
+        trailing = "\n" if t2.endswith("\n") else ""
+        return "\n".join(lines) + trailing
+
+    prev = None
+    while prev != text:
+        prev = text
+        text = CONTINUED_TABLE_PAIR_RE.sub(_merge_pair, text)
+    return text
+
+
 def format_pipe_tables_as_typst(text: str, three_line: bool = False) -> str:
     """Typst tables for the Markdown pipe tables in `text`. A `three_line` table (三线表) fills the text width,
     weights each narrow table's columns by their widest cell, and rules only its top, header and bottom."""
+    text = merge_continued_pipe_tables(text)
     lines = text.split("\n")
     out: list[str] = []
     i = 0
@@ -1347,6 +1482,9 @@ class MonographCompiler:
   linebreaks: "optimized"
 )
 
+#set list(indent: 1.2em, body-indent: 0.5em)
+#set enum(indent: 1.2em, body-indent: 0.5em)
+
 #show math.equation: set text(font: ({", ".join(f'"{f}"' for f in (lang.math_font, *lang.font_stack[1:]))},))
 #set math.equation(numbering: {eq_num_str})
 #set math.mat(row-gap: 0.55em, column-gap: 0.8em)
@@ -1360,7 +1498,7 @@ class MonographCompiler:
 #let thm-break = block(above: 1.65em, below: 0pt, sticky: true)[]
 #let sub-break = block(above: 1.35em, below: 0pt, sticky: true)[]
 #let item-break = block(above: 1.0em, below: 0pt)[]
-#let qed = {{ h(0.6em); box(width: 1fr, align(right)[$square.stroked$]) }}
+#let qed = {{ h(1fr); $square.filled.medium$ }}
 #let dd = math.dif
 #let dv(f, x, deg: none) = if deg == none {{ $(dif f)/(dif x)$ }} else {{ $(dif^deg f)/(dif x^deg)$ }}
 #let pdv(f, x, deg: none) = if deg == none {{ $(partial f)/(partial x)$ }} else {{ $(partial^deg f)/(partial x^deg)$ }}
@@ -1686,10 +1824,12 @@ class MonographCompiler:
             all_top_figs = pending_figs + top_figs
             pending_figs = []
             starts_lower = bool(text.strip()) and text.lstrip()[0].islower()
+            starts_cont_table = _starts_continued_table(text)
             prose, note_block = _split_trailing_note_block(acc)
             continues_prev = (
-                not ends_complete_paragraph(prose) and not starts_new_block(text)
-            ) or starts_lower
+                not starts_cont_table
+                and ((not ends_complete_paragraph(prose) and not starts_new_block(text)) or starts_lower)
+            )
             columns = self.spec.landscape_columns.get(pno, 1) if pno in self.spec.landscape_pages else 0
             if columns != page_columns:
                 page_columns = columns
@@ -1707,6 +1847,14 @@ class MonographCompiler:
                     acc += "\n\n" + note_block
                 if rest_p:
                     acc += "\n\n" + rest_p
+            elif _starts_continued_table(text):
+                if all_top_figs:
+                    cont_part, rest_part = _split_after_continued_table(text)
+                    acc += "\n\n" + cont_part + self.render_figure_group(all_top_figs, fig_dir)
+                    if rest_part:
+                        acc += "\n\n" + rest_part
+                else:
+                    acc += "\n\n" + text
             else:
                 if all_top_figs:
                     acc += self.render_figure_group(all_top_figs, fig_dir)
@@ -1718,7 +1866,8 @@ class MonographCompiler:
                     and bool(pages_data[idx + 1][1].strip())
                     and pages_data[idx + 1][1].lstrip()[0].islower()
                 )
-                if ends_complete_paragraph(acc) and not next_starts_lower:
+                next_continues_table = idx + 1 < len(pages_data) and _starts_continued_table(pages_data[idx + 1][1])
+                if ends_complete_paragraph(acc) and not next_starts_lower and not next_continues_table:
                     acc += self.render_figure_group(bot_figs, fig_dir)
                 else:
                     pending_figs.extend(bot_figs)
@@ -1727,7 +1876,7 @@ class MonographCompiler:
             acc += self.render_figure_group(pending_figs, fig_dir)
         if page_columns:
             acc += "\n\n@@FLIPPED0@@\n\n"
-        return acc
+        return merge_continued_pipe_tables(acc)
 
 
     def _printed_source(self, fig_block: str) -> str | None:
@@ -1770,6 +1919,49 @@ class MonographCompiler:
         )
         s = re.sub(r"^(\s*)=", r"\1\\=", s, flags=re.MULTILINE)
         s = re.sub(r"^>\s?", "", s, flags=re.MULTILINE)
+        s = re.sub(r"^[ \t]*●[ \t]+", r"- ", s, flags=re.MULTILINE)
+        s = re.sub(
+            r"^(={2,4}|#{2,4})\s+((?:(?:\d+(?:\.\d+)*|[A-Z]\.?\d*)\s+)?(?:THEOREM|LEMMA|COROLLARY|PROPOSITION|DEFINITIONS?|REMARKS?|EXAMPLES?|ASSUMPTIONS?|AXIOMS?|CONJECTURES?|CLAIMS?|PROPERT(?:Y|IES)|NOTATION)(?:\s*\([^)]*\))?)\.[ \t]*$",
+            r"\1 \2",
+            s,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
+        s = re.sub(
+            r"^(={2,4}|#{2,4})\s+((?:(?:\d+(?:\.\d+)*|[A-Z]\.?\d*)\s+)?(?:THEOREM|LEMMA|COROLLARY|PROPOSITION|DEFINITIONS?|REMARKS?|EXAMPLES?|ASSUMPTIONS?|AXIOMS?|CONJECTURES?|CLAIMS?|PROPERT(?:Y|IES)|NOTATION)(?:\s*\([^)]*\))?)\.\s+([A-Z“\"$].+)$",
+            r"\1 \2\n\n\3",
+            s,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
+        def _split_strong_head(m: re.Match[str]) -> str:
+            stars = m.group(1)
+            head = m.group(2).rstrip(".")
+            rest = m.group(3).strip()
+            return f"{stars}{head}{stars}\n\n{rest}"
+
+        s = re.sub(
+            r"^(\*{2,3})((?:(?:\d+(?:\.\d+)*|[A-Z]\.?\d*)\s+)?(?:THEOREM|LEMMA|COROLLARY|PROPOSITION|DEFINITIONS?|REMARKS?|EXAMPLES?|ASSUMPTIONS?|AXIOMS?|CONJECTURES?|CLAIMS?|PROPERT(?:Y|IES)|NOTATION)(?:\s*\([^)]*\))?)\.\s*\1[ \t]+([A-Z“\"$(].+)$",
+            _split_strong_head,
+            s,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
+        paras = s.split("\n\n")
+        for idx, para in enumerate(paras):
+            p_strip = para.strip()
+            if re.match(
+                r"^(?:={2,4}|#{2,4}|\*{2,3})\s*(?:(?:\d+(?:\.\d+)*|[A-Z]\.?\d*)\s+)?(?:THEOREM|LEMMA|COROLLARY|PROPOSITION)\b",
+                p_strip,
+                re.IGNORECASE,
+            ):
+                if idx + 1 < len(paras):
+                    next_p = paras[idx + 1].strip()
+                    if next_p and not re.match(
+                        r"^(?:={1,4}|#{1,4}|\*{1,3}|PROOF\b|#emph\[Proof|#strong\[Proof|\*Proof|\*\*Proof)",
+                        next_p,
+                        re.IGNORECASE,
+                    ):
+                        if not (next_p.startswith(("*", "_")) and next_p.endswith(("*", "_"))):
+                            paras[idx + 1] = f"*{next_p}*"
+        s = "\n\n".join(paras)
 
         for pattern, repl in spec.heading_rewrites:
             s = re.sub(pattern, repl, s, flags=re.MULTILINE)
@@ -1994,12 +2186,35 @@ class MonographCompiler:
         if self.composition.domain.proof_end_mark:
             s = re.sub(
                 r"^\s*□\s*$",
-                r"#v(-0.35em, weak: true)\n#align(right)[$square.stroked$]",
+                r"#v(-0.35em, weak: true)\n#align(right)[$square.filled.medium$]",
                 s,
                 flags=re.MULTILINE,
             )
-            s = re.sub(r"[ \t]*□", r"#qed", s)
+            s = re.sub(r"(?:\$square\.filled\.medium\$|[ \t]*[■□])", r"#qed", s)
+            s = re.sub(r"(#qed)[ \t]*(?:\n[ \t]*)?(-[ \t]+\S)", r"\1\n\n\2", s)
             s = re.sub(r"(\n\n)(?=#emph\[Proof)", r"\1#sub-break\n", s)
+        if self.composition.domain.proof_blocks:
+            def _norm_typst_proof_of(m: re.Match[str]) -> str:
+                target = m.group(1).title()
+                rest = m.group(2) if m.group(2) else ""
+                tail = f" {rest.strip()}" if rest.strip() else ""
+                return f"#emph[Proof of {target}.]{tail}"
+
+            s = re.sub(r"(?:\\?\*+|#emph\[)PROOF\.\s*([^\]\*]+)(?:\\?\*+|\])", r"#emph[Proof.] \1", s)
+            s = re.sub(r"(?:\\?\*+|#emph\[|#strong\[)(?:PROOF|Proof)\.(?:\\?\*+|\])", r"#emph[Proof.]", s)
+            s = re.sub(r"^PROOF\.", r"#emph[Proof.]", s, flags=re.MULTILINE)
+            s = re.sub(r"(?:\\?\*+|#emph\[|#strong\[)PROOF OF\s+(.+?)(?:\.\s+([A-Z“\"$][^\]\*]*))?\.?(?:\\?\*+|\])", _norm_typst_proof_of, s, flags=re.IGNORECASE)
+
+        def _format_hanging_par(m: re.Match[str]) -> str:
+            marker = m.group(1)
+            body = m.group(2)
+            return f"#par(first-line-indent: 0pt, hanging-indent: 1.8em)[#box(width: 1.8em)[({marker})]{body}]"
+
+        s = re.sub(
+            r"(?m)^\(([0-9]{1,2}|[a-z]{1,4})\)[ \t]+([^\n]+(?:\n(?!\n|\([0-9a-z]{1,4}\)[ \t]|#)[^\n]+)*)",
+            _format_hanging_par,
+            s,
+        )
         s = re.sub(r"(\n\n)(?=#strong\[)", r"\1#thm-break\n", s)
         s = re.sub(
             r"(\n\n)(?=\((?:[1-9]\d?|[ivx]{1,4}|[1-9]-[1-9])\)\s+)",
@@ -2019,6 +2234,7 @@ class MonographCompiler:
         s = re.sub(
             r"@@INLINEMATH(\d+)@@", lambda m: f"${inline_typst[int(m.group(1))].strip()}$", s
         )
+        s = re.sub(r"(\$[^$\n]+\$)[ \t]+([-‑]\w)", r"\1\2", s)
         diagrams = (
             convert_diagrams(
                 [body for body, _ in display_blocks],
@@ -2033,9 +2249,16 @@ class MonographCompiler:
             if scan := SCAN_DIAGRAM_RE.fullmatch(display_blocks[i][0].strip()):
                 fig = scan_diagram_typst(scan.group(1), self._out_dir / spec.figure_dir, spec.figure_dir)
                 return f"\n$ {fig} $ {label}\n"
+            disp_math = display_typst[i]
+            qed_box = ""
+            if self.composition.domain.proof_end_mark:
+                m_end = re.search(r"(?:\\quad|quad)?\s*(?:square\.filled(?:\.medium)?|square\.stroked|square)\s*$", disp_math)
+                if m_end:
+                    disp_math = disp_math[:m_end.start()].rstrip()
+                    qed_box = "\n#v(-0.4em, weak: true)\n#align(right)[$square.filled.medium$]"
             if i not in diagrams:
-                return f"\n$ {display_typst[i]} $ {label}\n"
-            return f"\n$ #{diagrams[i]} $ {label}\n" if label else f"\n#align(center, {diagrams[i]})\n"
+                return f"\n$ {disp_math} $ {label}\n{qed_box}"
+            return f"\n$ #{diagrams[i]} $ {label}\n{qed_box}" if label else f"\n#align(center, {diagrams[i]})\n{qed_box}"
 
         s = re.sub(r"@@DISPLAYBLOCK(\d+)@@", display, s)
         indent = self.composition.language.first_line_indent
@@ -2179,6 +2402,10 @@ class MonographCompiler:
         title = self.spec.index_title
         entries: list[str] = []
         store = TranscriptStore(md_dir)
+        prepositions = ("of ", "in ", "for ", "with ", "by ", "on ", "to ", "and ", "under ", "from ", "as ", "at ")
+        current_section = None
+        header_term = None
+
         for pno in range(start_p, end_p + 1):
             text = store.text(pno)
             if text is None:
@@ -2193,14 +2420,42 @@ class MonographCompiler:
                     re.IGNORECASE,
                 ):
                     continue
+                if m_sec := re.match(r"^#+\s*([A-Z])\s*$", lt):
+                    current_section = m_sec.group(1).lower()
+                    header_term = None
+                    entries.append(f"#heading(level: 2, numbering: none, outlined: false)[{m_sec.group(1)}]")
+                    continue
+
                 line_clean = lt.replace('"', "''").replace("#", r"\#")
                 line_clean = re.sub(r"\*([^\*]+)\*", r"#emph[\1]", line_clean)
                 line_clean = clean_margin_and_inline_math(line_clean)
-                is_sub = self.spec.index_subentries and (
-                    raw_line.startswith("  ")
-                    or (lt[0].islower() and not lt.startswith(("i.e.", "e.g.")))
-                )
-                entries.append(f"#h(1.2em){line_clean}" if is_sub else line_clean)
+
+                has_page = bool(re.search(r",\s*\d+", lt) or re.search(r"\s+\d+$", lt))
+                clean = re.sub(r"^\$[^$]+\$\s*", "", lt).lstrip("(\"'`")
+                m_alpha = re.search(r"[a-zA-Z]", clean)
+                first_alpha = m_alpha.group(0).lower() if m_alpha else None
+
+                is_sub = False
+                if raw_line.startswith("  ") or raw_line.startswith("\t"):
+                    is_sub = True
+                elif any(lt.lower().startswith(p) for p in prepositions):
+                    is_sub = True
+                elif current_section and first_alpha and first_alpha != current_section:
+                    is_sub = True
+                elif header_term:
+                    if first_alpha == current_section and clean.lower() >= header_term.lower() and has_page and not any(clean.lower().startswith(p) for p in prepositions):
+                        header_term = None
+                        is_sub = False
+                    else:
+                        is_sub = True
+
+                if not is_sub:
+                    if not has_page:
+                        header_term = clean
+                    else:
+                        header_term = None
+
+                entries.append(f"#h(1.5em){line_clean}" if is_sub else line_clean)
 
         joined = "\n\n".join(entries)
         return (
@@ -2304,8 +2559,9 @@ class MonographCompiler:
                     typst_sections += [prebuilt, "\n#pagebreak(weak: true)\n"]
                 continue
             pages_data: list[PageParts] = []
+            clean_title = re.sub(r"^\d+\.?\s*", "", clean_margin_and_inline_math(chap.title))
             ch_md_pages: list[str] = [
-                f"\n# {chap.title}\n"
+                f"\n# {clean_title}\n"
                 if spec.cross_references or is_unnumbered_chapter(chap.title)
                 else f"\n# Chapter {chap.number}: {chap.title}\n"
             ]
@@ -2319,6 +2575,13 @@ class MonographCompiler:
                 ):
                     continue
                 p_body, top_f, bot_f = self.cleaner.clean(raw_text, pno)
+                if pno == chap.start_page:
+                    norm_chap_title = clean_title.strip().lower()
+                    m_dup = re.match(r"^\s*#+\s*([^\n]+)\n*", p_body)
+                    if m_dup:
+                        first_heading_title = re.sub(r"^\d+\.?\s*", "", clean_margin_and_inline_math(m_dup.group(1))).strip().lower()
+                        if first_heading_title == norm_chap_title:
+                            p_body = p_body[m_dup.end():]
                 if spec.commutative_diagrams:
                     p_body = use_scan_diagrams(p_body, pno, fig_dir)
                 pages_data.append((pno, p_body, top_f, bot_f))
@@ -2335,7 +2598,7 @@ class MonographCompiler:
                         md_page += f"\n\n![{cap}]({spec.figure_dir}/{asset.name})"
                 ch_md_pages.append(md_page)
 
-            md_sections.append("\n\n".join(join_markdown_pages(ch_md_pages)))
+            md_sections.append(merge_continued_pipe_tables("\n\n".join(join_markdown_pages(ch_md_pages))))
             title = clean_margin_and_inline_math(chap.title)
             label = (
                 chap.label
@@ -2363,6 +2626,7 @@ class MonographCompiler:
                 else ("索引" not in title and "Index" not in title and "校订后记" not in title)
             )
             if should_number:
+                formatted = f"\n{heading}\n\n" + formatted
                 formatted, chapter_resyncs = number_chapter(
                     formatted, chap.number, seen=seen_typst, circled=spec.circled_items
                 )
@@ -2372,6 +2636,8 @@ class MonographCompiler:
                     number_chapter(md_sections[-1], chap.number, LATEX, seen=seen_latex, circled=spec.circled_items)[0],
                     chap.number,
                 )
+            else:
+                formatted = f"\n{heading}\n\n" + formatted
             if "索引" in title or "Index" in title:
                 formatted = re.sub(r"#src-page\((\d+)\)", r"#src-top(\1);", formatted)
                 formatted = (
@@ -2381,7 +2647,7 @@ class MonographCompiler:
                     f"  {formatted}\n"
                     "]"
                 )
-            typst_sections.append(f"\n{heading}\n\n" + formatted)
+            typst_sections.append(formatted)
             typst_sections.append("\n#pagebreak(weak: true)\n")
 
         known = set().union(*(source_labels(typst_sections[i]) for i, _ in numbered_chapters))
@@ -2483,14 +2749,14 @@ class MonographCompiler:
             compiled.unlink(missing_ok=True)
 
     def _write_latex(self, md_out: Path, tex_out: Path, markdown: str | None = None) -> None:
-        xy_inc = r"\usepackage[all,cmtip]{xy}" if self.spec.commutative_diagrams else ""
+        xy_inc = r"\IfFileExists{xy.sty}{\usepackage[all,cmtip]{xy}}{}" if self.spec.commutative_diagrams else ""
         header_includes = (
             xy_inc
             + r"\usepackage{graphicx}\usepackage{amscd}\usepackage{amsthm}\usepackage{caption}\captionsetup[figure]{labelformat=empty}"
             + LATEX_CIRCLED_GLYPHS
             + latex_footnote_header(self.spec)
             + (SOURCE_NUMBER_LATEX_RULES if self.spec.cross_references else "")
-            + (SCAN_DIAGRAM_LATEX if self.spec.commutative_diagrams else "")
+            + (r"\IfFileExists{adjustbox.sty}{\usepackage[export]{adjustbox}\newcommand{\scandiagram}[1]{\includegraphics[max width=\linewidth,max height=0.45\textheight,keepaspectratio]{figures/fig_##1.png}}}{\newcommand{\scandiagram}[1]{\includegraphics[width=\linewidth,height=0.45\textheight,keepaspectratio]{figures/fig_##1.png}}}" if self.spec.commutative_diagrams else "")
             + (LATEX_CHINESE_PARAGRAPHS if self.composition.language.code == "zh" else "")
         )
         if self.spec.latex_preamble:

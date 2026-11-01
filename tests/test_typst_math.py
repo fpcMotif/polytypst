@@ -204,5 +204,81 @@ def test_supp_is_an_upright_operator():
 def test_a_starred_operator_name_sets_its_scripts_as_limits():
     out = convert(r"\operatorname*{ess\,sup}_{x \in X} f(x)")
     assert out.startswith('op("ess sup", limits: #true)_(x in X)'), out
+    assert 'op("argmax", limits: #true)' in convert(r"\operatorname*{argmax}_{y} g(y)")
+
+
+def test_absolute_values_become_typst_abs_calls():
+    assert convert(r"|x - y|") == "abs(x - y)"
+    assert convert(r"|x - y|^2") == "abs(x - y)^2"
+    assert convert(r"\left| \frac{a}{b} \right|") == "abs(a / b)"
+    assert convert(r"\bigl| x \bigr|") == "abs(x)"
+    assert "norm" not in convert(r"|x|")
+
+
+def test_bars_in_set_builders_and_evaluations_survive():
+    set_builder = convert(r"\{ x \in \mathbb{R}^n : |x| < 1 \}")
+    assert "abs(x)" in set_builder
+    assert "<" in set_builder
+    assert "abs" not in convert(r"f|_A")
+
+
+def test_upright_math_operators():
+    assert convert(r"\sup_{x \in X} f(x)") == "sup_(x in X) f ( x )"
+    assert convert(r"\inf_{x \in X} f(x)") == "inf_(x in X) f ( x )"
+    assert convert(r"\lim_{n \to \infty} a_n") == "lim_(n arrow.r oo) a_n"
+    assert convert(r"\log(x) + \ln(y)") == "log ( x ) + ln ( y )"
+    assert convert(r"\det(A)") == "det ( A )"
+    assert "op(\"supp\")" in convert(r"\supp f")
+    assert "op(\"supp\")" in convert(r"\operatorname{supp} f")
+
+
+def test_loc_in_subscripts_is_upright():
+    for expr in (
+        r"L^p_{\text{loc}}",
+        r"L^p_{loc}",
+        r"L^p_{\mathrm{loc}}",
+        r"L^1_{\operatorname{loc}}",
+    ):
+        res = convert(expr)
+        assert '"loc"' in res or 'upright("loc")' in res
+        assert "l o c" not in res
+
+
+def test_star_operator_spacing_and_scripts():
+    conv = convert(r"f * g")
+    assert "ast.op" in conv
+    conv_paren = convert(r"(f * g)")
+    assert "ast.op" in conv_paren
+    assert convert(r"f^*") == "f^ast"
+    assert convert(r"f_*") == "f_ast"
+    assert convert(r"f^\ast") == "f^ast"
+    assert convert(r"f_\ast") == "f_ast"
+    res = convert(r"(f * g)^*(x)")
+    assert "ast.op" in res and "^ast" in res
+
+
+def test_ellipses_horizontal_and_centered():
+    assert convert(r"\dots") == "…"
+    assert convert(r"\ldots") == "…"
+    assert "…" in convert(r"x_1, \dots, x_n")
+    assert "…" in convert(r"x_1, \ldots, x_n")
+    assert convert(r"\cdots") == "dots.c"
+    assert "dots.c" in convert(r"x_1 + \cdots + x_n")
+    assert "…" in convert(r"x_1 + ... + x_n")
+
+
+def test_sized_delimiters():
+    res1 = convert(r"\left\langle x, y \right\rangle")
+    assert res1.startswith("lr(chevron.l") and res1.endswith("chevron.r)")
+    res2 = convert(r"\bigl\langle x, y \bigr\rangle")
+    assert res2.startswith("lr(chevron.l") and res2.endswith("chevron.r)")
+    assert convert(r"\left[ \frac{a}{b} \right]") == "lr([ a / b ])"
+    assert convert(r"\left\{ \frac{a}{b} \right\}") == "lr({ a / b })"
+
+
+def test_widehat_conversion():
+    assert convert(r"\widehat{f}") == "hat(f)"
+    wide = convert(r"\widehat{f * g}")
+    assert "hat(" in wide or "accent(" in wide
 
 

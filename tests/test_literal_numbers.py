@@ -156,3 +156,34 @@ def test_only_italic_d_in_a_real_differential_is_counted(tmp_path):
     spec = replace(ALGEBRA3_SPEC, cross_references=False)
     assert edition_literal_counts(rebuilt, spec) == {"TYPST_ITALIC_DIFFERENTIAL": 3}
 
+
+def test_typed_level_1_headings_are_counted():
+    typst = (
+        TYPST.chapter_start
+        + "= 1 Measure and Integration\n\n"
+        + "== 1.1 Background\n\n"
+    )
+    latex = (
+        LATEX.chapter_start
+        + "\\chapter{1 Measure and Integration}\n\n"
+        + "\\section{1.1 Background}\n\n"
+    )
+    assert literal_numbering_counts(typst, TYPST)["LITERAL_HEADING_NUMBER"] == 2
+    assert literal_numbering_counts(latex, LATEX)["LITERAL_HEADING_NUMBER"] == 2
+
+
+def test_unlinked_theorem_references_are_counted():
+    typst = (
+        TYPST.chapter_start
+        + "Voir Theorem 2.16 et Lemma 2.19 mais pas Theorem 3.99.\n\n"
+        + "<sec-2-16> <sec-2-19>\n"
+    )
+    latex = (
+        LATEX.chapter_start
+        + "Voir Theorem 2.16 et Lemma 2.19 mais pas Theorem 3.99.\n\n"
+        + "\\label{sec-2-16} \\label{sec-2-19}\n"
+    )
+    assert literal_numbering_counts(typst, TYPST)["UNLINKED_REFERENCE"] == 2
+    assert literal_numbering_counts(latex, LATEX)["UNLINKED_REFERENCE"] == 2
+
+
