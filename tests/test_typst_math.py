@@ -19,6 +19,10 @@ def convert(code: str, display: bool = False) -> str:
     return convert_math_batch([(code, display)])[0]
 
 
+def layout_convert(code: str) -> str:
+    return convert_math_batch([(code, False)], theorem_layout=True)[0]
+
+
 def test_section_sign_survives_conversion():
     assert convert(r"\S 2") == "section 2"
     assert "section 6" in convert(r"(\S 6, \text{Corollary 1})")
@@ -208,11 +212,11 @@ def test_a_starred_operator_name_sets_its_scripts_as_limits():
 
 
 def test_absolute_values_become_typst_abs_calls():
-    assert convert(r"|x - y|") == "abs(x - y)"
-    assert convert(r"|x - y|^2") == "abs(x - y)^2"
-    assert convert(r"\left| \frac{a}{b} \right|") == "abs(a / b)"
-    assert convert(r"\bigl| x \bigr|") == "abs(x)"
-    assert "norm" not in convert(r"|x|")
+    assert layout_convert(r"|x - y|") == "abs(x - y)"
+    assert layout_convert(r"|x - y|^2") == "abs(x - y)^2"
+    assert layout_convert(r"\left| \frac{a}{b} \right|") == "abs(a / b)"
+    assert layout_convert(r"\bigl| x \bigr|") == "abs(x)"
+    assert "norm" not in layout_convert(r"|x|")
 
 
 def test_bars_in_set_builders_and_evaluations_survive():
@@ -239,41 +243,42 @@ def test_loc_in_subscripts_is_upright():
         r"L^p_{\mathrm{loc}}",
         r"L^1_{\operatorname{loc}}",
     ):
-        res = convert(expr)
+        res = layout_convert(expr)
         assert '"loc"' in res or 'upright("loc")' in res
         assert "l o c" not in res
 
 
 def test_star_operator_spacing_and_scripts():
-    conv = convert(r"f * g")
+    conv = layout_convert(r"f * g")
     assert "ast.op" in conv
-    conv_paren = convert(r"(f * g)")
+    conv_paren = layout_convert(r"(f * g)")
     assert "ast.op" in conv_paren
-    assert convert(r"f^*") == "f^ast"
-    assert convert(r"f_*") == "f_ast"
-    assert convert(r"f^\ast") == "f^ast"
-    assert convert(r"f_\ast") == "f_ast"
-    res = convert(r"(f * g)^*(x)")
+    assert layout_convert(r"f^*") == "f^ast"
+    assert layout_convert(r"f_*") == "f_ast"
+    assert layout_convert(r"f^\ast") == "f^ast"
+    assert layout_convert(r"f_\ast") == "f_ast"
+    res = layout_convert(r"(f * g)^*(x)")
     assert "ast.op" in res and "^ast" in res
 
 
 def test_ellipses_horizontal_and_centered():
-    assert convert(r"\dots") == "…"
-    assert convert(r"\ldots") == "…"
-    assert "…" in convert(r"x_1, \dots, x_n")
-    assert "…" in convert(r"x_1, \ldots, x_n")
-    assert convert(r"\cdots") == "dots.c"
-    assert "dots.c" in convert(r"x_1 + \cdots + x_n")
-    assert "…" in convert(r"x_1 + ... + x_n")
+    assert layout_convert(r"\dots") == "…"
+    assert layout_convert(r"\ldots") == "…"
+    assert "…" in layout_convert(r"x_1, \dots, x_n")
+    assert "…" in layout_convert(r"x_1, \ldots, x_n")
+    assert layout_convert(r"\cdots") == "dots.c"
+    assert "dots.c" in layout_convert(r"x_1 + \cdots + x_n")
+    assert "…" in layout_convert(r"x_1 + ... + x_n")
+    assert "…" not in convert(r"x_1, \dots, x_n")
 
 
 def test_sized_delimiters():
-    res1 = convert(r"\left\langle x, y \right\rangle")
+    res1 = layout_convert(r"\left\langle x, y \right\rangle")
     assert res1.startswith("lr(chevron.l") and res1.endswith("chevron.r)")
-    res2 = convert(r"\bigl\langle x, y \bigr\rangle")
+    res2 = layout_convert(r"\bigl\langle x, y \bigr\rangle")
     assert res2.startswith("#scale(x: 120%, y: 120%)[chevron.l]")
-    assert convert(r"\left[ \frac{a}{b} \right]") == "lr([ a / b ])"
-    assert convert(r"\left\{ \frac{a}{b} \right\}") == "lr({ a / b })"
+    assert layout_convert(r"\left[ \frac{a}{b} \right]") == "lr([ a / b ])"
+    assert layout_convert(r"\left\{ \frac{a}{b} \right\}") == "lr({ a / b })"
 
 
 def test_widehat_conversion():

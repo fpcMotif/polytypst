@@ -61,7 +61,7 @@ class DomainProfile:
     equation_numbering: str
     theorem_heads: tuple[str, ...]
     proof_end_mark: bool
-    proof_blocks: bool = False
+    layout_theorem_heads: tuple[str, ...] = ()
 
 
 PUBLISHER_PRESETS: dict[str, PublisherPreset] = {
@@ -293,27 +293,23 @@ DOMAIN_PROFILES: dict[str, DomainProfile] = {
         key="math",
         equation_numbering="(1.1)",
         proof_end_mark=True,
-        proof_blocks=True,
         theorem_heads=(
             "Theorem",
             "Lemma",
             "Corollary",
             "Proposition",
             "Definition",
-            "Remark",
             "Example",
-            "Assumption",
-            "Claim",
-            "Conjecture",
+            "Remark",
             "Axiom",
-            "Notation",
+            "Conjecture",
         ),
+        layout_theorem_heads=("Assumption", "Claim", "Notation"),
     ),
     "physics": DomainProfile(
         key="physics",
         equation_numbering="(1.1)",
         proof_end_mark=True,
-        proof_blocks=True,
         theorem_heads=(
             "Postulate",
             "Law",
@@ -322,10 +318,8 @@ DOMAIN_PROFILES: dict[str, DomainProfile] = {
             "Definition",
             "Example",
             "Exercise",
-            "Assumption",
-            "Claim",
-            "Notation",
         ),
+        layout_theorem_heads=("Assumption", "Claim", "Notation"),
     ),
     "economics": DomainProfile(
         key="economics",
@@ -374,6 +368,11 @@ class CompositionConfig:
     publisher: PublisherPreset
     language: LanguageProfile
     domain: DomainProfile
+    theorem_layout: bool = False
+
+    @property
+    def theorem_heads(self) -> tuple[str, ...]:
+        return self.domain.theorem_heads + (self.domain.layout_theorem_heads if self.theorem_layout else ())
 
     def typst_font_tuple(self) -> str:
         if len(self.language.font_stack) == 1:
@@ -383,7 +382,7 @@ class CompositionConfig:
 
     def theorem_words(self) -> tuple[tuple[str, str], ...]:
         spelled = dict(self.language.numbering.theorems)
-        return tuple((kind, spelled.get(kind, kind)) for kind in self.domain.theorem_heads)
+        return tuple((kind, spelled.get(kind, kind)) for kind in self.theorem_heads)
 
     def typst_heading_rules(self) -> str:
         tests = [
@@ -397,6 +396,14 @@ class CompositionConfig:
         style = self.publisher.heading_style
         use_sc = self.language.code != "zh"
         sc_body = "#smallcaps(it.body)" if use_sc else "#it.body"
+        chapter_number = (
+            f""" else if it.numbering != none {{
+      align(center, text(11pt, weight: "regular", tracking: 0.14em, font: {font_expr})[CHAPTER #counter(heading).display()])
+      v(0.4em)
+    }}"""
+            if self.theorem_layout
+            else ""
+        )
         if style == "centered-smallcaps":
             h1 = f"""#show heading.where(level: 1): it => {{
   v(2.8em)
@@ -413,10 +420,7 @@ class CompositionConfig:
     if label != none {{
       align(center, text(11pt, tracking: 0.12em, font: {font_expr})[#smallcaps(label)])
       v(0.9em)
-    }} else if it.numbering != none {{
-      align(center, text(11pt, weight: "regular", tracking: 0.14em, font: {font_expr})[CHAPTER #counter(heading).display()])
-      v(0.4em)
-    }}
+    }}{chapter_number}
   }}
   align(center)[
     #text(14pt, weight: "bold", tracking: 0.06em, font: {font_expr})[#smallcaps(it.body)]
@@ -470,6 +474,21 @@ class CompositionConfig:
   v(1.4em)
 }}"""
         h4_body = "#smallcaps(it.body)" if use_sc else "#it.body"
+        if not self.theorem_layout:
+            italic_h3 = 'style: "italic", ' if self.language.code != "zh" else ""
+            return f"""{h1}
+
+#show heading.where(level: 2): it => block(above: 1.75em, below: 0.75em, sticky: true)[
+  #text(12.5pt, weight: "bold", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+]
+
+#show heading.where(level: 3): it => block(above: 1.3em, below: 0.5em, sticky: true)[
+  #text(10.5pt, weight: "bold", {italic_h3}font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+]
+
+#show heading.where(level: 4): it => block(above: 1.1em, below: 0.45em, sticky: true)[
+  #text(10pt, weight: "bold", font: {font_expr})[{h4_body}]
+]"""
         return f"""#show heading: set block(sticky: true)
 #show heading: set text(hyphenate: false)
 
@@ -516,6 +535,7 @@ def resolve_composition(
     lang: str = "en",
     *,
     domain: str,
+    theorem_layout: bool = False,
 ) -> CompositionConfig:
     pub_key = publisher.strip().lower()
     lang_key = lang.strip().lower().split("-")[0]
@@ -523,6 +543,7 @@ def resolve_composition(
         publisher=PUBLISHER_PRESETS.get(pub_key, PUBLISHER_PRESETS["cambridge"]),
         language=LANGUAGE_PROFILES.get(lang_key, LANGUAGE_PROFILES["en"]),
         domain=domain_profile(domain),
+        theorem_layout=theorem_layout,
     )
 
 

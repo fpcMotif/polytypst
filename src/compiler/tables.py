@@ -288,10 +288,11 @@ def merge_continued_tables(text: str) -> str:
     return text
 
 
-def _format_pipe_tables(text: str, three_line: bool = False) -> str:
+def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bool = False) -> str:
     """Typst tables for the Markdown pipe tables in `text`. A `three_line` table (三线表) fills the text width,
     weights each narrow table's columns by their widest cell, and rules only its top, header and bottom."""
-    text = merge_continued_tables(text)
+    if merge_continued:
+        text = merge_continued_tables(text)
     lines = text.split("\n")
     out: list[str] = []
     i = 0
@@ -436,7 +437,7 @@ def _format_pipe_tables(text: str, three_line: bool = False) -> str:
     return "\n".join(out)
 
 
-def layout_tables(text: str, tables: list[str], three_line: bool = False) -> str:
+def layout_tables(text: str, tables: list[str], three_line: bool = False, merge_continued: bool = False) -> str:
     """Typst for the tables of a section. `text` holds `@@TABLEBLOCKn@@` for `tables[n]`, and `@@FLIPPEDn@@`
     where an n-column landscape page starts. Each table keeps its label on its page, the panels of a
     multi-column page share one grid, and a run of text-heavy tables moves to its own landscape page."""
@@ -453,5 +454,7 @@ def layout_tables(text: str, tables: list[str], three_line: bool = False) -> str
         flags=re.DOTALL,
     )
     text = _rotate_text_tables(text, tables)
-    text = re.sub(r"@@TABLEBLOCK(\d+)@@", lambda m: _format_pipe_tables(tables[int(m[1])], three_line), text)
-    return _format_pipe_tables(text, three_line)
+    text = re.sub(
+        r"@@TABLEBLOCK(\d+)@@", lambda m: _format_pipe_tables(tables[int(m[1])], three_line, merge_continued), text
+    )
+    return _format_pipe_tables(text, three_line, merge_continued)

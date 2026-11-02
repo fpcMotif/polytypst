@@ -622,7 +622,7 @@ def _abs_call(m: re.Match[str]) -> str:
 
 
 @functools.lru_cache(maxsize=8192)
-def sanitize_math_code(code: str, is_display: bool = False) -> str:
+def sanitize_math_code(code: str, is_display: bool = False, theorem_layout: bool = False) -> str:
     code = re.sub(r"\\tag\{[^{}]*\}", "", code)
     code = re.sub(r"\\[\u4e00-\u9fff]", "", code)
     code = re.sub(r"\(\s*\\(?=[\s\)\]])\s*", "(", code)
@@ -760,10 +760,14 @@ def sanitize_math_code(code: str, is_display: bool = False) -> str:
     if r"\|" in code:
         code = re.sub(
             r"\\\|\s*([^|\n]+?)\s*\\\|",
-            r" norm(\1) ",
+            lambda m: (
+                f" lr(|| {m.group(1)} ||) "
+                if "," in m.group(1)
+                else f" norm({m.group(1)}) "
+            ),
             code,
         )
-        code = code.replace(r"\|", " ")
+        code = code.replace(r"\|", " || ")
     code = LEFT_RIGHT_ABS_RE.sub(_abs_call, code)
     code = BIG_ABS_RE.sub(_abs_call, code)
     code = code.replace(r"\left", "").replace(r"\right", "").replace(r"\middle", "")
@@ -792,10 +796,11 @@ def sanitize_math_code(code: str, is_display: bool = False) -> str:
     )
     code = re.sub(r"\\ne(?:q)?(?![a-zA-Z])", "!=", code)
     code = code.replace(r"\quad", " quad ").replace(r"\qquad", " quad quad ")
+    centered, low = (" dots.c ", " … ") if theorem_layout else (" dots.h.c ", " dots.h ")
     code = (
-        code.replace(r"\cdots", " dots.c ")
-        .replace(r"\ldots", " … ")
-        .replace(r"\dots", " … ")
+        code.replace(r"\cdots", centered)
+        .replace(r"\ldots", low)
+        .replace(r"\dots", low)
         .replace(r"\vdots", " dots.v ")
         .replace(r"\ddots", " dots.down ")
         .replace(r"\pm", " plus.minus ")
@@ -954,7 +959,7 @@ LIMITS_MARK = "polytypstlimits"
 NORM_BAR_RE = re.compile(r"\\left\s*\\\||\\right\s*\\\||\\lVert|\\rVert|\\\|")
 STARRED_OPERATOR_RE = re.compile(r"\\operatorname\*\{([^{}]+)\}")
 LIMITS_OPERATOR_RE = re.compile(rf'op\("{LIMITS_MARK}([0-9a-f]+)"\)|"{LIMITS_MARK}([0-9a-f]+)"')
-_PANDOC_CACHE: dict[tuple[str, bool], str] = {}
+_PANDOC_CACHE: dict[tuple[str, bool, bool], str] = {}
 _DANGLING_OPERATOR_RE = re.compile(r"([\^_√])(?=\s*(?:$|[)\]},;&^_]))")
 _LEADING_SCRIPT_RE = re.compile(r"(?:^|[({\[])\s*(?=[\^_])")
 _EMPTY_CALL_RE = re.compile(r"\b([A-Za-z]{2,}(?:\.[A-Za-z]+)*)\(\s*\)")
@@ -1015,23 +1020,25 @@ def _unescape_balanced_delims_line(line: str) -> str:
     return "".join(out)
 
 
-def prepare_latex_math(code: str, is_display: bool) -> str:
+def prepare_latex_math(code: str, is_display: bool, theorem_layout: bool = False) -> str:
     """Normalize OCR LaTeX so that Pandoc's TeX math reader accepts it."""
     code = code.strip()
     for pattern, repl in LATEX_MACRO_REWRITES:
         code = pattern.sub(repl, code)
-    code = re.sub(
-        r"_(?:\{\s*\\(?:text|mathrm|rm|operatorname)\s*\{loc\}\s*\}|\{\s*(?:\\rm\s+)?loc\s*\}|loc\b)",
-        r"_{\\operatorname{loc}}",
-        code,
-    )
-    code = REL_SPACING_BEFORE_RE.sub(" ", code)
-    code = REL_SPACING_AFTER_RE.sub(r"\1 ", code)
+    if theorem_layout:
+        code = re.sub(
+            r"_(?:\{\s*\\(?:text|mathrm|rm|operatorname)\s*\{loc\}\s*\}|\{\s*(?:\\rm\s+)?loc\s*\}|loc\b)",
+            r"_{\\operatorname{loc}}",
+            code,
+        )
+        code = REL_SPACING_BEFORE_RE.sub(" ", code)
+        code = REL_SPACING_AFTER_RE.sub(r"\1 ", code)
     code = _mark_norms(code)
     code = STARRED_OPERATOR_RE.sub(_mark_limits_operator, code)
-    code = _rewrite_abs(code)
-    code = _rewrite_sized_delimiters(code)
-    code = re.sub(r"(?<!\.)\.\.\.(?!\.)", "…", code)
+    if theorem_layout:
+        code = _rewrite_abs(code)
+        code = _rewrite_sized_delimiters(code)
+        code = re.sub(r"(?<!\.)\.\.\.(?!\.)", "…", code)
     code = ENV_CASES_RE.sub(_fix_single_col_cases, code)
     code = re.sub(r"\n\s*\n", "\n", code).strip()
     if not is_display:
@@ -1089,9 +1096,9 @@ def _unmark_norms(body: str) -> str:
     return body
 
 
-def _is_balanced(text: str) -> bool:
-    depth = {"{": 0, "(": 0, "[": 0}
-    closer = {"}": "{", ")": "(", "]": "["}
+def _is_balanced(text: str, brackets: bool = False) -> bool:
+    depth = {"{": 0, "(": 0, "[": 0} if brackets else {"{": 0, "(": 0}
+    closer = {"}": "{", ")": "(", "]": "["} if brackets else {"}": "{", ")": "("}
     for ch in text:
         if ch in depth:
             depth[ch] += 1
@@ -1182,7 +1189,7 @@ def _rewrite_abs(code: str) -> str:
             if t2.startswith((r"\left", r"\lvert", r"\bigl", r"\Bigl", r"\biggl", r"\Biggl")):
                 continue
             inner = code[m1.end() : m2.start()]
-            if not _is_balanced(inner) or not inner.strip():
+            if not _is_balanced(inner, brackets=True) or not inner.strip():
                 continue
             scripts, end_pos = _parse_scripts(code, m2.end())
             replacement = f"\\operatorname{{polytypstabs}}({inner.strip()}){scripts}"
@@ -1204,7 +1211,7 @@ def _rewrite_abs(code: str) -> str:
             inner = code[p1 + 1 : p2]
             if not inner.strip():
                 continue
-            if not _is_balanced(inner):
+            if not _is_balanced(inner, brackets=True):
                 continue
             if _has_barrier_at_depth_zero(inner):
                 continue
@@ -1301,7 +1308,7 @@ def _pair_escaped_bars(body: str) -> str:
     return "".join(out)
 
 
-def polish_pandoc_math(body: str) -> str:
+def polish_pandoc_math(body: str, theorem_layout: bool = False) -> str:
     """Prefer Typst operator and symbol spellings over Pandoc's literal choices."""
     body = re.sub(r"#hide\[\s*=", r"#hide[\\=", body)
     body = body.replace("#h(0em) mod", "quad mod")
@@ -1321,13 +1328,14 @@ def polish_pandoc_math(body: str) -> str:
     body = _replace_call_wrapper(body, "polytypstlrchevron", "lr(chevron.l ", " chevron.r)")
     body = _replace_call_wrapper(body, "polytypstlrbracket", "lr([ ", " ])")
     body = _replace_call_wrapper(body, "polytypstlrbrace", "lr({ ", " })")
-    body = re.sub(r"([\^_])\s*\(\s*\\?\*\s*\)", r"\1ast", body)
-    body = re.sub(r"([\^_])\s*\\?\*", r"\1ast", body)
-    body = body.replace(r"\*", "ast.op")
-    body = body.replace("dots.h.c", "dots.c")
-    body = body.replace("dots.h", "…")
-    body = re.sub(r"\.\s*\.\s*\.", "…", body)
-    body = re.sub(r"\bdots(?!\.[a-z])\b", "…", body)
+    if theorem_layout:
+        body = re.sub(r"([\^_])\s*\(\s*\\?\*\s*\)", r"\1ast", body)
+        body = re.sub(r"([\^_])\s*\\?\*", r"\1ast", body)
+        body = body.replace(r"\*", "ast.op")
+        body = body.replace("dots.h.c", "dots.c")
+        body = body.replace("dots.h", "…")
+        body = re.sub(r"\.\s*\.\s*\.", "…", body)
+        body = re.sub(r"\bdots(?!\.[a-z])\b", "…", body)
     body = re.sub(r"\bsqrt\(\s*\)", "sqrt(med)", body)
     body = re.sub(r"\bangle\.([lr])\b", r"chevron.\1", body)
     body = re.sub(r"\bsect(?![A-Za-z0-9])", "inter", body)
@@ -1346,10 +1354,10 @@ def polish_pandoc_math(body: str) -> str:
     )
 
 
-def _run_pandoc_math(items: list[tuple[str, bool]]) -> list[str | None]:
+def _run_pandoc_math(items: list[tuple[str, bool]], theorem_layout: bool = False) -> list[str | None]:
     parts: list[str] = []
     for code, is_display in items:
-        prepared = prepare_latex_math(code, is_display)
+        prepared = prepare_latex_math(code, is_display, theorem_layout)
         parts.append(f"$${prepared}$$" if is_display else f"${prepared}$")
     source = f"\n\n{PANDOC_SEPARATOR}\n\n".join(parts)
     try:
@@ -1369,39 +1377,41 @@ def _run_pandoc_math(items: list[tuple[str, bool]]) -> list[str | None]:
     out: list[str | None] = []
     for chunk in chunks:
         if len(chunk) >= 2 and chunk.startswith("$") and chunk.endswith("$"):
-            out.append(polish_pandoc_math(chunk[1:-1].strip()))
+            out.append(polish_pandoc_math(chunk[1:-1].strip(), theorem_layout))
         else:
             out.append(None)
     return out
 
 
-def convert_math_batch(items: list[tuple[str, bool]]) -> list[str]:
+def convert_math_batch(items: list[tuple[str, bool]], theorem_layout: bool = False) -> list[str]:
     """Convert (LaTeX, is_display) snippets to Typst math bodies in one Pandoc run.
 
     A snippet that Pandoc rejects falls back to the regex sanitizer.
     A result that Typst rejects becomes the LaTeX source as a math string.
     """
-    todo = list(dict.fromkeys(k for k in items if k not in _PANDOC_CACHE))
+    keys = [(code, is_display, theorem_layout) for code, is_display in items]
+    todo = list(dict.fromkeys(k for k in keys if k not in _PANDOC_CACHE))
     if todo:
-        for key, converted in zip(todo, _run_pandoc_math(todo), strict=True):
+        pandoc = _run_pandoc_math([(code, is_display) for code, is_display, _ in todo], theorem_layout)
+        for key, converted in zip(todo, pandoc, strict=True):
             if converted is None:
                 code = key[0]
                 for pattern, repl in LATEX_MACRO_REWRITES:
                     code = pattern.sub(repl, code)
                 try:
-                    converted = sanitize_math_code(code, is_display=key[1])
+                    converted = sanitize_math_code(code, is_display=key[1], theorem_layout=theorem_layout)
                 except RecursionError:
                     converted = _as_math_string(key[0])
                 converted = converted.replace("plus.circle", "plus.o")
                 if converted.count('"') % 2:
                     converted = converted.replace('"', "")
             _PANDOC_CACHE[key] = finish_typst_math(
-                normalize_typst_differentials(_give_operands(converted))
+                normalize_typst_differentials(_give_operands(converted)), theorem_layout
             )
         finished = [(_PANDOC_CACHE[k], k[1]) for k in todo]
         for key in _typst_rejects(finished):
             _PANDOC_CACHE[todo[key]] = _as_math_string(todo[key][0])
-    return [_PANDOC_CACHE[k] for k in items]
+    return [_PANDOC_CACHE[k] for k in keys]
 
 
 def _fix_typst_single_arg_frac(text: str) -> str:
@@ -1492,7 +1502,7 @@ def normalize_typst_differentials(t: str) -> str:
     return t
 
 
-def finish_typst_math(s: str) -> str:
+def finish_typst_math(s: str, theorem_layout: bool = False) -> str:
     """Rewrite symbol names and call shapes in converted math that Typst 0.15 rejects."""
     s = re.sub(r'delim:\s*"\|\|"', 'delim: "|"', s)
     s = s.replace("planck.reduce", "planck")
@@ -1507,12 +1517,13 @@ def finish_typst_math(s: str) -> str:
     s = re.sub(r"t\s+e\s+x\s+t\s*\(\s*(\"[^\"]*\")\s*\)", r"upright(\1)", s)
     s = re.sub(r"(?<=[(\s])\^([a-zA-Z0-9]+)", r'""^\1', s)
     s = re.sub(r"(?<=[(\s])_([a-zA-Z0-9]+)", r'""_\1', s)
-    s = re.sub(r'_\(\s*(?:upright\s*\(\s*)?l\s+o\s+c\s*\)?\s*\)', r'_("loc")', s)
-    s = re.sub(r'_\s*l\s+o\s+c\b', r'_("loc")', s)
-    s = re.sub(r'(?<![a-zA-Z"_\\])\bsupp\b(?![a-zA-Z"])', 'op("supp")', s)
-    s = s.replace("dots.h.c", "dots.c")
-    s = s.replace("dots.h", "…")
-    s = re.sub(r"\bdots(?!\.[a-z])\b", "…", s)
+    if theorem_layout:
+        s = re.sub(r'_\(\s*(?:upright\s*\(\s*)?l\s+o\s+c\s*\)?\s*\)', r'_("loc")', s)
+        s = re.sub(r'_\s*l\s+o\s+c\b', r'_("loc")', s)
+        s = re.sub(r'(?<![a-zA-Z"_\\])\bsupp\b(?![a-zA-Z"])', 'op("supp")', s)
+        s = s.replace("dots.h.c", "dots.c")
+        s = s.replace("dots.h", "…")
+        s = re.sub(r"\bdots(?!\.[a-z])\b", "…", s)
     return _fix_typst_single_arg_frac(s)
 
 

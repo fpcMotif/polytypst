@@ -202,9 +202,10 @@ def test_a_continued_table_merges_with_its_preceding_table_and_drops_the_repeate
     assert "续表" not in merged
     assert "@@PAGEBREAK@@" not in merged
     assert merged.count("| 年份 | 1980 | 1985 |") == 1
-    out = layout_tables(text, [], three_line=True)
+    out = layout_tables(text, [], three_line=True, merge_continued=True)
     assert out.count("#table(") == 1
     assert "[制造业合计]" in out and "[有机化学基础产品]" in out and "[精密机械]" in out
+    assert layout_tables(text, [], three_line=True).count("#table(") == 3
 
 
 def test_a_continued_table_without_repeated_headers_keeps_all_continuation_rows():

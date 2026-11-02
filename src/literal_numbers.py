@@ -120,6 +120,7 @@ def literal_numbering_counts(
     *,
     require_vector_figures: bool = False,
     words: NumberingWords = ENGLISH_WORDS,
+    theorem_layout: bool = False,
 ) -> dict[str, int]:
     """Count the literal numbers and citations in a built book's Typst (`TYPST`) or LaTeX (`LATEX`) source.
     `chapters` maps the book's chapter names in references, such as `0` in `(0, 4.1.9)`, to label numbers."""
@@ -141,7 +142,7 @@ def literal_numbering_counts(
         counts["LITERAL_NUMBER_IN_MATH"] += sum(
             len(_MATH_NUMBER_RE.findall(m.group(0))) for m in math.finditer(chapter)
         )
-        if writer.chapter_start in source:
+        if theorem_layout and writer.chapter_start in source:
             counts["LITERAL_HEADING_NUMBER"] += len(_chapter_heading(kind, words).findall(chapter[:1000]))
         counts["LITERAL_HEADING_NUMBER"] += len(_HEADING_NUMBER[kind].findall(chapter))
         counts["LITERAL_FIGURE_CAPTION"] += len(_FIGURE_CAPTION[kind].findall(chapter))
@@ -194,6 +195,7 @@ def edition_literal_counts(rebuilt: Path, spec: MonographSpec) -> dict[str, int]
                 reference_chapters(spec),
                 require_vector_figures=spec.require_vector_figures,
                 words=resolve_composition(publisher=spec.publisher_key, lang=spec.lang, domain=spec.domain).language.numbering,
+                theorem_layout=spec.theorem_layout,
             )
             out |= {f"{prefix}_{rule}": n for rule, n in counts.items()}
             if writer is TYPST and (italic := italic_differential_count(source)):

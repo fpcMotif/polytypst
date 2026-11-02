@@ -384,7 +384,7 @@ def test_a_latex_figure_caption_prints_its_source_number(tmp_path):
 def test_numbered_chapters_and_theorem_sections_produce_counters_and_labels():
     typst_in = "= 1 Measure and Integration\n\n=== 1.1 INTRODUCTION\n\n=== 1.2 BASIC NOTIONS\n\n=== 1.3 THEOREM (Monotone class theorem)\n"
     latex_in = "# 1 Measure and Integration\n\n### 1.1 INTRODUCTION\n\n### 1.2 BASIC NOTIONS\n\n### 1.3 THEOREM (Monotone class theorem)\n"
-    typ_out, typ_resyncs = number_chapter(typst_in, 1, TYPST)
+    typ_out, typ_resyncs = number_chapter(typst_in, 1, TYPST, theorem_layout=True)
     assert typ_resyncs == []
     assert '#heading(level: 1, numbering: "1")[Measure and Integration] <sec-1>' in typ_out
     assert "=== INTRODUCTION <sec-1-1>" in typ_out
@@ -395,7 +395,7 @@ def test_numbered_chapters_and_theorem_sections_produce_counters_and_labels():
     assert "=== 1.2" not in typ_out
     assert "=== 1.3" not in typ_out
 
-    tex_out, tex_resyncs = number_chapter(latex_in, 1, LATEX)
+    tex_out, tex_resyncs = number_chapter(latex_in, 1, LATEX, theorem_layout=True)
     assert tex_resyncs == []
     assert "\\chapter{Measure and Integration}\\label{sec-1}\\hypertarget{sec-1}{}" in tex_out
     assert "\\sourcesubsection{INTRODUCTION}\\label{sec-1-1}\\hypertarget{sec-1-1}{}" in tex_out
@@ -406,6 +406,17 @@ def test_numbered_chapters_and_theorem_sections_produce_counters_and_labels():
     assert "### 1.2" not in tex_out
     assert "### 1.3" not in tex_out
 
+    plain_out, _ = number_chapter(typst_in, 1, TYPST)
+    assert plain_out.startswith(TYPST.chapter_start + "= 1 Measure and Integration\n")
+    assert "<sec-" not in plain_out
+
+
+def test_a_display_math_row_that_starts_with_an_equals_sign_stays_math():
+    text = "$ norm(f)^2\\\n= integral_X abs(f)^2 dif mu . $\n"
+    out, _ = number_chapter(text, 1, TYPST, theorem_layout=True)
+    assert "#heading" not in out
+    assert "\n= integral_X abs(f)^2 dif mu . $" in out
+
 
 def test_the_books_language_words_decide_chapter_headings_and_references():
     french = NumberingWords(
@@ -415,16 +426,18 @@ def test_the_books_language_words_decide_chapter_headings_and_references():
         chapter_word="Chapitre",
     )
     text = "= Chapitre 2 Espaces\n\n#strong[Théorème (2.1.1)] Soit.\n"
-    out, _ = number_chapter(text, 2, TYPST, words=french)
+    out, _ = number_chapter(text, 2, TYPST, words=french, theorem_layout=True)
     assert '#heading(level: 1, numbering: "1")[Espaces] <sec-2>' in out
     assert '#source-paragraph[Théorème]#metadata("paragraph") <par-c2-2-1-1>' in out
-    assert "<sec-2>" not in number_chapter(text, 2, TYPST, words=replace(french, chapter_word="Chapter"))[0]
+    english = replace(french, chapter_word="Chapter")
+    assert "<sec-2>" not in number_chapter(text, 2, TYPST, words=english, theorem_layout=True)[0]
 
     known = labels("<sec-1> <sec-1-3>")
     prose = "voir le Théorème 1.3 et le Chapitre 1."
-    linked = link_references(prose, 1, {}, known, TYPST, words=french)
+    linked = link_references(prose, 1, {}, known, TYPST, words=french, theorem_layout=True)
     assert "#link(<sec-1-3>)[Théorème 1.3]" in linked and "#link(<sec-1>)[Chapitre 1]" in linked
-    assert link_references(prose, 1, {}, known, TYPST) == prose
+    assert link_references(prose, 1, {}, known, TYPST, theorem_layout=True) == prose
+    assert link_references(prose, 1, {}, known, TYPST, words=french) == prose
 
 
 def test_references_to_theorems_chapters_and_equations_are_linked():
@@ -433,15 +446,15 @@ def test_references_to_theorems_chapters_and_equations_are_linked():
         "In Chapter 1, by Theorem 1.3, see also Theorems 2.16 and 2.19. "
         "From equation (2) and inequality (3), using 1.3(1)."
     )
-    typ_linked = link_references(text, 1, {}, known, TYPST)
+    typ_linked = link_references(text, 1, {}, known, TYPST, theorem_layout=True)
     assert "#link(<sec-1>)[Chapter 1]" in typ_linked
     assert "#link(<sec-1-3>)[Theorem 1.3]" in typ_linked
     assert "Theorems #link(<sec-2-16>)[2.16] and #link(<sec-2-19>)[2.19]" in typ_linked
     assert "equation #link(<eq-c1-2>)[(2)]" in typ_linked
     assert "inequality #link(<eq-c1-3>)[(3)]" in typ_linked
-    assert "#link(<sec-1-3>)[1.3](1)" in typ_linked
+    assert "#link(<sec-1-3>)[1.3]\u200b(1)" in typ_linked
 
-    tex_linked = link_references(text, 1, {}, known, LATEX)
+    tex_linked = link_references(text, 1, {}, known, LATEX, theorem_layout=True)
     assert "\\hyperlink{sec-1}{Chapter 1}" in tex_linked
     assert "\\hyperlink{sec-1-3}{Theorem 1.3}" in tex_linked
     assert "Theorems \\hyperlink{sec-2-16}{2.16} and \\hyperlink{sec-2-19}{2.19}" in tex_linked

@@ -198,6 +198,7 @@ def test_format_index_letter_headings_and_sub_entry_indentation(tmp_path: Path):
         title="Test Book",
         author="Author",
         index_title="Subject Index",
+        theorem_layout=True,
     )
     compiler = MonographCompiler(spec)
     index_text = (

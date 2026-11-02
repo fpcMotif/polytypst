@@ -18,14 +18,9 @@ TYPST_RULES = r"""
 #let source-roman = counter("source-roman")
 #let source-circled = counter("source-circled")
 #let source-heading-number(..nums) = {
-  let pos = nums.pos()
-  let n = pos.slice(1)
+  let n = nums.pos().slice(1)
   if n.len() == 1 { "§ " + str(n.first()) + "." }
-  else if n.len() == 2 {
-    let parts = if n.first() == 0 and pos.first() > 0 { (pos.first(), n.last()) } else { n }
-    let dot = if source-article.get().first() > 0 { "." } else { "" }
-    parts.map(str).join(".") + dot
-  }
+  else if n.len() == 2 { n.map(str).join(".") + "." }
   else if n.len() > 2 { "(" + n.map(str).join(".") + ")" }
 }
 #let source-article-number(..nums) = str(source-article.get().first() + 1) + "."
@@ -102,10 +97,9 @@ TYPST_EQUATION_LAYOUT = r"""
 """
 
 LATEX_RULES = (
-    r"\renewcommand\thechapter{\arabic{chapter}}"
     r"\newcounter{sourcesection}\newcounter{sourcesubsection}[sourcesection]"
     r"\newcounter{sourceparagraph}[sourcesubsection]\newcounter{sourcearticle}\newcounter{sourceroman}\newcounter{sourcecircled}"
-    r"\renewcommand\thesourcesubsection{\ifnum\value{sourcesection}>0 \arabic{sourcesection}\else\thechapter\fi.\arabic{sourcesubsection}}"
+    r"\renewcommand\thesourcesubsection{\arabic{sourcesection}.\arabic{sourcesubsection}}"
     r"\renewcommand\thesourceparagraph{\thesourcesubsection.\arabic{sourceparagraph}}"
     r"\counterwithin*{equation}{sourceparagraph}"
     r"\renewcommand\theequation{\ifnum\value{sourceparagraph}>0 \thesourceparagraph.\arabic{equation}\else\ifnum\value{sourcesubsection}>0 \thesourcesubsection.\arabic{equation}\else\arabic{equation}\fi\fi}"
@@ -120,6 +114,25 @@ LATEX_RULES = (
     r"\newcommand\sourceitem{\refstepcounter{equation}\textbf{(\theequation)}\enspace\ignorespaces}"
     r"\newcommand\sourceroman{\refstepcounter{sourceroman}\textbf{\Roman{sourceroman}.}\enspace\ignorespaces}"
     r"\newcommand\sourcecircled{\refstepcounter{sourcecircled}\textcircled{\arabic{sourcecircled}}}"
+)
+
+TYPST_LAYOUT_RULES = TYPST_RULES.replace(
+    """  let n = nums.pos().slice(1)
+  if n.len() == 1 { "§ " + str(n.first()) + "." }
+  else if n.len() == 2 { n.map(str).join(".") + "." }""",
+    """  let pos = nums.pos()
+  let n = pos.slice(1)
+  if n.len() == 1 { "§ " + str(n.first()) + "." }
+  else if n.len() == 2 {
+    let parts = if n.first() == 0 and pos.first() > 0 { (pos.first(), n.last()) } else { n }
+    let dot = if source-article.get().first() > 0 { "." } else { "" }
+    parts.map(str).join(".") + dot
+  }""",
+)
+
+LATEX_LAYOUT_RULES = r"\renewcommand\thechapter{\arabic{chapter}}" + LATEX_RULES.replace(
+    r"\renewcommand\thesourcesubsection{\arabic{sourcesection}.\arabic{sourcesubsection}}",
+    r"\renewcommand\thesourcesubsection{\ifnum\value{sourcesection}>0 \arabic{sourcesection}\else\thechapter\fi.\arabic{sourcesubsection}}",
 )
 
 _NUMBER = r"\d+(?:\.\d+)+"
@@ -405,9 +418,10 @@ def _dotted(nums: tuple[int, ...]) -> str:
 class _Numbering:
     """Mirror the counters while walking a chapter, and resync them at each scan number they would miss."""
 
-    def __init__(self, chapter: int, writer: _Writer, seen: set[str] | None = None) -> None:
+    def __init__(self, chapter: int, writer: _Writer, seen: set[str] | None = None, theorem_layout: bool = False) -> None:
         self.chapter = chapter
         self.writer = writer
+        self.theorem_layout = theorem_layout
         self.levels: tuple[int, ...] = ()
         self.article: int | None = None
         self.roman = 0
@@ -418,7 +432,7 @@ class _Numbering:
 
     def heading(self, scan: tuple[int, ...], kind: str) -> str:
         depth = len(scan)
-        if not self.levels and len(scan) == 2 and scan[0] == self.chapter:
+        if self.theorem_layout and not self.levels and len(scan) == 2 and scan[0] == self.chapter:
             self.levels = (self.chapter, 0)
         parents = (*self.levels, *(0,) * depth)[: depth - 1]
         current = self.levels[depth - 1] if len(self.levels) >= depth else 0
@@ -507,6 +521,10 @@ class _Numbering:
         return self.writer.label(name)
 
 
+def _inside_math(text: str, pos: int) -> bool:
+    return len(re.findall(r"(?<!\\)\$", text[:pos])) % 2 == 1
+
+
 def _parse(number: str) -> tuple[int, ...]:
     return tuple(int(n) for n in number.split("."))
 
@@ -518,9 +536,16 @@ def number_chapter(
     seen: set[str] | None = None,
     circled: bool = False,
     words: NumberingWords = ENGLISH_WORDS,
+    theorem_layout: bool = False,
 ) -> tuple[str, list[Resync]]:
     """Replace the scan's typed numbers in one chapter with counter-numbered headings, paragraphs and equations."""
-    state = _Numbering(chapter, writer, seen)
+    state = _Numbering(chapter, writer, seen, theorem_layout)
+
+    def section_label(name: str) -> str | None:
+        if not theorem_layout:
+            return None
+        state.seen.add(name)
+        return name
 
     def paragraph(scan: tuple[int, ...], kind: str) -> str:
         if len(scan) > 3:
@@ -546,20 +571,17 @@ def number_chapter(
             return paragraph(_parse(m.group(1)), m.group(2))
         if m := _SUBSUBSECTION_RE.match(title):
             c, s, sub = int(m.group(1)), int(m.group(2)), int(m.group(3))
-            lbl = f"sec-{c}-{s}-{sub}"
-            state.seen.add(lbl)
+            lbl = section_label(f"sec-{c}-{s}-{sub}")
             return state.heading((c, s, sub), "subsection") + writer.subsubsection(m.group(4), lbl)
         if m := _SUBSECTION_RE.match(title):
             c, s = int(m.group(1)), int(m.group(2))
-            lbl = f"sec-{c}-{s}"
-            state.seen.add(lbl)
+            lbl = section_label(f"sec-{c}-{s}")
             return state.heading((c, s), "section") + writer.subsection(m.group(3), lbl)
         if m := _SECTION_RE.match(title):
             n, rest = int(m.group(1)), m.group(2)
             if len(marks) == 3 and not title.lstrip().startswith("§"):
                 return state.article_heading(n) + writer.article(rest, state.article_label(n))
-            lbl = f"sec-{n}"
-            state.seen.add(lbl)
+            lbl = section_label(f"sec-{n}")
             return state.heading((n,), "§") + writer.section(rest, lbl)
         state.unnumbered_heading()
         return writer.unnumbered(marks, title)
@@ -567,6 +589,8 @@ def number_chapter(
     def event(m: re.Match[str]) -> str:
         if line := m.group("heading"):
             marks, title = line.split(" ", 1)
+            if len(marks) == 1 and (not theorem_layout or _inside_math(m.string, m.start())):
+                return line
             return heading(marks, title)
         if m.group("eq"):
             scan = tuple(int(n) for n in m.group("eq").split("-"))
@@ -646,6 +670,7 @@ def link_references(
     known: set[str],
     writer: _Writer = TYPST,
     words: NumberingWords = ENGLISH_WORDS,
+    theorem_layout: bool = False,
 ) -> str:
     """Turn the scan's `(1.2.9)` and `(0, 4.3.2)` into references to their labels, such as `@par-c2-1-2-9`."""
     kind = "typst" if writer is TYPST else "latex"
@@ -726,7 +751,8 @@ def link_references(
         target = _sec_target(sec)
         if target not in known:
             return m.group(0)
-        return writer.link(target, sec) + f"({m.group('item')})"
+        stop = "\u200b" if writer is TYPST else ""
+        return writer.link(target, sec) + f"{stop}({m.group('item')})"
 
     def link_prose_eq_en(m: re.Match[str]) -> str:
         eq1 = m.group("eq1")
@@ -742,11 +768,12 @@ def link_references(
         part2 = writer.link(name2, f"({eq2})") if name2 in known else f"({eq2})"
         return f"{m.group('pre')}{part1}{mid}{part2}"
 
-    out = _sub_outside_math(_compound_reference_re(words), link_thm_compound, out, writer)
-    out = _sub_outside_math(reference_re(words), link_thm, out, writer)
-    out = _sub_outside_math(chapter_reference_re(words), link_chap, out, writer)
-    out = _sub_outside_math(_SEC_ITEM_RE, link_sec_item, out, writer)
-    out = _sub_outside_math(_PROSE_EQ_EN_RE, link_prose_eq_en, out, writer)
+    if theorem_layout:
+        out = _sub_outside_math(_compound_reference_re(words), link_thm_compound, out, writer)
+        out = _sub_outside_math(reference_re(words), link_thm, out, writer)
+        out = _sub_outside_math(chapter_reference_re(words), link_chap, out, writer)
+        out = _sub_outside_math(_SEC_ITEM_RE, link_sec_item, out, writer)
+        out = _sub_outside_math(_PROSE_EQ_EN_RE, link_prose_eq_en, out, writer)
     if not any(k.startswith("art-") for k in known):
         return out
 

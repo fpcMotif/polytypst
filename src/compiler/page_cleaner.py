@@ -609,8 +609,10 @@ class PageCleaner:
 
     @classmethod
     def for_spec(cls, spec: MonographSpec, asset_root: Path = Path()) -> PageCleaner:
-        domain = resolve_composition(publisher=spec.publisher_key, lang=spec.lang, domain=spec.domain).domain
-        return cls(spec, domain.theorem_heads, asset_root)
+        composition = resolve_composition(
+            publisher=spec.publisher_key, lang=spec.lang, domain=spec.domain, theorem_layout=spec.theorem_layout
+        )
+        return cls(spec, composition.theorem_heads, asset_root)
 
     def _chapter_of(self, pno: int) -> int:
         for chap in self.spec.chapters:

@@ -168,8 +168,9 @@ def test_typed_level_1_headings_are_counted():
         + "\\chapter{1 Measure and Integration}\n\n"
         + "\\section{1.1 Background}\n\n"
     )
-    assert literal_numbering_counts(typst, TYPST)["LITERAL_HEADING_NUMBER"] == 2
-    assert literal_numbering_counts(latex, LATEX)["LITERAL_HEADING_NUMBER"] == 2
+    assert literal_numbering_counts(typst, TYPST, theorem_layout=True)["LITERAL_HEADING_NUMBER"] == 2
+    assert literal_numbering_counts(latex, LATEX, theorem_layout=True)["LITERAL_HEADING_NUMBER"] == 2
+    assert literal_numbering_counts(typst, TYPST)["LITERAL_HEADING_NUMBER"] == 1
 
 
 def test_unlinked_theorem_references_are_counted():
