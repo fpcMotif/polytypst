@@ -9,6 +9,7 @@ import shutil
 import tarfile
 import tempfile
 import time
+import uuid
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -71,9 +72,14 @@ class ColabOCRCluster:
         self.num_workers: int = num_workers
         self.shards_per_gpu: int = shards_per_gpu
         self.session_prefix: str = session_prefix
+        self.run_id: str = uuid.uuid4().hex[:6]
         self.timeout_sec: float = timeout_sec
         self.prompt: str | None = prompt
         self.model: OCRModel = ocr_model(model)
+
+    def session_names(self, count: int) -> list[str]:
+        """VM names that only this run uses, so that stopping them cannot stop another run's VMs."""
+        return [f"{self.session_prefix}-{self.run_id}-{i + 1}" for i in range(count)]
 
     @staticmethod
     def is_colab_available() -> bool:
@@ -257,8 +263,7 @@ class ColabOCRCluster:
             pending, min(self.num_workers, len(pending)), interleaved=True
         )
         sessions = [
-            ColabSession(f"{self.session_prefix}-{i + 1}", self.gpu_type)
-            for i in range(len(chunks))
+            ColabSession(name, self.gpu_type) for name in self.session_names(len(chunks))
         ]
         t0 = time.time()
         with tempfile.TemporaryDirectory(prefix="colab_ocr_") as tmp:

@@ -153,3 +153,11 @@ def test_backend_builds_self_hosted_and_cached_transcribers(tmp_path: Path) -> N
     cached = Backend.parse(f"cached:?dir={tmp_path}").transcriber(None)
     assert isinstance(cached, CachedTranscriber)
     assert cached.source.directory == tmp_path
+
+
+def test_two_runs_with_the_same_session_option_name_different_vms() -> None:
+    first, second = ColabOCRCluster(session_prefix="ocr"), ColabOCRCluster(session_prefix="ocr")
+    names = first.session_names(2)
+    assert len(set(names)) == 2
+    assert all(name.startswith("ocr-") for name in names)
+    assert set(names).isdisjoint(second.session_names(2))
