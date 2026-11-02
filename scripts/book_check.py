@@ -26,9 +26,6 @@ import page_check
 import pymupdf
 import scan_sheet
 
-from polytypst.figure_leaks import apply_page_fixups
-from polytypst.process_pool import process_pool
-
 GLUED_WORDS = re.compile(r"\b[A-Za-z]*?[a-z]{2}[A-Z][a-z]{2,}\b")
 NAME_PREFIX = re.compile(r"(?:Ma?c|Mc|De|Le|La|Van|Von|O)[A-Z]")
 BROKEN_TAG = re.compile(r"</\s+\w|<\s+/?t[hdr]\b|<t[hdr]\s+>")
@@ -223,6 +220,8 @@ def book_fixups(book: str) -> dict[int, tuple]:
 
 
 def lint(book: str) -> list[dict]:
+    from polytypst.figure_leaks import apply_page_fixups
+
     found = []
     pages = page_check.transcript_pages(book)
     fixups = book_fixups(book)
@@ -248,7 +247,7 @@ def book_title(book: str) -> str:
     return re.sub(r"^\d+[_ ]", "", page_check.book_key(book))
 
 
-def zoom(book: str, doc: pymupdf.Document, issue: dict, out: Path) -> str:
+def zoom(book: str, issue: dict, out: Path) -> scan_sheet.Strip:
     """A 300 dpi strip of the scan around the issue's line, or the whole page when no OCR line holds its text."""
     texts = [t for t in (issue.get("scan", ""), issue.get("transcript", "")) if t]
     keys = [
@@ -261,28 +260,9 @@ def zoom(book: str, doc: pymupdf.Document, issue: dict, out: Path) -> str:
         if band
         else (0.0, 1.0)
     )
-    out.write_bytes(
-        scan_sheet.strip_png(
-            doc, issue["page"], band, ZOOM_DPI if band != (0.0, 1.0) else PAGE_DPI
-        )
+    return scan_sheet.Strip(
+        issue["page"], band, ZOOM_DPI if band != (0.0, 1.0) else PAGE_DPI, out
     )
-    return str(out)
-
-
-_SCAN: dict[str, pymupdf.Document] = {}
-
-
-def _open_scan(scan: Path) -> None:
-    _SCAN["doc"] = pymupdf.open(scan)
-
-
-def _page_image_job(job: tuple[int, Path]) -> None:
-    page, path = job
-    path.write_bytes(scan_sheet.strip_png(_SCAN["doc"], page, (0.0, 1.0), PAGE_DPI))
-
-
-def _zoom_job(job: tuple[str, dict, Path]) -> str:
-    return zoom(job[0], _SCAN["doc"], job[1], job[2])
 
 
 def triage(book: str, scan: Path) -> tuple[int, int]:
@@ -327,22 +307,19 @@ def triage(book: str, scan: Path) -> tuple[int, int]:
         p: folder / f"page{p}.png" for p in sorted({i["page"] for i in open_claims})
     }
     zooms = [
-        (book, issue, folder / f"p{issue['page']}_{k}.png")
+        zoom(book, issue, folder / f"p{issue['page']}_{k}.png")
         for k, issue in enumerate(open_claims)
     ]
-    zoomed = []
+    pages = [
+        scan_sheet.Strip(p, (0.0, 1.0), PAGE_DPI, path)
+        for p, path in page_images.items()
+        if not path.exists()
+    ]
     if open_claims:
-        with process_pool(len(zooms), _open_scan, (scan,)) as pool:
-            list(
-                pool.map(
-                    _page_image_job,
-                    [(p, path) for p, path in page_images.items() if not path.exists()],
-                )
-            )
-            zoomed = list(pool.map(_zoom_job, zooms, chunksize=4))
+        scan_sheet.write_strips(pymupdf.open(scan), pages + zooms)
     queue = [
-        {**issue, "zoom": z, "page_image": str(page_images[issue["page"]])}
-        for issue, z in zip(open_claims, zoomed, strict=True)
+        {**issue, "zoom": str(z.out), "page_image": str(page_images[issue["page"]])}
+        for issue, z in zip(open_claims, zooms, strict=True)
     ]
     (results(book) / "queue.jsonl").write_text(
         "".join(json.dumps(q, ensure_ascii=False) + "\n" for q in queue),

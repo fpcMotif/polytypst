@@ -19,12 +19,17 @@ output/page_check/BOOK/verdicts.jsonl, for KIND scan_typo or real.
 import argparse
 import base64
 import html
+import io
 import json
+import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from threading import BoundedSemaphore
 
 import pymupdf
+from PIL import Image
 from polytypst_native import encode_png
 
 STRIP_PAD = 0.008
@@ -99,15 +104,96 @@ def find_band(book: str, case: Case) -> tuple[float, float] | None:
     return next(((top, bottom) for top, bottom, text in page_check.ocr_lines(book, case.page) if key in page_check.norm(text)), None)
 
 
-def strip_png(doc: pymupdf.Document, page: int, band: tuple[float, float], dpi: int) -> bytes:
-    rect = doc[page - 1].rect
+@dataclass(frozen=True)
+class Strip:
+    page: int
+    band: tuple[float, float]
+    dpi: int
+    out: Path
+
+
+def _clip(rect: pymupdf.Rect, band: tuple[float, float]) -> pymupdf.Rect:
     top, bottom = max(0.0, band[0] - STRIP_PAD), min(1.0, band[1] + STRIP_PAD)
-    clip = pymupdf.Rect(rect.x0, rect.y0 + top * rect.height, rect.x1, rect.y0 + bottom * rect.height)
+    return pymupdf.Rect(rect.x0, rect.y0 + top * rect.height, rect.x1, rect.y0 + bottom * rect.height)
+
+
+def strip_png(doc: pymupdf.Document, page: int, band: tuple[float, float], dpi: int) -> bytes:
+    clip = _clip(doc[page - 1].rect, band)
     return pixmap_png(doc[page - 1].get_pixmap(matrix=pymupdf.Matrix(dpi / 72, dpi / 72), clip=clip))
 
 
 def pixmap_png(pix: pymupdf.Pixmap) -> bytes:
     return encode_png(pix.samples, pix.width, pix.height, pix.n)
+
+
+def image_png(image: Image.Image) -> bytes:
+    return encode_png(image.tobytes(), image.width, image.height, len(image.getbands()))
+
+
+def scan_jpeg(page: pymupdf.Page) -> bytes | None:
+    images = page.get_images(full=True)
+    if len(images) != 1 or page.rotation or page.get_drawings() or any(span["type"] != 3 for span in page.get_texttrace()):
+        return None
+    xref, smask, _, _, bpc, colorspace, _, _, codec = images[0][:9]
+    if smask or bpc != 8 or colorspace not in ("DeviceRGB", "DeviceGray") or codec != "DCTDecode":
+        return None
+    placed = page.get_image_info()
+    if len(placed) != 1 or placed[0]["has-mask"] or page.parent.xref_get_key(xref, "Decode")[0] != "null":
+        return None
+    a, b, c, d, e, f = placed[0]["transform"]
+    r = page.rect
+    if b or c or max(abs(e - r.x0), abs(f - r.y0), abs(a - r.width), abs(d - r.height)) > 0.01:
+        return None
+    return page.parent.xref_stream_raw(xref)
+
+
+def _shrunk(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+    if image.size == size:
+        return image
+    factor = image.width // size[0]
+    if factor > 1 and (reduced := image.reduce(factor)).size == size:
+        return reduced
+    return image.resize(size, Image.Resampling.BOX)
+
+
+def _page_strips(rect: pymupdf.Rect, jpeg: bytes, strips: list[Strip]) -> None:
+    top_dpi = max(s.dpi for s in strips)
+    full = (rect * pymupdf.Matrix(top_dpi / 72, top_dpi / 72)).irect
+    image = Image.open(io.BytesIO(jpeg))
+    w, h = image.size
+    scale = next(s for s in (8, 4, 2, 1) if -(-w // s) >= full.width and -(-h // s) >= full.height)
+    image.draft(image.mode, (w // scale, h // scale))
+    image = _shrunk(image, (full.width, full.height))
+    for dpi in sorted({s.dpi for s in strips}, reverse=True):
+        scale = pymupdf.Matrix(dpi / 72, dpi / 72)
+        size = (rect * scale).irect
+        at_dpi = _shrunk(image, (size.width, size.height))
+        for s in strips:
+            if s.dpi == dpi:
+                cut = (_clip(rect, s.band) * scale).irect & size
+                s.out.write_bytes(image_png(at_dpi.crop((cut.x0, cut.y0, cut.x1, cut.y1))))
+
+
+def write_strips(doc: pymupdf.Document, strips: list[Strip]) -> None:
+    by_page: dict[int, list[Strip]] = {}
+    for s in strips:
+        by_page.setdefault(s.page, []).append(s)
+    threads = os.cpu_count() or 1
+    in_flight = BoundedSemaphore(2 * threads)
+    with ThreadPoolExecutor(threads) as pool:
+        done = []
+        for page, wanted in by_page.items():
+            jpeg = scan_jpeg(doc[page - 1])
+            pymupdf.TOOLS.store_shrink(100)
+            if jpeg is None:
+                for s in wanted:
+                    s.out.write_bytes(strip_png(doc, s.page, s.band, s.dpi))
+                continue
+            in_flight.acquire()
+            done.append(pool.submit(_page_strips, doc[page - 1].rect, jpeg, wanted))
+            done[-1].add_done_callback(lambda _: in_flight.release())
+        for future in done:
+            future.result()
 
 
 def main() -> None:

@@ -25,6 +25,7 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+from functools import cache
 from pathlib import Path
 
 if "POLYTYPST_BOOKS" not in os.environ:
@@ -107,6 +108,7 @@ def prose_lines(markdown: str) -> list[tuple[int, str]]:
     return kept
 
 
+@cache
 def ocr_lines(book: str, page: int) -> list[tuple[float, float, str]]:
     path = book_state(Path(book_key(book))) / "source_ocr" / f"p{page:03d}.json"
     boxes = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
