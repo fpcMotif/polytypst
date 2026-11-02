@@ -7,11 +7,15 @@ from pathlib import Path
 import pymupdf
 import pytest
 
+from polytypst.books import book_by_key
+from polytypst.compiler.monograph import compile_typst
 from polytypst.compiler.tables import (
     continued_table_split,
     layout_tables,
     merge_continued_tables,
 )
+
+TABLE = "| a | b |\n| :--- | :---: |\n| <mark>1.0</mark> | <b>2.0</b> |\n| <i>3.0<br>(4.0)</i> | 0.71** |\n"
 
 PAGE_WIDTH_PT, MARGIN_PT = 442, 56
 BOOK_STYLE = Path(__file__).parent.parent / "books" / "styles" / "japan_economy.typ"
@@ -102,11 +106,6 @@ def test_a_number_table_too_wide_for_the_text_prints_at_7pt_or_more_with_no_over
     assert sizes and min(sizes) >= 7
 
 
-def test_a_number_table_too_wide_for_the_text_moves_to_a_landscape_page():
-    out = layout_tables(f"{CAPTION}\n\n@@TABLEBLOCK0@@\n\n注：数据。\n", [wide_regression_table()])
-    assert out.startswith("#page(flipped: true)")
-
-
 def test_a_table_wider_than_the_text_prints_no_number_over_its_neighbour_and_stays_inside_the_margins(tmp_path):
     years = ("Pooled", "1982", "1987", "1992", "1997", "2002")
     table = row("被解释变量<br>估计方法", "劳动时间等级中位数（15～60）<br>OLS", *[""] * 11) + row(*["---"] * 13)
@@ -144,7 +143,124 @@ def test_a_long_spanning_header_does_not_squeeze_the_number_columns_under_it(tmp
     assert overprinted(words) == []
     assert max(w[2] for w in words) <= PAGE_WIDTH_PT - MARGIN_PT + 0.5
 
-TABLE = "| a | b |\n| :--- | :---: |\n| <mark>1.0</mark> | <b>2.0</b> |\n| <i>3.0<br>(4.0)</i> | 0.71** |\n"
+
+TABLE_7_6 = (
+    "| 项目 |  |  | 年龄 | 连续工龄 | 每小时法定劳动时间内工资 |  | 在劳动人口中的占比 |\n"
+    "| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |\n"
+    "|  |  |  | 岁 | 年 | 日元、% | 倍 | % |\n"
+    "| 男女总和 | 学历总和 | 正式员工 | 40.6 | 13.0 | 1909 |  | 86.7 |\n"
+    "| 男性 | 高等专科学校和专科大学学历 | 非正式员工 | 36.4 | 4.4 | 1053 | 0.61 | 8.6 |\n"
+    "| 男性 | 大学及大学以上学历 | 非正式/正式 |  |  |  | 0.55 |  |\n"
+)
+
+
+def test_number_and_short_label_columns_keep_their_width_beside_a_long_text_column():
+    out = layout_tables(TABLE_7_6, [])
+    tiers = "((1, auto), (1, 2.5pt), (0.92, 2.5pt), (0.85, 2.5pt))"
+    assert f"let tier = {tiers}.find(t => measure(set-table((auto, 6.0em, auto, auto, auto, auto, auto, auto), ..t)).width <= size.width)" in out
+    assert f"let tier = if tier == none {{ {tiers}.find(t => measure(set-table((auto, 4.0em, auto, auto, auto, auto, auto, auto), ..t)).width" in out
+    assert "let fit-table(width, t) = set-table((auto, 26fr, auto, auto, auto, auto, auto, auto), ..t)" in out
+    assert f"else {{ set-table((auto, 26fr, 11fr, 4fr, 8fr, 7fr, 6fr, 10fr), ..{tiers}.last()) }}" in out
+    assert "inset: (x: x, y: pad)" in out
+    assert "[#strong[连续工龄]]" in out
+    assert r"table.cell(colspan: 2)[#strong[每小时法定劳\ 动时间内工资]]" in out
+    assert r"[#strong[在劳动人口\ 中的占比]]" in out
+    assert "[#strong[年龄]]" in out
+    after_math = layout_tables("$ a & = b\\\n& = c $\n\n" + TABLE_7_6, [])
+    assert after_math.startswith("$ a & = b\\\n& = c $\n")
+    one_word = TABLE_7_6.replace("在劳动人口中的占比", "Employment-share")
+    assert "[#strong[Employment-share]]" in layout_tables(one_word, [])
+
+
+WIDE_HEADER = "|  | 1971—1979年 |  |  | 1980—1989年 |  |  | 1990—1999年 |  |  | 2000—2007年 |  |  |\n"
+WIDE_UNITS = "|  " + "| 系数 | t 值 | 相关系数 " * 4 + "|\n"
+WIDE_ROW = "| 食品工业产品 " + "| −0.1904 | −0.2953** | 0.0505 " * 4 + "|\n"
+WIDE_TABLE = WIDE_HEADER + "|" + " :---: |" * 13 + "\n" + WIDE_UNITS + WIDE_ROW * 12
+PAGE = '#set page(width: 442pt, height: 663pt, margin: 56pt)\n#set text(font: ("Songti SC", "STSong"), size: 10.5pt)\n'
+
+
+def test_a_number_table_too_wide_for_the_page_turns_sideways_with_its_caption(tmp_path: Path) -> None:
+    body = layout_tables(f"正文。\n\n{CAPTION}\n\n@@TABLEBLOCK0@@\n\n" + "后文。" * 300 + "\n", [WIDE_TABLE])
+    typ = tmp_path / "t.typ"
+    typ.write_text(PAGE + body, encoding="utf-8")
+    compile_typst(typ, tmp_path / "t.pdf")
+    doc = pymupdf.open(tmp_path / "t.pdf")
+    lines = [(page.number, line) for page in doc for b in page.get_text("dict")["blocks"] for line in b.get("lines", [])]
+    turned = {n for n, line in lines if abs(line["dir"][0]) < 0.1}
+    caption = [(n, line["dir"]) for n, line in lines if "表1-1" in "".join(s["text"] for s in line["spans"])]
+    assert len(turned) == 1 and caption and caption[0][0] in turned and abs(caption[0][1][0]) < 0.1
+    assert "后文" in doc[0].get_text() and doc[0].get_text().count("后文") > 100
+    numbers = [w[4] for w in doc[min(turned)].get_text("words") if re.fullmatch(r"[−\d.*]+", w[4])]
+    assert len(numbers) == 12 * 12 and all(n.count(".") == 1 for n in numbers)
+
+
+ADF_TABLE = (
+    "| 1958 年至 X 年：无常数项 |  |  |  | 1958 年至 X 年：有常数项 |  |  |  | 1958 年至 X 年：常数项+时间趋势 |  |  |  |\n"
+    + "| :---: " * 12 + "|\n" + "| X | t-Statistic | Prob. * | lag" * 3 + " |\n"
+    + "| 1989 | -1.2262 | 0.1973 | 0 | 1989 | -1.6421 | 0.4501 | 0 | 1989 | -1.2942 | 0.8713 | 0 |\n" * 14
+)
+
+
+def test_a_table_of_numbers_keeps_each_column_at_its_natural_width_and_spreads_the_rest(tmp_path: Path) -> None:
+    typ = tmp_path / "t.typ"
+    head = layout_tables(ADF_TABLE, [])
+    assert r"table.cell(colspan: 4, align: center + horizon)[#strong[1958 年至 X 年：\ 无常数项]]" in head and "[lag]), [1989]" in head
+    preamble = PAGE + book_by_key("5").spec.typst_preamble + "\n#set table(inset: 5pt)\n"
+    typ.write_text(preamble + layout_tables(ADF_TABLE, []), encoding="utf-8")
+    compile_typst(typ, tmp_path / "t.pdf")
+    page = pymupdf.open(tmp_path / "t.pdf")[0]
+    numbers = [w for w in page.get_text("words") if re.fullmatch(r"[−\d.-]+", w[4])]
+    assert len(numbers) == 14 * 12 + 3 and all(w[4].count(".") <= 1 for w in numbers)
+    lines: dict[int, list] = {}
+    for w in numbers:
+        lines.setdefault(round(w[3]), []).append(w)
+    gaps = [b[0] - a[2] for line in lines.values() for a, b in zip(sorted(line), sorted(line)[1:])]
+    assert min(gaps) >= 3
+    rules = [d["rect"] for d in page.get_drawings() if d["rect"].height < 2]
+    assert max(r.x1 for r in rules) - min(r.x0 for r in rules) > 325
+
+
+LABOUR_SHARE_TABLE = (
+    "| 行业 | 1980—1986 年 |  |  |  |  | 1986—1991 年 |  |  |  |  |\n"
+    "| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |\n"
+    "|  | 劳动分配率变化 | 劳动分配率贡献 |  | 产业结构贡献 |  | 劳动分配率变化 | 劳动分配率贡献 |  | 产业结构贡献 |  |\n"
+    "| 全行业（不含金融保险业） | 0.044 | 0.045 | 102.4% | -0.001 | -2.4% | -0.041 | -0.040 | 97.8% | -0.001 | 2.2% |\n"
+    "| 印刷及相关行业 | 0.011 | 0.000 | 0.6% | 0.000 | 0.1% | -0.051 | -0.001 | 2.9% | 0.000 | 0.2% |\n"
+    "| 陶瓷、石材和粘土制品制造业 | 0.087 | 0.002 | 3.5% | 0.000 | 0.0% | -0.027 | 0.000 | 1.0% | 0.000 | 0.1% |\n"
+    "| 有色金属制造业 | 0.195 | 0.002 | 4.6% | 0.000 | -0.1% | -0.054 | 0.000 | 0.9% | 0.000 | 0.0% |\n"
+    "| 金属产品制造业 | 0.013 | 0.000 | 0.8% | 0.000 | 0.0% | -0.067 | -0.002 | 4.7% | 0.000 | 0.1% |\n"
+    "| 机电产品制造业 | 0.098 | 0.005 | 11.7% | 0.000 | 0.7% | -0.033 | -0.002 | 4.6% | 0.000 | -0.4% |\n"
+    "| 汽车及配件制造业 | 0.030 | 0.001 | 2.3% | 0.000 | -0.1% | 0.043 | 0.002 | -3.7% | 0.000 | 0.6% |\n"
+    "| 运输业（集约化） | 0.027 | 0.002 | 5.1% | 0.001 | 1.6% | -0.024 | -0.002 | 5.9% | 0.000 | -0.3% |\n"
+    "| 批发零售业（集约化） | 0.042 | 0.010 | 23.3% | 0.000 | 0.0% | -0.042 | -0.010 | 24.7% | 0.000 | 0.1% |\n"
+)
+
+
+def test_a_wrapped_row_label_never_leaves_one_character_on_its_last_line(tmp_path: Path) -> None:
+    typ = tmp_path / "t.typ"
+    style = (Path(__file__).parents[1] / "books/styles/japan_economy.typ").read_text(encoding="utf-8")
+    typ.write_text(PAGE + '#set text(lang: "zh")\n' + style + layout_tables(LABOUR_SHARE_TABLE, []), encoding="utf-8")
+    compile_typst(typ, tmp_path / "t.pdf")
+    blocks = pymupdf.open(tmp_path / "t.pdf")[0].get_text("dict")["blocks"]
+    lines = ["".join(s["text"] for s in line["spans"]).strip() for b in blocks for line in b.get("lines", [])]
+    assert "印刷及相关行业" in "".join(lines)
+    assert not [line for line in lines if re.fullmatch(r"[一-鿿][）)]?", line)]
+
+
+def test_a_header_never_breaks_inside_its_math():
+    table = (
+        "| 项目 | $U T_t$ | $U M T_t$ | $U F T_t$ | $U M Y T_t$ | $U M S T_t$ |\n| --- | --- | --- | --- | --- | --- |\n"
+        "| $sigma_t$ | 1.018 | 0.470 | 0.921 | 1.249 | 0.5 |\n| 常数 | 0.751 | 0.281 | 0.455 | 0.4 | 0.3 |\n"
+    )
+    out = layout_tables(table, [])
+    assert "[#strong[$U M S T_t$]]" in out
+    assert not re.search(r"\$[^$]*\\ [^$]*\$", out)
+
+
+def test_a_hyphen_before_a_number_in_a_data_cell_becomes_a_minus_sign():
+    table = "| 年 | a | b | c | d |\n| --- | --- | --- | --- | --- |\n| 1985-1990 | -9.2 | (-4.000) | A-1 | −1.5 |\n"
+    out = layout_tables(table, [])
+    assert "[1985-1990]" in out and "[−9.2]" in out and "[(−4.000)]" in out and "[A-1]" in out
 
 
 def test_cell_tags_set_shading_bold_and_italic():
@@ -207,14 +323,14 @@ def test_a_text_column_keeps_its_text():
 
 def test_a_short_stub_column_fits_its_labels_and_long_columns_get_more_room():
     table = "| 时间 | 非正式雇员总和 | 临时员工 | 派遣员工 | 其他 |\n| --- | --- | --- | --- | --- |\n| 1984年 | 15.3 | 2.6 | — | 4.2 |\n"
-    assert "let weights = (0, " in layout_tables(table, [])
+    assert "measure(set-table((auto, auto, auto, auto, auto), ..t))" in layout_tables(table, [])
     wide = "| 概念 | 内阁府 | 日本银行 | IMF | OECD |\n| --- | --- | --- | --- | --- |\n| 潜在GDP（增长率）的概念 | 在平均运营率下使用生产要素时可达成的GDP。 | 中期可持续的GDP。 | 产出。 | 产出。 |\n"
-    assert "columns: (23fr, 30fr, 17fr, auto, auto)" in layout_tables(wide, [])
+    assert "let fit-table(width, t) = set-table((23fr, 30fr, 17fr, auto, auto), ..t)" in layout_tables(wide, [])
 
 
 def test_a_span_marker_does_not_widen_its_column():
     table = '| 时间 | 总和 | 临时 | 合同工 | 其他 |\n| --- | --- | --- | --- | --- |\n| 1984年 | 15.3 | 2.6 | <span data-colspan="2">4.2</span> |  |\n| 2002年 | 29.4 | 6.8 | 4.7 | 2.5 |\n'
-    assert "let weights = (0, 4, 3, 3, 3, )" in layout_tables(table, [])
+    assert "else { set-table((auto, 4fr, 4fr, 6fr, 4fr), .." in layout_tables(table, [])
 
 
 def test_a_panel_label_stays_with_its_table():
@@ -247,17 +363,19 @@ CAPTION = "#v(0.6em)\n#block(sticky: true, width: 100%)[#align(center)[#strong[�
 def test_a_text_heavy_table_moves_to_a_landscape_page_with_its_caption_continuation_and_note():
     text = f"正文。\n\n{CAPTION}\n\n@@TABLEBLOCK0@@\n\n#block(sticky: true)[续表]\n\n@@TABLEBLOCK1@@\n\n注：根据内阁府制作。\n\n下一段正文。\n"
     out = layout_tables(text, [TEXT_TABLE, TEXT_TABLE])
-    assert out.startswith(f"正文。\n\n#page(flipped: true)[\n#set table.cell(breakable: false)\n{CAPTION}\n\n\n#align(center)[")
+    assert out.startswith("正文。\n\n#page(flipped: true)[\n#set table.cell(breakable: false)\n#v(0.6em)\n#align(center)[")
+    caption = "block(sticky: true, width: 100%)[#align(center)[#strong[表1-1 比较]]]; v(0.2em); "
+    assert out.count(caption + "fit-table(") == 2 and out.count(caption + "set-table(") == 1
     assert "\n]\n\n\n\n#block(sticky: true)[续表]\n\n\n#align(center)[" in out
     assert out.endswith("\n]\n\n\n\n注：根据内阁府制作。\n]\n\n下一段正文。\n")
-    assert out.count("#table(") == 2
+    assert out.count("#context {") == 2
 
 
 def test_prose_columns_read_left_aligned_with_a_rule_between_rows():
     out = layout_tables(TEXT_TABLE + TEXT_TABLE.splitlines()[2] + "\n", [], three_line=True)
     assert "align: (col, row) => if row < 1 { center + horizon } else { left + top },\n  inset: (x: 0.5em, y: 0.6em)," in out
     assert "else { (bottom: 0.3pt + luma(190)) }" in out
-    assert "#set par(justify: false)\n#table(" in out
+    assert '#set par(justify: false)\n#place(layout(size => state("table-region").update(size)))\n#context {' in out
     assert "align: (col, row) => if col == 0" in layout_tables(NUMBER_TABLE, [], three_line=True)
     one = "| 年 | 说明 |\n| --- | --- |\n| 1991 | 综上所述，日本经济保持强劲的国内需求，企业盈利持续增长。 |\n"
     assert "else { left + top }" in layout_tables(one, [])
@@ -306,7 +424,7 @@ def test_a_wide_table_of_phrases_moves_to_a_landscape_page():
     )
     text = f"{CAPTION}\n\n@@TABLEBLOCK0@@\n\n正文。\n"
     assert layout_tables(text, [wide]).startswith("#page(flipped: true)")
-    assert "columns: (auto, 13fr, 30fr, 16fr, auto, auto, 30fr)," in layout_tables(wide, [], three_line=True)
+    assert "set-table((auto, 13fr, 30fr, 16fr, auto, auto, 30fr), ..t)" in layout_tables(wide, [], three_line=True)
     regression = (
         "| 变量 | (1) | (2) | (3) | (4) | (5) | (6) |\n| --- | --- | --- | --- | --- | --- | --- |\n"
         "| 国内供需缺口 | 0.123***（0.045） | 0.118***（0.044） | 0.101**（0.047） | 0.097**（0.046） "

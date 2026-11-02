@@ -17,6 +17,7 @@ from polytypst.compiler.source_numbers import (
     link_references,
     number_chapter,
 )
+from polytypst.compiler.tables import layout_tables
 from polytypst.literal_numbers import literal_numbering_counts
 
 GROTHENDIECK_SPEC = book_by_key("grothendieck").spec
@@ -246,6 +247,8 @@ def test_articles_roman_items_figures_and_references_use_counters_in_typst_and_l
     assert "\\[@art-62@eq-art-62-1\\]" in linked_typ
     assert "参阅@fig-119." in linked_typ
     assert literal_numbering_counts(linked_typ, TYPST) == {}
+    cells = layout_tables("| 年 | a | b | c | lag |\n| --- | --- | --- | --- | --- |\n| 1996 | 0.1 | 0.2 | 0.3 | 54 |\n", [])
+    assert link_references(num_typ + "\n\n" + cells, 2, {}, labels(num_typ), TYPST).endswith(cells)
 
     raw_tex = (
         "\\chapter{无穷小}\n\n## § 4. 无穷小的比较\n\n### 54. 预备命题\n\n### 56. 根式的极限\n\n### 61. 无穷小的尺度\n\n"

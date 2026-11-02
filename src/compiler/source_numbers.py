@@ -179,6 +179,7 @@ _BRACKET_REF_RE = {
     "typst": re.compile(r"\\\[(?:[^\[\]\\]|\\.|#strong\[\d+\])*\\\]|(?<![\w@>\]])\[[^\[\]\n]+\]"),
     "latex": re.compile(r"(?<!!)\[[^\[\]\n]+\]"),
 }
+TYPST_CONTENT_ARGUMENT = re.compile(r"(?:\]\s*,|[(),]|\)\s*)\s*$")
 _BRACKET_ART_RE = re.compile(
     r"(?<![.\w§\d\-@\\{])(?<!定理 )(?<!例 )(?<!例题 )(?<!脚注 )(?<!图 )(?P<bold>#strong\[|\*\*)?(?P<art>\d{1,3})(?(bold)(?:\]|\*\*))(?![.\d°a-z*})])(?!\s*(?:倍|年|月|日|%|％|个|种|位|次|名|家|人))"
 )
@@ -817,6 +818,7 @@ def _link_article_chunk(
         if writer is TYPST and (
             "caption:" in m.string[max(0, m.start() - 32) : m.start()]
             or "heading(" in m.string[max(0, m.start() - 64) : m.start()]
+            or m.group(0).startswith("[") and TYPST_CONTENT_ARGUMENT.search(m.string[max(0, m.start() - 8) : m.start()])
         ):
             return m.group(0)
         s = m.group(0)

@@ -66,6 +66,10 @@ TEXT_TABLE_MIN_COLUMNS = 4
 TEXT_TABLE_MIN_CELL_WIDTH = 30
 TEXT_TABLE_MAX_NATURAL_WIDTH = 110
 TABLE_CAPTION_BLOCK = r"#v\(0\.6em\)\n#block\(sticky: true, width: 100%\)\[#align\(center\)\[#strong\[[^\n]*\]\]\]\n#v\(0\.2em\)"
+CAPTIONED_TABLE = re.compile(
+    r"#v\(0\.6em\)\n#block\(sticky: true, width: 100%\)\[(#align\(center\)\[#strong\[[^\n]*\]\])\]\n#v\(0\.2em\)\n+"
+    r"@@TABLEBLOCK(\d+)@@"
+)
 TABLE_RUN = re.compile(
     rf"^(?:{TABLE_CAPTION_BLOCK}\n+)?(?:#block\(sticky: true\)\[[^\n]*\]\n+)?@@TABLEBLOCK\d+@@"
     rf"(?:\n+(?:(?:@@PAGEBREAK@@ *)?(?:#block\(sticky: true\)\[[^\n]*\]|续表)\n+)?@@TABLEBLOCK\d+@@)*"
@@ -99,39 +103,12 @@ def _is_text_table(table: str) -> bool:
     )
 
 
-PORTRAIT_TABLE_MAX_WIDTH = 90
-CELL_INSET_WIDTH = 2
-BREAKABLE_TEXT = re.compile(r"[⺀-鿿]|\S\s+\S")
-
-
-def _wraps(column: list[str]) -> bool:
-    """Whether a column's cells hold CJK text or spaced words, so that a line can break inside them."""
-    return any(BREAKABLE_TEXT.search(re.sub(r"<[^>]+>", "", c)) for c in column)
-
-
-def _is_wide_numeric_table(table: str) -> bool:
-    """A table whose columns of numbers or other unbreakable cells need more room than a portrait text width,
-    counted in `_display_width` units with each column's inset. Columns that wrap count at half width."""
-    rows = [[c.strip() for c in line.strip().split("|")[1:-1]] for line in table.splitlines() if line.strip().startswith("|")]
-    rows = [r for r in rows if not all(set(c) <= set(" -:—–") for c in r)]
-    if len(rows) < 3 or len(rows[0]) < 5:
-        return False
-    ncols = len(rows[0])
-    body = [r + [""] * (ncols - len(r)) for r in rows[1:]]
-    width = 0
-    for c in range(ncols):
-        widest = max(_display_width(re.sub(r"<[^>]+>", "", r[c])) for r in body)
-        width += (-(-widest // 2) if _wraps([r[c] for r in body]) else widest) + CELL_INSET_WIDTH
-    return width > PORTRAIT_TABLE_MAX_WIDTH
-
-
 def _rotate_text_tables(text: str, table_blocks: list[str]) -> str:
-    """Set each run of caption, text tables or wide numeric tables, continuation label and note on its own
-    landscape page."""
+    """Set each run of caption, text tables, continuation label and note on its own landscape page."""
 
     def rotate(m: re.Match[str]) -> str:
         tables = [table_blocks[int(n)] for n in re.findall(r"@@TABLEBLOCK(\d+)@@", m[0])]
-        if not any(_is_text_table(t) or _is_wide_numeric_table(t) for t in tables):
+        if not any(_is_text_table(t) for t in tables):
             return m[0]
         run = re.sub(r"(?m)^(?:@@PAGEBREAK@@ *)?续表$", "#block(sticky: true)[续表]", m[0]).strip()
         return f"#page(flipped: true)[\n#set table.cell(breakable: false)\n{run}\n]\n\n"
@@ -170,7 +147,6 @@ def _panel_grid(section: str, columns: int) -> str | None:
 
 
 TABLE_LABEL_MAX_WIDTH = 24
-SHORT_COLUMN_MAX_WIDTH = 8
 
 
 def _is_table_label(line: str) -> bool:
@@ -178,71 +154,132 @@ def _is_table_label(line: str) -> bool:
     text = line.strip()
     return (
         0 < _display_width(text) <= TABLE_LABEL_MAX_WIDTH
-        and not re.search(r"[。，；]|@@", text)
+        and not re.search(r"[。，；$]|@@", text)
         and not text.startswith(("#", "|", "]", ")", "=", "- ", "+ ", "/ "))
     )
 
 
-def _column_weights(header: list[list[str]], body: list[list[str]], ncols: int, short_auto: bool = False) -> str:
-    """Column widths in proportion to each column's widest body cell, with room for its header on two lines.
-    A short stub column takes `auto`, so that its labels stay on one line; with `short_auto`, so does every
-    column of short cells, which the long prose columns of the table would otherwise squeeze."""
-    def width(cell: str) -> int:
-        return _display_width(re.sub(r"<[^>]+>", "", cell))
+def _cell_width(cell: str) -> int:
+    """The display width of a cell's widest line."""
+    return max(_display_width(re.sub(r"<[^>]+>", "", line)) for line in re.split(r"<br\s*/?>", cell))
 
-    weights = []
+
+def _rigid_columns(body: list[list[str]], ncols: int) -> list[bool]:
+    """Whether each column holds only numbers and short labels, which must not wrap."""
+    return [
+        all(TABLE_NUMBER.fullmatch(r[c].strip()) or _cell_width(r[c]) <= STUB_AUTO_MAX_WIDTH for r in body)
+        for c in range(ncols)
+    ]
+
+
+FLEX_PROBE_WIDTH = 12
+NARROW_PROBE_WIDTH = 8
+HYPHEN_MINUS = re.compile(r"(?<![\w.)\]}>])-(?=\d)")
+TABLE_TIERS = "((1, auto), (1, 2.5pt), (0.92, 2.5pt), (0.85, 2.5pt))"
+PROSE_TABLE_TIERS = "((1, auto), (0.92, auto), (0.85, auto))"
+
+
+def _header_widths(header: list[list[str]], ncols: int) -> list[int]:
+    """The width each column needs for the header cells over it. A header of one short line or of lines
+    already broken needs its widest line, and a longer one that wraps needs half its width. A header that
+    spans columns shares its width among them."""
+    widths = [0] * ncols
+    for row in header:
+        spans_empty = any(not c.strip() for c in row) and any(c.strip() for c in row)
+        for c in range(ncols):
+            text = row[c].strip()
+            if not text:
+                continue
+            span = 1
+            while spans_empty and c + span < ncols and not row[c + span].strip():
+                span += 1
+            width = _cell_width(text)
+            if "<br" not in text and width > HEADER_BREAK_MIN_WIDTH:
+                width = -(-width // 2)
+            for k in range(c, c + span):
+                widths[k] = max(widths[k], -(-width // span))
+    return widths
+
+
+def _column_widths(header: list[list[str]], body: list[list[str]], ncols: int) -> tuple[str, str | None, str]:
+    """Three column lists for a table of five or more columns: a probe, whose width tells whether the table
+    fits; the fit, used when it does; and the dense fallback, in proportion to each column's widest cell.
+    The probe and the fit give each column of numbers and short labels its natural width, so that no long
+    column can squeeze it. A column of long text takes the rest of the line in the fit. In the probe it
+    takes the width that three in four of its cells need, up to six characters, so that a table too tight
+    for its labels shrinks its type instead of wrapping them. When every column is short the fit is None:
+    the table keeps the probe's natural widths and spreads the rest of the line evenly as padding."""
+    heads = _header_widths(header, ncols)
+    weights, typical = [], []
     for c in range(ncols):
-        widest = max((width(r[c]) for r in body), default=0)
-        head = max((-(-width(r[c]) // 2) for r in header), default=0)
-        weights.append(min(THREE_LINE_MAX_WEIGHT, max(THREE_LINE_MIN_WEIGHT, widest, head)))
-    stub = "auto" if max((width(r[0]) for r in body), default=0) <= STUB_AUTO_MAX_WIDTH else f"{weights[0]}fr"
-    rest = ["auto" if short_auto and w <= SHORT_COLUMN_MAX_WIDTH else f"{w}fr" for w in weights[1:]]
-    return "(" + ", ".join([stub, *rest]) + ")"
+        cells = sorted(_cell_width(r[c]) for r in body if r[c].strip()) or [0]
+        weights.append(min(THREE_LINE_MAX_WEIGHT, max(THREE_LINE_MIN_WEIGHT, cells[-1], heads[c])))
+        typical.append(min(FLEX_PROBE_WIDTH, max(THREE_LINE_MIN_WEIGHT, cells[3 * (len(cells) - 1) // 4])))
+    rigid = _rigid_columns(body, ncols)
+    probe = ["auto" if rigid[c] else f"{typical[c] / 2}em" for c in range(ncols)]
+    narrow = ["auto" if rigid[c] else f"{min(typical[c], NARROW_PROBE_WIDTH) / 2}em" for c in range(ncols)]
+    fit = None if all(rigid) else ["auto" if rigid[c] else f"{weights[c]}fr" for c in range(ncols)]
+    stub = "auto" if max((_cell_width(r[0]) for r in body), default=0) <= STUB_AUTO_MAX_WIDTH else f"{weights[0]}fr"
+    dense = [stub, *(f"{w}fr" for w in weights[1:])]
+    return _typst_columns(probe), _typst_columns(narrow), fit and _typst_columns(fit), _typst_columns(dense)
 
 
-TABLE_CELL_INSET = "5pt"
+def _typst_columns(columns: list[str]) -> str:
+    return "(" + ", ".join(columns) + ")"
 
 
-def _typst_array(cells: list[str]) -> str:
-    return "(" + "".join(f"{c}, " for c in cells) + ")"
+HEADER_BREAK_MIN_WIDTH = 8
+HEADER_TOKEN = re.compile(r"\$[^$]*\$|[⺀-\U0002FFFF]|[^⺀-\U0002FFFF\s—–]*[—–]|[^⺀-\U0002FFFF\s]+|\s+")
 
 
-def _fitted_table(
-    size_pt: str, col_def: str, head: list[list[str]], body: list[list[str]], wraps: list[bool], table_args: str
-) -> str:
-    """A table whose columns are each at least as wide as the widest of their body cells, measured at print size,
-    and as half their header, which may wrap to two lines; an `fr` text column may wrap its cells to two lines too,
-    while an `auto` column keeps its cells on one line. Room to spare goes to the `fr` columns of `col_def` by
-    weight. A table that needs more than the text width sets its text smaller, so that no cell prints over its
-    neighbour."""
-    weights = [0 if w == "auto" else int(w.removesuffix("fr")) for w in col_def.strip("()").split(", ")]
-    columns = ",\n    ".join(
-        f"({_typst_array(b)}, {_typst_array(h)}, {'true' if w else 'false'})"
-        for b, h, w in zip(body, head, wraps, strict=True)
-    )
-    return (
-        f"\n#align(center)[\n"
-        f"#set text(size: {size_pt})\n"
-        f"#layout(size => {{\n"
-        f"  let columns = (\n    {columns},\n  )\n"
-        f"  let weights = {_typst_array([str(w) for w in weights])}\n"
-        f"  let widest(cells) = calc.max(0pt, ..cells.map(c => measure(table(inset: 0pt, stroke: none, c)).width))\n"
-        f"  let inset = 2 * {TABLE_CELL_INSET}\n"
-        f"  let text-widths = columns.zip(weights).map((((b, h, wraps), w)) => if w == 0 {{ calc.max(widest(b), widest(h)) }} else {{ calc.max(if wraps {{ widest(b) / 2 }} else {{ widest(b) }}, widest(h) / 2) }})\n"
-        f"  let spare = size.width - text-widths.sum() - inset * columns.len()\n"
-        f"  let scale = if spare < 0pt {{ (size.width - inset * columns.len()) / text-widths.sum() }} else {{ 1 }}\n"
-        f"  let grow = if spare > 0pt and weights.sum() > 0 {{ spare / weights.sum() }} else {{ 0pt }}\n"
-        f"  show table: set text(size: scale * 1em)\n"
-        f"  table(\n"
-        f"  columns: text-widths.zip(weights).map(((t, w)) => t * scale + inset + grow * w),\n"
-        f"{table_args}"
-        f"  )\n"
-        f"}})\n"
-        f"]\n"
-    )
+def _two_line_header(text: str) -> str:
+    """`text` split into two lines at the boundary nearest half its width, or at a pause (、/· or a space)
+    or before an opening bracket within a character of that point. A colon or comma that ends a clause wins
+    within a sixth of the width of that point. No line starts with closing punctuation or ends with an
+    opening bracket, and a run of digits breaks only after a dash."""
+    tokens = HEADER_TOKEN.findall(text)
+    width = _display_width(text)
+    half = width / 2
+    breaks, run = [], 0
+    for i, token in enumerate(tokens[:-1]):
+        run += _display_width(token)
+        if token[-1] not in "（(《“" and tokens[i + 1][0] not in "）)》”，。、：；,.:;%":
+            breaks.append((i + 1, run))
+    natural = [
+        (i, w) for i, w in breaks
+        if abs(w - half) <= width / 6 and tokens[i - 1][-1] in "：，；:"
+    ] or [
+        (i, w) for i, w in breaks
+        if abs(w - half) <= 2 and (tokens[i - 1][-1] in "、/·" or tokens[i - 1].isspace() or tokens[i][0] in "（(")
+    ]
+    at = min(natural or breaks, key=lambda b: (abs(b[1] - half), -b[1]), default=(None,))[0]
+    if at is None:
+        return text
+    return "".join(tokens[:at]).rstrip() + "<br>" + "".join(tokens[at:]).lstrip()
 
 
-CONTINUED_TABLE_HEAD_RE =re.compile(r"^(?:@@PAGEBREAK@@\s*)?(?:#+\s*)?续表[^\n]*")
+def _break_wide_headers(rows: list[list[str]], header_rows: int, ncols: int) -> None:
+    """Split each header cell wider than the columns of numbers and short labels under it, so that the header,
+    not the column, takes a second line."""
+    body = rows[header_rows:]
+    rigid = _rigid_columns(body, ncols)
+    widths = [max((_cell_width(r[c]) for r in body), default=0) for c in range(ncols)]
+    for r_idx in range(header_rows):
+        row = rows[r_idx]
+        spans_empty = any(not c.strip() for c in row) and any(c.strip() for c in row)
+        for c in range(ncols):
+            text = row[c].strip()
+            if not text or "<" in text:
+                continue
+            span = 1
+            while spans_empty and c + span < ncols and not row[c + span].strip():
+                span += 1
+            under = sum(widths[c : c + span])
+            if all(rigid[c : c + span]) and _cell_width(text) > max(under, HEADER_BREAK_MIN_WIDTH):
+                row[c] = _two_line_header(text)
+
+
+CONTINUED_TABLE_HEAD_RE = re.compile(r"^(?:@@PAGEBREAK@@\s*)?(?:#+\s*)?续表[^\n]*")
 CONTINUED_TABLE_PAIR_RE = re.compile(
     r"((?:^[ \t]*\|[^\n]+\|[ \t]*\n)+)"
     r"(?:[ \t]*\n)+(?:@@PAGEBREAK@@\s*)?(?:#+\s*)?续表[^\n]*\n(?:[ \t]*\n)*"
@@ -357,7 +394,7 @@ def merge_continued_tables(text: str) -> str:
     return text
 
 
-def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bool = False) -> str:
+def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bool = False, caption: str = "") -> str:
     """Typst tables for the Markdown pipe tables in `text`. A `three_line` table (三线表) fills the text width,
     weights each narrow table's columns by their widest cell, and rules only its top, header and bottom."""
     if merge_continued:
@@ -391,14 +428,20 @@ def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bo
                         r.extend([""] * (ncols - len(r)))
                     nrows = len(parsed_rows)
                     first_row = parsed_rows[0]
+                    second = parsed_rows[1] if nrows > 2 else []
+                    labels_only = all(c.strip() and not TABLE_NUMBER.fullmatch(c.strip()) for c in second) and any(
+                        TABLE_NUMBER.fullmatch(c.strip()) for c in parsed_rows[2]
+                    ) if second else False
                     two_level = nrows > 2 and any(
-                        first_row[c].strip() and not first_row[c + 1].strip() for c in range(1, ncols - 1)
-                    ) and any(not c.strip() for c in parsed_rows[1]) and any(c.strip() for c in parsed_rows[1])
+                        first_row[c].strip() and not first_row[c + 1].strip() for c in range(ncols - 1)
+                    ) and (any(not c.strip() for c in second) and any(c.strip() for c in second) or labels_only)
                     header_rows = 2 if two_level else 1
+                    if ncols >= 5:
+                        _break_wide_headers(parsed_rows, header_rows, ncols)
                     body_rows = parsed_rows[header_rows:]
+                    for r in body_rows:
+                        r[:] = [HYPHEN_MINUS.sub("−", c) for c in r]
                     pads = [_decimal_pads([r[c].strip() for r in body_rows]) for c in range(ncols)]
-                    head_cells: list[list[str]] = [[] for _ in range(ncols)]
-                    body_cells: list[list[str]] = [[] for _ in range(ncols)]
                     items: list[str] = []
                     row_starts: list[int] = []
                     for r_idx, r in enumerate(parsed_rows):
@@ -419,12 +462,11 @@ def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bo
                                     while col_idx + span < len(r) and not r[col_idx + span].strip():
                                         span += 1
                                     if span > 1:
-                                        items.append(f"table.cell(colspan: {span})[#strong[{c_clean}]]")
+                                        centre = ", align: center + horizon" if col_idx == 0 else ""
+                                        items.append(f"table.cell(colspan: {span}{centre})[#strong[{c_clean}]]")
                                         col_idx += span
                                         continue
                                 items.append(f"[#strong[{c_clean}]]" if c_clean.strip() else "[]")
-                                if c_clean.strip():
-                                    head_cells[col_idx].append(f"[#strong[{c_clean}]]")
                                 col_idx += 1
                         else:
                             col = 0
@@ -433,7 +475,6 @@ def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bo
                                 if shaded:
                                     c = shaded.group(1)
                                 column_pads = pads[col] if r_idx >= header_rows and span == 1 else None
-                                cell_col = col
                                 col += span
                                 if column_pads and c.strip() in column_pads:
                                     c = column_pads[c.strip()]
@@ -447,9 +488,7 @@ def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bo
                                     cell = f"[#strong[{c_clean}]]"
                                 else:
                                     cell = f"[{c_clean}]"
-                                if span == 1 and c_clean.strip():
-                                    (body_cells if r_idx >= header_rows else head_cells)[cell_col].append(cell)
-                                args =([f"colspan: {span}"] if span > 1 else []) + (["fill: luma(215)"] if shaded else [])
+                                args = ([f"colspan: {span}"] if span > 1 else []) + (["fill: luma(215)"] if shaded else [])
                                 items.append(f"table.cell({', '.join(args)}){cell}" if args else cell)
                     if nrows > 1:
                         split = row_starts[header_rows] if header_rows < nrows else len(items)
@@ -458,11 +497,7 @@ def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bo
                         body = ", ".join(items)
                     size_pt = "6.8pt" if ncols >= 10 else "7.2pt" if ncols >= 8 else "7.8pt" if ncols >= 6 else "8.2pt" if ncols >= 5 else "8.8pt"
                     prose_cols = any(_is_prose_column([r[c] for r in body_rows]) for c in range(1, ncols))
-                    col_def = (
-                        _column_weights(parsed_rows[:header_rows], body_rows, ncols, short_auto=prose_cols)
-                        if ncols >= 5
-                        else f"{ncols}"
-                    )
+                    col_def = f"{ncols}"
                     if three_line and ncols < 5:
                         weights = [
                             min(THREE_LINE_MAX_WEIGHT, max(THREE_LINE_MIN_WEIGHT, *(_display_width(r[c]) for r in parsed_rows)))
@@ -491,24 +526,64 @@ def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bo
                         stroke_str = "  stroke: (x, y) => (top: 1.0pt + luma(30), bottom: 1.0pt + luma(30)),\n"
                     fill_str = "  fill: (col, row) => if row > 0 and calc.even(row) { luma(252) } else { none },\n" if ncols >= 6 and not three_line else ""
                     table_args = f"  align: (col, row) => {align_str},\n{stroke_str}{fill_str}  {body}\n"
-                    if ncols >= 5 and not prose_cols:
-                        wraps = [_wraps([r[c] for r in body_rows]) for c in range(ncols)]
-                        typst_table = _fitted_table(size_pt, col_def, head_cells, body_cells, wraps, table_args)
-                    else:
+                    if ncols >= 5:
+                        probe, narrow, fit, dense = _column_widths(parsed_rows[:header_rows], body_rows, ncols)
+                        tiers = PROSE_TABLE_TIERS if prose_cols else TABLE_TIERS
+                        head = f"block(sticky: true, width: 100%)[{caption}]; v(0.2em); " if caption else ""
+                        fit_table = (
+                            f"let fit-table(width, t) = set-table({fit}, ..t)\n"
+                            if fit
+                            else "let padx = if type(table.inset) == dictionary { table.inset.left } else { table.inset }\n"
+                            f"let fit-table(width, t) = {{ let x = if t.at(1) == auto {{ padx }} else {{ t.at(1) }};"
+                            f" set-table({probe}, t.at(0), x + (width - measure(set-table({probe}, ..t)).width) / {2 * ncols}) }}\n"
+                        )
+                        narrow_tier = (
+                            f"let tier = if tier == none {{ {tiers}.find(t => measure(set-table({narrow}, ..t)).width"
+                            f" <= size.width) }} else {{ tier }}\n"
+                            if narrow != probe
+                            else ""
+                        )
+                        table_code = (
+                            f"#place(layout(size => state(\"table-region\").update(size)))\n"
+                            f"#context {{\n"
+                            f"let size = state(\"table-region\").get()\n"
+                            f"let cells = arguments(\n{table_args})\n"
+                            f"let pad = if type(table.inset) == dictionary {{ table.inset.top }} else {{ table.inset }}\n"
+                            f"let set-table(columns, scale, x) = {{ set text(size: {size_pt}, costs: (runt: 1000%));"
+                            f" show table: set par(linebreaks: \"optimized\"); show table: set text(size: scale * 1em); if x == auto"
+                            f" {{ table(columns: columns, ..cells) }} else {{ table(columns: columns, inset: (x: x, y: pad), ..cells) }} }}\n"
+                            f"{fit_table}"
+                            f"let tier = {tiers}.find(t => measure(set-table({probe}, ..t)).width <= size.width)\n"
+                            f"{narrow_tier}"
+                            f"let turned = if tier == none {{ {tiers}"
+                            f".filter(t => measure(set-table({probe}, ..t)).width <= size.height)"
+                            f".map(t => block(width: size.height, {{ {head}fit-table(size.height, t) }}))"
+                            f".find(b => measure(b).height <= size.width) }}\n"
+                            f"if tier != none {{ {head}fit-table(size.width, tier) }}"
+                            f" else if turned != none {{ place(auto, float: true, clearance: 1.2em, rotate(-90deg, reflow: true, turned)) }}"
+                            f" else {{ {head}set-table({dense}, ..{tiers}.last()) }}\n"
+                            f"}}\n"
+                        )
                         typst_table = (
                             f"\n#align(center)[\n"
-                            f"#set text(size: {size_pt})\n"
                             f"{'#set par(justify: false)' + chr(10) if prose_cols else ''}"
-                            f"#table(\n"
-                            f"  columns: {col_def},\n"
-                            f"{table_args}"
-                            f")\n"
+                            f"{table_code}"
+                            f"]\n"
+                        )
+                    else:
+                        table_code = f"#table(\n  columns: {col_def},\n{table_args})\n"
+                        typst_table = (
+                            f"\n#align(center)[\n"
+                            f"#set text(size: {size_pt}, costs: (runt: 1000%))\n#show table: set par(linebreaks: \"optimized\")\n"
+                            f"{'#set par(justify: false)' + chr(10) if prose_cols else ''}"
+                            f"{table_code}"
                             f"]\n"
                         )
                     label_at = next((k for k in range(len(out) - 1, -1, -1) if out[k].strip()), None)
                     if label_at is not None and _is_table_label(out[label_at]):
                         out[label_at] = f"#block(sticky: true)[{out[label_at].strip()}]"
                     out.append(typst_table)
+                    caption = ""
                 continue
         out.append(lines[i])
         i += 1
@@ -532,6 +607,12 @@ def layout_tables(text: str, tables: list[str], three_line: bool = False, merge_
         flags=re.DOTALL,
     )
     text = _rotate_text_tables(text, tables)
+    text = CAPTIONED_TABLE.sub(
+        lambda m: "#v(0.6em)\n" + code.lstrip("\n")
+        if "#context {" in (code :=_format_pipe_tables(tables[int(m[2])], three_line, merge_continued, m[1]))
+        else m[0],
+        text,
+    )
     text = re.sub(
         r"@@TABLEBLOCK(\d+)@@", lambda m: _format_pipe_tables(tables[int(m[1])], three_line, merge_continued), text
     )
