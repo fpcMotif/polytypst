@@ -75,19 +75,16 @@ def test_parse_rejects_bad_backends_with_the_reason(text: str, message: str) -> 
         _ = Backend.parse(text)
 
 
-def test_a_colab_flag_on_another_backend_stops_with_the_reason() -> None:
-    with pytest.raises(ValueError, match="jina has no option 'gpu'"):
-        _ = Backend.from_legacy_flags(mode="jina", gpu_type="G4")
-    assert str(Backend.from_legacy_flags(gpu_type="G4", colab_workers=2, shards=3)) == str(Backend.parse("colab"))
-
-
-def test_backend_and_a_colab_flag_together_stop_the_command(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_colab_flag_outside_backend_stops_the_command(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     from polytypst import cli
 
-    monkeypatch.setattr("sys.argv", ["polytypst", "scan.pdf", "--backend", "jina", "--gpu-type", "G4"])
+    monkeypatch.setattr("sys.argv", ["polytypst", "scan.pdf", "--gpu-type", "A100"])
     with pytest.raises(SystemExit) as stop:
         cli.main()
     assert stop.value.code == 2
+    assert "unrecognized arguments: --gpu-type A100" in capsys.readouterr().err
 
 
 def test_str_round_trips_and_shows_only_changed_options() -> None:

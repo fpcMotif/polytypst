@@ -12,6 +12,7 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
   - `colab:jina-ocr-v1?gpu=G4&workers=2&shards=3` for the self-hosted model on Colab GPUs.
   - `jina` for the Jina API.
 - VERIFY_MODEL: the model for `book_check.py verify`, or `none`. With `none`, you verify the claims yourself.
+- TRIAL: `no`, or `yes` to transcribe 10 pages before the whole book. Choose `yes` only for a BACKEND, model or language that no earlier book used.
 
 ## RULES
 
@@ -19,7 +20,7 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
 - Write transcripts only in STORE. `/Users/martinfan/devv/polytypst-books` holds checked work, so only read it.
 - Run Python as `uv run`, never bare `python` or `python3`. Put every path in double quotes.
 - Take API keys from the environment or Varlock only. Never type, print or paste a key.
-- Pass BACKEND to `--backend` exactly as written. Never add `--mode`, `--gpu-type`, `--colab-workers`, `--shards` or `--ocr-model`.
+- Pass BACKEND to `--backend` exactly as written.
 - Use VERIFY_MODEL only. When it fails, for example with "No API key", stop and report the error. Never switch to another model or provider.
 - Keep checks as they are. Leave `src/checker.py`, every existing test, `tests/fixtures/book_snapshots.json` and `quality/baseline.json` unchanged, and never run `audit --update` or `--allow-rise`. When a check fails, fix the cause in the book's files, or report it.
 - Report a check as passed only when you ran it in this session. Quote the last lines of its output.
@@ -46,6 +47,8 @@ Gate 1: you wrote down the balance, the GPU and the model.
 
 ## STEP 2. Trial on 10 pages
 
+Skip this step when TRIAL is `no`.
+
 1. Run in the background, with its output in `ROOT/ocr_trial.log`:
    `mise exec -- uv run polytypst "SCAN" --backend "BACKEND" --pages 1-10 --formats typst,latex,pdf`
    Add `--lang` and `--domain` only for a new book.
@@ -56,7 +59,9 @@ Gate 2: the command exited 0, pages 1 to 10 each have a Markdown page, and your 
 
 ## STEP 3. The whole book
 
-1. Run the same command without `--pages`, once, in the background, with its output in `ROOT/ocr_full.log`. The trial pages stay as they are.
+1. Run once in the background, with its output in `ROOT/ocr_full.log`:
+   `mise exec -- uv run polytypst "SCAN" --backend "BACKEND" --formats typst,latex,pdf`
+   Add `--lang` and `--domain` only for a new book. After a trial, the trial pages stay as they are.
 2. When it exits 1 with "N pages still pending", run the same command again. It transcribes only those pages. Repeat until it exits 0, at most 3 times.
 3. For a Colab BACKEND, run `uv run polytypst-colab usage`. When it shows an active VM whose name your log printed, stop that VM with the colab CLI. Never stop a VM that another run started.
 

@@ -94,31 +94,6 @@ def main() -> None:
         help="Subject domain profile of a new book (default: math)",
     )
     parser.add_argument(
-        "--mode",
-        type=str,
-        help="OCR execution mode / backend kind (colab, local, gemini, etc.)",
-    )
-    parser.add_argument(
-        "--colab-workers",
-        type=int,
-        help="Number of Colab worker instances (default: 2)",
-    )
-    parser.add_argument(
-        "--shards",
-        type=int,
-        help="Shards per GPU worker (default: 3)",
-    )
-    parser.add_argument(
-        "--gpu-type",
-        type=str,
-        help="Colab GPU type (T4, L4, A100, G4)",
-    )
-    parser.add_argument(
-        "--ocr-model",
-        type=str,
-        help="OCR model name (default: jina-ocr-v1)",
-    )
-    parser.add_argument(
         "--formats",
         type=str,
         help="Comma-separated formats to build (e.g. typst,latex,pdf)",
@@ -129,23 +104,6 @@ def main() -> None:
         help="Skip macOS Apple Vision OCR cross-verification",
     )
     args = parser.parse_args()
-
-    if args.mode or args.gpu_type or args.colab_workers or args.shards or args.ocr_model:
-        if args.backend is not None:
-            parser.error(
-                f"--backend {args.backend} already names the backend; put its options in it, "
-                "as in --backend 'colab:jina-ocr-v1?gpu=G4&workers=2&shards=3'"
-            )
-        try:
-            args.backend = Backend.from_legacy_flags(
-                mode=args.mode,
-                ocr_model_name=args.ocr_model,
-                gpu_type=args.gpu_type,
-                colab_workers=args.colab_workers,
-                shards=args.shards,
-            )
-        except ValueError as exc:
-            parser.error(str(exc))
     args.backend = args.backend or Backend.parse(DEFAULT_BACKEND)
 
     if args.export_web:

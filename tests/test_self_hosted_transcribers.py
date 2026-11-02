@@ -1,3 +1,5 @@
+import json
+import subprocess
 import tarfile
 from collections.abc import Sequence
 from pathlib import Path
@@ -5,7 +7,7 @@ from pathlib import Path
 import pytest
 from conftest import PageRender
 
-from polytypst.ocr import colab, gpu_worker
+from polytypst.ocr import colab, colab_cluster, gpu_worker
 from polytypst.ocr.backend import Backend
 from polytypst.ocr.cached import CachedTranscriber
 from polytypst.ocr.colab_cluster import ClusterStats, ColabOCRCluster
@@ -77,6 +79,79 @@ def test_colab_runs_pages_in_batches_and_yields_each_batch(
     got = list(ColabTranscriber(cluster, 2, "colab:jina-ocr-v1").transcribe(pages))
     assert cluster.batches == [[1, 3], [4]]
     assert got[-1] == Transcript(4, "Colab page 4.")
+
+
+@pytest.fixture
+def fake_vms(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[str]]:
+    vms: dict[str, list[str]] = {"started": [], "stopped": [], "broken": []}
+
+    class FakeSession:
+        def __init__(self, name: str, gpu: str) -> None:
+            self.name = name
+            self.pages: list[str] = []
+
+        def start(self) -> bool:
+            vms["started"].append(self.name)
+            return self.name not in vms["broken"]
+
+        def install(self, packages: tuple[str, ...]) -> bool:
+            return True
+
+        def upload(self, local: Path, remote: str) -> bool:
+            if remote == "/content/pages.tar.gz":
+                with tarfile.open(local) as tar:
+                    self.pages = tar.getnames()
+            return True
+
+        def exec(self, code: str, timeout: int = 60) -> subprocess.CompletedProcess[str]:
+            done = json.dumps({"done": True, "alive": True, "pages": 0, "log": ""})
+            return subprocess.CompletedProcess([], 0, done if code == colab_cluster.POLL_CODE else "", "")
+
+        def download(self, remote: str, local: Path) -> bool:
+            if remote != "/content/markdown.tar.gz":
+                return False
+            made = local.parent / f"{self.name}-md"
+            made.mkdir(exist_ok=True)
+            with tarfile.open(local, "w:gz") as tar:
+                for name in self.pages:
+                    md = made / f"{Path(name).stem}.md"
+                    _ = md.write_text(f"{name} on {self.name}")
+                    tar.add(md, arcname=md.name)
+            return True
+
+        def stop(self) -> None:
+            vms["stopped"].append(self.name)
+
+    monkeypatch.setattr(colab_cluster, "ColabSession", FakeSession)
+    monkeypatch.setattr(colab_cluster, "POLL_SEC", 0)
+    return vms
+
+
+def test_colab_vms_start_once_for_every_batch_and_stop_at_the_end(
+    page_render: PageRender, fake_vms: dict[str, list[str]]
+) -> None:
+    pages = [page_render(n) for n in range(1, 7)]
+    cluster = ColabOCRCluster(num_workers=2)
+    got = list(ColabTranscriber(cluster, 2, "colab:jina-ocr-v1").transcribe(pages))
+    assert [t.number for t in got] == [1, 2, 3, 4, 5, 6]
+    assert sorted(fake_vms["started"]) == cluster.session_names(2)
+    assert sorted(fake_vms["stopped"]) == cluster.session_names(2)
+
+
+def test_a_vm_that_fails_to_start_hands_its_pages_to_the_others(
+    tmp_path: Path,
+    page_render: PageRender,
+    fake_vms: dict[str, list[str]],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cluster = ColabOCRCluster(num_workers=2)
+    broken, healthy = cluster.session_names(2)
+    fake_vms["broken"].append(broken)
+    stats = cluster.run_cluster([page_render(n) for n in range(1, 5)], tmp_path)
+    assert sorted(p.name for p in tmp_path.glob("p_*.md")) == [f"p_00{n}.md" for n in range(1, 5)]
+    assert stats.completed_pages == 4
+    assert f"[{broken}] Dropped: the VM did not start. Its 2 pages go to the other VMs." in capsys.readouterr().out
+    assert sorted(fake_vms["stopped"]) == [broken, healthy]
 
 
 def test_colab_archive_names_pages_by_number_whatever_the_file_is_called(

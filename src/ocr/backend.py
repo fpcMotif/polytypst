@@ -98,29 +98,6 @@ class Backend:
             raise ValueError("cached needs dir, as in cached:?dir=PATH")
         return cls(kind, model, MappingProxyType(options))
 
-    @classmethod
-    def from_legacy_flags(
-        cls,
-        mode: str | None = None,
-        ocr_model_name: str | None = None,
-        gpu_type: str | None = None,
-        colab_workers: int | None = None,
-        shards: int | None = None,
-    ) -> Backend:
-        kind = mode or DEFAULT_BACKEND
-        base = cls.parse(f"{kind}:{ocr_model_name}" if ocr_model_name else kind)
-        options = dict(base.options)
-        for key, value in (("gpu", gpu_type), ("workers", colab_workers), ("shards", shards)):
-            if value is None:
-                continue
-            if key not in options:
-                raise ValueError(
-                    f"{base.kind} has no option '{key}'; --gpu-type, --colab-workers and --shards are Colab-only"
-                )
-            options[key] = value
-        return cls(base.kind, base.model, MappingProxyType(options))
-
-
     def __str__(self) -> str:
         defaults = KINDS[self.kind].options
         changed = {k: v for k, v in self.options.items() if v != defaults[k]}
