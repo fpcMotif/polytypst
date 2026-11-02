@@ -707,6 +707,17 @@ def keep_notes_with_calls(block: str) -> str:
     return block
 
 
+FIGURE_WITH_NOTE = re.compile(rf"#align\(center\)\[\n.*?\n\](?:\s*{FIG_NOTE}.*?{END_FIG_NOTE})?", re.DOTALL)
+
+
+def float_figures(text: str) -> str:
+    """Float each figure with its note to the top or bottom of a page, so that the text fills the rest of the
+    page that a figure too tall for it would leave empty."""
+    return FIGURE_WITH_NOTE.sub(
+        lambda m: f"#place(auto, float: true, clearance: 1.2em)[\n#set align(start)\n{m[0]}\n]", text
+    )
+
+
 def markdown_footnotes(s: str) -> str:
     s = _hoist_heading_footnotes(s, lambda b: f"^[{b}]")
     return FOOTNOTE_RE.sub(r"^[\1]", s)
@@ -1879,6 +1890,8 @@ class MonographCompiler:
         )
         s = re.sub(r"@@FIGBLOCK(\d+)@@", lambda m: fig_blocks[int(m.group(1))], s)
         s = re.sub(rf"\s*{END_FIG_NOTE}\s*{FIG_NOTE}\s*", "\n\n", s)
+        if not spec.paginate_like_source:
+            s = float_figures(s)
         s = re.sub(rf"{FIG_NOTE}\s*", "#fig-note[", s).replace(f"\n\n{END_FIG_NOTE}", "]").replace(END_FIG_NOTE, "]")
         s = "\n\n".join(map(keep_notes_with_calls, s.split("\n\n")))
         s = re.sub(r"@@FNEND@@(?=\()", r"@@FNEND@@\\", s)

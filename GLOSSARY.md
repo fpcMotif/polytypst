@@ -45,7 +45,7 @@ How far each word, line and diagram of a rebuilt PDF page sits from the same ink
 _Avoid_: redshift, overlay score, pixel parity
 
 **Continued table** (续表):
-A table that runs onto the next source scan page. That page opens with a 续表 label and often repeats the header rows. The compilers merge it into one table and drop the repeated header.
+A table that runs onto the next source scan page. That page opens with a 续表 label and often repeats the header rows. In a book with `merge_continued_tables = true`, the compilers merge it into one table and drop the repeated header.
 _Avoid_: table continuation, split table
 
 **Landscape page**:

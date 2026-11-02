@@ -64,6 +64,21 @@ def test_a_figure_note_prints_under_its_figure_as_a_note_block_not_body_text(tmp
     assert "#let fig-note(body)" in compiler.build_typst_preamble()
 
 
+def test_a_figure_floats_with_its_note_and_the_text_flows_past_it(tmp_path):
+    fig_dir = tmp_path / "figures"
+    fig_dir.mkdir()
+    (fig_dir / "fig_10-6.svg").write_text(svg(""), encoding="utf-8")
+    compiler = MonographCompiler(SPEC)
+    compiler.cleaner.figure_notes["10_6"] = "注：根据财务省制作。"
+    typst = compiler.format_typst(compiler.render_figure_group([("10_6", "图 10-6")], fig_dir) + "后文继续。")
+    float_start = typst.index("#place(auto, float: true, clearance: 1.2em)[\n#set align(start)\n")
+    float_end = typst.index("后文继续。")
+    assert float_start < typst.index("fig_10-6.svg") < typst.index("根据财务省制作") < float_end
+    assert typst[:float_end].rstrip().endswith("]\n]")
+    sourced = replace(SPEC, paginate_like_source=True)
+    assert "float: true" not in MonographCompiler(sourced).format_typst(compiler.render_figure_group([("10_6", "图 10-6")], fig_dir))
+
+
 def test_each_source_that_a_figure_of_the_block_prints_leaves_the_body(tmp_path):
     typst = typst_of_page(
         tmp_path,

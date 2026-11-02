@@ -8,4 +8,5 @@
 - **Evidence**: before you blame code for a wrong word, note or call mark (①②), change shared code in `src/compiler/`, or attach scan proof to a finding (`polytypst evidence`), read `.claude/skills/scan-evidence/SKILL.md`.
 - **OCR**: before you transcribe a scan (`polytypst SCAN.pdf --backend`) or add an OCR backend (`src/ocr/backend.py`), read "Transcribe the scan" in `docs/scanned-books.md`. To hand a fresh OCR run to an agent, fill in `docs/prompts/fresh-ocr.md`.
 - **PDF**: use `import pymupdf` and `pymupdf.open(path)` in files, `eval`, and `python -c` (`fitz` is deprecated). Outside the repo, such as in the scratchpad, run them with `uv run --project <repo root> python ...` so uv loads the project's pymupdf.
+- **LaTeX**: compile `.tex` files to PDF with `tectonic -X compile FILE.tex` (`~/.local/bin/tectonic`), which runs XeTeX and fetches packages on demand. TeX Live is not installed, so do not run `xelatex`, `tlmgr` or `latexmk`.
 - **Terms**: `GLOSSARY.md` names the source scan, rebuilt PDF, page map, scan parity, transcript, transcript store, backend, page check, and verdict.

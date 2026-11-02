@@ -203,12 +203,15 @@ GOURSAT_TYPST_SNAPSHOT = (
     "For the branch\n\n"
     '$ cases(delim: "{", u = x^2 & , v = y^2 & ) $ \n\n'
     "as shown in (Fig. 14).\n\n"
+    "#place(auto, float: true, clearance: 1.2em)[\n"
+    "#set align(start)\n"
     "#align(center)[\n"
     "  #figure(\n"
     '  image("figures/fig_1.svg", width: 58%),\n'
     "  caption: [Figure 1],\n"
     "  supplement: none\n"
     ")\n"
+    "]\n"
     "]"
 )
 
