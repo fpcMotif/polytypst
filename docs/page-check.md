@@ -9,27 +9,27 @@ You only read the books. Write only these files:
 
 ## Your values
 
-The prompt gives `BOOK`, `FIRST` and `LAST`. Find `SCAN` in this table.
+The prompt gives `BOOK`, `FIRST` and `LAST`. `BOOK` is the book key, the folder name under `books/`. Find `SCAN` in this table.
 
 | `BOOK` | `SCAN` |
 |---|---|
-| 1 | `/Users/martinfan/Downloads/1 宏观经济与产业结构.pdf` |
-| 2 | `/Users/martinfan/Downloads/2 通缩经济与货币政策.pdf` |
-| 3 | `/Users/martinfan/Downloads/3 国际经济环境的变化与日本经济.pdf` |
-| 4 | `/Users/martinfan/Downloads/4 不良债权与金融危机.pdf` |
-| 5 | `/Users/martinfan/Downloads/5 财政政策与社会保障.pdf` |
-| 6 | `/Users/martinfan/Downloads/6 劳动力市场与收入分配.pdf` |
+| `1_宏观经济与产业结构` | `/Users/martinfan/Downloads/1 宏观经济与产业结构.pdf` |
+| `2_通缩经济与货币政策` | `/Users/martinfan/Downloads/2 通缩经济与货币政策.pdf` |
+| `3_国际经济环境的变化与日本经济` | `/Users/martinfan/Downloads/3 国际经济环境的变化与日本经济.pdf` |
+| `4_不良债权与金融危机` | `/Users/martinfan/Downloads/4 不良债权与金融危机.pdf` |
+| `5_财政政策与社会保障` | `/Users/martinfan/Downloads/5 财政政策与社会保障.pdf` |
+| `6_劳动力市场与收入分配` | `/Users/martinfan/Downloads/6 劳动力市场与收入分配.pdf` |
 
 - `PNG` is `output/page_check/BOOK/png/`.
-- `OUT` is `output/page_check/BOOK/pFIRST-LAST.jsonl`, such as `output/page_check/4/p51-60.jsonl`.
+- `OUT` is `output/page_check/BOOK/pFIRST-LAST.jsonl`, such as `output/page_check/4_不良债权与金融危机/p51-60.jsonl`.
 
 Obey these rules:
 
 1. Run every command from `/Users/martinfan/devv/polytypst.mixed`.
 2. Put each path in double quotes. The names contain spaces and Chinese characters.
 3. Run Python as `uv run python`.
-4. Read the transcript only through `scripts/page_check.py`. Its line numbers are the ones to record.
-5. When `scripts/page_check.py` says a page has no transcript, skip the page.
+4. Read the transcript only through `polytypst page-check text`. Its line numbers are the ones to record.
+5. When `polytypst page-check` says a page has no transcript, skip the page.
 6. Copy the scan exactly, typos included. When the scan prints a typo and the transcript copies it, record a `scan_typo` issue. For example, the scan prints `零食` where `零售` makes sense, and the transcript also has `零食`. The build corrects scan typos later, so the transcript keeps the scan's text.
 
 ## Turn 1: run the batch
@@ -43,15 +43,15 @@ PNG="output/page_check/$BOOK/png/"
 uv run python scripts/page_png.py "$SCAN" "$PNG" --pages "$(seq -s, "$FIRST" "$LAST")" --dpi 200
 for N in $(seq "$FIRST" "$LAST"); do
   echo "=== page $N: text"
-  uv run python scripts/page_check.py text "$BOOK" "$N"
+  uv run polytypst page-check text "$BOOK" "$N"
   echo "=== page $N: suspects"
-  SUSPECTS=$(uv run python scripts/page_check.py suspects "$BOOK" "$N")
+  SUSPECTS=$(uv run polytypst page-check suspects "$BOOK" "$N")
   echo "$SUSPECTS"
   echo "$SUSPECTS" | awk '$3 == "band" {print NR, $4}' | while read -r K BAND; do
     uv run python scripts/page_png.py "$SCAN" "${PNG}z${N}_${K}_" --pages "$N" --dpi 300 --clip "0,${BAND%,*},1,${BAND#*,}" >/dev/null
   done
   echo "=== page $N: cells"
-  uv run python scripts/page_check.py cells "$BOOK" "$N"
+  uv run polytypst page-check cells "$BOOK" "$N"
 done
 ```
 
@@ -117,7 +117,7 @@ The page's `cells` output prints each transcript table as rows, with tabs betwee
 3. Compare:
 
    ```bash
-   uv run python scripts/page_check.py tablediff BOOK N K "PNG/tN_K.tsv"
+   uv run polytypst page-check tablediff BOOK N K "PNG/tN_K.tsv"
    ```
 
 4. Look again at the zoom for each line of the output. Correct your TSV when you copied wrong, and run the comparison again. Each line that stays is an issue: a wrong cell or header is `table_cell`, and a row or a column that is missing or extra is `table_shape`.
@@ -139,7 +139,7 @@ Before you add an issue, confirm that it is a real difference. In the first Book
 Add one line to `OUT` for the page. Each line is one JSON object:
 
 ```json
-{"book": 4, "page": 57, "receipt": "7541ffa3fa67", "issues": [{"kind": "word", "line": 9, "transcript": "使用", "scan": "便用", "note": ""}]}
+{"book": "4_不良债权与金融危机", "page": 57, "receipt": "7541ffa3fa67", "issues": [{"kind": "word", "line": 9, "transcript": "使用", "scan": "便用", "note": ""}]}
 ```
 
 `receipt` is the `R` from the page's `text` output. `summary` counts a page as checked only when its receipt matches the current PNG and transcript. A line with a missing or wrong receipt leaves the page unchecked. When `text` prints `receipt: none`, render the page PNG and run `text` again. A page with no differences gets `"issues": []`. Each issue has these fields:
@@ -171,7 +171,7 @@ Done when `OUT` has the line for page `N`.
 ### Step 6. Check your file
 
 ```bash
-uv run python scripts/page_check.py summary --books BOOK
+uv run polytypst page-check summary BOOK
 ```
 
 Done when the output names no `bad line` in `OUT`, and no page from `FIRST` to `LAST` is in the `unchecked` or `no valid receipt` list. Then reply with one line: `BOOK FIRST-LAST: P pages, I issues`.

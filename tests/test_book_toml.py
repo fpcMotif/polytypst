@@ -120,6 +120,17 @@ def test_aliases_and_hyphens_find_a_book(shelf: Path):
         catalog.book_by_key("nope")
 
 
+def test_a_unique_start_of_a_key_finds_a_book_and_a_shared_start_names_the_choices(shelf: Path):
+    write(shelf / "4_banks", MINIMAL.replace("probe", "banks"))
+    write(shelf / "fga", MINIMAL.replace("probe", "fga"))
+    write(shelf / "fga_explained", MINIMAL.replace("probe", "fga_explained"))
+    assert catalog.book_key("4") == "4_banks"
+    assert catalog.book_key("fga") == "fga"
+    assert catalog.book_key("fga_e") == "fga_explained"
+    with pytest.raises(KeyError, match="'fg' is ambiguous; it starts fga, fga_explained"):
+        catalog.book_key("fg")
+
+
 def test_a_python_book_imports_its_own_files_by_relative_import(shelf: Path):
     folder = shelf / "py_book"
     folder.mkdir()

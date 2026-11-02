@@ -148,11 +148,18 @@ class TranscriptStore:
     def __init__(self, directory: Path) -> None:
         self.directory = Path(directory)
 
-    def _path(self, number: int) -> Path:
+    def path(self, number: int) -> Path:
         return self.directory / f"p_{number:03d}.md"
 
+    def pages(self) -> list[int]:
+        return sorted(
+            int(m[1])
+            for p in self.directory.glob("p_*.md")
+            if (m := re.fullmatch(r"p_(\d+)\.md", p.name))
+        )
+
     def text(self, number: int) -> str | None:
-        path = self._path(number)
+        path = self.path(number)
         return typesettable_markdown(path.read_text(encoding="utf-8")) if path.exists() else None
 
     def _made_by(self) -> dict[int, str]:
@@ -174,7 +181,7 @@ class TranscriptStore:
     def _write(
         self, number: int, text: str, source: str, made_by: dict[int, str]
     ) -> None:
-        _ = self._path(number).write_text(text, encoding="utf-8")
+        _ = self.path(number).write_text(text, encoding="utf-8")
         made_by[number] = source
         self._save_made_by(made_by)
 
@@ -188,7 +195,7 @@ class TranscriptStore:
         pending: list[PageImage] = []
         kept: Counter[str] = Counter()
         for page in pages:
-            path = self._path(page.number)
+            path = self.path(page.number)
             source = made_by.get(page.number) if path.exists() else None
             if source is None:
                 if self.text(page.number) == BLANK_TRANSCRIPT or is_blank_page(

@@ -218,7 +218,7 @@ note_before_caption = true
 ]
 
 [page_fixups]
-# The page check (output/page_check/5/verdicts.jsonl) found these. A rewrite marked "Scan typo"
+# The page check (output/page_check/5_财政政策与社会保障/verdicts.jsonl) found these. A rewrite marked "Scan typo"
 # corrects a typo that the scan prints; every other rewrite makes the page match the scan.
 4 = [
   # The transcript has extra 学; the scan prints 法经学部.

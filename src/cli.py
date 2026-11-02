@@ -21,6 +21,7 @@ book commands (see `polytypst COMMAND --help`):
   polytypst checklist FINDINGS.jsonl      render review findings as a Markdown checklist
   polytypst profile BOOK --step S         time a step by owner (Python, native libraries) and Typst cold/edited/repeat
   polytypst evidence zoom|sweep|diff|report   box a span on the scan, sweep the cleaner, render findings as HTML
+  polytypst page-check COMMAND BOOK ...   check transcripts page by page against the scan; triage and verify issues
 """
 
 
@@ -33,6 +34,10 @@ def main() -> None:
         from .evidence import main as evidence_main
 
         sys.exit(evidence_main(sys.argv[2:]))
+    if sys.argv[1:2] == ["page-check"]:
+        from .page_check.cli import main as page_check_main
+
+        sys.exit(page_check_main(sys.argv[2:]))
     parser = argparse.ArgumentParser(
         description="polytypst: Universal tool to turn complex PDFs into beautiful Typst, LaTeX, and EPUB.",
         epilog=BOOK_COMMANDS,

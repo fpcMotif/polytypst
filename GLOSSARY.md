@@ -32,6 +32,14 @@ _Avoid_: OCR engine, mode
 The folder of OCR lines with their boxes for a book, `output/<key>/source_ocr/`, one `pNNN.json` file per page, plus `lines.json`. That file records which line reader made each page. Scan parity, the facsimile and figure extraction read it. A line reader is Apple Vision on macOS and Tesseract elsewhere, in the languages that the book's `ocr_languages` names.
 _Avoid_: source OCR, Vision cache, OCR pages
 
+**Page check**:
+The check of each transcript page against its source scan page, word by word and table cell by table cell. Agents record issues with a receipt for each page. `lint` adds issues from rules. Each issue then gets a verdict. The results live in `output/page_check/<key>/`, and `polytypst page-check` runs each stage.
+_Avoid_: book check, page review
+
+**Verdict**:
+The decision on one page check issue after a person or an agent reads the scan zoom: `real`, `scan_typo`, `false_positive` or `sum`. Verdicts live in `verdicts.jsonl`, and a `real` or `scan_typo` verdict becomes a fixup in the book's `book.toml`.
+_Avoid_: ruling, judgment
+
 **Scan parity**:
 How far each word, line and diagram of a rebuilt PDF page sits from the same ink on its source scan page, in points.
 _Avoid_: redshift, overlay score, pixel parity
