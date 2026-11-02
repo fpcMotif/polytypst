@@ -20,6 +20,26 @@ class PublisherPreset:
 
 
 @dataclass(frozen=True)
+class NumberingWords:
+    item_kinds: str
+    reference_kinds: str
+    chapter_references: str
+    chapter_word: str
+    theorems: tuple[tuple[str, str], ...] = ()
+
+
+ENGLISH_WORDS = NumberingWords(
+    item_kinds=r"Proposition|Corollaire|D[ée]finition|Remarques?|Lemme|Th[ée]or[èe]me|Exemples?|Scholie",
+    reference_kinds=r"Theorems?|Lemmas?|Corollar(?:y|ies)|Propositions?|Definitions?|Remarks?|Examples?|Exercises?|Sections?|Sects?\.",
+    chapter_references=r"Chapters?|Chap\.",
+    chapter_word="Chapter",
+)
+FRENCH_WORDS = ENGLISH_WORDS
+CHINESE_WORDS = ENGLISH_WORDS
+JAPANESE_WORDS = ENGLISH_WORDS
+
+
+@dataclass(frozen=True)
 class LanguageProfile:
     code: str
     typst_lang: str
@@ -32,6 +52,7 @@ class LanguageProfile:
     cjk_punctuation_compress: bool
     contents_title: str
     ocr_instruction: str
+    numbering: NumberingWords
 
 
 @dataclass(frozen=True)
@@ -188,6 +209,7 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         cjk_punctuation_compress=False,
         contents_title="Contents",
         ocr_instruction="Transcribe English text and LaTeX math faithfully.",
+        numbering=ENGLISH_WORDS,
     ),
     "en_baskerville": LanguageProfile(
         code="en_baskerville",
@@ -201,6 +223,7 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         cjk_punctuation_compress=False,
         contents_title="Contents",
         ocr_instruction="Transcribe English text and LaTeX math faithfully.",
+        numbering=ENGLISH_WORDS,
     ),
     "ja": LanguageProfile(
         code="ja",
@@ -218,6 +241,7 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         cjk_punctuation_compress=True,
         contents_title="目次",
         ocr_instruction="Transcribe Japanese kanji/kana and LaTeX math faithfully without dropping okurigana.",
+        numbering=JAPANESE_WORDS,
     ),
     "fr": LanguageProfile(
         code="fr",
@@ -231,6 +255,7 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         cjk_punctuation_compress=False,
         contents_title="Table des matières",
         ocr_instruction="Transcribe French accents, guillemets, and LaTeX math faithfully.",
+        numbering=FRENCH_WORDS,
     ),
     "fr_times": LanguageProfile(
         code="fr_times",
@@ -244,6 +269,7 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         cjk_punctuation_compress=False,
         contents_title="Table des matières",
         ocr_instruction="Transcribe French accents, guillemets, and LaTeX math faithfully.",
+        numbering=FRENCH_WORDS,
     ),
     "zh": LanguageProfile(
         code="zh",
@@ -257,6 +283,7 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         cjk_punctuation_compress=True,
         contents_title="目录",
         ocr_instruction="Transcribe Chinese characters, full-width punctuation, and LaTeX math faithfully.",
+        numbering=CHINESE_WORDS,
     ),
 }
 
@@ -273,10 +300,13 @@ DOMAIN_PROFILES: dict[str, DomainProfile] = {
             "Corollary",
             "Proposition",
             "Definition",
-            "Example",
             "Remark",
-            "Axiom",
+            "Example",
+            "Assumption",
+            "Claim",
             "Conjecture",
+            "Axiom",
+            "Notation",
         ),
     ),
     "physics": DomainProfile(
@@ -292,6 +322,9 @@ DOMAIN_PROFILES: dict[str, DomainProfile] = {
             "Definition",
             "Example",
             "Exercise",
+            "Assumption",
+            "Claim",
+            "Notation",
         ),
     ),
     "economics": DomainProfile(
@@ -348,7 +381,18 @@ class CompositionConfig:
         quoted = ", ".join(f'"{f}"' for f in self.language.font_stack)
         return f"({quoted})"
 
+    def theorem_words(self) -> tuple[tuple[str, str], ...]:
+        spelled = dict(self.language.numbering.theorems)
+        return tuple((kind, spelled.get(kind, kind)) for kind in self.domain.theorem_heads)
+
     def typst_heading_rules(self) -> str:
+        tests = [
+            f'(s.contains("{word.lower()}") and not s.contains("{word.lower()} of"))'
+            if kind == "Definition"
+            else f's.contains("{word.lower()}")'
+            for kind, word in self.theorem_words()
+        ]
+        is_thm = "\n".join(("    " if i == 0 else "    or ") + test for i, test in enumerate(tests)) or "    false"
         font_expr = self.typst_font_tuple()
         style = self.publisher.heading_style
         use_sc = self.language.code != "zh"
@@ -435,18 +479,7 @@ class CompositionConfig:
   let body-str = repr(it.body)
   let s = lower(body-str)
   let is-thm = (
-    s.contains("theorem")
-    or s.contains("lemma")
-    or s.contains("corollary")
-    or s.contains("proposition")
-    or (s.contains("definition") and not s.contains("definition of"))
-    or s.contains("remark")
-    or s.contains("example")
-    or s.contains("assumption")
-    or s.contains("claim")
-    or s.contains("conjecture")
-    or s.contains("axiom")
-    or s.contains("notation")
+{is_thm}
   )
   if is-thm {{
     block(above: 1.35em, below: 0.55em, sticky: true)[
@@ -463,18 +496,7 @@ class CompositionConfig:
   let body-str = repr(it.body)
   let s = lower(body-str)
   let is-thm = (
-    s.contains("theorem")
-    or s.contains("lemma")
-    or s.contains("corollary")
-    or s.contains("proposition")
-    or (s.contains("definition") and not s.contains("definition of"))
-    or s.contains("remark")
-    or s.contains("example")
-    or s.contains("assumption")
-    or s.contains("claim")
-    or s.contains("conjecture")
-    or s.contains("axiom")
-    or s.contains("notation")
+{is_thm}
   )
   if is-thm {{
     block(above: 1.35em, below: 0.55em, sticky: true)[

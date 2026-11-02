@@ -11,6 +11,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
+from .presets import ENGLISH_WORDS, NumberingWords
+
 TYPST_RULES = r"""
 #let source-article = counter("source-article")
 #let source-roman = counter("source-roman")
@@ -121,19 +123,34 @@ LATEX_RULES = (
 )
 
 _NUMBER = r"\d+(?:\.\d+)+"
-_KINDS = r"(?:Proposition|Corollaire|D[ée]finition|Remarques?|Lemme|Th[ée]or[èe]me|Exemples?|Scholie)"
+
+
+def kinds(alternation: str) -> str:
+    return f"(?:{alternation or '(?!)'})"
+
+
+def chapter_heading_re(words: NumberingWords) -> re.Pattern[str]:
+    return re.compile(rf"^(?:{words.chapter_word}\s+)?(\d+)[:.]?\s+(\D.*)$", re.IGNORECASE)
+
+
+def reference_re(words: NumberingWords) -> re.Pattern[str]:
+    return re.compile(rf"(?i)\b(?P<kind>{kinds(words.reference_kinds)})\s+(?P<number>\d+\.\d+)")
+
+
+def chapter_reference_re(words: NumberingWords) -> re.Pattern[str]:
+    return re.compile(rf"(?i)\b(?P<kind>{kinds(words.chapter_references)})\s+(?P<number>\d+)")
+
+
+def _compound_reference_re(words: NumberingWords) -> re.Pattern[str]:
+    return re.compile(
+        rf"(?i)\b(?P<kind>{kinds(words.reference_kinds)})\s+(?P<n1>\d+\.\d+)(?:\s*,\s*(?P<n2>\d+\.\d+))?\s*(?P<conj>and|&|,)\s*(?P<n3>\d+\.\d+)"
+    )
+
+
 _ROMAN_VALUES = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6, "VII": 7, "VIII": 8, "IX": 9, "X": 10}
 _SECTION_RE = re.compile(r"^(?:§\s*)?(\d+)\.?\s+(\D.*)$")
 _SUBSECTION_RE = re.compile(r"^(\d+)\.(\d+)\.?\s+(.*)$")
 _SUBSUBSECTION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)\.?\s+(\D.*)$")
-_CHAPTER_HEADING_RE = re.compile(r"^(?:Chapter\s+)?(\d+)[:.]?\s+(\D.*)$", re.I)
-_THM_COMPOUND_RE = re.compile(
-    r"(?i)\b(?P<kind>Theorems?|Lemmas?|Corollar(?:y|ies)|Propositions?|Definitions?|Remarks?|Examples?|Exercises?|Sections?|Sects?\.)\s+(?P<n1>\d+\.\d+)(?:\s*,\s*(?P<n2>\d+\.\d+))?\s*(?P<conj>and|&|,)\s*(?P<n3>\d+\.\d+)"
-)
-_THM_REF_RE = re.compile(
-    r"(?i)\b(?P<kind>Theorems?|Lemmas?|Corollar(?:y|ies)|Propositions?|Definitions?|Remarks?|Examples?|Exercises?|Sections?|Sects?\.)\s+(?P<number>\d+\.\d+)"
-)
-_CHAP_REF_RE = re.compile(r"(?i)\b(?P<kind>Chapters?|Chap\.)\s+(?P<number>\d+)")
 _SEC_ITEM_RE = re.compile(r"\b(?P<sec>\d+\.\d+)\((?P<item>\d+)\)")
 _PROSE_EQ_EN_RE = re.compile(
     r"(?i)(?P<pre>\b(?:equations?|inequalit(?:y|ies)|relations?|formulas?|conditions?|identit(?:y|ies)|where|yields?|proves?|gives?|recall|see|in|of|to|for|from|with|between|and|as)\s+)\((?P<eq1>\d+)\)"
@@ -176,7 +193,7 @@ _LABEL_RE = re.compile(r"(?:<|\\label\{)((?:eq|par)-c\d+(?:-\d+)+|art-\d+|eq-art
 class _Writer(Protocol):
     """How one output format writes the numbered elements; the numbers themselves come from its counters."""
 
-    events: re.Pattern[str]
+    events_pattern: str
     math: re.Pattern[str]
     chapter_start: str
 
@@ -203,9 +220,9 @@ class _Writer(Protocol):
 
 
 class TypstWriter:
-    events = re.compile(
+    events_pattern = (
         rf"(?m)^(?P<heading>={{1,4}} .+)$"
-        rf"|#strong\[(?:(?P<kind>{_KINDS})\s+)?\((?P<bold>{_NUMBER})\.?\)\.?\]"
+        rf"|#strong\[(?:(?P<kind><ITEM_KINDS>)\s+)?\((?P<bold>{_NUMBER})\.?\)\.?\]"
         rf"|^(?:#h\([^)]*\);)?(?P<top>#src-top\(\d+\);)?\((?P<plain>{_NUMBER})\.?\)(?= )"
         r"|^(?P<rtop>(?:#h\([^)]*\);)?(?:#src-top\(\d+\);)?)(?P<rprefix>#strong\[附注\.?\]\s+)?(?:#strong\[)?(?P<roman>I{1,3}|IV|VI{0,3}|IX|X)\.(?:\])?(?= )"
         r"|^(?P<ctop>(?:#h\([^)]*\);)?(?:#src-top\(\d+\);)?)(?P<circled>[①-⑳])(?=\S)"
@@ -282,9 +299,9 @@ class TypstWriter:
 
 
 class LatexWriter:
-    events = re.compile(
+    events_pattern = (
         rf"(?m)^(?P<heading>#{{1,4}} .+)$"
-        rf"|\*\*(?:(?P<kind>{_KINDS})\s+)?\((?P<bold>{_NUMBER})\.?\)\.?\*\*"
+        rf"|\*\*(?:(?P<kind><ITEM_KINDS>)\s+)?\((?P<bold>{_NUMBER})\.?\)\.?\*\*"
         rf"|^\((?P<plain>{_NUMBER})\.?\)(?= )"
         r"|^(?P<rprefix>\*\*附注\.?\*\*\s+)?(?:\*\*)?(?P<roman>I{1,3}|IV|VI{0,3}|IX|X)\.(?:\*\*)?(?= )"
         r"|^(?P<circled>[①-⑳])(?=\S)"
@@ -491,7 +508,12 @@ def _parse(number: str) -> tuple[int, ...]:
 
 
 def number_chapter(
-    text: str, chapter: int, writer: _Writer = TYPST, seen: set[str] | None = None, circled: bool = False
+    text: str,
+    chapter: int,
+    writer: _Writer = TYPST,
+    seen: set[str] | None = None,
+    circled: bool = False,
+    words: NumberingWords = ENGLISH_WORDS,
 ) -> tuple[str, list[Resync]]:
     """Replace the scan's typed numbers in one chapter with counter-numbered headings, paragraphs and equations."""
     state = _Numbering(chapter, writer, seen)
@@ -505,7 +527,7 @@ def number_chapter(
 
     def heading(marks: str, title: str) -> str:
         if len(marks) == 1:
-            if m := _CHAPTER_HEADING_RE.match(title):
+            if m := chapter_heading_re(words).match(title):
                 num, rest = int(m.group(1)), m.group(2)
                 state.chapter = num
                 state.levels = ()
@@ -608,7 +630,8 @@ def number_chapter(
             f"\\caption{{{cap}}}\\label{{{label}}}\\end{{figure}}"
         )
 
-    numbered = writer.events.sub(event, text)
+    events = re.compile(writer.events_pattern.replace("<ITEM_KINDS>", kinds(words.item_kinds)))
+    numbered = events.sub(event, text)
     if writer is TYPST:
         numbered = _TYPST_FIG_RE.sub(number_figure, numbered)
     else:
@@ -621,7 +644,12 @@ def labels(text: str) -> set[str]:
 
 
 def link_references(
-    text: str, chapter: int, chapters: Mapping[str, int], known: set[str], writer: _Writer = TYPST
+    text: str,
+    chapter: int,
+    chapters: Mapping[str, int],
+    known: set[str],
+    writer: _Writer = TYPST,
+    words: NumberingWords = ENGLISH_WORDS,
 ) -> str:
     """Turn the scan's `(1.2.9)` and `(0, 4.3.2)` into references to their labels, such as `@par-c2-1-2-9`."""
     kind = "typst" if writer is TYPST else "latex"
@@ -723,9 +751,9 @@ def link_references(
         part2 = writer.link(name2, f"({eq2})") if name2 in known else f"({eq2})"
         return f"{m.group('pre')}{part1}{mid}{part2}"
 
-    out = _sub_outside_math(_THM_COMPOUND_RE, link_thm_compound, out, writer)
-    out = _sub_outside_math(_THM_REF_RE, link_thm, out, writer)
-    out = _sub_outside_math(_CHAP_REF_RE, link_chap, out, writer)
+    out = _sub_outside_math(_compound_reference_re(words), link_thm_compound, out, writer)
+    out = _sub_outside_math(reference_re(words), link_thm, out, writer)
+    out = _sub_outside_math(chapter_reference_re(words), link_chap, out, writer)
     out = _sub_outside_math(_SEC_ITEM_RE, link_sec_item, out, writer)
     out = _sub_outside_math(_PROSE_EQ_EN_RE, link_prose_eq_en, out, writer)
     if not any(k.startswith("art-") for k in known):

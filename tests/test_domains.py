@@ -1,8 +1,13 @@
+from dataclasses import replace
 from typing import Any
 
 import pytest
 
-from polytypst.compiler.monograph import MonographCompiler, MonographSpec, latex_safe_markdown
+from polytypst.compiler.monograph import (
+    MonographCompiler,
+    MonographSpec,
+    latex_safe_markdown,
+)
 from polytypst.compiler.presets import DOMAIN_PROFILES, resolve_composition
 
 
@@ -13,6 +18,21 @@ def test_an_unknown_domain_is_an_error_not_math():
 
 def test_each_known_domain_resolves_to_its_own_profile():
     assert {key: resolve_composition(domain=key).domain.key for key in DOMAIN_PROFILES} == {k: k for k in DOMAIN_PROFILES}
+
+
+def test_theorem_headings_are_the_domains_kinds_in_the_books_language():
+    math = resolve_composition(lang="en", domain="math").typst_heading_rules()
+    economics = resolve_composition(lang="en", domain="economics").typst_heading_rules()
+    novel = resolve_composition(lang="en", domain="novel").typst_heading_rules()
+    assert 's.contains("notation")' in math and 's.contains("axiom")' in math
+    assert 's.contains("proposition")' in economics and 's.contains("axiom")' not in economics
+    assert "s.contains" not in novel and "false" in novel
+
+    english = resolve_composition(lang="en", domain="math")
+    spelled = replace(english.language, numbering=replace(english.language.numbering, theorems=(("Theorem", "Théorème"),)))
+    french = replace(english, language=spelled).typst_heading_rules()
+    assert 's.contains("théorème")' in french and 's.contains("theorem")' not in french
+    assert 's.contains("lemma")' in french
 
 
 def test_a_spec_names_its_domain():

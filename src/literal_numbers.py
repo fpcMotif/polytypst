@@ -18,35 +18,42 @@ from pathlib import Path
 from types import MappingProxyType
 
 from .compiler.monograph import MonographSpec, reference_chapters
+from .compiler.presets import ENGLISH_WORDS, NumberingWords, resolve_composition
 from .compiler.source_numbers import (
     _ART_EQ_RE,
     _FIG_REF_RE,
-    _KINDS,
     _NUMBER,
     _PROSE_ART_RE,
     _REF_RE,
     LATEX,
     TYPST,
+    chapter_reference_re,
+    kinds,
     labels,
+    reference_re,
 )
 from .compiler.typst_math import italic_differentials
 
-_HEAD_RE = re.compile(
-    rf"(?m)(?<!\w){_KINDS}\]?\s*\({_NUMBER}\.?\)|^\({_NUMBER}\.?\)(?= )|^(?:#strong\[|\*\*)?(?:I{{1,3}}|IV|VI{{0,3}}|IX|X)\.(?:\]|\*\*)?(?= )|[①-⑳ⓐ-ⓩ]"
-    r"|^(?:#strong\[|\*\*|\\textbf\{)[^\W\d_][^\]}\n*]{0,23}?\s?\d+(?:\.\d+)*\.?(?:\]|\*\*|\})(?=\s)"
-)
+
+def _head_re(words: NumberingWords) -> re.Pattern[str]:
+    return re.compile(
+        rf"(?m)(?<!\w){kinds(words.item_kinds)}\]?\s*\({_NUMBER}\.?\)|^\({_NUMBER}\.?\)(?= )|^(?:#strong\[|\*\*)?(?:I{{1,3}}|IV|VI{{0,3}}|IX|X)\.(?:\]|\*\*)?(?= )|[①-⑳ⓐ-ⓩ]"
+        r"|^(?:#strong\[|\*\*|\\textbf\{)[^\W\d_][^\]}\n*]{0,23}?\s?\d+(?:\.\d+)*\.?(?:\]|\*\*|\})(?=\s)"
+    )
+
+
 _HEADING_NUMBER = {
     "typst": re.compile(r"(?m)^={2,4}\s+(?:§\s*\d+|\d+(?:\.\d+)*\.?\s+\D)"),
     "latex": re.compile(r"(?m)^\\(?:(?:sub)*section|source(?:section|subsection|article))\{(?:\\S\s*)?\d+(?:\.\d+)*\.?\s+\D"),
 }
-_CHAPTER_HEADING = {
-    "typst": re.compile(r"(?m)^=\s+(?:Chapter\s+)?\d+[:.]?\s+\D"),
-    "latex": re.compile(r"(?m)^\\chapter\{(?:Chapter\s+)?\d+[:.]?\s+\D|^#\s+(?:Chapter\s+)?\d+[:.]?\s+\D"),
-}
-_THM_REF_RE = re.compile(
-    r"(?i)\b(?:Theorems?|Lemmas?|Corollar(?:y|ies)|Propositions?|Definitions?|Remarks?|Examples?|Exercises?|Sections?|Sects?\.)\s+(?P<number>\d+\.\d+)"
-)
-_CHAP_REF_RE = re.compile(r"(?i)\b(?:Chapters?|Chap\.)\s+(?P<number>\d+)")
+
+
+def _chapter_heading(kind: str, words: NumberingWords) -> re.Pattern[str]:
+    number = rf"(?:{words.chapter_word}\s+)?\d+[:.]?\s+\D"
+    if kind == "typst":
+        return re.compile(rf"(?m)^=\s+{number}")
+    return re.compile(rf"(?m)^\\chapter\{{{number}|^#\s+{number}")
+
 _FIGURE_CAPTION = {
     "typst": re.compile(
         r"#figure\([\s\S]*?caption:\s*\[(?:#strong\[)?(?i:Fig(?:ure)?(?:\.|\b)|图)\s*\d+[\s\S]*?\)(?!\s*<fig-)"
@@ -111,6 +118,7 @@ def literal_numbering_counts(
     chapters: Mapping[str, int] = MappingProxyType({}),
     *,
     require_vector_figures: bool = False,
+    words: NumberingWords = ENGLISH_WORDS,
 ) -> dict[str, int]:
     """Count the literal numbers and citations in a built book's Typst (`TYPST`) or LaTeX (`LATEX`) source.
     `chapters` maps the book's chapter names in references, such as `0` in `(0, 4.1.9)`, to label numbers."""
@@ -133,7 +141,7 @@ def literal_numbering_counts(
             len(_MATH_NUMBER_RE.findall(m.group(0))) for m in math.finditer(chapter)
         )
         if writer.chapter_start in source:
-            counts["LITERAL_HEADING_NUMBER"] += len(_CHAPTER_HEADING[kind].findall(chapter[:1000]))
+            counts["LITERAL_HEADING_NUMBER"] += len(_chapter_heading(kind, words).findall(chapter[:1000]))
         counts["LITERAL_HEADING_NUMBER"] += len(_HEADING_NUMBER[kind].findall(chapter))
         counts["LITERAL_FIGURE_CAPTION"] += len(_FIGURE_CAPTION[kind].findall(chapter))
         if require_vector_figures:
@@ -143,8 +151,9 @@ def literal_numbering_counts(
         )
         counts["ORPHANED_FIGURE_CAPTION"] += len(_ORPHANED_FIGURE_CAPTION[kind].findall(text))
         text = _ORPHANED_FIGURE_CAPTION[kind].sub(" ", text)
-        counts["LITERAL_ITEM_HEAD"] += len(_HEAD_RE.findall(text))
-        text = _HEAD_RE.sub(" ", text)
+        head = _head_re(words)
+        counts["LITERAL_ITEM_HEAD"] += len(head.findall(text))
+        text = head.sub(" ", text)
         counts["UNLINKED_CITATION"] += len(citation.findall(text))
         fig_labels = {k for k in known if k.startswith("fig-")}
         fig_sep = re.compile(r"[.\-]")
@@ -162,12 +171,12 @@ def literal_numbering_counts(
             counts["UNLINKED_REFERENCE"] += sum(
                 1 for m in rx.finditer(text) if f"art-{m.group('art')}" in known
             )
-        for m in _THM_REF_RE.finditer(text):
+        for m in reference_re(words).finditer(text):
             num = m.group("number")
             target = "sec-" + num.replace(".", "-")
             if target in known:
                 counts["UNLINKED_REFERENCE"] += 1
-        for m in _CHAP_REF_RE.finditer(text):
+        for m in chapter_reference_re(words).finditer(text):
             target = f"sec-{m.group('number')}"
             if target in known:
                 counts["UNLINKED_REFERENCE"] += 1
@@ -188,6 +197,7 @@ def edition_literal_counts(rebuilt: Path, spec: MonographSpec) -> dict[str, int]
                 spec.citation_abbreviations,
                 reference_chapters(spec),
                 require_vector_figures=spec.require_vector_figures,
+                words=resolve_composition(publisher=spec.publisher_key, lang=spec.lang, domain=spec.domain).language.numbering,
             )
             out |= {f"{prefix}_{rule}": n for rule, n in counts.items()}
             if writer is TYPST and (italic := italic_differential_count(source)):

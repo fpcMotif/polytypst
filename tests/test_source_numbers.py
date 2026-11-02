@@ -1,4 +1,5 @@
 import subprocess
+from dataclasses import replace
 
 import pymupdf
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from polytypst.books import book_by_key
 from polytypst.compiler.diagrams import parse_array_diagram
 from polytypst.compiler.monograph import MonographCompiler
+from polytypst.compiler.presets import NumberingWords
 from polytypst.compiler.source_numbers import (
     LATEX,
     TYPST,
@@ -403,6 +405,26 @@ def test_numbered_chapters_and_theorem_sections_produce_counters_and_labels():
     assert "### 1.1" not in tex_out
     assert "### 1.2" not in tex_out
     assert "### 1.3" not in tex_out
+
+
+def test_the_books_language_words_decide_chapter_headings_and_references():
+    french = NumberingWords(
+        item_kinds="Théorème",
+        reference_kinds=r"Th[ée]or[èe]mes?",
+        chapter_references="Chapitres?",
+        chapter_word="Chapitre",
+    )
+    text = "= Chapitre 2 Espaces\n\n#strong[Théorème (2.1.1)] Soit.\n"
+    out, _ = number_chapter(text, 2, TYPST, words=french)
+    assert '#heading(level: 1, numbering: "1")[Espaces] <sec-2>' in out
+    assert '#source-paragraph[Théorème]#metadata("paragraph") <par-c2-2-1-1>' in out
+    assert "<sec-2>" not in number_chapter(text, 2, TYPST, words=replace(french, chapter_word="Chapter"))[0]
+
+    known = labels("<sec-1> <sec-1-3>")
+    prose = "voir le Théorème 1.3 et le Chapitre 1."
+    linked = link_references(prose, 1, {}, known, TYPST, words=french)
+    assert "#link(<sec-1-3>)[Théorème 1.3]" in linked and "#link(<sec-1>)[Chapitre 1]" in linked
+    assert link_references(prose, 1, {}, known, TYPST) == prose
 
 
 def test_references_to_theorems_chapters_and_equations_are_linked():
