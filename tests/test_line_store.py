@@ -199,3 +199,11 @@ def test_line_store_page_and_verifier_reuse_line_cache(tmp_path: Path) -> None:
     assert report.total_pages_verified == 1
     assert second_reader.seen == []
 
+
+def test_the_line_pass_prints_its_progress(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    LineStore(tmp_path / "source_ocr").read(images(tmp_path, range(1, 13)), FakeReader())
+    out = capsys.readouterr().out
+    assert "OCR lines: page 10/12" in out
+    assert "OCR lines: page 12/12" in out
+    assert "page 3/12" not in out
+

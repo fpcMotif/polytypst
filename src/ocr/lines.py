@@ -116,12 +116,14 @@ class LineStore:
         pending = [p for p in pages if not self._path(p.number).exists()]
         if pending:
             made_by = self._made_by()
-            for page in reader.read(pending):
+            for done, page in enumerate(reader.read(pending), 1):
                 rows = [line.__dict__ for line in page.lines]
                 _ = self._path(page.number).write_text(
                     json.dumps(rows, ensure_ascii=False), encoding="utf-8"
                 )
                 made_by[str(page.number)] = reader.provenance
+                if done % 10 == 0 or done == len(pending):
+                    print(f"OCR lines: page {done}/{len(pending)}", flush=True)
             draft = self.directory / f"{PROVENANCE_NAME}.tmp"
             _ = draft.write_text(
                 json.dumps({"pages": made_by}, indent=1) + "\n", encoding="utf-8"

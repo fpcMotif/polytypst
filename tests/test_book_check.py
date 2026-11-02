@@ -161,3 +161,20 @@ def test_contact_sheet_tiles_strips_into_single_snapshot(tmp_path: Path) -> None
     with Image.open(out) as sheet:
         assert sheet.width == 800
         assert sheet.height > 200
+
+
+def test_a_failed_verify_batch_reports_the_agent_error(tmp_path: Path, monkeypatch) -> None:
+    import subprocess
+
+    from scripts import book_check
+
+    def fake_run(_cmd, stdout, **_kwargs):
+        stdout.write("starting\nError: No API key found for anthropic\n")
+        return subprocess.CompletedProcess(_cmd, 1)
+
+    monkeypatch.setattr(book_check.subprocess, "run", fake_run)
+    items = tmp_path / "items.jsonl"
+    items.write_text("{}\n", encoding="utf-8")
+    report = book_check.verify_batch(items, tmp_path / "out.jsonl", "claude-haiku-5-5")
+    assert "exit 1" in report
+    assert "No API key found for anthropic" in report

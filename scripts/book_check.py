@@ -426,7 +426,11 @@ def verify_batch(items: Path, out: Path, model: str) -> str:
             timeout=3600,
             check=False,
         ).returncode
-    return f"{out.name}: exit {code}, {len(read_jsonl(out))} of {len(read_jsonl(items))} verdicts"
+    report = f"{out.name}: exit {code}, {len(read_jsonl(out))} of {len(read_jsonl(items))} verdicts"
+    if code:
+        tail = out.with_suffix(".log").read_text(encoding="utf-8").strip().splitlines()[-3:]
+        report += "; log tail: " + " | ".join(tail)
+    return report
 
 
 def verify(book: str, size: int, jobs: int, model: str) -> int:
