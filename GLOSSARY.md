@@ -35,3 +35,11 @@ _Avoid_: source OCR, Vision cache, OCR pages
 **Scan parity**:
 How far each word, line and diagram of a rebuilt PDF page sits from the same ink on its source scan page, in points.
 _Avoid_: redshift, overlay score, pixel parity
+
+**Continued table** (续表):
+A table that runs onto the next source scan page. That page opens with a 续表 label and often repeats the header rows. The compilers merge it into one table and drop the repeated header.
+_Avoid_: table continuation, split table
+
+**Landscape page**:
+A rebuilt PDF page set sideways. It holds a run of text-heavy tables, or the column panels of a multi-column scan page set side by side in one grid.
+_Avoid_: flipped page, rotated page
