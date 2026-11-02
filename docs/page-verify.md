@@ -37,8 +37,8 @@ Done when you read the zoom of every issue in `ITEMS`, and the page image of eac
 
 The verdict says whether the transcript needs a fix:
 
-- When the scan prints a typo and the transcript has the text that makes sense, such as `Journal` for the scan's `Jounal`, the verdict is `false_positive`.
-- When the scan prints a typo and the transcript has other wrong text, such as `represent` for the scan's `arepresent`, the verdict is `scan_typo`. `detail` gives the text that makes sense, here `are present`.
+- When the scan prints a typo and the transcript already has the text that makes sense, such as `Journal` for the scan's `Jounal` or `Fiscal Impulse` for the scan's `Fiscal Impluse`, the verdict is `false_positive`. Do not give `real`: `real` would overwrite the transcript's right text with the scan's typo.
+- When the scan prints a typo and the transcript has that typo or other wrong text, such as `NewYork` for `New York` or `represent` for the scan's `arepresent`, the verdict is `scan_typo`. `detail` gives the text that makes sense, here `New York` or `are present`. Never give `false_positive` for glued English words just because the scan prints them without a space.
 - When the checking agent misread the scan, the verdict is `false_positive`.
 
  Give `unsure` only when you cannot find the place in either image, and say in `detail` what you looked for. A person decides each `unsure` issue.
