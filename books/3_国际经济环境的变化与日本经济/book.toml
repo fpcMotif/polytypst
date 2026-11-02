@@ -107,7 +107,7 @@ png_min_pct_tall = 60
 ]
 252 = [['^### 8 从老龄化等结构性要因来看日本的国际收支问题(①)\n+(查尔斯 堀冈雄二 \(Charles Yuji Horioka\))', '\2\1']]
 324 = [['^### 11 经济全球化对20世纪90年代劳动力市场的影响(①)\n+(神田玲子)', '\2\1']]
-# The page check (output/page_check/3/verdicts.jsonl) found the rest. A rewrite marked "Scan typo"
+# The page check (output/page_check/3_国际经济环境的变化与日本经济/verdicts.jsonl) found the rest. A rewrite marked "Scan typo"
 # corrects a typo that the scan prints; every other rewrite makes the page match the scan.
 6 = [
   # The transcript has 经历了很多波动; the scan prints 经历了很大波动.

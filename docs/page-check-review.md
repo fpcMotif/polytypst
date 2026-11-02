@@ -2,20 +2,20 @@
 
 You check one book for transcript errors and scan typos. Then you fix the real ones in the book, and record each verdict. Two sources make claims. `lint` matches error classes that earlier books confirmed, in seconds. The checking agents follow `docs/page-check.md`, one agent for each range of pages. Each claim reaches the book only after a verifier read its zoom: in the first Book 4 run, 40 of 177 agent issues were false.
 
-Run every command from `/Users/martinfan/devv/polytypst.mixed`. `BOOK` is a book number from 1 to 6, or the folder name of any other book under `books/`. `KEY` is the folder name under `books/`, such as `4_不良债权与金融危机`. `CHECK` is `output/page_check/BOOK/`.
+Run every command from `/Users/martinfan/devv/polytypst.mixed`. `KEY` is the book key, the folder name under `books/`, such as `4_不良债权与金融危机`. `BOOK` is the key, an alias, or a start of the key that names one book, such as `4`. `CHECK` is `output/page_check/KEY/`.
 
-Long jobs: `page_check.py run`, `book_check.py verify` and `render_check.py --run` take tens of minutes. `render_check --run` takes about 50 minutes for 121 pairs. Start each one once, in the background, and report its expected end time and its log path. Then wait for it to exit, or read its log every 15 to 30 minutes. A tool timeout stops a foreground job before it ends.
+Long jobs: `page-check run`, `page-check verify` and `page-check render --run` take tens of minutes. `render --run` takes about 50 minutes for 121 pairs. Start each one once, in the background, and report its expected end time and its log path. Then wait for it to exit, or read its log every 15 to 30 minutes. A tool timeout stops a foreground job before it ends.
 
 `status` prints each stage's counts and the commands that are due:
 
 ```bash
-uv run python scripts/book_check.py status BOOK
+uv run polytypst page-check status BOOK
 ```
 
 ## Step 1. Lint the transcript
 
 ```bash
-uv run python scripts/book_check.py lint BOOK
+uv run polytypst page-check lint BOOK
 ```
 
 `lint` reads each transcript page with the book's fixups applied, and the built `.typ` file. It writes `CHECK/lint.jsonl`. Its rules:
@@ -30,28 +30,28 @@ uv run python scripts/book_check.py lint BOOK
 | `dead_fixup` | A `[transcript_fixups]` or `[page_fixups]` rule that does not match its target page text | Book 5 p159, Book 6 p21 |
 | `multiline_delete` | A deletion fixup whose match spans lines or holds more than 300 characters. Mark an intended block deletion with `(?s)`, `\A` or `\Z` | Book 4 p341, Book 6 p516 |
 
-When a verifier confirms a new class of error in two places, add a rule for it to `scripts/book_check.py` with a test in `tests/test_book_check.py`.
+When a verifier confirms a new class of error in two places, add a rule for it to `src/page_check/lint.py` with a test in `tests/test_page_check.py`.
 
 Done when `CHECK/lint.jsonl` exists.
 
 ## Step 2. Run the checking agents
 
 ```bash
-uv run python scripts/page_check.py run --books BOOK
-uv run python scripts/page_check.py summary --books BOOK
+uv run polytypst page-check run BOOK
+uv run polytypst page-check summary BOOK
 ```
 
 `run` starts one `omp` agent for each range of 10 unchecked pages, 8 agents at a time. Run it in the background. Run it again for the pages that `summary` lists as `unchecked`. When the Gemini quota is out, `omp` exits 0 with a 429 error in the log, and the range stays unchecked.
 
-A page counts as checked only when its line carries the receipt that `page_check.py text` printed for it. Writing result lines yourself leaves pages under `no valid receipt`. Result files checked before receipts existed are listed in `quality/page_check_legacy.json` with their sha256, so an edit to one of them voids it.
+A page counts as checked only when its line carries the receipt that `polytypst page-check text` printed for it. Writing result lines yourself leaves pages under `no valid receipt`. Result files checked before receipts existed are listed in `quality/page_check_legacy.json` with their sha256, so an edit to one of them voids it.
 
 Done when `summary` lists no `unchecked` page, no `no valid receipt` page and no `bad line`.
 
 ## Step 3. Verify every claim
 
 ```bash
-uv run python scripts/book_check.py triage BOOK
-uv run python scripts/book_check.py verify BOOK
+uv run polytypst page-check triage BOOK
+uv run polytypst page-check verify BOOK
 ```
 
 `triage` settles two kinds of claim as `false_positive` with `"by": "auto"`: two sides that differ only in character width or in spaces next to Chinese text, and an `extra_text` claim on the book's running head. The page cleaner drops running heads, and `lint` finds any that stay in the built book. For each other claim, it cuts a 300 dpi zoom of the scan at the claim's line and a page image. It writes the claims to `CHECK/queue.jsonl`. Run it again after `lint` or the checking agents add claims.
@@ -116,7 +116,7 @@ Give `fixed_by` as `""` for a false negative that you did not fix. The false-pos
 To show the scan typos or the real issues to a person, build a sheet of scan strips. Each card is one line cut from the scan at 300 dpi:
 
 ```bash
-uv run python scripts/scan_sheet.py BOOK --scan "SCAN" --verdicts scan_typo > "CHECK/scan_typos.html"
+uv run polytypst page-check sheet BOOK --verdicts scan_typo > "CHECK/scan_typos.html"
 ```
 
 `--verdicts real` shows the transcript errors. For a hand-picked set with notes, write one JSON line for each card and pass `--cases FILE` instead. `CHECK/scan_typos.jsonl` for Book 4 is an example. The command names each card that it cannot place on stderr. Give that card a `band`.
@@ -142,7 +142,7 @@ Steps 1 to 6 check the words of the transcript. This step checks how the rebuilt
 1. Check each table and figure against its scan page. `docs/render-check.md` is the runbook and the grading bar.
 
    ```bash
-   uv run python scripts/render_check.py BOOK --pdf "PDF" --scan "SCAN" --run
+   uv run polytypst page-check render BOOK --pdf "PDF" --run
    ```
 
 2. Check the page layout: lost paragraphs, heading numbers, footnotes, captions on the wrong page, and text past the margin. `docs/reviewing-books.md` is the runbook.
@@ -153,12 +153,12 @@ Steps 1 to 6 check the words of the transcript. This step checks how the rebuilt
 
 Fix each content error of grade `C` in `books/KEY/book.toml` as in step 4. A presentation flaw of grade `B` or `C` and a layout finding usually come from shared code, so record it as a finding and do not patch it in the book.
 
-Done when every caption has a line in `output/render_check/BOOK/`, and the review wrote its findings.
+Done when every caption has a line in `output/render_check/KEY/`, and the review wrote its findings.
 
 ## Step 8. Run the gate
 
 ```bash
-uv run python scripts/book_check.py gate BOOK
+uv run polytypst page-check gate BOOK
 ```
 
 `gate` checks the page-check receipts, the lint run and the verdicts. It also checks that each figure caption in the scan is in `figures_manifest.json` and in the rebuilt PDF, and that `polytypst audit` exits 0. It prints one `PASS`, `WARN` or `FAIL` line for each check. The last line is `PASS` only when no check failed. Otherwise the command exits 1. A `WARN` line for 0 issues from more than 100 pages means that you open five pages beside their scans and compare them.

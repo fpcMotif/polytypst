@@ -7,6 +7,7 @@ rebuild; report renders chosen findings, with their evidence PNGs inlined, as on
 import argparse
 import base64
 import html
+import io
 import json
 import re
 import unicodedata
@@ -16,6 +17,7 @@ from unittest.mock import patch
 
 import pymupdf
 from PIL import Image, ImageDraw, ImageFont
+from polytypst_native import encode_png
 
 from .book_state import book_state
 from .compiler import page_cleaner
@@ -74,6 +76,17 @@ def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return ImageFont.load_default(size)
 
 
+def strip(doc: pymupdf.Document, page: int, band: tuple[float, float], dpi: int) -> bytes:
+    rect = doc[page - 1].rect
+    top, bottom = max(0.0, band[0]), min(1.0, band[1])
+    clip = pymupdf.Rect(rect.x0, rect.y0 + top * rect.height, rect.x1, rect.y0 + bottom * rect.height)
+    return pixmap_png(doc[page - 1].get_pixmap(matrix=pymupdf.Matrix(dpi / 72, dpi / 72), clip=clip))
+
+
+def pixmap_png(pix: pymupdf.Pixmap) -> bytes:
+    return encode_png(pix.samples, pix.width, pix.height, pix.n)
+
+
 def zoom(scan: Path, ocr: Path, page: int, span: str, label: str, out: Path) -> Path:
     """Write the scan line holding `span` with the span boxed in red, a label, and a magnified inset."""
     lines = LineStore(ocr).lines(page) or ()
@@ -83,41 +96,35 @@ def zoom(scan: Path, ocr: Path, page: int, span: str, label: str, out: Path) -> 
             f"no OCR line of page {page} in {ocr} holds {span!r}; copy the span as the OCR read it"
         )
     box = span_box(line, span)
-    pix = pymupdf.open(scan)[page - 1].get_pixmap(dpi=ZOOM_DPI)
-    image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-    w, h = image.size
-    pad = (box.bottom - box.top) * h * 0.25
-    strip = image.crop(
-        (
-            int(0.06 * w),
-            int(box.top * h - pad),
-            int(0.96 * w),
-            int(box.bottom * h + pad),
-        )
-    )
+    doc = pymupdf.open(scan)
+    h = doc[page - 1].rect.height * ZOOM_DPI / 72
+    pad = (box.bottom - box.top) * 0.25
+    band = Image.open(io.BytesIO(strip(doc, page, (box.top - pad, box.bottom + pad), ZOOM_DPI))).convert("RGB")
+    w = band.width
+    strip_image = band.crop((int(0.06 * w), 0, int(0.96 * w), band.height))
     margin = 0.4 * (box.bottom - box.top) * h
     frame = (
         int(box.left * w - 0.06 * w - margin),
         0,
         int(box.right * w - 0.06 * w + margin),
-        strip.height - 1,
+        strip_image.height - 1,
     )
-    inset = strip.crop(frame)
+    inset = strip_image.crop(frame)
     inset = inset.resize(
         (inset.width * INSET, inset.height * INSET), Image.Resampling.LANCZOS
     )
-    ImageDraw.Draw(strip).rectangle(frame, outline=RED, width=6)
+    ImageDraw.Draw(strip_image).rectangle(frame, outline=RED, width=6)
     sheet = Image.new(
         "RGB",
-        (max(strip.width, inset.width + 40), strip.height + inset.height + 120),
+        (max(strip_image.width, inset.width + 40), strip_image.height + inset.height + 120),
         "white",
     )
-    sheet.paste(strip, (0, 0))
+    sheet.paste(strip_image, (0, 0))
     draw = ImageDraw.Draw(sheet)
-    draw.text((20, strip.height + 20), label, fill=RED, font=_font(44))
-    sheet.paste(inset, (20, strip.height + 90))
+    draw.text((20, strip_image.height + 20), label, fill=RED, font=_font(44))
+    sheet.paste(inset, (20, strip_image.height + 90))
     draw.rectangle(
-        (20, strip.height + 90, 20 + inset.width, strip.height + 90 + inset.height),
+        (20, strip_image.height + 90, 20 + inset.width, strip_image.height + 90 + inset.height),
         outline=RED,
         width=6,
     )
