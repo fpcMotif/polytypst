@@ -110,12 +110,14 @@ class Backend:
         kind = mode or DEFAULT_BACKEND
         base = cls.parse(f"{kind}:{ocr_model_name}" if ocr_model_name else kind)
         options = dict(base.options)
-        if gpu_type and "gpu" in options:
-            options["gpu"] = gpu_type
-        if colab_workers is not None and "workers" in options:
-            options["workers"] = colab_workers
-        if shards is not None and "shards" in options:
-            options["shards"] = shards
+        for key, value in (("gpu", gpu_type), ("workers", colab_workers), ("shards", shards)):
+            if value is None:
+                continue
+            if key not in options:
+                raise ValueError(
+                    f"{base.kind} has no option '{key}'; --gpu-type, --colab-workers and --shards are Colab-only"
+                )
+            options[key] = value
         return cls(base.kind, base.model, MappingProxyType(options))
 
 

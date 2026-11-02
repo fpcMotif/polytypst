@@ -75,6 +75,21 @@ def test_parse_rejects_bad_backends_with_the_reason(text: str, message: str) -> 
         _ = Backend.parse(text)
 
 
+def test_a_colab_flag_on_another_backend_stops_with_the_reason() -> None:
+    with pytest.raises(ValueError, match="jina has no option 'gpu'"):
+        _ = Backend.from_legacy_flags(mode="jina", gpu_type="G4")
+    assert str(Backend.from_legacy_flags(gpu_type="G4", colab_workers=2, shards=3)) == str(Backend.parse("colab"))
+
+
+def test_backend_and_a_colab_flag_together_stop_the_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    from polytypst import cli
+
+    monkeypatch.setattr("sys.argv", ["polytypst", "scan.pdf", "--backend", "jina", "--gpu-type", "G4"])
+    with pytest.raises(SystemExit) as stop:
+        cli.main()
+    assert stop.value.code == 2
+
+
 def test_str_round_trips_and_shows_only_changed_options() -> None:
     assert str(Backend.parse("gemini")) == "gemini:gemini-3.1-pro-preview"
     text = "colab:deepseek-ocr?gpu=A100&workers=4"

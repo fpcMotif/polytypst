@@ -59,10 +59,9 @@ def main() -> None:
     parser.add_argument(
         "--backend",
         type=backend_argument,
-        default=DEFAULT_BACKEND,
         help=(
             "OCR backend as KIND[:MODEL][?KEY=VALUE&...], as in gemini, "
-            "local:deepseek-ocr, colab?gpu=A100&workers=3, or "
+            "local:deepseek-ocr, colab?gpu=G4&workers=2&shards=3, or "
             f"openai:MODEL?base_url=http://host:8000/v1&key_env=. Kinds: {', '.join(KINDS)}"
         ),
     )
@@ -132,13 +131,22 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.mode or args.gpu_type or args.colab_workers or args.shards or args.ocr_model:
-        args.backend = Backend.from_legacy_flags(
-            mode=args.mode,
-            ocr_model_name=args.ocr_model,
-            gpu_type=args.gpu_type,
-            colab_workers=args.colab_workers,
-            shards=args.shards,
-        )
+        if args.backend is not None:
+            parser.error(
+                f"--backend {args.backend} already names the backend; put its options in it, "
+                "as in --backend 'colab:jina-ocr-v1?gpu=G4&workers=2&shards=3'"
+            )
+        try:
+            args.backend = Backend.from_legacy_flags(
+                mode=args.mode,
+                ocr_model_name=args.ocr_model,
+                gpu_type=args.gpu_type,
+                colab_workers=args.colab_workers,
+                shards=args.shards,
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+    args.backend = args.backend or Backend.parse(DEFAULT_BACKEND)
 
     if args.export_web:
         from .web_exporter import export_all_web_data
