@@ -1,6 +1,7 @@
 """LaTeX-to-Typst math conversion shared by every monograph build."""
 
 import functools
+import itertools
 import json
 import re
 import shutil
@@ -270,6 +271,7 @@ MATH_OPERATOR_WORDS: set[str] = {
     "Gal",
     "Pic",
     "Div",
+    "supp",
 }
 
 GREEK_WORDS = (
@@ -949,7 +951,13 @@ LATEX_MACRO_REWRITES: tuple[tuple[Pattern[str], str], ...] = (
     (re.compile(r"\\Arctg(?![a-zA-Z])"), r"\\operatorname{Arctg}"),
     (re.compile(r"\\varliminf(?![a-zA-Z])"), r"\\liminf"),
     (re.compile(r"\\varlimsup(?![a-zA-Z])"), r"\\limsup"),
+    (re.compile(r"\\supp(?![a-zA-Z])"), r"\\operatorname{supp}"),
 )
+NORM_MARK = "polytypstnorm"
+LIMITS_MARK = "polytypstlimits"
+NORM_BAR_RE = re.compile(r"\\left\s*\\\||\\right\s*\\\||\\lVert|\\rVert|\\\|")
+STARRED_OPERATOR_RE = re.compile(r"\\operatorname\*\{([^{}]+)\}")
+LIMITS_OPERATOR_RE = re.compile(rf'op\("{LIMITS_MARK}([0-9a-f]+)"\)|"{LIMITS_MARK}([0-9a-f]+)"')
 _PANDOC_CACHE: dict[tuple[str, bool], str] = {}
 _DANGLING_OPERATOR_RE = re.compile(r"([\^_√])(?=\s*(?:$|[)\]},;&^_]))")
 _LEADING_SCRIPT_RE = re.compile(r"(?:^|[({\[])\s*(?=[\^_])")
@@ -1016,6 +1024,8 @@ def prepare_latex_math(code: str, is_display: bool) -> str:
     code = code.strip()
     for pattern, repl in LATEX_MACRO_REWRITES:
         code = pattern.sub(repl, code)
+    code = _mark_norms(code)
+    code = STARRED_OPERATOR_RE.sub(_mark_limits_operator, code)
     code = ENV_CASES_RE.sub(_fix_single_col_cases, code)
     code = re.sub(r"\n\s*\n", "\n", code).strip()
     if not is_display:
@@ -1029,6 +1039,48 @@ def prepare_latex_math(code: str, is_display: bool) -> str:
     ]
     env = "aligned" if any("&" in r for r in rows) else "gathered"
     return rf"\begin{{{env}}}" + r" \\ ".join(rows) + rf"\end{{{env}}}"
+
+
+def _mark_norms(code: str) -> str:
+    """Wrap each innermost `\\|x\\|` pair in a marker call that `polish_pandoc_math` turns into `norm(x)`.
+
+    A pair whose inside is unbalanced, holds a top-level comma, or spans rows stays bars, as before.
+    """
+    while True:
+        bars = list(NORM_BAR_RE.finditer(code))
+        for open_bar, close_bar in itertools.pairwise(bars):
+            if open_bar[0].startswith((r"\right", r"\rVert")) or close_bar[0].startswith((r"\left", r"\lVert")):
+                continue
+            inner = code[open_bar.end() : close_bar.start()]
+            if inner.strip() and _is_balanced(inner) and not re.search(r"[,&]|\\\\", _depth_zero(inner)):
+                code = code[: open_bar.start()] + rf"\operatorname{{{NORM_MARK}}}({inner.strip()})" + code[close_bar.end() :]
+                break
+        else:
+            return code
+
+
+def _depth_zero(text: str) -> str:
+    """The characters of TEXT outside every brace and parenthesis."""
+    depth, kept = 0, []
+    for ch in text:
+        depth += ch in "({"
+        if depth == 0:
+            kept.append(ch)
+        depth -= ch in ")}"
+    return "".join(kept)
+
+
+def _mark_limits_operator(m: re.Match[str]) -> str:
+    name = re.sub(r"\s+", " ", re.sub(r"\\[,;:! ]|~", " ", m[1])).strip()
+    return rf"\operatorname{{{LIMITS_MARK}{name.encode().hex()}}}"
+
+
+def _unmark_norms(body: str) -> str:
+    while (at := body.find(f'op("{NORM_MARK}")')) != -1:
+        start = body.index("(", at + len(f'op("{NORM_MARK}")'))
+        end = _find_balanced_parens(body, start)
+        body = body[:at] + f"norm({body[start + 1 : end].strip()})" + body[end + 1 :]
+    return body
 
 
 def _is_balanced(text: str) -> bool:
@@ -1100,7 +1152,10 @@ def polish_pandoc_math(body: str) -> str:
         r"limits(\1.long)\2",
         body,
     )
-    return "\n".join(_unescape_balanced_delims_line(line) for line in body.splitlines())
+    body = "\n".join(_unescape_balanced_delims_line(line) for line in body.splitlines())
+    return LIMITS_OPERATOR_RE.sub(
+        lambda m: f'op("{bytes.fromhex(m[1] or m[2]).decode()}", limits: #true)', _unmark_norms(body)
+    )
 
 
 def _run_pandoc_math(items: list[tuple[str, bool]]) -> list[str | None]:

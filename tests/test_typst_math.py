@@ -178,3 +178,31 @@ def test_a_d_that_is_not_a_differential_stays_italic():
         assert "dif" not in convert(code), code
 
 
+def _tight(code: str) -> str:
+    return convert(code).replace(" ", "")
+
+
+def test_a_norm_becomes_a_norm_call_that_keeps_its_scripts():
+    assert _tight(r"\|f\|_p") == "norm(f)_p"
+    assert _tight(r"\|f\|_p^2") == "norm(f)_p^2"
+    assert _tight(r"\left\| f \right\|_{L^p}") == "norm(f)_(L^p)"
+    assert _tight(r"\lVert u \rVert") == "norm(u)"
+    assert _tight(r"\|f\| + \|g\|") == "norm(f)+norm(g)"
+    assert _tight(r"\left\| \|f\|_{L^p} \right\|_{L^q}") == "norm(norm(f)_(L^p))_(L^q)"
+
+
+def test_bars_that_are_not_one_norm_stay_bars():
+    assert "norm" not in convert(r"\ell \parallel m, m \parallel n")
+    assert "norm" not in convert(r"\|x, y\|")
+    assert "norm" not in convert(r"a \| b")
+
+
+def test_supp_is_an_upright_operator():
+    assert convert(r"\supp f") == convert(r"\operatorname{supp} f") == 'op("supp") f'
+
+
+def test_a_starred_operator_name_sets_its_scripts_as_limits():
+    out = convert(r"\operatorname*{ess\,sup}_{x \in X} f(x)")
+    assert out.startswith('op("ess sup", limits: #true)_(x in X)'), out
+
+
