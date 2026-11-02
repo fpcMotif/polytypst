@@ -35,6 +35,7 @@ running_header_regexes = [
   '^(?:#+\s*|=+\s*)?(?:受地价波动影响的日本经济|受地价波动影响日本经济|土地税制与地价的波动|土地税制与地价波动|银行破产与监督行政|借款企业破产法制与银行危机|借款企业的破产法制与银行危机|银行的经营恶化和破产处理|银行经营恶化和破产处理|人寿保险公司经营恶化|人寿保险公司的经营恶化|围绕公共资金投入的政治过程|围绕公共资金投入政治过程|不良债权处理政策的过程和论点|不良债权处理政策过程和论点|经济长期萧条与货币政策、汇率及银行信贷|资产负债表的崩溃与实体经济|资产负债表崩溃与实体经济|不良债权导致的资本和产出流失|不良债权导致资本和产出流失|泡沫经济与亚洲资本流动的变化|泡沫经济与亚洲资本流动变化)\s+\d{1,3}$',
 ]
 cross_references = true
+three_line_tables = true
 heading_rewrites = [
   [
     '^((?:池尾和人|樱川昌哉 樱川幸恵|山崎福寿|池尾和人|田中亘|深尾光洋|植村信保|久米郁男|西村吉正|深尾光洋|小川一夫|樱川昌哉 渡边善次|吉野直行 饭岛高雄)(?:@@FNSTART@@[^\n]*?@@FNEND@@)?)$',
@@ -46,8 +47,6 @@ chapter_heading = '{title}'
 # carry the book title on even pages and the numbered chapter title on odd pages.
 typst_front_matter = '''
 @STYLE:japan_economy@
-#show heading.where(level: 2): set heading(numbering: (..n) => str(n.pos().at(1)) + "\u{2002}")
-#show heading.where(level: 3): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
 #set page(header: context {
   let page-number = counter(page).get().first()
   let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
@@ -79,14 +78,17 @@ ocr_languages = ['zh-Hans', 'en-US']
 caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
 caption_format = '图 {chapter}-{number}'
 svg_single_pct = 100
-svg_scan_text_width = 0.78
 pair_figures = false
 note_before_caption = true
 png_single_divisor = 2880
-png_single_range = [50, 100]
+png_single_range = [85, 100]
 png_max_height_ratio = 1.3
 
 [page_fixups]
+# Scan p97: these are 图3-4's year ticks, not a prose paragraph.
+97 = [['(?m)^1995 1996 1997 1998 1999 2000 2001 2002 2003 2004 2005 2006 2007 年\s*$', '']]
+# Scan p291: panel ③ and its direct labels are already in 图9-29.
+291 = [['(?s)汇率与其背后的要因.*?1974年4Q 8\.7%\s*(?:年)?', '']]
 # The scan's chapter-title note marks move to the byline, because the chapter heading is built from the spec.
 52 =[['(?m)^山崎福寿$', '山崎福寿①']]
 147 = [['(?m)^深尾光洋$', '深尾光洋①']]
@@ -297,17 +299,11 @@ png_max_height_ratio = 1.3
   # The transcript has 银; the scan prints 銀 in the second 日本銀行金融研究所.
   ['金融研究所日本银行金融研究所', '金融研究所日本銀行金融研究所'],
 ]
-274 = [
-  # The transcript lacks the chart note; the scan prints it under the chart.
-  ['买入额达到 13\.4 万亿日元。\n此外', '买入额达到 13.4 万亿日元。\n\n注：资金供给操作包括“资产抵押证券购入”，但是由于资产抵押证券余额较少，上图不含该项（2006年1月底的余额为1105亿日元）。\n\n此外'],
-]
 290 = [
   # Scan typo: the scan prints ①元兑美元; meant ①日元兑美元.
   ['①元兑美元的实际汇率', '①日元兑美元的实际汇率'],
-]
-293 = [
-  # The transcript lacks the chart note; the scan prints it under the chart.
-  ['外汇储备的增加基本来自持有资产的投资收益。$', '外汇储备的增加基本来自持有资产的投资收益。\n\n注：由于未公布 1991 年 4 月以前的外汇干预金额，1991 年 4 月以前的干预金额为推算额。'],
+  # Scan p290: the two panel titles, date ranges and direct labels are inside 图9-29.
+  ['(?s)\n①(?:日)?元兑美元的实际汇率变化.*\Z', ''],
 ]
 299 = [
   # The transcript closes the title with 」; the scan prints 』.
@@ -437,6 +433,32 @@ png_max_height_ratio = 1.3
 
 [transcript_fixups]
 # These run before the cleaner, so they reach captions and figure notes, which page fixups cannot.
+41 = [
+  # Scan p41 is a distinct five-panel chart, not a second reference to 图1-9(A).
+  ['图 1-9 \(B\)', '图 1-9B'],
+]
+151 = [
+  ['（B）的定义\n+破产债权、逾期债权此期间仅为主要银行的数值\n+破产债权、6个月以上的逾期债权、利息降低至法定利率以下的利息减免债权', '注：（B）的定义：1993.3—1995.3为破产债权、逾期债权（此期间仅为主要银行的数值）；1996.3—1999.3为破产债权、6个月以上的逾期债权、利息降低至法定利率以下的利息减免债权。'],
+  ['破产债权、90 日以上的逾期债权、利息减免债权（近似于 SEC 准则）。', '注：（B）的定义（2000.3—2006.3）：破产债权、90 日以上的逾期债权、利息减免债权（近似于 SEC 准则）。'],
+]
+157 = [
+  # Scan p157: join the two lines of 图5-2's note so the cleaner binds both to the figure.
+  ['结束。\n\n日本银行全国短观', '结束。日本银行全国短观'],
+  # The source's final line continues the same parenthesis, not the body.
+  ['更新。\n\n期末数据为2007年3月调查）', '更新。期末数据为2007年3月调查）'],
+]
+274 = [
+  # Scan p274: restore the missing 图9-17 note at its caption, not inside the preceding paragraph.
+  ['图 9-17 资金供给操作的变化', '''注：资金供给操作包括“资产抵押证券购入”，但是由于资产抵押证券余额较少，上图不含该项（2006年1月底的余额为1105亿日元）。
+
+图 9-17 资金供给操作的变化'''],
+]
+293 = [
+  # Scan p293: the missing estimation note belongs to 图9-31, not 图9-30 or the body.
+  ['图 9-31 外汇干预金额和外汇储备的增减', '''注：由于未公布1991年4月以前的外汇干预金额，1991年4月以前的干预金额为推算额。
+
+图 9-31 外汇干预金额和外汇储备的增减'''],
+]
 217 = [
   # Scan typo: the caption of 图 7-5 prints 不良债而增加; meant 不良债权而增加.
   ['不良债而增加', '不良债权而增加'],

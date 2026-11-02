@@ -54,9 +54,10 @@ def _fig_10_15(mode: ThemeMode = "mono") -> str:
     def panel(title: str, v2000: list[float], v2005: list[float], side: list[Annotation], legend: bool) -> PanelSpec:
         return PanelSpec(
             title=title,
-            xlim=(-0.6, 1.6),
+            xlim=(-0.45, 1.45),
             ylim=(1.4, 2.0),
-            xticks=[(0, "所有接受问卷调查的企业"), (1, "成果主义企业")],
+            # Two-line category labels: at half the line width one-line labels collide and the engine drops one.
+            xticks=[(0, ""), (1, "")],
             yticks=[1.4, 1.6, 1.8, (2.0, "2.0")],
             ylabel="倍",
             zero_line=False,
@@ -68,8 +69,13 @@ def _fig_10_15(mode: ThemeMode = "mono") -> str:
                 Annotation(x=x, y=v, text=f"{v:.2f}", arrow=False, dx=0.0, dy=-8.0)
                 for x, v in zip([-0.2, 0.8, 0.2, 1.2], v2000 + v2005, strict=True)
             ]
+            + [
+                Annotation(x=x, y=1.4, text=line, arrow=False, dx=0.0, dy=dy)
+                for x, lines in ((0, ("所有接受问卷", "调查的企业")), (1, ("成果主义企业",)))
+                for line, dy in zip(lines, (2.0, 24.0))
+            ]
             + side,
-            legend_loc="bottom" if legend else "none",
+            legend_loc="inside" if legend else "none",
         )
 
     spec = FigureSpec(
@@ -81,16 +87,16 @@ def _fig_10_15(mode: ThemeMode = "mono") -> str:
                 [1.57, 1.70],
                 [1.69, 1.91],
                 [
-                    Annotation(x=-0.55, y=1.95, text="↑差距大", arrow=False, dx=0.0, dy=0.0, align="start"),
-                    Annotation(x=-0.55, y=1.89, text="差距小↓", arrow=False, dx=0.0, dy=0.0, align="start"),
+                    Annotation(x=-0.42, y=1.94, text="↑差距大", arrow=False, dx=0.0, dy=0.0, align="start"),
+                    Annotation(x=-0.42, y=1.88, text="差距小↓", arrow=False, dx=0.0, dy=0.0, align="start"),
                 ],
                 False,
             ),
             panel("（2）50~59岁", [1.50, 1.63], [1.62, 1.80], [], True),
         ],
-        rows=2,
+        cols=2,
         width=860,
-        height=720,
+        height=450,
     )
     return render_figure_svg(spec, mode)
 
@@ -284,7 +290,7 @@ def _fig_10_22(mode: ThemeMode = "mono") -> str:
         xlim=(-0.5, 6.5),
         ylim=(-10.0, 15.0),
         xticks=ages,
-        yticks=[(v, f"{v:.1f}") for v in (-10.0, -5.0, 0.0, 5.0, 10.0, 15.0)],
+        yticks=[(v, f"{v:g}") for v in (-10.0, -5.0, 0.0, 5.0, 10.0, 15.0)],
         xlabel="年龄",
         bars=[BarSeries(x=xs, y=[2.71, 7.41, 9.01, 10.90, 8.53, -7.31, -4.97], color_idx=2, width=0.4)],
         legend_loc="none",

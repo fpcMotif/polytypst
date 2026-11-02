@@ -57,7 +57,7 @@ def npl_heading_hook(lt: str, chapter: int) -> str | None:
         return text if lt.startswith("#") else None
     if re.match(r"^\d+\.\d+\s", text):
         return f"### {text}"
-    if re.match(r"^\d+\s+\D", text) or TOP_LEVEL_HEADINGS.match(text):
+    if re.match(r"^\d+\.?\s+\S", text) or TOP_LEVEL_HEADINGS.match(text):
         return f"## {text}"
     return f"### {text}"
 
@@ -65,6 +65,7 @@ def npl_heading_hook(lt: str, chapter: int) -> str | None:
 # Scan page and (x0, y0, x1, y1) page fractions of each figure whose automatic crop missed its chart.
 # 图 9-29 stacks panels ① and ② from one page above panel ③ from the next.
 RECROPS = {
+    "1-9B": ((41, (0.19, 0.19, 0.84, 0.64)),),
     "2-1": ((70, (0.11, 0.11, 0.91, 0.44)),),
     "5-2": ((157, (0.15, 0.235, 0.84, 0.528)),),
     "8-3": ((244, (0.13, 0.262, 0.86, 0.529)),),
@@ -99,13 +100,24 @@ def draw_figures(out_dir: Path) -> list[Path]:
         sheets[fig_id] = (_stacked_box([box for _, box in boxes]), sheet.size)
     manifest = out_dir / FIGURES_MANIFEST_NAME
     if manifest.exists():
+        from polytypst.vision.figure_extractor import ExtractedFigure
+
+        entries = load_figures_manifest(manifest)
+        if not any(f.figure_id == "1-9B" for f in entries):
+            entries.append(ExtractedFigure(
+                figure_id="1-9B", source_page=41, chapter=1,
+                caption="对于地价冲击各变量的冲击反应——地价下跌期",
+                image_rel_path="figures/fig_1-9B.png",
+                box=sheets["1-9B"][0],
+                width_px=sheets["1-9B"][1][0], height_px=sheets["1-9B"][1][1],
+            ))
         write_figures_manifest(
             manifest,
             [
                 replace(f, box=sheets[f.figure_id][0], width_px=sheets[f.figure_id][1][0], height_px=sheets[f.figure_id][1][1])
                 if f.figure_id in sheets
                 else f
-                for f in load_figures_manifest(manifest)
+                for f in entries
             ],
         )
     return paths

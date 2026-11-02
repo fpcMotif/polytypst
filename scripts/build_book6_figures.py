@@ -8,7 +8,11 @@ from pathlib import Path
 import pymupdf
 
 from polytypst.books import book_by_key
-from scripts.book2_figures.engine import ThemeMode, chart_svg, scan_canvas
+from scripts.book2_figures.engine import (
+    ThemeMode,
+    chart_svg,
+    enrich_book_figures_manifest,
+)
 
 BOOK_DIR = book_by_key("6_劳动力市场与收入分配").out_dir
 
@@ -48,8 +52,7 @@ def main() -> None:
     if unknown:
         raise SystemExit(f"no generator for {unknown}")
     for fid in args.ids or sorted(generators, key=figure_order):
-        with scan_canvas(BOOK_DIR, fid):
-            svg = chart_svg(generators[fid], args.style)
+        svg = chart_svg(generators[fid], args.style)
         (fig_dir / f"fig_{fid}.svg").write_text(svg, encoding="utf-8")
         if args.png:
             args.png.mkdir(parents=True, exist_ok=True)
@@ -59,6 +62,7 @@ def main() -> None:
 
     crops = {p.stem.removeprefix("fig_") for p in fig_dir.glob("fig_*.png")}
     left = sorted(crops - set(generators), key=figure_order)
+    enrich_book_figures_manifest("6_劳动力市场与收入分配", generators)
     print(f"{len(generators)} figures redrawn, {len(left)} left as crops: {' '.join(left)}")
 
 

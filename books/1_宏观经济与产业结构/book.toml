@@ -95,13 +95,10 @@ chapter_heading = '{title}'
 # The scan numbers sections "2" and subsections "2.1" with no period or §, and its running heads
 # carry the book title on even pages and the numbered chapter title on odd pages.
 # Chinese typesetting also indents the first paragraph after a heading.
-# Full-width figures that are taller than wide shrink to 330pt, about 60% of the 545pt text block,
-# so a figure, its caption and some text share a page.
+# Figures taller than 450pt, about 83% of the 545pt text block, shrink to that height, so a stacked
+# multi-panel chart keeps 6.5pt type and still leaves room on its page for the caption and note.
 typst_front_matter = '''
 @STYLE:japan_economy@
-#show heading.where(level: 2): set heading(numbering: (..n) => str(n.pos().at(1)) + "\u{2002}")
-#show heading.where(level: 3): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
-#show heading.where(level: 4): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
 #set page(header: context {
   let page-number = counter(page).get().first()
   let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
@@ -124,7 +121,7 @@ typst_front_matter = '''
 })
 
 #show image: it => layout(size => {
-  let limit = if page.flipped { 245pt } else { 330pt }
+  let limit = if page.flipped { 245pt } else { 450pt }
   if measure(it, width: size.width).height > limit { image(it.source, height: limit) } else { it }
 })
 @ENGINE_TITLE_PAGE@'''
@@ -138,7 +135,6 @@ ocr_languages = ['zh-Hans', 'en-US']
 caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
 caption_format = '图 {chapter}-{number}'
 svg_single_pct = 100
-svg_scan_text_width = 0.78
 pair_figures = false
 note_before_caption = true
 

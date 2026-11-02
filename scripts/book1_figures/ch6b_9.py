@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Sequence
 from html import escape
 
@@ -130,7 +131,7 @@ def _fdi_panel(
         xlim=(1980.4, 2005.6),
         ylim=ylim,
         xticks=[float(y) for y in range(1981, 2006, 2)],
-        yticks=[(v, "0" if v == 0 else _signed(v)) for v in [float(t) for t in range(int(ylim[0]), int(ylim[1]) + 1)]],
+        yticks=[(v, _signed(v)) for v in [float(t) for t in range(int(ylim[0]), int(ylim[1]) + 1)]],
         xlabel="年",
         zero_line=False,
         hlines=[(0.0, "", "solid")],
@@ -236,7 +237,7 @@ def _fig_6_15(mode: ThemeMode = "mono") -> str:
         xlim=(1979.9, 2007.9),
         ylim=(0.0, 4.0),
         xticks=[float(y) for y in range(1980, 2007, 2)] + [2007.0],
-        yticks=[(0.0, "0")] + [(v / 2, f"{v / 2:.1f}") for v in range(1, 9)],
+        yticks=[(v / 2, f"{v / 2:.1f}") for v in range(9)],
         xlabel="年",
         zero_line=False,
         lines=[
@@ -306,8 +307,8 @@ def _stacked_area_grid(
     """Each row is (row label, y max, per-column cumulative tops of 农产品, 原材料, 投资品, 消费品 over I..X)."""
     pal = get_palette(mode)
     fills = [pal.bg, pal.fills[2], pal.fills[0], pal.fills[5]]
-    W = 560
-    left, right, col_gap = 44.0, 14.0, 28.0
+    W = 540
+    left, right, col_gap = 40.0, 6.0, 18.0
     pw = (W - left - right - 2 * col_gap) / 3
     ph = 118.0
     head = 22.0 if col_titles else 8.0
@@ -322,7 +323,7 @@ def _stacked_area_grid(
     for r, (row_label, ymax, columns) in enumerate(rows):
         py0 = head + row_h * r + 26.0
         py1 = py0 + ph
-        out.append(_vertical_text(12.0, (py0 + py1) / 2, row_label, pal.fg, 10.5))
+        out.append(_vertical_text(12.0, (py0 + py1) / 2, row_label, pal.fg, 10.6))
         row_step = {100.0: 10.0, 50.0: 10.0, 40.0: 10.0, 15.0: 3.0}.get(ymax, 5.0 if ymax >= 20 else 2.0)
         for c, tops in enumerate(columns):
             step = (col_steps or {}).get(r, [row_step] * 3)[c]
@@ -366,13 +367,13 @@ def _stacked_area_grid(
                 out.append(f'<line x1="{px0:.2f}" y1="{yy:.2f}" x2="{px0 + 4.5:.2f}" y2="{yy:.2f}" stroke="{pal.axis}" stroke-width="1.1"/>')
                 out.append(
                     f'<text x="{px0 - 5:.2f}" y="{yy + 3.6:.2f}" text-anchor="end" font-family="{SANS_STACK}" '
-                    f'font-size="10" fill="{pal.muted}">{v:g}</text>'
+                    f'font-size="10.6" fill="{pal.muted}">{v:g}</text>'
                 )
                 v += step
             for i, roman in enumerate(ROMAN):
                 out.append(
                     f'<text x="{map_x(i):.2f}" y="{py1 + 14:.2f}" text-anchor="middle" font-family="{FONT_STACK}" '
-                    f'font-size="8.5" fill="{pal.muted}">{roman}</text>'
+                    f'font-size="10.6" fill="{pal.muted}">{roman}</text>'
                 )
             out.append(
                 f'<rect x="{px0:.2f}" y="{py0:.2f}" width="{pw:.2f}" height="{ph:.2f}" fill="none" stroke="{pal.axis}" stroke-width="1.2"/>'
@@ -586,10 +587,12 @@ def _fig_6_20(mode: ThemeMode = "mono") -> str:
         ],
         legend_loc="bottom",
     )
-    spec = FigureSpec(fig_id="6-20", title="图 6-20 亚洲各地区出口商品平均附加值水平的变化（1982—2006 年）", panels=[panel], width=860, height=640)
+    spec = FigureSpec(fig_id="6-20", title="图 6-20 亚洲各地区出口商品平均附加值水平的变化（1982—2006 年）", panels=[panel], width=1020, height=820)
     svg = render_figure_svg(spec, mode)
     pal = get_palette(mode)
-    y_label = _vertical_text(30.0, 150.0, "（X）高附加值↑平均附加值水平↓低附加值（I）", pal.muted, 9.5)
+    plot = re.search(r'<clipPath [^>]*><rect x="([\d.]+)" y="([\d.]+)" width="[\d.]+" height="([\d.]+)"', svg)
+    x0, y0, h = (float(v) for v in plot.groups())
+    y_label = _vertical_text(x0 - 40.0, y0 + h / 2, "（X）高附加值↑平均附加值水平↓低附加值（I）", pal.muted, 10.6)
     return svg.replace("</svg>", y_label + "\n</svg>")
 
 
@@ -631,7 +634,7 @@ def _fig_6_21(mode: ThemeMode = "mono") -> str:
         legend_loc="none",
     )
     spec = FigureSpec(
-        fig_id="6-21", title="图 6-21 出口商品的高附加值化和中期经济增长率（1982—2006 年）", panels=[panel], width=880, height=720
+        fig_id="6-21", title="图 6-21 出口商品的高附加值化和中期经济增长率（1982—2006 年）", panels=[panel], width=1020, height=820
     )
     return render_figure_svg(spec, mode)
 

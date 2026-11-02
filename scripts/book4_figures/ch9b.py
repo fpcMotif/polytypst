@@ -12,6 +12,7 @@ from scripts.book2_figures.engine import (
     PanelSpec,
     ThemeMode,
     VSpan,
+    _scan_canvas_size,
     render_figure_svg,
 )
 
@@ -854,7 +855,7 @@ def _fig_9_17(mode: ThemeMode = "mono") -> str:
             Annotation(x=2002.92, y=81.0, text="CP买入对象", dx=-5, dy=-125, fontsize=10.5),
             Annotation(x=2004.1, y=114.0, text="国债", dx=5, dy=-42, fontsize=10.5),
             Annotation(x=2005.1, y=99.0, text="买入汇票", arrow=False, dx=0, dy=0, fontsize=10.5),
-            Annotation(x=2000.6, y=64.0, text="短期国债 买入对象", arrow=False, dx=0, dy=0, fontsize=9.5),
+            Annotation(x=2000.6, y=64.0, text="短期国债 买入对象", arrow=False, dx=0, dy=0, fontsize=12.0),
             Annotation(x=2002.9, y=66.0, text="买入短期国债", arrow=False, dx=0, dy=0, fontsize=10.5),
             Annotation(x=2001.7, y=49.0, text="回购国债", arrow=False, dx=0, dy=0, fontsize=10.5),
             Annotation(x=2004.3, y=20.0, text="买入长期国债", arrow=False, dx=0, dy=0, fontsize=10.5),
@@ -1074,7 +1075,7 @@ def _fig_9_29(mode: ThemeMode = "mono") -> str:
             Annotation(x=1974.0, y=222.0, text="（1973年4~6月—2008年4~6月）", arrow=False, dx=0, dy=0, align="start"),
             Annotation(x=1974.0, y=199.0, text="（以七个发达国家的名义GDP进行标准化）", arrow=False, dx=0, dy=0, align="start"),
             Annotation(x=1985.4, y=36.0, text="累计经常收支", dx=-70, dy=-28),
-            Annotation(x=1992.5, y=97.0, text="累计经常收支与直接投资余额", dx=-60, dy=-85),
+            Annotation(x=1992.5, y=97.0, text="累计经常收支与直接投资余额", dx=-184, dy=-20),
             Annotation(x=1996.0, y=92.0, text="从累计经常收支与直接投资余额中", dx=45, dy=44),
             Annotation(x=1996.0, y=92.0, text="扣除外汇储备的增加或减少", arrow=False, dx=45, dy=72),
         ],
@@ -1094,15 +1095,17 @@ def _fig_9_29(mode: ThemeMode = "mono") -> str:
             LineSeries(x=dx_, y=dy_, color_idx=1, style="solid", width=2.4),
         ],
         annotations=[
-            Annotation(x=2008.2, y=6.3, text="（1973年4~6月—2008年10~12月）", arrow=False, dx=0, dy=0, align="end"),
+            Annotation(x=2008.2, y=7.0, text="（1973年4~6月—2008年10~12月）", arrow=False, dx=0, dy=0, align="end"),
             Annotation(x=1980.2, y=7.8, text="短期利率差", dx=18, dy=18, align="start"),
             Annotation(x=1980.2, y=7.8, text="1989年3Q 8.6%", arrow=False, dx=18, dy=46, align="start"),
-            Annotation(x=1992.55, y=2.7, text="长期实际利率差峰值", dx=10, dy=-40, align="start"),
+            Annotation(x=1992.55, y=2.7, text="长期实际利率差峰值", dx=10, dy=-22, align="start"),
             Annotation(x=1990.6, y=-1.3, text="短期利率差", dx=30, dy=50),
-            Annotation(x=1974.3, y=1.0, text="短期实际利率差峰值", dx=8, dy=88, align="start", fontsize=10.5),
-            Annotation(x=1974.6, y=-5.4, text="1975年1Q 12.2%", arrow=False, dx=0, dy=0, align="start", fontsize=10.5),
-            Annotation(x=1974.6, y=-6.65, text="长期实际利率差", arrow=False, dx=0, dy=0, align="start", fontsize=10.5),
-            Annotation(x=1974.6, y=-7.9, text="1974年4Q 8.7%", arrow=False, dx=0, dy=0, align="start", fontsize=10.5),
+            # The scan stacks these four lines as one block, with the arrow from its first line.
+            Annotation(x=1974.3, y=1.0, text="", dx=14, dy=22),
+            Annotation(x=1975.0, y=-1.6, text="短期实际利率差峰值", arrow=False, dx=0, dy=0, align="start", fontsize=11.5),
+            Annotation(x=1975.0, y=-3.7, text="1975年1Q 12.2%", arrow=False, dx=0, dy=0, align="start", fontsize=11.5),
+            Annotation(x=1975.0, y=-5.8, text="长期实际利率差", arrow=False, dx=0, dy=0, align="start", fontsize=11.5),
+            Annotation(x=1975.0, y=-7.9, text="1974年4Q 8.7%", arrow=False, dx=0, dy=0, align="start", fontsize=11.5),
         ],
         legend_loc="none",
     )
@@ -1115,7 +1118,14 @@ def _fig_9_29(mode: ThemeMode = "mono") -> str:
         width=860,
         height=1500,
     )
-    return render_figure_svg(spec, mode)
+    # The scan's chart runs over two pages; at that aspect the chart, caption and nine-line
+    # note overflow one printed page, so the canvas is shortened to 1.3 times its width.
+    canvas = _scan_canvas_size.get()
+    token = _scan_canvas_size.set((canvas[0], canvas[0] * 1.3) if canvas else None)
+    try:
+        return render_figure_svg(spec, mode)
+    finally:
+        _scan_canvas_size.reset(token)
 
 
 def get_generators() -> dict[str, Callable[[ThemeMode], str]]:

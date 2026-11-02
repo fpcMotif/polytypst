@@ -37,11 +37,20 @@ class ExtractedFigure:
     box: tuple[float, float, float, float] | None = None
     width_px: int = 0
     height_px: int = 0
+    chapter: int | None = None
+    title: str = ""
+    alt: str = ""
+    description: str = ""
+    note: str = ""
+    source: str = ""
+    scan_crop_path: str = ""
+    svg_path: str | None = None
+    reproduced_by: str = ""
 
 
 def write_figures_manifest(path: Path, figures: list[ExtractedFigure]) -> None:
     _ = path.write_text(
-        json.dumps([asdict(f) for f in figures], indent=2),
+        json.dumps([asdict(f) for f in figures], ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
@@ -50,6 +59,7 @@ def load_figures_manifest(path: Path) -> list[ExtractedFigure]:
     figures: list[ExtractedFigure] = []
     for item in json.loads(path.read_text(encoding="utf-8")):
         box = item.get("box")
+        ch = item.get("chapter")
         figures.append(
             ExtractedFigure(
                 figure_id=str(item["figure_id"]),
@@ -61,6 +71,15 @@ def load_figures_manifest(path: Path) -> list[ExtractedFigure]:
                 else None,
                 width_px=int(item.get("width_px", 0)),
                 height_px=int(item.get("height_px", 0)),
+                chapter=int(ch) if ch is not None else None,
+                title=str(item.get("title", "")),
+                alt=str(item.get("alt", "")),
+                description=str(item.get("description", "")),
+                note=str(item.get("note", "")),
+                source=str(item.get("source", "")),
+                scan_crop_path=str(item.get("scan_crop_path", "")),
+                svg_path=str(item["svg_path"]) if item.get("svg_path") else None,
+                reproduced_by=str(item.get("reproduced_by", "")),
             )
         )
     return figures

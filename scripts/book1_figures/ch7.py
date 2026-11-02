@@ -62,7 +62,7 @@ AGE_GROUPS = ["15~19岁", "20~24岁", "25~29岁", "30~34岁", "35~39岁", "40~44
 LEGEND_ORDER = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
 
 
-AGE_FILLS = ["#475569", "diag", "#64748b", "dots", "#94a3b8", "vert", "#cbd5e1", "horiz", "#e2e8f0", "bg", "fg"]
+AGE_FILLS = ["#4d4d4d", "diag", "#6e6e6e", "dots", "#a0a0a0", "vert", "#d0d0d0", "horiz", "#e8e8e8", "bg", "fg"]
 
 
 def _filled_rect(mode: ThemeMode, clip_id: str, x: float, y: float, w: float, h: float, fill: str, sw: float) -> list[str]:

@@ -120,31 +120,67 @@ def _fig_16_5(mode: ThemeMode = "mono") -> str:
 
 
 ScatterPanel = tuple[str, tuple[float, float], float, str, list[tuple], tuple[float, float, float, float], dict[str, str]]
-LABEL_SPOTS: dict[str, tuple[float, float, str]] = {
-    "r": (8.0, 0.0, "start"),
-    "l": (-8.0, 0.0, "end"),
-    "rb": (8.0, 6.0, "start"),
-    "lb": (-8.0, 6.0, "end"),
-    "b": (0.0, 8.0, "middle"),
-    "t": (0.0, -8.0, "middle"),
-}
+LABEL_SIZE = 10.5
+# Engine annotation geometry: offsets scale by PRINT_SCALE, and a label sits 4 px above its anchor when
+# dy <= 0 or 11 px below it when dy > 0. Each candidate is (dx, dy, align) in annotation units.
+LABEL_CANDIDATES: list[tuple[float, float, str]] = [
+    (6.0, 0.0, "start"), (-6.0, 0.0, "end"), (0.0, -2.0, "middle"), (6.0, 1.0, "start"), (-6.0, 1.0, "end"),
+    (0.0, 1.0, "middle"), (8.0, -10.0, "start"), (-8.0, -10.0, "end"), (8.0, 10.0, "start"), (-8.0, 10.0, "end"),
+]
+PLOT_PX = (168.0, 115.0)
+
+
+def _label_box(ax: float, ay: float, text: str, dx: float, dy: float, align: str) -> tuple[float, float, float, float]:
+    w = len(text) * 0.56 * LABEL_SIZE
+    tx, base = ax + dx * 0.6, ay + dy * 0.6 + (-4.0 if dy <= 0 else 11.0)
+    left = {"start": tx, "middle": tx - w / 2, "end": tx - w}[align]
+    return left, base - 0.74 * LABEL_SIZE, left + w, base + 0.12 * LABEL_SIZE
+
+
+def _overlap(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> float:
+    return max(0.0, min(a[2], b[2]) - max(a[0], b[0])) * max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+
+
+def _place_labels(points: list[tuple], xlim: tuple[float, float], ylim: tuple[float, float], reserved: list[tuple[float, float, float, float]]) -> list[Annotation]:
+    """Greedy label placement in plot pixels: each label takes the candidate spot that covers the fewest
+    other labels, markers and reserved boxes, crowded points first."""
+    pw, ph = PLOT_PX
+    px = {name: ((x - xlim[0]) / (xlim[1] - xlim[0]) * pw, (1 - (y - ylim[0]) / (ylim[1] - ylim[0])) * ph) for name, x, y in points}
+    markers = [(x - 3.5, y - 3.5, x + 3.5, y + 3.5) for x, y in px.values()]
+    crowd = {n: sum(1 for m, (x, y) in px.items() if m != n and abs(x - px[n][0]) < 30 and abs(y - px[n][1]) < 16) for n in px}
+    placed: list[tuple[float, float, float, float]] = list(reserved)
+    out: list[Annotation] = []
+    for name, x, y in sorted(points, key=lambda p: -crowd[p[0]]):
+        ax, ay = px[name]
+        best = None
+        for rank, (dx, dy, align) in enumerate(LABEL_CANDIDATES):
+            box = _label_box(ax, ay, name, dx, dy, align)
+            cost = 0.4 * rank
+            cost += 10.0 * sum(_overlap(box, b) for b in placed)
+            cost += 6.0 * sum(_overlap(box, m) for m in markers)
+            cost += 8.0 * (max(0.0, -box[0]) + max(0.0, box[2] - pw)) * LABEL_SIZE + 8.0 * (max(0.0, -box[1]) + max(0.0, box[3] - ph)) * 20
+            if best is None or cost < best[0]:
+                best = (cost, box, dx, dy, align)
+        _, box, dx, dy, align = best
+        placed.append(box)
+        out.append(Annotation(x, y, name, dx=dx, dy=dy, arrow=False, align=align, fontsize=LABEL_SIZE))
+    return out
 
 
 def _scatter_figure(fid: str, title: str, xlim: tuple[float, float], xstep: float, xlabels: tuple[str, str], data: list[ScatterPanel], mode: ThemeMode) -> str:
     panels = []
-    for k, (ptitle, ylim, ystep, corr, points, trend, spots) in enumerate(data):
+    for k, (ptitle, ylim, ystep, corr, points, trend, _spots) in enumerate(data):
         nx = round((xlim[1] - xlim[0]) / xstep)
         ny = round((ylim[1] - ylim[0]) / ystep)
         x0, y0, x1, y1 = trend
-        labels = []
-        for name, px, py in points:
-            dx, dy, align = LABEL_SPOTS[spots.get(name, "r")]
-            labels.append(Annotation(px, py, name, dx=dx, dy=dy, arrow=False, align=align, fontsize=9.0))
+        shown_ylim = (ylim[0] - 0.06 * (ylim[1] - ylim[0]), ylim[1])
+        corr_box = (0.0, 0.0, len(corr) * 0.56 * LABEL_SIZE + 10.0, 0.13 * PLOT_PX[1] + 4.0)
+        labels = _place_labels(points, xlim, shown_ylim, [corr_box])
         panels.append(
             PanelSpec(
                 title=ptitle,
                 xlim=xlim,
-                ylim=(ylim[0] - 0.06 * (ylim[1] - ylim[0]), ylim[1]),
+                ylim=shown_ylim,
                 xticks=[(xlim[0] + i * xstep, f"{xlim[0] + i * xstep:.1f}") for i in range(nx + 1)],
                 yticks=[ylim[0] + i * ystep for i in range(ny + 1)],
                 xlabel=xlabels[k // 2],
@@ -152,7 +188,7 @@ def _scatter_figure(fid: str, title: str, xlim: tuple[float, float], xstep: floa
                 lines=[LineSeries(x=[x0, x1], y=[y0, y1], color_idx=5, width=4.0)],
                 scatters=[([p[1] for p in points], [p[2] for p in points], [], 0, False)],
                 annotations=[
-                    Annotation(xlim[0] + 0.02 * (xlim[1] - xlim[0]), ylim[1] - 0.09 * (ylim[1] - ylim[0]), corr, dx=0.0, dy=0.0, arrow=False, align="start", fontsize=10.0),
+                    Annotation(xlim[0] + 0.02 * (xlim[1] - xlim[0]), ylim[1] - 0.04 * (ylim[1] - ylim[0]), corr, dx=0.0, dy=0.0, arrow=False, align="start", fontsize=LABEL_SIZE),
                     *labels,
                 ],
                 legend_loc="none",

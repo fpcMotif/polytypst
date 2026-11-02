@@ -46,13 +46,12 @@ running_header_regexes = [
 
 footnote_reset = 'chapter'
 cross_references = true
+three_line_tables = true
+heading_rewrites = [['^(#{2,3}\s+\d{1,2})\s+(?=\d)', '\1 ⁠']]
 chapter_heading = '{title}'
 
 typst_front_matter = '''
 @STYLE:japan_economy@
-#show heading.where(level: 1): it => { counter(footnote).update(0); it }
-#show heading.where(level: 2): set heading(numbering: (..n) => str(n.pos().at(1)) + "\u{2002}")
-#show heading.where(level: 3): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
 #show emph: set text(font: ("Source Serif 4", "Songti SC", "STSong"))
 '''
 
@@ -60,14 +59,16 @@ typst_front_matter = '''
 caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
 caption_format = '图 {chapter}-{number}'
 svg_single_pct = 100
-svg_scan_text_width = 0.78
 pair_figures = false
 note_before_caption = true
 png_single_divisor = 2880
-png_single_range = [50, 100]
+png_single_range = [85, 100]
 png_max_height_ratio = 1.3
 
 [transcript_fixups]
+63 = [
+  ['\n\n\*\) 这表明', ' *) 这表明'],
+]
 101 = [
   # Scan typo: the scan prints UedaandUgai in footnote 3; meant Ueda and Ugai.
   ['UedaandUgai', 'Ueda and Ugai'],
@@ -80,6 +81,9 @@ png_max_height_ratio = 1.3
 注：1. 企业的预期增长率（见《企业行为问卷调查》〈内阁府经济社会综合研究所〉）利用线性插值进行了补全。
 
 2. 短期实际利率=无担保隔夜拆借利率-CPI （剔除生鲜食品） 的同比变化率。"""],
+]
+137 = [
+  ['注：基于 Bureau of Labor Statistics。\n+Board of Governors', '注：基于 Bureau of Labor Statistics，Board of Governors'],
 ]
 # The transcript has 二人及以上户家庭; the scan prints 二人及二人以上户家庭.
 180 = [
@@ -237,6 +241,9 @@ png_max_height_ratio = 1.3
 # The transcript has 更加自然。（见第五节的讨论） 6 节）; the scan prints 更加自然（见第 6 节）.
 106 = [
   ["更加自然。（见第五节的讨论）\\ 6\\ 节）", '更加自然（见第 6 节）'],
+]
+107 = [
+  ['(?m)^(?:案例[123]|（利率）|（对象期间）)\n+', ''],
 ]
 # Scan typo: the scan prints Odaand; meant Oda and.
 111 = [

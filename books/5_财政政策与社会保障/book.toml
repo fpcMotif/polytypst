@@ -37,6 +37,7 @@ running_header_regexes = [
 ]
 header_zone_lines = 4
 cross_references = true
+three_line_tables = true
 heading_rewrites = [['^(#{2,3}\s+\d{1,2})\s+(?=\d)', '\1 ⁠']]
 chapter_heading = '{number} {title}'
 typst_front_matter = '''
@@ -51,12 +52,11 @@ ocr_languages = ['zh-Hans', 'en-US']
 caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
 caption_format = '图 {chapter}-{number}'
 svg_single_pct = 100
-svg_scan_text_width = 0.78
 pair_figures = false
 png_single_divisor = 2900
-png_single_range = [55, 92]
+png_single_range = [85, 100]
 png_max_height_ratio = 0.9
-png_min_pct_tall = 50
+png_min_pct_tall = 80
 note_before_caption = true
 
 [transcript_fixups]

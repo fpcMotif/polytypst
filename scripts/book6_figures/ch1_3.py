@@ -64,21 +64,26 @@ def _fig_1_2(mode: ThemeMode = "mono") -> str:
     return render_figure_svg(spec, mode)
 
 
-def _wage_index_figure(fig_id: str, title: str, series: list[tuple[str, str, list[float]]], mode: ThemeMode) -> str:
+def _wage_index_figure(fig_id: str, title: str, series: list[tuple[str, list[float]]], mode: ThemeMode) -> str:
     years = [float(y) for y in range(1989, 2004)]
+    line_styles = [("solid", "circle", False), ("solid", "circle", True), ("dashed", "triangle", False), ("dashed", "triangle", True)]
     panel = PanelSpec(
         xlim=(1988.5, 2003.5),
         ylim=(0.6, 1.4),
-        xticks=years,
+        xticks=years[::2],
         yticks=[0.6, 0.7, 0.8, 0.9, (1.0, "1.0"), 1.1, 1.2, 1.3, 1.4],
-        xlabel="年",
         ylabel="(1995年=1)",
         zero_line=False,
+        hlines=[(1.0, "", "solid")],
         lines=[
-            LineSeries(x=years, y=ys, label=label, color_idx=i, marker=marker, width=1.8, hollow=False)
-            for i, (label, marker, ys) in enumerate(series)
+            LineSeries(
+                x=years, y=ys, label=label, color_idx=i, style=line_style, fixed_style=True,
+                marker=marker, width=1.6, hollow=hollow,
+            )
+            for i, ((label, ys), (line_style, marker, hollow)) in enumerate(zip(series, line_styles))
         ],
-        legend_loc="bottom",
+        legend_loc="inside",
+        open_frame=True,
     )
     spec = FigureSpec(fig_id=fig_id, title=title, panels=[panel], width=1000, height=600)
     return render_figure_svg(spec, mode)
@@ -86,20 +91,20 @@ def _wage_index_figure(fig_id: str, title: str, series: list[tuple[str, str, lis
 
 def _fig_1_3(mode: ThemeMode = "mono") -> str:
     series = [
-        ("行业合计（1000人以上）", "diamond", [0.909, 0.935, 0.951, 0.950, 0.958, 0.981, 1.0, 1.029, 1.048, 1.044, 1.054, 1.082, 1.111, 1.103, 1.116]),
-        ("行业合计（100~999人）", "square", [0.872, 0.908, 0.931, 0.932, 0.958, 0.977, 1.0, 1.020, 1.030, 1.026, 1.030, 1.054, 1.072, 1.079, 1.079]),
-        ("制造业（1000人以上）", "triangle", [0.829, 0.862, 0.880, 0.883, 0.909, 0.946, 0.997, 1.077, 1.120, 1.116, 1.137, 1.196, 1.226, 1.249, 1.325]),
-        ("制造业（100~999人）", "cross", [0.795, 0.825, 0.868, 0.886, 0.913, 0.952, 0.994, 1.055, 1.099, 1.108, 1.111, 1.179, 1.192, 1.201, 1.255]),
+        ("行业合计（1000人以上）", [0.909, 0.935, 0.951, 0.950, 0.958, 0.981, 1.0, 1.029, 1.048, 1.044, 1.054, 1.082, 1.111, 1.103, 1.116]),
+        ("行业合计（100~999人）", [0.872, 0.908, 0.931, 0.932, 0.958, 0.977, 1.0, 1.020, 1.030, 1.026, 1.030, 1.054, 1.072, 1.079, 1.079]),
+        ("制造业（1000人以上）", [0.829, 0.862, 0.880, 0.883, 0.909, 0.946, 0.997, 1.077, 1.120, 1.116, 1.137, 1.196, 1.226, 1.249, 1.325]),
+        ("制造业（100~999人）", [0.795, 0.825, 0.868, 0.886, 0.913, 0.952, 0.994, 1.055, 1.099, 1.108, 1.111, 1.179, 1.192, 1.201, 1.255]),
     ]
     return _wage_index_figure("1-3", "图 1-3 工资的时间序列变化 1 (现金工资总额)", series, mode)
 
 
 def _fig_1_4(mode: ThemeMode = "mono") -> str:
     series = [
-        ("行业合计（1000人以上）", "diamond", [0.917, 0.939, 0.952, 0.942, 0.948, 0.971, 0.999, 1.035, 1.054, 1.053, 1.067, 1.102, 1.135, 1.134, 1.171]),
-        ("行业合计（100~999人）", "square", [0.875, 0.910, 0.929, 0.926, 0.945, 0.968, 0.998, 1.023, 1.041, 1.030, 1.046, 1.072, 1.101, 1.111, 1.132]),
-        ("制造业（1000人以上）", "triangle", [0.833, 0.864, 0.878, 0.878, 0.894, 0.947, 0.998, 1.071, 1.132, 1.118, 1.136, 1.225, 1.243, 1.260, 1.362]),
-        ("制造业（100~999人）", "cross", [0.792, 0.820, 0.855, 0.860, 0.899, 0.948, 0.992, 1.064, 1.118, 1.096, 1.117, 1.212, 1.221, 1.234, 1.311]),
+        ("行业合计（1000人以上）", [0.917, 0.939, 0.952, 0.942, 0.948, 0.971, 0.999, 1.035, 1.054, 1.053, 1.067, 1.102, 1.135, 1.134, 1.171]),
+        ("行业合计（100~999人）", [0.875, 0.910, 0.929, 0.926, 0.945, 0.968, 0.998, 1.023, 1.041, 1.030, 1.046, 1.072, 1.101, 1.111, 1.132]),
+        ("制造业（1000人以上）", [0.833, 0.864, 0.878, 0.878, 0.894, 0.947, 0.998, 1.071, 1.132, 1.118, 1.136, 1.225, 1.243, 1.260, 1.362]),
+        ("制造业（100~999人）", [0.792, 0.820, 0.855, 0.860, 0.899, 0.948, 0.992, 1.064, 1.118, 1.096, 1.117, 1.212, 1.221, 1.234, 1.311]),
     ]
     return _wage_index_figure("1-4", "图 1-4 工资的时间序列变化 2 (固定支付工资)", series, mode)
 

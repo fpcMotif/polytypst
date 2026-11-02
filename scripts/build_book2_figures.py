@@ -9,11 +9,12 @@ from concurrent.futures import ThreadPoolExecutor
 from html import escape
 from pathlib import Path
 
+from polytypst.books import book_by_key
 from scripts.book2_figures.engine import (
     ThemeMode,
     chart_svg,
+    enrich_book_figures_manifest,
     save_figure_outputs,
-    scan_canvas,
 )
 
 CHAPTER_COUNTS: list[tuple[int, int]] = [
@@ -464,7 +465,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Redraw book 2's chart figures in monochrome, color and dark SVGs.")
     parser.add_argument("--style", choices=("a", "b"), default="a", help="a: the redraw style; b: the scan's chart style in the body fonts")
     args = parser.parse_args()
-    book_dir = Path("output/2 通缩经济与货币政策")
+    book_dir = book_by_key("2_通缩经济与货币政策").out_dir
     fids = expected_figure_ids()
     generators = load_all_generators()
 
@@ -482,12 +483,11 @@ def main() -> None:
 
     def _render_one(fid: str) -> tuple[str, str]:
         fn = generators[fid]
-        with scan_canvas(book_dir, fid):
-            svgs: dict[ThemeMode, str] = {
-                "mono": chart_svg(fn, args.style),
-                "color": fn("color"),
-                "dark": fn("dark"),
-            }
+        svgs: dict[ThemeMode, str] = {
+            "mono": chart_svg(fn, args.style),
+            "color": fn("color"),
+            "dark": fn("dark"),
+        }
         save_figure_outputs(fid, svgs, book_dir=book_dir, dpi=300)
         return fid, extract_svg_title(svgs["color"], fid)
 
@@ -496,6 +496,7 @@ def main() -> None:
             titles[fid] = title
         list(pool.map(_render_one, PAGE_PARTS))
 
+    enrich_book_figures_manifest("2_通缩经济与货币政策", generators)
     gallery_path = build_web_gallery(book_dir, titles, pages)
     pdfs = build_typst_showcases(book_dir, titles)
     print(f"Rendered {len(fids)} figures across 4 directories.")

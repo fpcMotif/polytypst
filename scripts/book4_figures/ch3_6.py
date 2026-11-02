@@ -16,7 +16,8 @@ from scripts.book2_figures.engine import (
 
 def _fig_3_4(mode: ThemeMode = "mono") -> str:
     years = list(range(1995, 2008))
-    staff = [64, 168, 235, 333, 334, 354, 380, 410, 395, 395, 385, 372, 362]
+    # Heights read against the 50-person grid of scan p97 (not the crop edge).
+    staff = [62, 162, 220, 345, 345, 365, 388, 420, 405, 405, 395, 382, 372]
     panel = PanelSpec(
         xlim=(1994.4, 2007.6),
         ylim=(50.0, 450.0),
@@ -247,8 +248,8 @@ def _fig_5_2(mode: ThemeMode = "mono") -> str:
             series(small_mfg, "中小企业（制造业）", 0, "solid", 2.4),
             series(small_non, "中小企业（非制造业）", 3, "dotted", 2.4),
         ],
-        annotations=[Annotation(x=t, y=53.0, text="△", arrow=False, dy=0.0, fontsize=10.0) for t in peaks]
-        + [Annotation(x=t, y=53.0, text="▽", arrow=False, dy=0.0, fontsize=10.0) for t in troughs],
+        annotations=[Annotation(x=t, y=53.0, text="△", arrow=False, dy=0.0, fontsize=12.0) for t in peaks]
+        + [Annotation(x=t, y=53.0, text="▽", arrow=False, dy=0.0, fontsize=12.0) for t in troughs],
         legend_loc="bottom",
     )
     spec = FigureSpec(fig_id="5-2", title="图 5-2 放贷态度判断 D.I.", panels=[panel], width=860, height=600)

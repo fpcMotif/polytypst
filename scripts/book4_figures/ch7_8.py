@@ -20,7 +20,7 @@ Arrow = tuple[float, float, float, float]
 Align = Literal["start", "middle", "end"]
 
 
-PLOT_RECT = re.compile(r'<rect x="[\d.]+" y="[\d.]+" width="([\d.]+)" height="([\d.]+)" fill="none"')
+PLOT_RECT = re.compile(r'<clipPath [^>]*><rect x="[\d.]+" y="[\d.]+" width="([\d.]+)" height="([\d.]+)"')
 
 
 def _plot_size(spec: FigureSpec, mode: ThemeMode) -> tuple[float, float]:

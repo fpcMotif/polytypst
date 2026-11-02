@@ -44,17 +44,20 @@ running_header_regexes = [
 ]
 footnote_reset = 'chapter'
 cross_references = true
+three_line_tables = true
 # The scan numbers sections "2" and subsections "2.1" with no period or §. Its running heads carry
 # the book title on even pages and the numbered chapter title on odd pages.
 typst_front_matter = '''
 @STYLE:japan_economy@
-#show heading.where(level: 1): it => { counter(footnote).update(0); it }
 #set page(header: context {
   let page-number = counter(page).get().first()
   let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
   if page-number > 4 and not on-chapter-page {
     let chaps = query(heading.where(level: 1).before(here()))
-    let title = if calc.odd(page-number) and chaps != () [#chaps.last().body] else [劳动力市场与收入分配]
+    let title = if calc.odd(page-number) and chaps != () {
+      let c = chaps.last()
+      if c.numbering != none [#numbering(c.numbering, ..counter(heading).at(c.location()))#h(0.8em)#c.body] else [#c.body]
+    } else [劳动力市场与收入分配]
     let head = text(8.5pt, font: serif)[#title]
     let folio = text(9.5pt, font: serif)[#page-number]
     if calc.odd(page-number) {
@@ -77,14 +80,13 @@ ocr_languages = ['zh-Hans', 'en-US']
 caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+(?:\.\d+)?[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
 caption_format = '图 {chapter}-{number}'
 svg_single_pct = 100
-svg_scan_text_width = 0.78
 pair_figures = false
 note_before_caption = true
 # Crops are 600 dpi; the scan's text block is 2966 px wide, so a figure keeps its scan share of the line.
 png_single_divisor = 2966
-png_single_range = [45, 100]
+png_single_range = [85, 100]
 png_max_height_ratio = 1.35
-png_min_pct_tall = 45
+png_min_pct_tall = 80
 
 [transcript_fixups]
 # These run before the cleaner, so they reach captions and figure notes, which page fixups cannot.
@@ -93,9 +95,16 @@ png_min_pct_tall = 45
   ['《工资情况等综合调查\)\)', '《工资情况等综合调查》)'],
 ]
 191 = [['\A.*?(?=注：平均工资率)', '']]
+241 = [['\n+政策线\n+', '\n\n']]
 334 = [
   # The transcript has 性别，按年龄划分 on its own line; the scan prints 男性，按年龄划分 as part of the 图 10-22 caption.
   ['（1992—2007 年，%）\n+性别，按年龄划分', '（1992—2007 年，%）男性，按年龄划分'],
+]
+370 = [
+  ['图 11-5 \(b\)', '图 11-5b'],
+]
+496 = [
+  ['\n+## 55~59岁\n+图 16-2 就业率国际比较（男性，1971—2007 年）\n+（资料来源：OECD\. Stat）', ''],
 ]
 
 [page_fixups]
@@ -176,7 +185,15 @@ png_min_pct_tall = 45
   # The transcript has 分析现在的就业形态和人职时的就业形态; the scan prints 分析现在的就业形态和入职时的就业形态.
   ['分析现在的就业形态和人职时的就业形态', '分析现在的就业形态和入职时的就业形态'],
 ]
-496 = [['(?m)^[#\s]*(?:65岁及以上|55[~～]59岁)\n*', '']]
+495 = [
+  # 图 16-1/16-2: OCR repeated the charts' age labels and year ticks after the prose.
+  ['(?m)^%[ \t]*(?:55[~～]59|60[~～]64)岁[ \t]*\n*', ''],
+  ['(?m)^1971 1974 1977 1980 1983 1986 1989 1992 1995 1998 2001(?: 2004 2007 年)?[ \t]*\n*', ''],
+]
+496 = [
+  # The two panel headings are already inside 图 16-1/16-2.
+  ['(?m)^[#\s]*(?:65岁及以上|55[~～]59岁)\n*', ''],
+]
 516 = [
   ['男性 在职年金领取者 60.*?1997 2002年\n*', ''],
   [

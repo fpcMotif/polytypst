@@ -14,6 +14,7 @@ from polytypst.compiler.tables import (
     layout_tables,
     merge_continued_tables,
 )
+from polytypst.tex_markdown import normalize_html_tables
 
 TABLE = "| a | b |\n| :--- | :---: |\n| <mark>1.0</mark> | <b>2.0</b> |\n| <i>3.0<br>(4.0)</i> | 0.71** |\n"
 
@@ -570,3 +571,48 @@ def test_a_page_that_opens_with_a_continued_table_splits_after_the_table_and_its
     )
     assert continued_table_split("@@PAGEBREAK@@ 续表\n\n| 年 | 值 |\n| --- | --- |\n")[1] == ""
     assert continued_table_split("正文。\n\n续表\n\n| 年 | 值 |\n") is None
+
+
+def test_html_table_rowspan_does_not_widen_adjacent_second_row_headers():
+    html = (
+        "<table><tr><th rowspan=\"2\">产业</th><th colspan=\"2\">出口</th><th rowspan=\"2\">合计</th></tr>"
+        "<tr><th>1990</th><th>2000</th></tr>"
+        "<tr><td>制造业</td><td>10.5</td><td>20.3</td><td>30.8</td></tr></table>"
+    )
+    pipe = normalize_html_tables(html)
+    out = layout_tables(pipe, [], three_line=True)
+    assert "table.cell(colspan: 2)[#strong[2000]]" not in out
+    assert "[#strong[1990]], [#strong[2000]], [⁠]" in out
+
+
+def test_hyphen_minus_after_cjk_or_line_break_becomes_unicode_minus_in_cells():
+    table = "| 区间 | 估计值 |\n| --- | --- |\n| 超过-6% | 1.23<br>-2.289 |\n"
+    out = layout_tables(table, [], three_line=True)
+    assert "超过−6%" in out
+    assert "−2.289" in out
+
+
+def test_multi_item_table_notes_and_following_source_stay_inside_table_note_block():
+    text = (
+        f"{CAPTION}\n\n@@TABLEBLOCK0@@\n\n"
+        "注：1. 括号内为标准误差。\n\n"
+        "2. *、**、***分别表示10%、5%、1%显著性水平。\n\n"
+        "（资料来源：内阁府《国民经济计算》）\n\n"
+        "正文继续。\n"
+    )
+    out = layout_tables(text, [NUMBER_TABLE], three_line=True)
+    note_section = out[: out.index("正文继续。")]
+    assert "括号内为标准误差" in note_section
+    assert "分别表示10%" in note_section
+    assert "国民经济计算" in note_section
+    assert note_section.rstrip().endswith("]")
+
+
+def test_two_cjk_char_header_in_three_column_prose_table_gets_enough_width_not_to_wrap():
+    table = (
+        "| 阶段 | 时间 | 主要特征与政策内容 |\n| --- | --- | --- |\n"
+        "| 1 | 1990—1997年以后 | 泡沫经济崩溃后不良债权初步暴露与常规财政刺激政策 |\n"
+    )
+    out = layout_tables(table, [], three_line=True)
+    assert "columns: (5fr, 15fr, 30fr)" in out
+

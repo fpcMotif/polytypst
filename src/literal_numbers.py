@@ -64,7 +64,9 @@ _FIGURE_CAPTION = {
     ),
 }
 _FIGURE_BLOCK = {
-    "typst": re.compile(r"#figure\([\s\S]*?\n\)(?:\s*<fig-[\w-]+>)?|#table\([\s\S]*?\n\)"),
+    "typst": re.compile(
+        r"#figure\([\s\S]*?\n\)(?:\s*<fig-[\w-]+>)?|#table\([\s\S]*?\n\)|#align\(center\)\[[\s\S]*?let cells = arguments\([\s\S]*?\n\]"
+    ),
     "latex": re.compile(
         r"\\caption\{[^}]*\}(?:\s*\\label\{[^}]*\})?"
         r"|\\begin\{(longtable|tabularx?)\}[\s\S]*?\\end\{\1\}"

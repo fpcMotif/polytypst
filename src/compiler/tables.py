@@ -120,9 +120,12 @@ def _rotate_text_tables(text: str, table_blocks: list[str]) -> str:
     return TABLE_RUN.sub(rotate, text)
 
 
-NOTE_PARAGRAPH = r"(?:注|资料来源|（注|\(注|（资料来源|\(资料来源)[:：）)]?[^\n]*(?:\n(?![ \t]*\n|[\]#])[^\n]+)*"
+NOTE_PARAGRAPH = r"(?:注|资料来源|数据来源|[（(\[［]注|[（(\[［]资料来源|[（(\[［]数据来源)[:：）)\]］]?[^\n]*(?:\n(?![ \t]*\n|[\]#])[^\n]+)*"
+NOTE_ITEM_PARAGRAPH = r"\d{1,2}[.．、]\s*\S[^\n]*(?:\n(?![ \t]*\n|[\]#])[^\n]+)*"
 CALL_NOTE_PARAGRAPH = r"[（(](\d{1,2})[）)][^\n]*(?:\n(?![ \t]*\n|[\]#])[^\n]+)*"
-TABLE_NOTES = re.compile(rf"@@TABLEBLOCK(\d+)@@((?:\n\n+{NOTE_PARAGRAPH})+)((?:\n\n+{CALL_NOTE_PARAGRAPH})*)")
+TABLE_NOTES = re.compile(
+    rf"@@TABLEBLOCK(\d+)@@((?:\n\n+(?:{NOTE_PARAGRAPH}|{NOTE_ITEM_PARAGRAPH}))+)((?:\n\n+{CALL_NOTE_PARAGRAPH})*)"
+)
 SUPERSCRIPT_DIGITS = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
 
 
@@ -133,16 +136,31 @@ def _take_table_notes(text: str, tables: list[str]) -> tuple[str, dict[int, str]
 
     def take(m: re.Match[str]) -> str:
         table = tables[int(m[1])]
-        notes = [p.strip() for p in re.split(r"\n\n+", m[2]) if p.strip()]
+        notes: list[str] = []
+        has_numbered_note = False
+        kept_end = 0
+        for pm in re.finditer(rf"\n\n+({NOTE_PARAGRAPH}|{NOTE_ITEM_PARAGRAPH})", m[2]):
+            para = pm.group(1).strip()
+            if re.match(NOTE_ITEM_PARAGRAPH, para) and not re.match(NOTE_PARAGRAPH, para):
+                if not has_numbered_note:
+                    break
+            elif re.match(r"^(?:注|（注|\(注)[:：）)]?\s*1\s*[.．、]", para):
+                has_numbered_note = True
+            notes.append(para)
+            kept_end = pm.end()
+        if not notes:
+            return m[0]
+        unkept = m[2][kept_end:]
         end = 0
-        for para in re.finditer(rf"\n\n+({CALL_NOTE_PARAGRAPH})", m[3]):
-            n = para[2]
-            if not re.search(rf"[（(]{n}[）)]|⁽{n.translate(SUPERSCRIPT_DIGITS)}⁾", table):
-                break
-            notes.append(para[1])
-            end = para.end()
+        if not unkept:
+            for para in re.finditer(rf"\n\n+({CALL_NOTE_PARAGRAPH})", m[3]):
+                n = para[2]
+                if not re.search(rf"[（(]{n}[）)]|⁽{n.translate(SUPERSCRIPT_DIGITS)}⁾", table):
+                    break
+                notes.append(para[1])
+                end = para.end()
         notes_of[int(m[1])] = "\n\n".join(notes)
-        return f"@@TABLEBLOCK{m[1]}@@" + m[3][end:]
+        return f"@@TABLEBLOCK{m[1]}@@" + unkept + m[3][end:]
 
     return TABLE_NOTES.sub(take, text), notes_of
 
@@ -205,7 +223,7 @@ def _rigid_columns(body: list[list[str]], ncols: int) -> list[bool]:
 
 FLEX_PROBE_WIDTH = 12
 NARROW_PROBE_WIDTH = 8
-HYPHEN_MINUS = re.compile(r"(?<![\w.)\]}>])-(?=\d)")
+HYPHEN_MINUS = re.compile(r"(?:(?<![0-9A-Za-z.)\]}>])|(?<=<br>))-(?=\d)")
 LABEL_TAIL = re.compile(r"(?<=.)(\w ?[一-鿿][）)]?)(?=\\ |$)")
 LIST_LABEL_ITEM = re.compile(r"(?<![^、])[^、（\\#\[\]@$\s]{1,4}(?=、)|(?<=、)[^、（\\#\[\]@$\s]{1,4}(?=（|$)")
 
@@ -473,14 +491,23 @@ def _format_pipe_tables(
                     labels_only = all(c.strip() and not TABLE_NUMBER.fullmatch(c.strip()) for c in second) and any(
                         TABLE_NUMBER.fullmatch(c.strip()) for c in parsed_rows[2]
                     ) if second else False
+                    second_has_data = any(
+                        BRACKETED_TABLE_NUMBER.fullmatch(c.strip()) and not re.fullmatch(r"(?:19|20)\d\d", c.strip())
+                        for c in second[1:]
+                    )
                     two_level = nrows > 2 and any(
                         first_row[c].strip() and not first_row[c + 1].strip() for c in range(ncols - 1)
-                    ) and (any(not c.strip() for c in second) and any(c.strip() for c in second) or labels_only)
+                    ) and (
+                        any(not c.strip() for c in second)
+                        and any(c.strip("\u2060 ") for c in second)
+                        and not second_has_data
+                        or labels_only
+                    )
                     header_rows = 2 if two_level else 1
                     if ncols >= 5:
                         _break_wide_headers(parsed_rows, header_rows, ncols)
                     body_rows = parsed_rows[header_rows:]
-                    for r in body_rows:
+                    for r in parsed_rows:
                         r[:] = [HYPHEN_MINUS.sub("−", c) for c in r]
                     pads = [_decimal_pads([r[c].strip() for r in body_rows]) for c in range(ncols)]
                     items: list[str] = []
@@ -493,7 +520,7 @@ def _format_pipe_tables(
                             title_text = re.sub(r"^\*\*(.*?)\*\*$", r"\1", first)
                             title_text = re.sub(r"^#strong\[(.*?)\]$", r"\1", title_text)
                             items.append(f"table.cell(colspan: {ncols}, fill: luma(245))[#strong[{title_text}]]")
-                        elif r_idx < 2 and any(not c.strip() for c, _ in merged) and any(c.strip() for c in r):
+                        elif r_idx < header_rows and any(not c.strip() for c, _ in merged) and any(c.strip() for c in r):
                             col_idx = 0
                             while col_idx < len(r):
                                 c = r[col_idx]
@@ -507,7 +534,9 @@ def _format_pipe_tables(
                                         items.append(f"table.cell(colspan: {span}{centre})[#strong[{c_clean}]]")
                                         col_idx += span
                                         continue
-                                items.append(f"[#strong[{c_clean}]]" if c_clean.strip() else "[]")
+                                items.append(
+                                    f"[#strong[{c_clean}]]" if c_clean.strip("\u2060 ") else f"[{c_clean}]" if c_clean else "[]"
+                                )
                                 col_idx += 1
                         else:
                             col = 0
@@ -525,7 +554,7 @@ def _format_pipe_tables(
                                 for mark in CELL_STYLE_TAGS.values():
                                     c_clean = c_clean.replace(f"@@{mark}@@", f"#{mark}[")
                                 c_clean = c_clean.replace("@@END@@", "]")
-                                if r_idx == 0 and c_clean.strip() and not c_clean.strip().startswith(("#strong", "**")):
+                                if r_idx == 0 and c_clean.strip("\u2060 ") and not c_clean.strip().startswith(("#strong", "**")):
                                     cell = f"[#strong[{c_clean}]]"
                                 else:
                                     cell = f"[{c_clean}]"
@@ -544,6 +573,9 @@ def _format_pipe_tables(
                             min(THREE_LINE_MAX_WEIGHT, max(THREE_LINE_MIN_WEIGHT, *(_display_width(r[c]) for r in parsed_rows)))
                             for c in range(ncols)
                         ]
+                        total_w = sum(weights)
+                        if total_w > 44:
+                            weights = [max(w, -(-w * total_w // 44)) if w < 8 else w for w in weights]
                         col_def = "(" + ", ".join(f"{w}fr" for w in weights) + ")"
 
                     align_str = (
@@ -629,7 +661,7 @@ def _format_pipe_tables(
                     if label_at is not None and _is_table_label(out[label_at]):
                         out[label_at] = f"#block(sticky: true)[{out[label_at].strip()}]"
                     if note and "#context {" not in typst_table:
-                        typst_table += f"\n#v(0.5em)\n#fig-note[\n{note}\n]\n"
+                        typst_table += f"\n#v(0.35em)\n#fig-note[\n{note}\n]\n"
                     out.append(typst_table)
                     caption = note = ""
                 continue

@@ -129,15 +129,22 @@ def normalize_html_tables(text: str) -> str:
     """Convert arbitrary HTML <table> markup into clean Markdown tables with full rowspan/colspan support."""
 
     def repl_table(m: re.Match[str]) -> str:
-        table_html = re.sub(r"</t([hd])[a-z]*\s*>", r"</t\1>", m.group(0))
+        table_html = re.sub(r"(?:</\s*\d+\s*)?</\s*t([hdr])[a-z]*\s*>", r"</t\1>", m.group(0), flags=re.IGNORECASE)
+        table_html = re.sub(r"<\s*t([hdr])\b", r"<t\1", table_html, flags=re.IGNORECASE)
         rows = re.findall(r"<tr[^>]*>(.*?)</tr>", table_html, re.DOTALL)
         grid: dict[tuple[int, int], str] = {}
+        spanned_cols: set[tuple[int, int]] = set()
         max_r = len(rows)
         max_c = 0
+        row_cells = [list(re.finditer(r"<t([hd])\b([^>]*)>(.*?)</t\1>", r, re.DOTALL)) for r in rows]
+        ignore_row0_rowspan = (
+            len(row_cells) > 1
+            and len(row_cells[0]) == len(row_cells[1])
+            and not any(re.search(r'colspan=["\']?[2-9]', cm.group(2), re.IGNORECASE) for cm in row_cells[0])
+        )
 
-        for r_idx, r in enumerate(rows):
+        for r_idx, cell_matches in enumerate(row_cells):
             c_idx = 0
-            cell_matches = list(re.finditer(r"<t([hd])\b([^>]*)>(.*?)</t\1>", r, re.DOTALL))
             for cm in cell_matches:
                 while (r_idx, c_idx) in grid:
                     c_idx += 1
@@ -145,7 +152,7 @@ def normalize_html_tables(text: str) -> str:
                 content = cm.group(3).strip()
                 m_row = re.search(r'rowspan=["\']?(\d+)["\']?', attrs, re.IGNORECASE)
                 m_col = re.search(r'colspan=["\']?(\d+)["\']?', attrs, re.IGNORECASE)
-                r_span = int(m_row.group(1)) if m_row else 1
+                r_span = 1 if (r_idx == 0 and ignore_row0_rowspan) else (int(m_row.group(1)) if m_row else 1)
                 c_span = int(m_col.group(1)) if m_col else 1
 
                 clean = re.sub(r"<(?!br\b|/?mark>)[^>]+>", "", content).strip()
@@ -160,6 +167,8 @@ def normalize_html_tables(text: str) -> str:
                         target_r = r_idx + dr
                         target_c = c_idx + dc
                         grid[(target_r, target_c)] = clean if (dr == 0 and dc == 0) else ""
+                        if dc > 0 and clean:
+                            spanned_cols.add((target_r, target_c))
                         max_c = max(max_c, target_c + 1)
                 c_idx += c_span
 
@@ -170,6 +179,12 @@ def normalize_html_tables(text: str) -> str:
         for r_idx in range(max_r):
             row = [grid.get((r_idx, c), "") for c in range(max_c)]
             parsed_rows.append(row)
+
+        for r_idx in range(1, min(2, max_r)):
+            row = parsed_rows[r_idx]
+            for c in range(1, max_c):
+                if not row[c] and (r_idx, c) not in spanned_cols and any(row[:c]):
+                    row[c] = "\u2060"
 
         filled = [cells for row in parsed_rows if (cells := [c for c in row if c])]
         if max_c <= 3 and all(cells[-1].isdigit() for cells in filled if len(cells) >= 2):

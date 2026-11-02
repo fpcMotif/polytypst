@@ -42,7 +42,7 @@ def _irf_panel(
         xlim=(0.0, 104.0),
         ylim=ylim,
         xticks=[float(v) for v in range(0, 97, 8)],
-        yticks=[(v, _neg(v)) for v in yticks],
+        yticks=[(v, f"{v:.1f}".replace("-", "−")) for v in yticks],
         lines=[
             LineSeries(x=rx, y=ry, label="实际利率", color_idx=0, width=1.8, fixed_style=True),
             LineSeries(x=ix, y=iy, label="通货膨胀变动", color_idx=0, style="dotted", width=1.5, fixed_style=True),

@@ -23,6 +23,11 @@ FALSE_HEADINGS = (
 
 
 def intl_econ_heading_hook(lt: str, chapter: int) -> str | None:
+    if chapter and (m_ch := re.match(r"^#+\s*(\d+)\s+(\S.*)$", lt)):
+        sec_num = int(m_ch.group(1))
+        sec_title = m_ch.group(2).strip()
+        if sec_num != chapter and sec_title in CHAPTER_TITLES:
+            return f"## {sec_num} {sec_title}"
     for rx in RUNNING_HEADER_REGEXES:
         if re.match(rx, lt, re.IGNORECASE):
             return ""
@@ -33,16 +38,17 @@ def intl_econ_heading_hook(lt: str, chapter: int) -> str | None:
         return ""
     if m := re.match(rf"^#+\s*((?:——|{'|'.join(HEADED_BYLINES)}).*)$", lt):
         return m.group(1)
+    if m := re.match(r"^#+\s*(\d+\.\d+\.\d+)\s+(\S.*)$", lt):
+        return f"#### {m.group(1)} {m.group(2).strip()}"
+    if m := re.match(r"^#+\s*(\d+\.\d+)\s+(\S.*)$", lt):
+        return f"### {m.group(1)} {m.group(2).strip()}"
+    if m := re.match(r"^#+\s*(\d+)\s+(\d+世纪.*)$", lt):
+        return f"## {m.group(1)} {WORD_JOINER}{m.group(2)}"
+    # The cleaner keeps only the first of equal headings across the book, which drops every later `1 前言` and `导 语`.
+    if m := re.match(r"^#+\s*(\d+)\s+(\S.*)$", lt):
+        return f"## {m.group(1)} {m.group(2).strip()}"
     if m := re.match(r"^#+\s*(\d+\s*世纪.*)$", lt):
         return "### " + re.sub(r"\s+", "", m.group(1))
-    if m := re.match(r"^#+\s*(\d+)\s+(\d+世纪.*)$", lt):
-        return f"### {m.group(1)} {WORD_JOINER}{m.group(2)}"
-    # The cleaner keeps only the first of equal headings across the book, which drops every later `1 前言` and `导 语`.
-    if m := re.match(r"^#+\s*(.+?)\s*$", lt):
-        inner = m.group(1)
-        if re.sub(r"^\d+\s+", "", inner) in CHAPTER_TITLES:
-            return None
-        return f"### {inner}" if len(inner) <= 90 else inner
     return None
 
 

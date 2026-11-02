@@ -8,9 +8,17 @@ from pathlib import Path
 import pymupdf
 
 from polytypst.books import book_by_key
-from scripts.book2_figures.engine import ThemeMode, chart_svg, scan_canvas
+from scripts.book2_figures.engine import (
+    ThemeMode,
+    chart_svg,
+    enrich_book_figures_manifest,
+    scan_canvas,
+)
 
 BOOK_DIR = book_by_key("1_宏观经济与产业结构").out_dir
+# The scan sets these charts narrower than their period labels need at book type, so the redraw takes its
+# FigureSpec size (full width) instead of the scan's canvas.
+SPEC_CANVAS = {"2-3", "6-20", "6-21", "10-10", "10-11"}
 
 
 def load_all_generators() -> dict[str, Callable[[ThemeMode], str]]:
@@ -55,8 +63,8 @@ def main() -> None:
         raise SystemExit(f"no generator for {unknown}")
     for fid in args.ids or sorted(generators, key=figure_order):
         with scan_canvas(BOOK_DIR, fid):
-            svg = chart_svg(generators[fid], args.style)
             (scan_dir / f"fig_{fid}.svg").write_text(generators[fid]("scan"), encoding="utf-8")
+        svg = chart_svg(generators[fid], args.style)
         (fig_dir / f"fig_{fid}.svg").write_text(svg, encoding="utf-8")
         if args.png:
             args.png.mkdir(parents=True, exist_ok=True)
@@ -66,6 +74,7 @@ def main() -> None:
 
     crops = {p.stem.removeprefix("fig_") for p in fig_dir.glob("fig_*.png")}
     left = sorted(crops - set(generators), key=figure_order)
+    enrich_book_figures_manifest("1_宏观经济与产业结构", generators)
     print(f"{len(generators)} figures redrawn, {len(left)} left as crops: {' '.join(left)}")
 
 

@@ -120,10 +120,10 @@ def _fig_1_1(mode: ThemeMode = "mono") -> str:
 
 def _fig_1_2(mode: ThemeMode = "mono") -> str:
     pal = get_palette(mode)
-    s = 0.35
+    s = 0.33
     W, H = round(1650 * s), round(2000 * s)
     fg, bg, gray = pal.fg, pal.bg, pal.fills[1]
-    size = 11.5
+    size = 12.0
 
     def sc(v: float) -> str:
         return f"{v * s:.2f}"
@@ -183,7 +183,7 @@ def _fig_1_2(mode: ThemeMode = "mono") -> str:
         poly = " ".join(f"{sc(px)},{sc(py)}" for px, py in pts)
         return f'<polygon points="{poly}" fill="{fill}" stroke="{fg}" stroke-width="1.0"/>'
 
-    sup = size * 0.7
+    sup = size * 0.9
     out: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">',
         f"<title>{escape('图 1-2 基于生产函数法的潜在增长率和 GDP 缺口的估算步骤')}</title>",
@@ -642,7 +642,7 @@ def _fig_2_1(mode: ThemeMode = "mono") -> str:
             xlim=(1980.74, 2005.97),
             ylim=(-0.01, 0.02),
             xticks=_year_ticks(1981, 2005, 2),
-            yticks=[(-0.01, "−0.01"), (0.0, "0"), (0.01, "0.01"), (0.02, "0.02")],
+            yticks=[(-0.01, "−0.01"), (0.0, "0.00"), (0.01, "0.01"), (0.02, "0.02")],
             xlabel="年",
             legend_loc="top",
             lines=lines,
@@ -692,8 +692,8 @@ def _fig_2_3(mode: ThemeMode = "mono") -> str:
     spec = FigureSpec(
         fig_id="2-3",
         title="图 2-3 家庭收支调查中各年龄组储蓄率每十年的变化",
-        width=860,
-        height=500,
+        width=1020,
+        height=600,
         panels=[
             PanelSpec(
                 xlim=(-0.5, 9.5),

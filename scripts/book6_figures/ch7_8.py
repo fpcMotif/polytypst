@@ -1334,9 +1334,9 @@ def _fig_7_5(mode: ThemeMode = "mono") -> str:
     ]
     panel = PanelSpec(
         xlim=(1975.5, 2006.5),
-        ylim=(0.0, 1.0),
+        ylim=(0.0, 0.9),
         xticks=[float(y) for y in range(1976, 2007, 2)],
-        yticks=_ticks2(0.0, 1.0, 0.1, ".2f"),
+        yticks=_ticks2(0.0, 0.9, 0.1, ".2f"),
         xlabel="年",
         zero_line=False,
         lines=[

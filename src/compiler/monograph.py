@@ -431,6 +431,7 @@ BLOCK_STARTS = (
     "=",
     "$$",
     "\\[",
+    "```",
     "**",
     "*Proof",
     "Proof",
@@ -498,8 +499,8 @@ def ends_complete_paragraph(text: str) -> bool:
         return True
     last_line = t.splitlines()[-1].strip()
     if (
-        last_line.startswith(("#", "=", "$$", "\\["))
-        or last_line.endswith("$$")
+        last_line.startswith(("#", "=", "$$", "\\[", "```"))
+        or last_line.endswith(("$$", "```"))
         or EQ_LABEL_END_RE.search(last_line)
     ):
         return True
@@ -1097,6 +1098,8 @@ class MonographCompiler:
         self._placed_figures: set[str] = set()
         self._sourced_figures: dict[str, str] = {}
         self._scan_boxes: dict[Path, dict[str, tuple[float, float, float, float]]] = {}
+        self._current_chapter: int = 0
+        self._chapter_fig_counter: int = 0
 
     def build_typst_preamble(self) -> str:
         if self.spec.typst_preamble:
@@ -1297,6 +1300,7 @@ class MonographCompiler:
   #text(9pt, font: {font_expr})[#if it.supplement != none [#strong[#it.supplement #context it.counter.display(it.numbering)]#if it.body != [] [{caption_separator}]]#it.body]
 ]
 #let fig-note(body) = block(above: -0.6em, below: 1.6em, width: 100%, sticky: false)[
+  #set align(start)
   #set text(8.5pt)
   #set par(first-line-indent: 0pt, spacing: 0.45em, leading: 0.6em)
   #body
@@ -1458,8 +1462,12 @@ class MonographCompiler:
             raw_num = fig_id.replace("_", "-")
             num_tail = digits.split("-")[-1]
             num_int = int(re.match(r"\d+", num_tail).group(0)) if re.match(r"\d+", num_tail) else 1
-            counter_update = f"#counter(figure.where(kind: image)).update({max(0, num_int - 1)})\n"
-            numbering = f'  numbering: _ => "{raw_num}",\n'
+            expected = self._chapter_fig_counter + 1
+            self._chapter_fig_counter = num_int
+            if num_int != expected:
+                counter_update = f"#counter(figure.where(kind: image)).update({max(0, num_int - 1)})\n"
+            if not (self._current_chapter > 0 and raw_num == f"{self._current_chapter}-{num_int}"):
+                numbering = f'  numbering: _ => "{raw_num}",\n'
         else:
             clean_cap = re.sub(
                 r"^(Fig(?:ure)?\.?\s*\d+[\.\-]\d+[a-z]?\.?)",
@@ -1475,6 +1483,16 @@ class MonographCompiler:
             f"  caption: [{cap_body}]{supplement}\n"
             f"){label_str}"
         )
+
+    def _unprinted_figure_note(self, blocks: list[str], note: str) -> str:
+        if not note:
+            return ""
+        parts = [p.strip() for p in note.split("\n\n") if p.strip()]
+        sources = [p for p in parts if re.match(r"^[（(]?\s*资料来源[：:]", p)]
+        if not sources:
+            return note
+        kept_sources = set(self._drop_printed_sources(blocks, sources))
+        return "\n\n".join(p for p in parts if not re.match(r"^[（(]?\s*资料来源[：:]", p) or p in kept_sources)
 
     def render_figure_group(self, figs: list[Figure], fig_dir: Path) -> str:
         if not figs:
@@ -1494,12 +1512,19 @@ class MonographCompiler:
                 f"    [{f2}]\n"
                 f"  )\n"
                 f"]\n\n"
-            ) + "".join(f"{FIG_NOTE}\n\n{note}\n\n{END_FIG_NOTE}\n\n" for fid, _ in figs if (note := self.cleaner.figure_notes.get(fid)))
-        return "".join(
-            f"\n\n#align(center)[\n  {self.make_figure_typst(fid, cap, fig_dir)}\n]\n\n"
-            + (f"{FIG_NOTE}\n\n{note}\n\n{END_FIG_NOTE}\n\n" if (note := self.cleaner.figure_notes.get(fid)) else "")
-            for fid, cap in figs
-        )
+            ) + "".join(
+                f"{FIG_NOTE}\n\n{note}\n\n{END_FIG_NOTE}\n\n"
+                for (fid, _), f_typ in zip(figs, (f1, f2))
+                if (note := self._unprinted_figure_note([f_typ], self.cleaner.figure_notes.get(fid, "")))
+            )
+        out = ""
+        for fid, cap in figs:
+            f_typ = self.make_figure_typst(fid, cap, fig_dir)
+            note = self._unprinted_figure_note([f_typ], self.cleaner.figure_notes.get(fid, ""))
+            out += f"\n\n#align(center)[\n  {f_typ}\n]" + (
+                f"\n{FIG_NOTE}\n{note}\n{END_FIG_NOTE}\n\n" if note else "\n\n"
+            )
+        return out
 
 
 
@@ -1538,7 +1563,9 @@ class MonographCompiler:
             elif continues_prev:
                 first_p, rest_p = split_first_paragraph(text)
                 acc = join_cross_page_text(prose, first_p)
-                if all_top_figs:
+                if all_top_figs and not rest_p and not ends_complete_paragraph(acc):
+                    pending_figs = all_top_figs
+                elif all_top_figs:
                     acc += self.render_figure_group(all_top_figs, fig_dir)
                 if note_block:
                     acc += "\n\n" + note_block
@@ -1569,7 +1596,8 @@ class MonographCompiler:
                     and continued_table_split(pages_data[idx + 1][1]) is not None
                 )
                 if ends_complete_paragraph(acc) and not next_starts_lower and not next_continues_table:
-                    acc += self.render_figure_group(bot_figs, fig_dir)
+                    acc += self.render_figure_group(pending_figs + bot_figs, fig_dir)
+                    pending_figs = []
                 else:
                     pending_figs.extend(bot_figs)
 
@@ -1600,11 +1628,17 @@ class MonographCompiler:
     def format_typst(self, s: str) -> str:
         spec = self.spec
         fig_blocks: list[str] = []
+        code_blocks: list[str] = []
+
+        def save_code(m: re.Match[str]) -> str:
+            code_blocks.append(m.group(0))
+            return f"\n\n@@CODEBLOCK{len(code_blocks) - 1}@@\n\n"
+
+        s = re.sub(r"(?ms)^[ \t]*```[a-zA-Z0-9_-]*\n.*?\n[ \t]*```", save_code, s)
 
         def save_fig(m: re.Match[str]) -> str:
             fig_blocks.append(m.group(0))
             return f"\n\n@@FIGBLOCK{len(fig_blocks) - 1}@@\n\n"
-
         s = re.sub(r"#align\(center\)\[\n.*?\n\]", save_fig, s, flags=re.DOTALL)
         def keep_unprinted_sources(m: re.Match[str]) -> str:
             blocks = [fig_blocks[int(i)] for i in re.findall(r"@@FIGBLOCK(\d+)@@", m.group(1))]
@@ -1753,10 +1787,15 @@ class MonographCompiler:
         s = re.sub(r"^\*\*(\d+)\*\.\*\*", r"#strong[\1\\*.]", s, flags=re.MULTILINE)
         s = re.sub(r"^(\s*)\*(?=\d+\.|EXERCISES)", r"\1\\*", s, flags=re.MULTILINE)
         s = re.sub(
-            r"\*\*((?:(?!\n\n|@@DISPLAYBLOCK|@@FN)[^\*])+?)\*\*", r"#strong[\1]", s
+            r"(?<!\*)(?<=[（(、，,；;《“。])(\*{1,7})(?=[\s）)、，,；;：:。”》]|$)",
+            lambda m: r"\*" * len(m.group(1)),
+            s,
         )
         s = re.sub(
-            r"(?<![\\\*])\*((?:(?!\n\n|@@DISPLAYBLOCK|@@FN)[^\*])+?)\*(?!\*)",
+            r"(?<!\\)\*\*((?:(?!\n\n|@@DISPLAYBLOCK|@@FN)[^\*])+?)(?<!\\)\*\*", r"#strong[\1]", s
+        )
+        s = re.sub(
+            r"(?<![\\\*])\*((?:(?!\n\n|@@DISPLAYBLOCK|@@FN)[^\*])+?)(?<!\\)\*(?!\*)",
             r"#emph[\1]",
             s,
         )
@@ -1946,7 +1985,7 @@ class MonographCompiler:
         s = re.sub(rf"\s*{END_FIG_NOTE}\s*{FIG_NOTE}\s*", "\n\n", s)
         if not spec.paginate_like_source:
             s = float_figures(s)
-        s = re.sub(rf"{FIG_NOTE}\s*", "#fig-note[", s).replace(f"\n\n{END_FIG_NOTE}", "]").replace(END_FIG_NOTE, "]")
+        s = re.sub(rf"{FIG_NOTE}\s*", "#fig-note[", s).replace(f"\n\n{END_FIG_NOTE}", "]").replace(f"\n{END_FIG_NOTE}", "]").replace(END_FIG_NOTE, "]")
         s = "\n\n".join(map(keep_notes_with_calls, s.split("\n\n")))
         s = re.sub(r"@@FNEND@@(?=\()", r"@@FNEND@@\\", s)
         s = re.sub(
@@ -1968,7 +2007,7 @@ class MonographCompiler:
             flags=re.MULTILINE,
         )
         s = FOOTNOTE_RE.sub(r"#footnote[\1]", s)
-        if spec.footnote_style:
+        if spec.footnote_style and "costs: (widow: 0%, orphan: 0%)" not in (spec.typst_preamble or "") + (spec.typst_front_matter or ""):
             s = keep_note_paragraph_lines(s)
         tables = [
             re.sub(
@@ -1992,7 +2031,9 @@ class MonographCompiler:
             s = s.replace("@@BR@@", "#linebreak(justify: true);")
             s = s.replace("@@HY@@", "-#linebreak(justify: true);")
             s = re.sub(r"(?:#h\([^)]*\);)?@@NOINDENT@@\s*", "#src-cont;", s)
-        s = s.replace("@@PAGEBREAK@@", "\n#pagebreak()\n")
+            s = s.replace("@@PAGEBREAK@@", "\n#pagebreak()\n")
+        else:
+            s = re.sub(r"[ \t]*\n*@@PAGEBREAK@@\n*[ \t]*", "\n\n", s)
         s = re.sub(
             r"@@FLIPPED([2-9])@@.*?(?=@@FLIPPED)",
             lambda m: re.sub(
@@ -2012,6 +2053,7 @@ class MonographCompiler:
         s = re.sub(r"^@@BYLINE@@ (.*)$", r"#chapter-byline[\1]", s, flags=re.MULTILINE)
         s = re.sub(r"^@@ABSTRACT@@(.*)$", r"#chapter-abstract(note: [\1])[", s, flags=re.MULTILINE)
         s = re.sub(r"^@@ENDABSTRACT@@$", "]", s, flags=re.MULTILINE)
+        s = re.sub(r"@@CODEBLOCK(\d+)@@", lambda m: f"\n\n{code_blocks[int(m.group(1))]}\n\n", s)
         return s
 
     def _stitch_by_source_page(self, pages_data: list[PageParts], fig_dir: Path) -> str:
@@ -2207,6 +2249,8 @@ class MonographCompiler:
                 if prebuilt is not None:
                     typst_sections += [prebuilt, "\n#pagebreak(weak: true)\n"]
                 continue
+            self._current_chapter = chap.number
+            self._chapter_fig_counter = 0
             pages_data: list[PageParts] = []
             clean_title = _bare_title(chap.title) if spec.theorem_layout else chap.title
             ch_md_pages: list[str] = [
@@ -2252,7 +2296,14 @@ class MonographCompiler:
                 if chap.label is not None
                 else spec.chapter_label.format(number=chap.number)
             )
-            if label:
+            if spec.cross_references and chap.number > 0 and not is_unnumbered_chapter(title) and (
+                label == str(chap.number) or (not label and spec.chapter_openings)
+            ):
+                heading = (
+                    f"#counter(heading).update(({chap.number - 1},))\n"
+                    f'#heading(level: 1, numbering: "1")[{title}] <sec-{chap.number}>'
+                )
+            elif label:
                 number = label.split()[-1]
                 heading = (
                     f'#chapter-label.update("{label}")\n'

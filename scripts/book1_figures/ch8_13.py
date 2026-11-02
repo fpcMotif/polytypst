@@ -556,7 +556,7 @@ def _category_lines(
         out.extend(_marker(marker, x, y, color, pal.bg if hollow else color) for x, y in pts)
     for (s_idx, c_idx), (dx, dy, anchor) in label_spots.items():
         v = series[s_idx][6][c_idx]
-        out.append(_text(px0 + slot * (c_idx + 0.5) + dx, map_y(v) + dy, f"{v:.1f}", pal.fg, 9.5, anchor, SANS_STACK))
+        out.append(_text(px0 + slot * (c_idx + 0.5) + dx, map_y(v) + dy, f"{v:.1f}", pal.fg, 10.5, anchor, SANS_STACK))
     out.append(f'<rect x="{px0}" y="{py0}" width="{px1 - px0}" height="{py1 - py0}" fill="none" stroke="{pal.axis}" stroke-width="1.2"/>')
     _legend(out, [(s[0], "line", pal.series[s[4]], s[1], s[2], s[3]) for s in series], (px0 + px1) / 2, leg_y, mode)
     out.append("</svg>")
@@ -709,7 +709,7 @@ def _fig_13_2(mode: ThemeMode = "mono") -> str:
         xlim=(1984.0, 2009.0),
         ylim=(0.0, 0.1),
         xticks=[(1984 + (0.5 + i * 198.67) / 98.8, str(1984 + 2 * i)) for i in range(13)],
-        yticks=[(v / 100, f"{v / 100:g}") for v in range(11)],
+        yticks=[(v / 100, f"{v / 100:.2f}") for v in range(11)],
         xlabel="年",
         bars=[
             BarSeries(
@@ -730,7 +730,7 @@ def _posterior_panel(title: str, pts: list[tuple[float, float]]) -> PanelSpec:
         xlim=(1984.0, 2009.0),
         ylim=(0.0, 1.0),
         xticks=[float(y) for y in range(1984, 2009, 2)],
-        yticks=[(v / 10, f"{v / 10:g}") for v in range(11)],
+        yticks=[(v / 10, f"{v / 10:.1f}") for v in range(11)],
         xlabel="年",
         vspans=_recession_spans(),
         lines=[LineSeries(x=[p[0] for p in pts], y=[p[1] for p in pts], color_idx=0, width=1.1)],

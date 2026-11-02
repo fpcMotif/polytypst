@@ -338,7 +338,7 @@ def gen_fig_2_1(mode: ThemeMode = "mono") -> str:
 
 def gen_fig_2_2(mode: ThemeMode = "mono") -> str:
     pal = get_palette(mode)
-    W, H = 860, 512
+    W, H = 860, 440
     countries: list[tuple[str, float | None, float | None]] = [
         ("BE", 0.49, -0.04),
         ("CA", 0.49, 0.33),
@@ -374,19 +374,19 @@ def gen_fig_2_2(mode: ThemeMode = "mono") -> str:
     sub_str = escape("通货膨胀对国内宽松措施的敏感性持续下降 1980—2005*）")
     out: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">',
+        f"<title>{title_str}</title>",
         "<defs>",
         f'<marker id="arr_down_{mode}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M 0 1.5 L 8.5 5 L 0 8.5 z" fill="{down_col}"/></marker>',
         f'<marker id="arr_up_{mode}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="{up_col}"/></marker>',
         "</defs>",
         f'<rect width="{W}" height="{H}" fill="{pal.bg}"/>',
-        f'<text x="{W / 2:.1f}" y="28.0" text-anchor="middle" font-family="{FONT_STACK}" font-size="16.5" font-weight="700" fill="{pal.fg}">{title_str}</text>',
         f'<text x="{W / 2:.1f}" y="49.0" text-anchor="middle" font-family="{FONT_STACK}" font-size="12.5" fill="{pal.muted}">{sub_str}</text>',
         f'<rect x="{px0:.2f}" y="{py0:.2f}" width="{pw:.2f}" height="{ph:.2f}" fill="{pal.panel_bg}" stroke="{pal.axis}" stroke-width="1.2"/>',
     ]
 
     for yv in [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0]:
         yy = map_y(yv)
-        lab = f"{yv:.1f}" if abs(yv) > 1e-6 else "0"
+        lab = f"{yv:.1f}".replace("-", "−")
         dash_attr = "" if abs(yv) < 1e-6 else 'stroke-dasharray="2.5,2.5"'
         out.append(
             f'<line x1="{px0:.2f}" y1="{yy:.2f}" x2="{px1:.2f}" y2="{yy:.2f}" '
@@ -429,17 +429,6 @@ def gen_fig_2_2(mode: ThemeMode = "mono") -> str:
                 f'<polygon points="{xx:.2f},{sy1:.2f} {xx - 4.0:.2f},{sy1 - 7.8:.2f} {xx + 4.0:.2f},{sy1 - 7.8:.2f}" fill="{col}"/>'
             )
 
-    note_lines = [
-        "注：AT 奥地利；AU 澳大利亚；BE 比利时；CA 加拿大；CH 瑞士；DE 德国；ES 西班牙；FR 法国；GB 英国；IT 意大利；",
-        "JP 日本；NL 荷兰；NO 挪威；NZ 新西兰；SE 瑞典；US 美国；XM 欧元区。",
-        "*）这表明 1980—1992 年之间以及 1993—2005 年之间国内产出缺口变化对通货膨胀的年度影响；年度影响的估算公式是",
-        "β×(1+γ+γ²+γ³)，基于估算等式 πₜ = c + γπₜ₋₁ + βGapᴰₜ₋₁ + εₜ 而计算，详见图 1。",
-    ]
-    for k, line in enumerate(note_lines):
-        out.append(
-            f'<text x="26.0" y="{H - 60 + 16 * k:.1f}" font-family="{FONT_STACK}" font-size="10.5" fill="{pal.muted}">'
-            f"{escape(line)}</text>"
-        )
     out.append("</svg>")
     return "\n".join(out)
 
@@ -979,26 +968,39 @@ def gen_fig_3_1(mode: ThemeMode = "mono") -> str:
 
 
 def gen_fig_3_2(mode: ThemeMode = "mono") -> str:
-    xs = [1995.0 + 0.25 * i for i in range(51)]
+    # Monthly, 1995-1 to 2007-11, read off a 500 dpi crop of scan p102 (bar tops and ring markers traced).
     cpi_y2 = [
-        0.5, -0.1, -0.3, 0.1, 0.1, -0.2, 0.1, 0.2, 0.3, 0.6,
-        0.8, 1.1, 0.9, 0.3, -0.1, -0.5, -0.2, -0.1, -0.1, -0.1,
-        -0.2, -0.3, -0.5, -0.5, -0.9, -0.9, -1.1, -0.9, -0.9, -0.9,
-        -0.9, -0.8, -0.6, -0.4, -0.2, 0.0, -0.1, -0.3, -0.1, -0.2,
-        -0.2, 0.1, -0.2, -0.2, 0.1, 0.0, 0.2, 0.3, -0.1, -0.1,
-        0.4,
+        0.5, 0.4, 0.2, -0.1, -0.3, -0.3, -0.2, -0.2, 0.1, 0.1, 0.0, 0.1,
+        -0.2, 0.0, 0.0, 0.1, 0.1, 0.2, 0.3, 0.2, 0.2, 0.2, 0.4, 0.3,
+        0.5, 0.4, 0.5, 0.7, 0.8, 0.7, 0.7, 0.8, 1.1, 1.1, 0.9, 0.9,
+        0.7, 0.4, 0.5, 0.2, 0.0, 0.0, -0.1, -0.2, -0.5, -0.4, -0.3, -0.3,
+        -0.1, -0.1, -0.1, -0.1, 0.0, 0.0, 0.0, 0.0, 0.0, -0.1, -0.2, -0.1,
+        -0.4, -0.3, -0.3, -0.3, -0.2, -0.3, -0.3, -0.3, -0.6, -0.9, -0.8, -0.8,
+        -0.8, -0.8, -0.9, -0.9, -1.1, -1.0, -0.9, -1.0, -0.8, -0.9, -1.0, -1.0,
+        -1.0, -0.9, -0.8, -0.9, -0.8, -0.8, -0.8, -0.9, -0.9, -0.9, -0.8, -0.7,
+        -0.8, -0.7, -0.6, -0.4, -0.4, -0.4, -0.3, -0.2, -0.1, 0.2, -0.1, 0.0,
+        -0.1, 0.0, -0.1, -0.2, -0.3, -0.1, -0.2, -0.2, 0.0, -0.1, -0.2, -0.2,
+        0.1, -0.2, -0.1, 0.0, 0.1, -0.2, -0.2, -0.2, -0.2, -0.1, -0.1, -0.2,
+        -0.1, 0.0, 0.1, -0.1, 0.0, 0.2, 0.2, 0.3, 0.2, 0.1, 0.2, 0.1,
+        0.0, -0.1, -0.3, -0.1, -0.1, -0.1, -0.1, -0.1, -0.1, 0.1, 0.4,
     ]
     ci_y1 = [
-        91.3, 93.8, 91.6, 92.9, 94.5, 95.4, 97.3, 99.0, 101.4, 103.1,
-        102.5, 100.3, 98.1, 94.3, 92.1, 90.8, 90.8, 92.1, 93.8, 96.0,
-        98.1, 100.3, 101.7, 102.6, 100.8, 96.8, 93.2, 90.2, 90.4, 92.1,
-        95.5, 96.0, 97.3, 97.6, 99.8, 102.0, 104.4, 105.5, 106.6, 106.4,
-        106.5, 107.2, 108.0, 110.7, 111.6, 112.9, 113.7, 113.2, 113.5, 113.7,
-        114.3,
+        91.5, 92.6, 93.3, 93.7, 92.8, 92.4, 91.6, 92.6, 92.4, 92.8, 93.5, 94.5,
+        94.5, 94.6, 94.9, 95.5, 96.1, 96.4, 97.2, 97.6, 98.0, 99.0, 99.6, 100.0,
+        100.8, 102.8, 102.8, 103.1, 103.1, 102.8, 102.6, 102.1, 101.1, 100.9, 99.0, 98.0,
+        97.8, 95.9, 93.7, 93.9, 92.9, 92.0, 92.0, 91.0, 91.0, 91.0, 90.6, 90.4,
+        90.9, 91.2, 91.8, 91.9, 92.2, 92.3, 93.1, 94.0, 95.1, 95.1, 95.9, 96.3,
+        97.4, 97.4, 98.0, 99.0, 99.7, 100.4, 100.4, 101.7, 100.9, 101.7, 102.1, 102.9,
+        100.9, 100.5, 99.0, 98.1, 96.6, 95.9, 95.0, 93.2, 91.8, 91.2, 90.4, 90.4,
+        90.4, 91.4, 92.2, 92.8, 94.9, 94.2, 94.8, 95.7, 96.1, 96.1, 96.1, 96.8,
+        97.4, 97.2, 97.2, 96.6, 97.5, 97.4, 97.5, 98.1, 100.0, 101.4, 101.7, 102.6,
+        103.2, 103.3, 103.7, 105.2, 105.6, 106.4, 106.8, 106.4, 106.1, 106.2, 105.8, 106.0,
+        105.9, 106.1, 106.6, 107.3, 107.1, 107.3, 107.5, 108.1, 107.9, 108.7, 109.7, 110.7,
+        110.3, 110.1, 110.6, 111.2, 111.8, 112.4, 112.7, 113.2, 113.0, 113.6, 113.7, 113.2,
+        112.8, 112.6, 112.7, 112.7, 113.3, 113.3, 113.1, 113.3, 113.8, 113.7, 113.4,
     ]
-    xt: list[float | tuple[float, str]] = [
-        (y + h / 2, f"{y}-{1 + 6 * h}") for y in range(1995, 2008) for h in (0, 1)
-    ]
+    xs = [1995.0 + i / 12.0 for i in range(len(ci_y1))]
+    xt: list[float | tuple[float, str]] = [(float(y), f"{y}-1") for y in range(1995, 2008)]
     spec = FigureSpec(
         fig_id="3-2",
         title="图 3-2 日本消费者物价上涨率及景气动向指数的变化情况",
@@ -1007,7 +1009,7 @@ def gen_fig_3_2(mode: ThemeMode = "mono") -> str:
         height=460,
         panels=[
             PanelSpec(
-                xlim=(1994.8, 2007.8),
+                xlim=(1995.0 - 0.6 / 12.0, 1995.0 + 154.6 / 12.0),
                 ylim=(85.0, 115.0),
                 xticks=xt,
                 yticks=[85, 90, 95, 100, 105, 110, 115],
@@ -1023,9 +1025,9 @@ def gen_fig_3_2(mode: ThemeMode = "mono") -> str:
                         y=cpi_y2,
                         label="消费者物价指数同比变化（右轴）",
                         color_idx=1,
-                        width=0.18,
+                        width=0.8 / 12.0,
                         axis="y2",
-                        hatch=True,
+                        hatch=False,
                     )
                 ],
                 lines=[
@@ -1035,14 +1037,28 @@ def gen_fig_3_2(mode: ThemeMode = "mono") -> str:
                         label="景气动向指数（CI，同步指数类）（左轴）",
                         color_idx=0,
                         marker="circle",
-                        width=2.2,
+                        hollow=True,
+                        width=1.2,
                         axis="y1",
-                    )
+                    ),
+                    # The line series thins its markers; the scan rings every month, so a marker-only twin adds them.
+                    LineSeries(
+                        x=xs,
+                        y=ci_y1,
+                        color_idx=0,
+                        style="none",
+                        marker="circle",
+                        hollow=True,
+                        fixed_style=True,
+                        axis="y1",
+                    ),
                 ],
             )
         ],
     )
-    return render_figure_svg(spec, mode)
+    svg = render_figure_svg(spec, mode)
+    # 154 monthly rings at the house marker size merge into a bead chain; the scan's rings are about 60% as wide.
+    return re.sub(r'(<circle [^>]*? r=")([\d.]+)"', lambda m: f'{m[1]}{float(m[2]) * 0.6:.2f}"', svg)
 
 
 def gen_fig_3_3(mode: ThemeMode = "mono") -> str:
@@ -1195,19 +1211,19 @@ def gen_fig_3_5(mode: ThemeMode = "mono") -> str:
                 legend_loc="none",
                 zero_line=False,
                 lines=[
-                    LineSeries(x=[0.4, 7.7], y=[3.9, 6.2], label="实际均衡利率", color_idx=0, width=2.5),
-                    LineSeries(x=[0.4, 7.9], y=[2.4, 4.6], label="市场实际利率（受零利率下限约束）", color_idx=1, width=2.5),
-                    LineSeries(x=[0.4, 7.9], y=[0.95, 3.1], label="市场实际利率（无零利率下限）", color_idx=2, style="dashed", width=2.1),
+                    LineSeries(x=[0.4, 7.2], y=[3.9, 6.2], label="实际均衡利率", color_idx=0, width=2.5),
+                    LineSeries(x=[0.4, 7.3], y=[2.4, 4.6], label="市场实际利率（受零利率下限约束）", color_idx=1, width=2.5),
+                    LineSeries(x=[0.4, 7.3], y=[0.95, 3.1], label="市场实际利率（无零利率下限）", color_idx=2, style="dashed", width=2.1),
                 ],
                 annotations=[
-                    Annotation(x=5.6, y=6.6, text="实际均衡利率", dy=-14, arrow=False, color_idx=0),
-                    Annotation(x=5.6, y=2.4, text="市场实际利率", dy=16, arrow=False, color_idx=2),
-                    Annotation(x=8.2, y=4.5, text="", dx=0, dy=34, arrow=True, color_idx=1),
-                    Annotation(x=8.5, y=6.2, text="市场实际", dy=0, arrow=False, color_idx=1, fontsize=10.5, align="start"),
-                    Annotation(x=8.5, y=5.0, text="利率因零", dy=0, arrow=False, color_idx=1, fontsize=10.5, align="start"),
-                    Annotation(x=8.5, y=3.8, text="利率下限", dy=0, arrow=False, color_idx=1, fontsize=10.5, align="start"),
-                    Annotation(x=8.5, y=2.6, text="的存在而", dy=0, arrow=False, color_idx=1, fontsize=10.5, align="start"),
-                    Annotation(x=8.5, y=1.4, text="上升", dy=0, arrow=False, color_idx=1, fontsize=10.5, align="start"),
+                    Annotation(x=5.2, y=6.5, text="实际均衡利率", dy=-14, arrow=False, color_idx=0),
+                    Annotation(x=5.2, y=2.3, text="市场实际利率", dy=16, arrow=False, color_idx=2),
+                    Annotation(x=7.55, y=4.5, text="", dx=0, dy=34, arrow=True, color_idx=1),
+                    Annotation(x=7.8, y=5.8, text="市场实际", dy=0, arrow=False, color_idx=1, fontsize=10.5, align="start"),
+                    Annotation(x=7.8, y=4.6, text="利率因零", dy=0, arrow=False, color_idx=1, fontsize=10.5, align="start"),
+                    Annotation(x=7.8, y=3.4, text="利率下限", dy=0, arrow=False, color_idx=1, fontsize=10.5, align="start"),
+                    Annotation(x=7.8, y=2.2, text="的存在而", dy=0, arrow=False, color_idx=1, fontsize=10.5, align="start"),
+                    Annotation(x=7.8, y=1.0, text="上升", dy=0, arrow=False, color_idx=1, fontsize=10.5, align="start"),
                 ],
             ),
             PanelSpec(
@@ -1239,7 +1255,7 @@ def gen_fig_3_6(mode: ThemeMode = "mono") -> str:
     c_ret = pal.panel_bg if mode == "mono" else pal.fills[0]
     c_rf = pal.panel_bg
     c_exp = pal.panel_bg if mode == "mono" else pal.fills[2]
-    c_prem = "#475569" if mode == "mono" else pal.fills[1]
+    c_prem = "#525252" if mode == "mono" else pal.fills[1]
     stroke_col = pal.fg if mode == "mono" else pal.axis
 
     base_y = 356.0
@@ -1257,14 +1273,13 @@ def gen_fig_3_6(mode: ThemeMode = "mono") -> str:
     c2_exp_h = 56.0
     c2_prem_h = 190.0
 
-    title_3_6 = escape("图 3-6 风险溢价的波动")
     out: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">',
+        f"<title>{escape('图 3-6 风险溢价的波动')}</title>",
         "<defs>",
         f'<pattern id="hatch_{mode}" width="6" height="6" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="6" stroke="{pal.fg}" stroke-width="1.5" stroke-opacity="0.6"/></pattern>',
         "</defs>",
         f'<rect width="{W}" height="{H}" fill="{pal.bg}"/>',
-        f'<text x="{W / 2:.1f}" y="28.0" text-anchor="middle" font-family="{FONT_STACK}" font-size="16.5" font-weight="700" fill="{pal.fg}">{title_3_6}</text>',
         f'<rect x="26" y="210" width="190" height="48" fill="{pal.panel_bg}" stroke="{pal.axis}" stroke-width="1.3"/>',
         f'<text x="121" y="239" text-anchor="middle" font-family="{FONT_STACK}" font-size="14.5" font-weight="600" fill="{pal.fg}">投资回报率</text>',
         f'<path d="M 254 {base_y - c1_ret_h:.1f} Q 238 {base_y - c1_ret_h:.1f} 238 {base_y - c1_ret_h / 2:.1f} Q 238 {base_y:.1f} 254 {base_y:.1f}" fill="none" stroke="{pal.fg}" stroke-width="1.6"/>',

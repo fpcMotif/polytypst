@@ -109,7 +109,7 @@ def fig_11_3(mode: ThemeMode = "mono") -> str:
         (1.232, 1.08), (1.285, 1.17), (1.295, 0.82), (1.303, 1.38), (1.346, 1.35), (1.35, 1.06), (1.387, 1.9),
         (1.403, 1.78), (1.413, 1.15), (1.434, 1.83), (1.564, 1.4), (1.878, 1.82), (2.033, 0.99), (2.466, 1.65),
     ]
-    yticks = [(v / 2, f"{v / 2:g}") for v in range(8)]
+    yticks = [(v / 2, f"{v / 2:.1f}") for v in range(8)]
     mx, my = _points(manu)
     sx, sy = _points(serv)
     panels = [
@@ -117,7 +117,7 @@ def fig_11_3(mode: ThemeMode = "mono") -> str:
             title="（1）20世纪90年代的制造业",
             xlim=(0.0, 1.4),
             ylim=(0.0, 3.5),
-            xticks=[(v / 5, f"{v / 5:g}") for v in range(8)],
+            xticks=[(v / 5, f"{v / 5:.1f}") for v in range(8)],
             yticks=yticks,
             xlabel="员工数量",
             ylabel="实际产出额",
@@ -130,7 +130,7 @@ def fig_11_3(mode: ThemeMode = "mono") -> str:
             title="（2）20世纪90年代的服务产业",
             xlim=(0.0, 3.0),
             ylim=(0.0, 3.5),
-            xticks=[(v / 2, f"{v / 2:g}") for v in range(7)],
+            xticks=[(v / 2, f"{v / 2:.1f}") for v in range(7)],
             yticks=yticks,
             xlabel="员工数量",
             ylabel="实际产出额",

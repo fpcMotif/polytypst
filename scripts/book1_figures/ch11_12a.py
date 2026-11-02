@@ -82,7 +82,7 @@ def _fig_11_1(mode: ThemeMode = "mono") -> str:
                 xlim=(0.0, 20.0),
                 ylim=ylim,
                 xticks=[0.0, 5.0, 10.0, 15.0, 20.0],
-                yticks=[_neg(round(ylim[0] + step * i, 2)) for i in range(n_ticks + 1)],
+                yticks=[_neg(round(ylim[0] + step * i, 2), "{:.1f}") for i in range(n_ticks + 1)],
                 lines=[LineSeries(x=xs, y=sm, color_idx=0, width=2.4)],
                 legend_loc="none",
             )
@@ -175,7 +175,7 @@ def _fig_11_2(mode: ThemeMode = "mono") -> str:
         xlim=(1978.0, 2008.2),
         ylim=(-0.4, 0.3),
         xticks=[float(y) for y in range(1978, 2004, 5)],
-        yticks=[_neg(v / 10) for v in range(-4, 4)],
+        yticks=[_neg(v / 10, "{:.1f}") for v in range(-4, 4)],
         xlabel="年1月",
         lines=[
             LineSeries(x=hx, y=hy, label="超额劳动时间", color_idx=0, width=1.8),
@@ -257,7 +257,7 @@ def _fig_11_4(mode: ThemeMode = "mono") -> str:
         xlim=(1973.5, 2004.5),
         ylim=(-0.04, 0.06),
         xticks=[float(y) for y in range(1974, 2005, 2)],
-        yticks=[_neg(v / 100) for v in range(-4, 7)],
+        yticks=[_neg(v / 100, "{:.2f}") for v in range(-4, 7)],
         xlabel="年",
         bands=[BandSeries(x=YEARS_1974_2004, y_low=net_tfp(0.0), y_high=zeta_025, color_idx=0, show_edges=False)],
         lines=[
@@ -786,7 +786,7 @@ def _fig_12_4(mode: ThemeMode = "mono") -> str:
             xlim=(0.0, 104.0),
             ylim=ylim,
             xticks=[float(v) for v in range(0, 97, 8)],
-            yticks=[_neg(round(ylim[0] + step * i, 2)) for i in range(n + 1)],
+            yticks=[_neg(round(ylim[0] + step * i, 2), "{:.1f}") for i in range(n + 1)],
             lines=[
                 LineSeries(*rate, label="实际利率", color_idx=0, width=1.6),
                 LineSeries(*inf, label="通货膨胀变动", color_idx=0, style="dashed", width=1.4, fixed_style=True),

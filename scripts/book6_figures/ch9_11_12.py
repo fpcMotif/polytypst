@@ -292,7 +292,36 @@ def _fig_11_5(mode: ThemeMode = "mono") -> str:
         ],
         legend_loc="bottom",
     )
-    spec = FigureSpec(fig_id="11-5", title="图 11-5 （a） 年收入在异性的中位数和平均值以上的劳动者比例", panels=[panel], width=860, height=540)
+    spec = FigureSpec(fig_id="11-5", title="图 11-5（a） 年收入在异性的中位数和平均值以上的劳动者比例", panels=[panel], width=860, height=540)
+    return render_figure_svg(spec, mode)
+
+
+def _fig_11_5b(mode: ThemeMode = "mono") -> str:
+    xs = YEARS_1985_2006
+    men_over_median = [90.7, 90.6, 91.5, 91.6, 91.4, 91.1, 90.8, 90.5, 90.4, 90.1, 89.2, 89.1, 89.0, 88.2, 87.7, 87.0, 86.9, 85.2, 85.0, 83.8, 84.5, 84.6]
+    men_over_mean = [85.3, 84.8, 84.9, 84.9, 84.8, 84.7, 84.8, 84.1, 84.2, 84.0, 83.2, 82.9, 82.6, 81.6, 80.9, 79.6, 79.9, 78.2, 78.1, 76.9, 77.6, 77.7]
+    women_over_median = [7.6, 7.6, 7.9, 8.2, 8.2, 8.0, 8.0, 8.4, 8.5, 8.7, 9.0, 9.3, 9.6, 9.9, 10.6, 11.4, 11.4, 13.0, 13.3, 14.0, 13.8, 13.7]
+    women_over_mean = [5.6, 5.7, 6.0, 6.2, 6.1, 6.0, 6.0, 6.1, 6.0, 6.2, 6.5, 6.7, 6.9, 7.0, 7.5, 8.1, 7.9, 8.7, 8.8, 9.1, 8.9, 8.9]
+    panel = PanelSpec(
+        xlim=(1984.5, 2006.5),
+        ylim=(75.0, 93.0),
+        xticks=[float(y) for y in range(1985, 2007, 2)],
+        yticks=[float(v) for v in range(75, 94, 2)],
+        y2lim=(0.0, 18.0),
+        y2ticks=[float(v) for v in range(0, 19, 2)],
+        xlabel="年",
+        ylabel="%",
+        y2label="%",
+        zero_line=False,
+        lines=[
+            LineSeries(x=xs, y=men_over_median, label="女性的中位数以上的男性（左轴）", color_idx=3, marker="triangle", width=1.6),
+            LineSeries(x=xs, y=men_over_mean, label="女性的平均值以上的男性（左轴）", color_idx=1, marker="square", width=1.6),
+            LineSeries(x=xs, y=women_over_median, label="男性的中位数以上的女性（右轴）", color_idx=0, marker="triangle", width=1.6, axis="y2"),
+            LineSeries(x=xs, y=women_over_mean, label="男性的平均值以上的女性（右轴）", color_idx=2, marker="square", width=1.6, axis="y2"),
+        ],
+        legend_loc="bottom",
+    )
+    spec = FigureSpec(fig_id="11-5b", title="图 11-5（b） 月收入为异性的中位数和平均值以上的劳动者比例", panels=[panel], width=860, height=540)
     return render_figure_svg(spec, mode)
 
 
@@ -395,7 +424,7 @@ def _fig_12_3(mode: ThemeMode = "mono") -> str:
         (0.08, 0.28),
         [(v / 100, f"{v / 100:.2f}") for v in range(8, 29, 2)],
         (0.0, 1.6),
-        [(0.0, "0"), (0.2, "0.2"), (0.4, "0.4"), (0.6, "0.6"), (0.8, "0.8"), (1.0, "1"), (1.2, "1.2"), (1.4, "1.4"), (1.6, "1.6")],
+        [(v / 10, f"{v / 10:.1f}") for v in range(0, 17, 2)],
         "有效职位空缺率（倍）",
         [
             LineSeries(x=xs, y=regions, label="地理分区的差距", color_idx=0, width=2.4),
@@ -670,7 +699,7 @@ def _fig_12_10(mode: ThemeMode = "mono") -> str:
         xlim=(-0.5, 15.5),
         ylim=(-0.012, 0.002),
         xticks=xs,
-        yticks=[(v / 1000, "0" if v == 0 else f"{v / 1000:.3f}") for v in range(-12, 3, 2)],
+        yticks=[(v / 1000, f"{v / 1000:.3f}") for v in range(-12, 3, 2)],
         zero_line=True,
         lines=[
             LineSeries(x=xs, y=unemployment_83, label="失业率（1983—2007年）", color_idx=1, style="dashed", width=2.0),
@@ -758,6 +787,7 @@ def get_generators() -> dict[str, Callable[[ThemeMode], str]]:
         "11-3": _fig_11_3,
         "11-4": _fig_11_4,
         "11-5": _fig_11_5,
+        "11-5b": _fig_11_5b,
         "12-1": _fig_12_1,
         "12-2": _fig_12_2,
         "12-3": _fig_12_3,

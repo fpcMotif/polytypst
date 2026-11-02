@@ -13,6 +13,7 @@ from scripts.book2_figures.engine import (
     ThemeMode,
     render_figure_svg,
 )
+from scripts.book3_figures._digitized import digitized
 
 
 def _text_lines(x: float, y_top: float, step: float, texts: list[str], size: float = 9.5) -> list[Annotation]:
@@ -56,17 +57,17 @@ def fig_6_1(mode: ThemeMode = "mono") -> str:
                         "•亚洲金融危机（▼）",
                         "•日本国内的不良债权问题，经营健全化计划（▼）",
                         "•新资产评估·信用风险管理方法的导入（▼）",
-                    ], fontsize=10.0),
+                    ], fontsize=10.5),
                     TextBox(12.1, 100.2, 30.0, 71.4, [
                         "•日系银行的经营及财务状况的改善（▲）",
                         "•媲美欧美银行（？）唯一的海外市场（▲）",
                         "•国际业务的再强化（▲）",
-                    ], fontsize=10.0),
+                    ], fontsize=10.5),
                     TextBox(0.5, 38.4, 12.2, 9.0, [
                         "•日系企业的直接投资（▲）",
                         "•亚洲市场的魅力（高增长、",
                         "资金需求、收益性）（▲）",
-                    ], fontsize=10.0),
+                    ], fontsize=10.5),
                 ],
             )
         ],
@@ -133,6 +134,7 @@ def fig_6_4(mode: ThemeMode = "mono") -> str:
     spec = FigureSpec(
         fig_id="6-4",
         title="图 6-4 20世纪80年代后半期亚洲主要日系银行业务收益率",
+        width=1000,
         panels=[
             PanelSpec(
                 xlim=(-0.5, 5.5),
@@ -142,7 +144,7 @@ def fig_6_4(mode: ThemeMode = "mono") -> str:
                 ylabel="%",
                 legend_loc="none",
                 bars=[BarSeries(x=list(range(6)), y=values, color_idx=1, width=0.46, hatch=True)],
-                annotations=_text_lines(-0.42, 9.45, 0.62, [
+                text_boxes=[TextBox(-0.42, 9.6, 2.85, 5.25, [
                     "•除中国香港及新加坡以外的亚洲各国及地区，由",
                     "于当时金融及资本市场欠发达且经济持续高速增",
                     "长，所以对银行融资需求旺盛，容易确保高收益",
@@ -150,7 +152,7 @@ def fig_6_4(mode: ThemeMode = "mono") -> str:
                     "内的综合交易，而这对于欧美企业则言难以实现。",
                     "因此，对于日系银行而言，在接近日本国内中小",
                     "企业交易的收益方面存在优势",
-                ], size=9.0),
+                ], fontsize=10.5)],
             )
         ],
     )
@@ -219,54 +221,39 @@ def fig_6_6(mode: ThemeMode = "mono") -> str:
 
 
 def fig_6_7(mode: ThemeMode = "mono") -> str:
-    pts = [
-        (145, 25), (150, 5), (175, 0), (200, 5), (210, 0), (240, 5), (250, 0), (280, 0), (300, 5), (320, 3),
-        (350, 5), (385, 5), (395, 18), (410, 10), (420, 20), (435, 25), (445, 50), (450, 35), (465, 28),
-        (475, 20), (490, 20), (495, 8), (510, 25), (515, 5), (530, 8), (550, 5), (565, 18), (580, 20),
-        (600, 15), (610, 6), (650, 6), (690, 8), (700, 13), (735, 15), (760, 5), (775, 12), (800, 8),
-        (820, 6), (860, 6), (880, 20), (890, 22), (900, 12), (910, 15), (940, 10), (960, 12), (985, 22),
-        (1000, 13), (1010, 6), (1040, 8), (1075, 6), (1090, 12), (1110, 7), (1140, 5), (1175, 3),
-        (1190, 0), (1210, 3), (1220, 12), (1235, 40), (1245, 60), (1255, 85), (1258, 100), (1262, 50),
-        (1270, 65), (1285, 72), (1295, 40), (1305, 38), (1325, 55), (1345, 55), (1355, 25), (1365, 20),
-        (1380, 18), (1390, 30), (1400, 22), (1420, 20), (1430, 17), (1460, 18), (1475, 42), (1490, 28),
-        (1505, 32), (1525, 34), (1545, 36), (1555, 46), (1565, 38), (1580, 52), (1595, 46), (1605, 65),
-        (1615, 69), (1625, 58), (1640, 50), (1655, 30), (1670, 20), (1680, 35), (1700, 20), (1715, 15),
-        (1720, 20), (1735, 20), (1750, 0), (1765, 3), (1780, 2), (1800, 1), (1820, 0), (1835, 1),
-    ]
-    xs = [1995.0 + (px - 145) / 382.0 for px, _ in pts]
-    ys: list[float | None] = [float(v) for _, v in pts]
+    # Scan p203 plots the premium about daily; its half-year ticks are not evenly spaced.
+    pts = digitized("6-7")
     ticks = [(1995.0 + i * 0.5, f"{1995 + i // 2}/{1 if i % 2 == 0 else 7}") for i in range(9)]
     spec = FigureSpec(
         fig_id="6-7",
         title="图 6-7 日本溢价演变",
-        note="资料来源：笔者根据 Bloomberg 等制作",
         panels=[
             PanelSpec(
-                xlim=(1995.0, 1999.45),
+                xlim=(1994.95, 1999.41),
                 ylim=(0.0, 100.0),
                 xticks=ticks,
                 yticks=[0, 20, 40, 60, 80, 100],
                 ylabel="基点",
                 xlabel="时间",
                 legend_loc="none",
-                lines=[LineSeries(x=xs, y=ys, color_idx=0, width=1.2)],
-                annotations=[
-                    *_text_lines(1995.18, 94.0, 6.0, [
+                lines=[LineSeries(x=[p[0] for p in pts], y=[p[1] for p in pts], color_idx=0, width=1.1)],
+                text_boxes=[
+                    TextBox(1995.12, 97.0, 1997.96, 81.0, [
                         "• 山一证券，破产，1997年11月",
                         "• 三洋证券，会社更生法适用申请，1997年11月",
                         "• 北海道拓殖银行，营业让渡，1997年11月",
-                    ], size=9.0),
-                    *_text_lines(1995.18, 74.0, 6.0, [
+                    ], fontsize=10.5),
+                    TextBox(1995.12, 78.0, 1997.96, 67.0, [
                         "• 日本长期信用银行，特别公共管理，1998年10月",
                         "• 日本债券信用银行，特别公共管理，1998年12月",
-                    ], size=9.0),
-                    *_text_lines(1998.14, 94.0, 6.0, [
+                    ], fontsize=10.5),
+                    TextBox(1998.06, 100.0, 1999.41, 70.5, [
                         "• 1999年2月12日，金融政策",
                         "决策会议：无担保拆息（隔",
                         "夜拆借利率）零利率政策",
                         "• 外国银行的日元负利率",
                         "融资",
-                    ], size=9.0),
+                    ], fontsize=10.5),
                 ],
             )
         ],
@@ -297,10 +284,10 @@ def fig_6_8(mode: ThemeMode = "mono") -> str:
             PanelSpec(
                 xlim=(-0.6, len(labels) - 0.4),
                 ylim=(0.0, 14000.0),
-                xticks=[(i, labels[i]) for i in range(0, len(labels), 5)],
+                xticks=[(i, labels[i]) for i in range(len(labels))],
                 yticks=list(range(0, 14001, 2000)),
                 y2lim=(0.0, 85.8),
-                y2ticks=[(0, "0.00"), (10, "10.0")] + [(v, f"{v}.00") for v in range(20, 81, 10)],
+                y2ticks=[(v, f"{v}.00") for v in range(0, 81, 10)],
                 ylabel="卢比/美元",
                 y2label="%",
                 legend_loc="bottom",
@@ -308,22 +295,24 @@ def fig_6_8(mode: ThemeMode = "mono") -> str:
                                 color_idx=4, width=0.45, opacity=1.0)],
                 lines=[LineSeries(x=list(range(len(rate))), y=rate, label="银行间汇率（右轴）", color_idx=2,
                                   width=3.0, axis="y2")],
-                annotations=[
-                    *_text_lines(0.3, 11200.0, 900.0, [
+                text_boxes=[
+                    TextBox(0.4, 11700.0, 13.6, 8900.0, [
                         "• Why did markets not anticipate this？",
                         "（Duenas，1998）",
                         "• 是否能说市场真的没有预知？",
-                    ], size=9.0),
-                    *_text_lines(0.3, 7400.0, 900.0, [
+                    ], fontsize=10.5),
+                    TextBox(0.4, 7300.0, 13.6, 3900.0, [
                         "• Letter of Intent（1997/10/31）",
                         "• IMF Stand-by Credit（1997/11/5）",
                         "• Memorandum of Economic and",
                         "Financial Policies（1998/1/15）",
-                    ], size=9.0),
+                    ], fontsize=10.5),
+                ],
+                annotations=[
                     Annotation(x=26.8, y=13300.0, text="卢比汇率（Rupia per US dollar，左轴）", dx=-30.0, dy=-3.0,
-                               fontsize=9.5, align="end"),
-                    Annotation(x=17.3, y=61.0, text="银行间汇率（%，右轴）", dx=62.0, dy=-50.0, axis="y2",
-                               fontsize=9.5),
+                               fontsize=10.5, align="end"),
+                    Annotation(x=17.2, y=64.0, text="银行间汇率（%，右轴）", dx=14.0, dy=-24.0, axis="y2",
+                               fontsize=10.5, align="start"),
                 ],
             )
         ],

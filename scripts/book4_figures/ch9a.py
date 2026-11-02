@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
+from html import escape
 from itertools import pairwise
 from typing import Literal
 
@@ -377,8 +379,8 @@ def _callout(
     text_at: tuple[float, float],
     lines: list[str],
     px_per: tuple[float, float],
-    line_h: float = 13.0,
-    fontsize: float = 9.5,
+    line_h: float = 15.0,
+    fontsize: float = 11.0,
     align: Literal["start", "middle", "end"] = "middle",
 ) -> list[Annotation]:
     kx, ky = px_per
@@ -422,7 +424,6 @@ def _fig_9_12(mode: ThemeMode = "mono") -> str:
         (2000.8, 0.6), (2000.95, 0.55), (2001.05, 0.35), (2001.15, 0.15), (2001.3, 0.05), (2001.5, 0.08), (2002.0, 0.12),
         (2002.13, 0.15), (2002.2, 0.1), (2003.0, 0.08), (2004.0, 0.1), (2005.0, 0.08), (2006.0, 0.1), (2006.05, 0.15),
     ]
-    px = (36.0, 72.0)
     notes = [
         ((1995.35, 1.85), (1996.95, 2.12), ["1995年3月－", "超强势日元的局面"]),
         ((1997.9, 1.07), (1997.25, 1.4), ["1997年11月24日", "山一证券自主停业"]),
@@ -451,12 +452,41 @@ def _fig_9_12(mode: ThemeMode = "mono") -> str:
                     LineSeries([p[0] for p in call], [p[1] for p in call], label="无担保隔夜拆借利率", color_idx=0, width=2.6),
                     LineSeries([p[0] for p in cd], [p[1] for p in cd], label="新发行三个月期CD的利率", color_idx=5, width=1.0),
                 ],
-                annotations=[a for target, at, text in notes for a in _callout(target, at, text, px)],
+                # Ten two-line callouts cannot sit beside the series at print size without
+                # colliding, so each event gets a numbered pointer and a key under the chart.
+                annotations=[],
             )
         ],
         height=660,
     )
-    return render_figure_svg(spec, mode)
+    panel = spec.panels[0]
+    first = render_figure_svg(spec, mode)
+    pw, ph = (float(v) for v in re.search(r'<clipPath [^>]*><rect x="[\d.]+" y="[\d.]+" width="([\d.]+)" height="([\d.]+)"', first).groups())
+    kx = pw / (panel.xlim[1] - panel.xlim[0])
+    ky = ph / (panel.ylim[1] - panel.ylim[0])
+    marks = [
+        (1995.9, 2.1), (1997.3, 1.5), (1998.3, 1.9), (1999.2, 1.6), (1999.8, 1.25),
+        (2000.4, 1.5), (2001.5, 1.1), (2002.5, 0.75), (2005.4, 0.8), (2003.6, -0.3),
+    ]
+    panel.annotations = [
+        Annotation(x=tx, y=ty, text=str(i + 1), dx=(lx - tx) * kx / 0.6, dy=(ty - ly) * ky / 0.6, fontsize=11.0)
+        for i, ((tx, ty), _, _), (lx, ly) in ((i, n, m) for i, (n, m) in enumerate(zip(notes, marks)))
+    ]
+    svg = render_figure_svg(spec, mode)
+    head = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)" width="[\d.]+" height="[\d.]+"', svg)
+    w, h = float(head[1]), float(head[2])
+    family = re.search(r'font-family="([^"]+)"', svg)[1]
+    key = []
+    for i, (_, _, lines) in enumerate(notes):
+        col, row = divmod(i, 5)
+        for j, line in enumerate([f"{i + 1}. {lines[0]}", f"    {lines[1]}"]):
+            key.append(
+                f'<text x="{12 + col * w / 2:.1f}" y="{h + 16 + row * 34 + j * 14:.1f}" '
+                f'font-family="{family}" font-size="11" fill="#000000" xml:space="preserve">{escape(line)}</text>'
+            )
+    grown = h + 186
+    svg = svg.replace(head[0], f'viewBox="0 0 {w:g} {grown:g}" width="{w:g}" height="{grown:g}"', 1)
+    return svg.replace("</svg>", "\n".join(key) + "\n</svg>")
 
 
 def _interp(knots: list[tuple[float, float]], xs: list[float]) -> list[float]:

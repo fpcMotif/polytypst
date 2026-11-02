@@ -36,6 +36,7 @@ running_header_regexes = [
 ]
 footnote_style = 'circled'
 cross_references = true
+three_line_tables = true
 # Table 5-2 is the book's only 11-column table, and the scan rules every cell.
 # Its grey shading takes a tint of the sage band on the scan's cover.
 typst_front_matter = '''
@@ -65,13 +66,12 @@ caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-]
 caption_format = '图 {chapter}-{number}'
 top_pages = [46, 192, 300, 313, 332]
 svg_single_pct = 100
-svg_scan_text_width = 0.78
 pair_figures = false
 note_before_caption = true
 png_single_divisor = 2700
-png_single_range = [60, 100]
+png_single_range = [85, 100]
 png_max_height_ratio = 1.3
-png_min_pct_tall = 60
+png_min_pct_tall = 80
 
 # The compiler sets each chapter title itself, so a note on the scan's title line moves to the byline.
 [page_fixups]
@@ -103,7 +103,7 @@ png_min_pct_tall = 60
   [
     '\A(?=### 2\.1 汇率的动向)',
     '''
-### 2 汇率和国际收支
+## 2 汇率和国际收支
 
 ''',
   ],
@@ -286,7 +286,9 @@ png_min_pct_tall = 60
 ]
 39 = [
   # The transcript omits the note above the caption of 图 1-3.
-  ['图 1-3 进口渗透率和就业变化的行业间不均衡', "注：使用工业统计和贸易统计数据。重新登载富浦（2002）的图2、3。\\n\\n图 1-3 进口渗透率和就业变化的行业间不均衡"],
+  ['图 1-3 进口渗透率和就业变化的行业间不均衡', '''注：使用工业统计和贸易统计数据。重新登载富浦（2002）的图2、3。
+
+图 1-3 进口渗透率和就业变化的行业间不均衡'''],
   # The transcript has 相比）①; the scan prints 相比①）.
   ['相比）①', '相比①）'],
 ]
@@ -321,6 +323,9 @@ png_min_pct_tall = 60
 167 = [
   # The transcript has 根据各货币在欧洲货币市场中以外国货币结算负债的份额; the scan prints 根据各货币份额（欧洲货币市场中以外国货币结算负债的份额）.
   ['根据各货币在欧洲货币市场中以外国货币结算负债的份额①', '根据各货币份额（欧洲货币市场中以外国货币结算负债的份额①）'],
+]
+178 = [
+  ['分析期间：1979年1月1日', '注：分析期间：1979年1月1日'],
 ]
 184 = [
   # The transcript has zujij; the scan prints zuiji.

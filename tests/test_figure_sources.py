@@ -123,3 +123,60 @@ def test_a_source_that_no_figure_of_the_block_prints_stays(tmp_path):
     )
     assert "（资料来源：日本国立社会保障和人口问题研究所）" not in typst
     assert "（资料来源：日本法务省）" in typst
+
+
+def test_significance_stars_in_notes_are_not_consumed_as_markdown_emphasis():
+    compiler = MonographCompiler(SPEC)
+    typst = compiler.format_typst("注：括号内是标准误差。*、**、***分别表示10%、5%、1%显著性水平，（*）和（**）同。")
+    assert r"。\*、\*\*、\*\*\*" in typst
+    assert r"（\*）和（\*\*）" in typst
+    assert "#emph" not in typst and "#strong" not in typst
+
+
+def test_cleaner_claims_multi_item_figure_notes_across_markdown_image():
+    compiler = MonographCompiler(SPEC)
+    cleaned = compiler.cleaner.clean(
+        "图 2-6 实际汇率走势\n\n![图 2-6](figures/fig_2-6.png)\n\n"
+        "注：1. 1973年2月以后为浮动汇率制。\n\n2. 阴影部分为经济衰退期。\n\n"
+        "（资料来源：日本银行）\n\n正文段落开始。",
+        10,
+    ).body
+    assert "1973年2月以后为浮动汇率制" in compiler.cleaner.figure_notes.get("2_6", "")
+    assert "阴影部分为经济衰退期" in compiler.cleaner.figure_notes.get("2_6", "")
+    assert "1973年2月以后为浮动汇率制" not in cleaned
+    assert "阴影部分为经济衰退期" not in cleaned
+    assert "正文段落开始。" in cleaned
+
+
+def test_a_source_already_in_cleaner_figure_notes_is_dropped_when_svg_prints_it(tmp_path):
+    fig_dir = tmp_path / "figures"
+    fig_dir.mkdir()
+    (fig_dir / "fig_5-2.svg").write_text(svg("资料来源：日经数据库。"), encoding="utf-8")
+    compiler = MonographCompiler(SPEC)
+    compiler.cleaner.figure_notes["5_2"] = "（资料来源：日经数据库）"
+    typst = compiler.format_typst(compiler.render_figure_group([("5_2", "图 5-2 货币存量")], fig_dir) + "后文继续。")
+    assert "（资料来源：日经数据库）" not in typst
+    assert "#fig-note[" not in typst
+
+
+def test_cleaner_claims_square_bracketed_sources_and_attaches_between_figure_sources_to_preceding_figure():
+    compiler = MonographCompiler(replace(SPEC, figures=FigureLayout(note_before_caption=True)))
+    page_text = (
+        "图 2-3 隔夜拆借利率\n\n"
+        "[资料来源：日经数据库]\n\n"
+        "图 4-4 央行资产\n\n"
+        "（资料来源：日本银行）\n\n"
+        "注：各央行总资产名义 GDP 比。\n\n"
+        "图 4-5 基础货币\n\n"
+        "（资料来源：国际清算银行）\n\n"
+        "正文开始。"
+    )
+    cleaned = compiler.cleaner.clean(page_text, 10).body
+    assert compiler.cleaner.figure_notes.get("2_3") == "[资料来源：日经数据库]"
+    assert compiler.cleaner.figure_notes.get("4_4") == "（资料来源：日本银行）"
+    assert "各央行总资产名义 GDP 比" in compiler.cleaner.figure_notes.get("4_5", "")
+    assert "（资料来源：国际清算银行）" in compiler.cleaner.figure_notes.get("4_5", "")
+    assert cleaned.strip() == "正文开始。"
+
+
+

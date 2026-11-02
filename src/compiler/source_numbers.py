@@ -24,6 +24,11 @@ TYPST_RULES = r"""
   else if n.len() > 2 { "(" + n.map(str).join(".") + ")" }
 }
 #let source-article-number(..nums) = str(source-article.get().first() + 1) + "."
+#let source-figure-number(..nums) = {
+  let ch = counter(heading).get().first()
+  let n = nums.pos().first()
+  if ch > 0 { str(ch) + "-" + str(n) } else { str(n) }
+}
 #let source-equation-number(n) = "(" + (counter(heading).get().slice(1) + (n,)).map(str).join(".") + ")"
 #let source-digits(el) = {
   let nums = counter(heading).at(el.location()).slice(1)
@@ -52,11 +57,15 @@ TYPST_RULES = r"""
 }
 #set heading(numbering: source-heading-number)
 #show heading.where(level: 1): set heading(numbering: none)
-#show figure.where(kind: image): set figure(supplement: [图])
+#show figure.where(kind: image): set figure(supplement: [图], numbering: source-figure-number)
 #show figure.where(kind: table): set figure(supplement: [表])
 #set math.equation(numbering: none)
 #show heading: it => {
   counter(math.equation).update(0)
+  if it.level == 1 {
+    counter(figure.where(kind: image)).update(0)
+    counter(figure.where(kind: table)).update(0)
+  }
   if it.level == 3 and it.numbering == source-article-number {
     source-article.step()
   }
@@ -73,6 +82,13 @@ TYPST_RULES = r"""
   if target.starts-with("eq-art-") {
     let n = counter(math.equation).at(el.location()).first()
     return link(el.location())[(#n)]
+  }
+  if el.func() == figure and el.numbering == source-figure-number {
+    let ch = counter(heading).at(el.location()).first()
+    let n = el.counter.at(el.location()).first()
+    let num = if ch > 0 { str(ch) + "-" + str(n) } else { str(n) }
+    let sup = if it.supplement == auto { el.supplement } else { it.supplement }
+    return link(el.location())[#{ if sup != none [#sup#sym.space.nobreak] }#num]
   }
   if not (target.starts-with("par-c") or target.starts-with("eq-c")) { return it }
   let chapter = if it.supplement in (auto, none) { [] } else { [#it.supplement, ] }
@@ -161,9 +177,9 @@ def _compound_reference_re(words: NumberingWords) -> re.Pattern[str]:
 
 
 _ROMAN_VALUES = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6, "VII": 7, "VIII": 8, "IX": 9, "X": 10}
-_SECTION_RE = re.compile(r"^(?:§\s*)?(\d+)\.?\s+(\D.*)$")
+_SECTION_RE = re.compile(r"^(?:§\s*)?(\d+)\.?\s+(\S.*)$")
 _SUBSECTION_RE = re.compile(r"^(\d+)\.(\d+)\.?\s+(.*)$")
-_SUBSUBSECTION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)\.?\s+(\D.*)$")
+_SUBSUBSECTION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)\.?\s+(\S.*)$")
 _SEC_ITEM_RE = re.compile(r"\b(?P<sec>\d+\.\d+)\((?P<item>\d+)\)")
 _PROSE_EQ_EN_RE = re.compile(
     r"(?i)(?P<pre>\b(?:equations?|inequalit(?:y|ies)|relations?|formulas?|conditions?|identit(?:y|ies)|where|yields?|proves?|gives?|recall|see|in|of|to|for|from|with|between|and|as)\s+)\((?P<eq1>\d+)\)"
@@ -419,7 +435,13 @@ def _dotted(nums: tuple[int, ...]) -> str:
 class _Numbering:
     """Mirror the counters while walking a chapter, and resync them at each scan number they would miss."""
 
-    def __init__(self, chapter: int, writer: _Writer, seen: set[str] | None = None, theorem_layout: bool = False) -> None:
+    def __init__(
+        self,
+        chapter: int,
+        writer: _Writer,
+        seen: set[str] | None = None,
+        theorem_layout: bool = False,
+    ) -> None:
         self.chapter = chapter
         self.writer = writer
         self.theorem_layout = theorem_layout
@@ -428,6 +450,7 @@ class _Numbering:
         self.roman = 0
         self.circled = 0
         self.equation = 0
+        self.figure = 0
         self.resyncs: list[Resync] = []
         self.seen: set[str] = seen if seen is not None else set()
 
@@ -541,7 +564,6 @@ def number_chapter(
 ) -> tuple[str, list[Resync]]:
     """Replace the scan's typed numbers in one chapter with counter-numbered headings, paragraphs and equations."""
     state = _Numbering(chapter, writer, seen, theorem_layout)
-
     def section_label(name: str) -> str | None:
         if not theorem_layout:
             return None
@@ -623,10 +645,18 @@ def number_chapter(
         cap = m.group("cap").strip()
         num_tail = raw_num.split(".")[-1].split("-")[-1]
         num_int = int(re.match(r"\d+", num_tail).group(0)) if re.match(r"\d+", num_tail) else 1
-        return (
+        expected = state.figure + 1
+        state.figure = num_int
+        counter_update = (
             f"#counter(figure.where(kind: image)).update({max(0, num_int - 1)})\n"
-            f"#figure(\n{m.group('img')}"
-            f'  numbering: _ => "{raw_num}",\n'
+            if num_int != expected
+            else ""
+        )
+        auto_nums = {f"{state.chapter}-{num_int}", str(num_int)} if state.chapter > 0 else {str(num_int)}
+        numbering = f'  numbering: _ => "{raw_num}",\n' if raw_num not in auto_nums else ""
+        return (
+            f"{counter_update}#figure(\n{m.group('img')}"
+            f"{numbering}"
             f"  caption: [{cap}]\n"
             f") <{label}>"
         )

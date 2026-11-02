@@ -51,6 +51,27 @@ def test_a_source_printed_under_a_page_bottom_caption_travels_with_that_figure()
     assert cleaner.figure_notes == {"1_1": "（资料来源：《国民经济计算年报》（内阁府））"}
 
 
+def test_a_basis_line_and_source_under_a_caption_stay_with_that_figure_when_another_caption_follows():
+    spec = replace(
+        SPEC,
+        lang="zh",
+        chapters=[ChapterSpec(14, "女性就业", 1, 40)],
+        figures=FigureLayout(caption_format="图 {chapter}-{number}", note_before_caption=True),
+    )
+    page = (
+        "正文段落。\n\n图 14-8 劳动者每小时平均规定工资差距的变化\n将男性普通劳动者设为 100 时的工资水平\n"
+        "（资料来源：日本厚生劳动省《工资结构基本统计调查》）\n\n图 14-9 标准劳动者的规定工资\n"
+        "（资料来源：日本厚生劳动省《工资结构基本统计调查》）\n\n后文段落，"
+    )
+    cleaner = PageCleaner.for_spec(spec)
+    clean = cleaner.clean(page, 5)
+    assert clean.body == "正文段落。\n\n后文段落，"
+    assert cleaner.figure_notes == {
+        "14_8": "将男性普通劳动者设为 100 时的工资水平\n\n（资料来源：日本厚生劳动省《工资结构基本统计调查》）",
+        "14_9": "（资料来源：日本厚生劳动省《工资结构基本统计调查》）",
+    }
+
+
 def test_a_transcript_fixup_corrects_a_caption_and_a_figure_note_before_the_cleaner_takes_them():
     spec = replace(
         SPEC,
@@ -77,11 +98,11 @@ def test_a_section_heading_is_placed_once_and_its_running_head_is_dropped_later(
 def test_each_chapter_keeps_its_own_copy_of_a_shared_section_heading():
     spec = replace(SPEC, lang="zh", sections={}, chapters=[ChapterSpec(1, "储蓄", 1, 9), ChapterSpec(2, "投资", 10, 19)])
     cleaner = PageCleaner.for_spec(spec)
-    first = cleaner.clean("### 1 前言\n\n储蓄率下降。", 2)
-    second = cleaner.clean("### 1 前言\n\n投资减少。", 11)
-    repeat = cleaner.clean("### 1 前言\n\n投资继续减少。", 12)
-    assert first.body.startswith("### 1 前言")
-    assert second.body.startswith("### 1 前言")
+    first = cleaner.clean("## 1 前言\n\n储蓄率下降。", 2)
+    second = cleaner.clean("## 1 前言\n\n投资减少。", 11)
+    repeat = cleaner.clean("## 1 前言\n\n投资继续减少。", 12)
+    assert first.body.startswith("## 1 前言")
+    assert second.body.startswith("## 1 前言")
     assert repeat.body == "投资继续减少。"
 
 
@@ -371,4 +392,16 @@ def test_figure_book_verifies_completeness_against_manifest_and_transcripts(tmp_
         figures=(FigureSpec("1", "Fig. 1", 1, lambda: "<svg/>"),),
     )
     assert book.verify_completeness(tmp_path) == ["2", "3"]
+
+
+def test_stray_pagebreak_token_is_stripped_in_reflowed_monograph():
+    from polytypst.compiler.monograph import MonographCompiler
+
+    reflowed = MonographCompiler(replace(SPEC, lang="zh", paginate_like_source=False)).format_typst(
+        "### 5.2 金融体系的稳定性\n\n@@PAGEBREAK@@\n\n正如许多研究人员所指出的那样。"
+    )
+    assert "#pagebreak()" not in reflowed
+    assert "@@PAGEBREAK@@" not in reflowed
+    assert "金融体系的稳定性" in reflowed and "正如许多研究人员所指出的那样。" in reflowed
+
 

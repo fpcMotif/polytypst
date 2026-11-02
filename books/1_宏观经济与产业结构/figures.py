@@ -175,6 +175,9 @@ def figure_page_art(out_dir: Path) -> dict[int, list[FigureArt]]:
 
 
 def crop_macro_figures(out_dir: Path) -> list[ExtractedFigure]:
+    from scripts.book2_figures.engine import enrich_book_figures_manifest
+    from scripts.build_book1_figures import load_all_generators
+
     mono_dir = out_dir / "figures"
     mono_dir.mkdir(parents=True, exist_ok=True)
 
@@ -200,4 +203,5 @@ def crop_macro_figures(out_dir: Path) -> list[ExtractedFigure]:
             )
         )
     write_figures_manifest(out_dir / FIGURES_MANIFEST_NAME, figures)
+    enrich_book_figures_manifest("1_宏观经济与产业结构", load_all_generators())
     return figures

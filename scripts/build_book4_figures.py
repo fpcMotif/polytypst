@@ -1,15 +1,25 @@
 from __future__ import annotations
 
 import argparse
+import re
 from collections.abc import Callable
 from pathlib import Path
 
 import pymupdf
 
 from polytypst.books import book_by_key
-from scripts.book2_figures.engine import ThemeMode, chart_svg, scan_canvas
+from scripts.book2_figures.engine import (
+    ThemeMode,
+    chart_svg,
+    enrich_book_figures_manifest,
+)
 
 BOOK_DIR = book_by_key("4_不良债权与金融危机").out_dir
+
+
+def _figure_order(fid: str) -> tuple[int, int, str]:
+    chapter, number, suffix = re.fullmatch(r"(\d+)-(\d+)([A-Za-z]*)", fid).groups()
+    return int(chapter), int(number), suffix
 
 
 def load_all_generators() -> dict[str, Callable[[ThemeMode], str]]:
@@ -33,9 +43,8 @@ def main() -> None:
     unknown = [fid for fid in args.ids if fid not in generators]
     if unknown:
         raise SystemExit(f"no generator for {unknown}")
-    for fid in args.ids or sorted(generators, key=lambda f: tuple(int(p) for p in f.split("-"))):
-        with scan_canvas(BOOK_DIR, fid):
-            svg = chart_svg(generators[fid], args.style)
+    for fid in args.ids or sorted(generators, key=_figure_order):
+        svg = chart_svg(generators[fid], args.style)
         (fig_dir / f"fig_{fid}.svg").write_text(svg, encoding="utf-8")
         if args.png:
             args.png.mkdir(parents=True, exist_ok=True)
@@ -44,7 +53,8 @@ def main() -> None:
             doc.close()
 
     crops = {p.stem.removeprefix("fig_") for p in fig_dir.glob("fig_*.png")}
-    left = sorted(crops - set(generators), key=lambda f: tuple(int(p) for p in f.split("-")))
+    left = sorted(crops - set(generators), key=_figure_order)
+    enrich_book_figures_manifest("4_不良债权与金融危机", generators)
     print(f"{len(generators)} figures redrawn, {len(left)} left as crops: {' '.join(left)}")
 
 

@@ -1,0 +1,37 @@
+slug = "spivak_vol3"
+title = "A Comprehensive Introduction to Differential Geometry, Vol. 3, 3rd Edition"
+author = "Michael Spivak"
+publisher = 'Publish or Perish, Inc.'
+year = 1999
+domain = 'math'
+source_pdf = 'A Comprehensive Introduction to Differential Geometry, Vol. 3, 3rd Edition (Michael Spivak.pdf'
+pdf_page_count = 324
+cross_references = true
+preface_page = 5
+
+chapters = [
+  { number = 0, title = 'Table of Contents', start_page = 5, end_page = 10 },
+  { number = 1, title = 'The Fundamental Equations for Hypersurfaces', start_page = 11, end_page = 40, label = 'Chapter 1' },
+  { number = 2, title = 'Elements of the Theory of Surfaces in $\mathbf{R}^3$', start_page = 41, end_page = 144, label = 'Chapter 2' },
+  { number = 3, title = 'A Compendium of Surfaces', start_page = 145, end_page = 196, label = 'Chapter 3' },
+  { number = 4, title = 'Curves on Surfaces', start_page = 197, end_page = 242, label = 'Chapter 4' },
+  { number = 5, title = 'Complete Surfaces of Constant Curvature', start_page = 243, end_page = 270, label = 'Chapter 5' },
+  { number = 6, title = 'The Gauss-Bonnet Theorem and Related Topics', start_page = 271, end_page = 314, label = 'Chapter 6' },
+  { number = 0, title = 'Mini-Bibliography for Volume III', start_page = 315, end_page = 316, label = 'Bibliography' },
+  { number = 0, title = 'Notation Index', start_page = 317, end_page = 318, label = 'Notation' },
+  { number = 0, title = 'Index', start_page = 319, end_page = 324, label = 'Index' },
+]
+
+[hooks]
+figures = 'draw_figures'
+
+[editions.monograph]
+summary = 'monograph with elegant monochrome geometric figures'
+
+[editions.illustrated]
+summary = 'illustrated monograph with 3b1b colour figures'
+
+[editions.illustrated.spec]
+slug = 'spivak_vol3_illustrated'
+subtitle = 'Illustrated Edition with 3Blue1Brown Colour Geometric Figures'
+figure_dir = 'figures_color'

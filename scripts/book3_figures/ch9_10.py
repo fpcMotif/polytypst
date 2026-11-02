@@ -111,7 +111,7 @@ def _fig_9_2(mode: ThemeMode = "mono") -> str:
         (0.0, 180.0),
         [0.0, 20.0, 40.0, 60.0, 80.0, 100.0, 120.0, 140.0, 160.0, 180.0],
         (0.0, 1.0),
-        [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, (1.0, "1")],
+        [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, (1.0, "1.0")],
         mode,
     )
 
@@ -428,12 +428,12 @@ def _fig_10_3(mode: ThemeMode = "mono") -> str:
     anns: list[Annotation] = []
     for vals, off in zip((young, working, old), offs):
         for i, v in enumerate(vals):
-            anns.append(Annotation(x=i + off, y=v, text=f"{v:.1f}", dx=0.0, dy=-2.0, arrow=False, fontsize=9.5))
+            anns.append(Annotation(x=i + off, y=v, text=f"{v:.1f}", dx=0.0, dy=-2.0, arrow=False, fontsize=10.5))
     panel = PanelSpec(
         xlim=(-0.5, 5.5),
         ylim=(0.0, 93.0),
         xticks=[(float(i), g) for i, g in enumerate(groups)],
-        yticks=[(0.0, "0.00")] + [(float(v), f"{v:.1f}") for v in range(10, 91, 10)],
+        yticks=[(float(v), f"{v:.1f}") for v in range(0, 91, 10)],
         xlabel="年",
         ylabel="人口（100万人）",
         zero_line=False,

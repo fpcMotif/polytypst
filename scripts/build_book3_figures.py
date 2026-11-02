@@ -10,12 +10,14 @@ from polytypst.books import book_by_key
 from scripts.book2_figures.engine import (
     ThemeMode,
     chart_svg,
+    enrich_book_figures_manifest,
     save_figure_outputs,
-    scan_canvas,
 )
 
 BOOK_DIR = book_by_key("3_国际经济环境的变化与日本经济").out_dir
 PREFACE_CHART = "preface_exchange_rate"
+# Charts whose boxed notes or category labels do not fit at the scan's crop width print on the full line.
+FULL_LINE = {"6-4", "6-7", "6-8"}
 
 
 def load_all_generators() -> dict[str, Callable[[ThemeMode], str]]:
@@ -48,8 +50,7 @@ def main() -> None:
     keep_scan_crops(BOOK_DIR / "figures", BOOK_DIR / "figures_raw")
 
     def _render_one(fid: str) -> str:
-        with scan_canvas(BOOK_DIR, fid):
-            svg = chart_svg(generators[fid], args.style)
+        svg = chart_svg(generators[fid], args.style)
         if fid == PREFACE_CHART:
             write_preface_chart(svg)
         else:
@@ -58,6 +59,7 @@ def main() -> None:
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         done = list(pool.map(_render_one, sorted(generators)))
+    enrich_book_figures_manifest("3_国际经济环境的变化与日本经济", generators)
     print(f"Rendered {len(done)} figures into {BOOK_DIR / 'figures'}.")
 
 

@@ -1039,11 +1039,8 @@ def fig_6_1(mode: ThemeMode = "mono") -> str:
     W, H = 860, 290
     out: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">',
+        "<title>图 6-1 住房贷款的作用</title>",
         f'<rect width="{W}" height="{H}" fill="{pal.bg}"/>',
-        (
-            f'<text x="{W / 2:.1f}" y="34" text-anchor="middle" font-family="{FONT_STACK}" '
-            f'font-size="16.5" font-weight="700" fill="{pal.fg}">图 6-1 住房贷款的作用</text>'
-        ),
     ]
     accounts = [
         ("有住房贷款家庭", "房屋", "住房贷款", 0),

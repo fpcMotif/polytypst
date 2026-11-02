@@ -23,6 +23,10 @@ _MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)\s]+)\)")
 _DOUBLE_SUBSCRIPT_RE = re.compile(r"(\^\\[A-Za-z]+)_")
 _STAR_DOUBLE_SUPERSCRIPT_RE = re.compile(r"\^\*_\{([^{}]*)\}\^(\{[^{}]*\}|\\[A-Za-z]+|[A-Za-z0-9])")
 
+TOP_LEVEL_MATTER_RE = re.compile(
+    r"^(?:导\s*语|参考文献(?:（续）)?|附录(?:\s|$)|补遗(?:\s|$)|主要结论|结\s*语|结束语|前\s*言|序\s*言|各章概要|作者简介|后记)"
+)
+
 
 def _fix_inline_math_delimiters(text: str) -> str:
     """Drop spaces just inside a single-dollar math span; Pandoc and Typst reject them."""
@@ -503,23 +507,54 @@ END_MATTER_HEADING_RE = re.compile(
 FIGURE_LABEL_RE = re.compile(
     r"^(?![#*>]|\$\$|\\\[|\(\d+\.\d+\))[^\n]{1,60}(?<![.:;?!,。：；？！，])\s*$"
 )
-FIGURE_SOURCE_OR_NOTE_RE = re.compile(r"^\s*[（(]?\s*(?:资料来源|注)\s*[：:]")
+FIGURE_SOURCE_OR_NOTE_RE = re.compile(r"^\s*[（(\[［]?\s*(?:资料来源|数据来源|注)\s*[：:]")
+FIGURE_SOURCE_RE = re.compile(r"^\s*[（(\[［]?\s*(?:资料来源|数据来源)\s*[：:]")
 NOTE_ITEM_RE = re.compile(r"^\s*\d+\s*[.．、]\s*\S")
+
+
+def _is_figure_subtitle(line: str) -> bool:
+    """A short unit or basis line, such as 将男性普通劳动者设为 100 时的工资水平, that a scan prints under a
+    caption and above its 资料来源."""
+    s = line.strip()
+    return (
+        0 < len(re.sub(r"\s+", "", s)) <= 40
+        and not FIGURE_SOURCE_OR_NOTE_RE.match(s)
+        and not NOTE_ITEM_RE.match(s)
+        and not re.match(r"^(?:#|\$\$|!\[|\||图\s*\d|表\s*\d)", s)
+        and not re.search(r"[。！？；，,]$", s)
+        and "@@" not in s
+    )
 
 
 def take_figure_note(body_lines: list[str]) -> str:
     """Remove and return the note and source paragraphs that end `body_lines`, with the numbered items that
     continue them; empty when the last paragraphs are not a note."""
-    paras = re.split(r"\n\s*\n", "\n".join(body_lines).strip())
+    paras = [p for p in re.split(r"\n\s*\n", "\n".join(body_lines).strip()) if p.strip()]
+    trailing_imgs: list[str] = []
+    while paras and _MD_IMAGE_RE.fullmatch(paras[-1].strip()):
+        trailing_imgs.append(paras.pop())
     k = len(paras)
-    while k and NOTE_ITEM_RE.match(paras[k - 1]) and not FIGURE_SOURCE_OR_NOTE_RE.match(paras[k - 1]):
-        k -= 1
-    if not k or not FIGURE_SOURCE_OR_NOTE_RE.match(paras[k - 1]):
+    while k:
+        prev = k
+        while k and NOTE_ITEM_RE.match(paras[k - 1]) and not FIGURE_SOURCE_OR_NOTE_RE.match(paras[k - 1]):
+            k -= 1
+        if k and FIGURE_SOURCE_OR_NOTE_RE.match(paras[k - 1]):
+            k -= 1
+            while k and FIGURE_SOURCE_OR_NOTE_RE.match(paras[k - 1]):
+                k -= 1
+        else:
+            k = prev
+            break
+    for i in range(max(0, len(paras) - 8), min(k, len(paras))):
+        if re.match(r"^\s*[（(\[［]?\s*注\s*[：:]\s*1\s*[.．、]", paras[i]):
+            k = i
+            while k and FIGURE_SOURCE_OR_NOTE_RE.match(paras[k - 1]):
+                k -= 1
+            break
+    if k == len(paras):
         return ""
-    k -= 1
-    while k and FIGURE_SOURCE_OR_NOTE_RE.match(paras[k - 1]):
-        k -= 1
-    body_lines[:] = "\n\n".join(paras[:k]).split("\n") if k else []
+    kept = paras[:k] + list(reversed(trailing_imgs))
+    body_lines[:] = "\n\n".join(kept).split("\n") if kept else []
     return "\n\n".join(p.strip() for p in paras[k:])
 
 
@@ -683,10 +718,11 @@ class PageCleaner:
         )
         if m_sub and len(lt) < 76:
             return f"### {m_sub.group(1)}. {m_sub.group(2).strip()}"
-        m_hash = re.match(r"^#+\s*(.+?)\s*$", lt)
+        m_hash = re.match(r"^(#+)\s*(.+?)\s*$", lt)
         if not m_hash:
             return None
-        inner_h = m_hash.group(1).strip()
+        orig_hashes = m_hash.group(1)
+        inner_h = m_hash.group(2).strip()
         if END_MATTER_HEADING_RE.match(inner_h):
             title = inner_h.strip("*").title()
             key = f"{self._chapter_of(pno)}:{title}"
@@ -722,6 +758,13 @@ class PageCleaner:
         if key in self._seen_sections:
             return ""
         self._seen_sections.add(key)
+        if re.match(r"^\d+\.\d+\.\d+\.?\s+\S", inner_h) or re.match(r"^[（(]\d+[）)]", inner_h) or orig_hashes == "####":
+            return f"#### {inner_h}"
+        if self.spec.chapter_openings or self.spec.lang == "zh":
+            if re.match(r"^\d+\.\d+\.?\s+\S", inner_h):
+                return f"### {inner_h}"
+            if re.match(r"^\d{1,2}\.?\s+\S", inner_h) or TOP_LEVEL_MATTER_RE.match(inner_h) or orig_hashes == "##":
+                return f"## {inner_h}"
         return f"### {inner_h}"
 
     def _drop_missing_images(self, text: str) -> str:
@@ -765,13 +808,41 @@ class PageCleaner:
         caption_rest = ""
         last_caption: tuple[str, int] | None = None
 
-        def claim_sources_after_caption() -> None:
+        def claim_sources_after_caption(only_source: bool = False) -> None:
             nonlocal last_caption
             if last_caption:
                 fid, at = last_caption
-                trailing = [b.strip() for b in body_lines[at:] if b.strip()]
-                if trailing and all(FIGURE_SOURCE_OR_NOTE_RE.match(b) for b in trailing):
-                    del body_lines[at:]
+                trailing = [b.strip() for b in body_lines[at:] if b.strip() and not _MD_IMAGE_RE.fullmatch(b.strip())]
+                if only_source:
+                    lead = 0
+                    while lead < len(trailing) and _is_figure_subtitle(trailing[lead]):
+                        lead += 1
+                    src_count = lead
+                    while src_count < len(trailing) and FIGURE_SOURCE_RE.match(trailing[src_count]):
+                        src_count += 1
+                    if src_count == lead:
+                        src_count = 0
+                    if src_count:
+                        kept_after: list[str] = []
+                        removed = 0
+                        for b in body_lines[at:]:
+                            st = b.strip()
+                            if st and not _MD_IMAGE_RE.fullmatch(st) and removed < src_count:
+                                removed += 1
+                            else:
+                                kept_after.append(b)
+                        body_lines[at:] = kept_after
+                        self.figure_notes[fid] = "\n\n".join(filter(None, [self.figure_notes.get(fid), *trailing[:src_count]]))
+                    last_caption = None
+                    return
+                has_item_1 = any(re.match(r"^\s*[（(\[［]?\s*注\s*[：:]\s*1\s*[.．、]", b) for b in trailing)
+                lead = 0
+                while lead < len(trailing) - 1 and _is_figure_subtitle(trailing[lead]):
+                    lead += 1
+                if trailing and FIGURE_SOURCE_OR_NOTE_RE.match(trailing[lead]) and all(
+                    FIGURE_SOURCE_OR_NOTE_RE.match(b) or (has_item_1 and NOTE_ITEM_RE.match(b)) for b in trailing[lead:]
+                ):
+                    body_lines[at:] = [b for b in body_lines[at:] if not b.strip() or _MD_IMAGE_RE.fullmatch(b.strip())]
                     self.figure_notes[fid] = "\n\n".join(filter(None, [self.figure_notes.get(fid), *trailing]))
             last_caption = None
 
@@ -807,6 +878,8 @@ class PageCleaner:
                 ):
                     m_fig = None
             if m_fig:
+                if layout.note_before_caption:
+                    claim_sources_after_caption(only_source=True)
                 note = take_figure_note(body_lines) if layout.note_before_caption else ""
                 while body_lines and (
                     not body_lines[-1].strip() or FIGURE_LABEL_RE.match(body_lines[-1])
@@ -872,11 +945,29 @@ class PageCleaner:
                 if heading == "":
                     continue
                 if heading is not None:
+                    claim_sources_after_caption()
                     body_lines.append(heading)
                     continue
                 line = normalize_run_in(lt, upper=spec.theorem_heads_upper)
 
-            if line.strip() and not FIGURE_SOURCE_OR_NOTE_RE.match(line) and not NOTE_ITEM_RE.match(line):
+            if (
+                line.strip()
+                and not FIGURE_SOURCE_OR_NOTE_RE.match(line)
+                and not (
+                    NOTE_ITEM_RE.match(line)
+                    and last_caption
+                    and any(re.match(r"^\s*[（(]?\s*注\s*[：:]\s*1\s*[.．、]", b.strip()) for b in body_lines[last_caption[1] :])
+                )
+                and not _MD_IMAGE_RE.fullmatch(line.strip())
+                and not (
+                    last_caption
+                    and _is_figure_subtitle(line)
+                    and all(
+                        not b.strip() or _MD_IMAGE_RE.fullmatch(b.strip()) or _is_figure_subtitle(b)
+                        for b in body_lines[last_caption[1] :]
+                    )
+                )
+            ):
                 claim_sources_after_caption()
             body_lines.append(line)
 
