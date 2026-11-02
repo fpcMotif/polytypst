@@ -43,7 +43,9 @@ Varlock reads the API keys from the macOS Keychain, through `.env.schema`. To ad
 
 `transcripts.json` records the backend, the model and a hash of the prompt for each transcript. If you change the backend or the book's `ocr_prompt`, the store keeps the old transcripts and reports their count. To redo them, add `--retranscribe`. To limit a run to some pages, add `--pages 3,7-9`.
 
-If a page fails, the store keeps every finished page and leaves the failed page pending. At the end, the command prints `N pages still pending: …` and exits 1 without the Apple Vision check and the build. Run the same command again: it transcribes only the pending pages. If the backend fails as a whole, the command stops. A rejected key, a missing key, a missing Colab CLI, and five failed pages in a row are such failures.
+If a page fails, the store keeps every finished page and leaves the failed page pending. Then the store sends only the pending pages to the backend again, for up to 3 rounds in all. It stops early when a round transcribes no page. To change the limit, add `--rounds N`. `--rounds 1` sends each page once.
+
+If pages stay pending, the command prints `N pages still pending after R rounds: …` and exits 1 without the Apple Vision check and the build. A later run of the same command transcribes only the pending pages. If the backend fails as a whole, the command stops. A rejected key, a missing key, a missing Colab CLI, and five failed pages in a row are such failures.
 
 ## Bourbaki procedure
 

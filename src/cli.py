@@ -7,6 +7,7 @@ from pathlib import Path
 from .books_cli import parse_pages as page_set
 from .compiler.presets import DOMAIN_PROFILES
 from .ocr.backend import DEFAULT_BACKEND, KINDS, Backend, backend_argument
+from .ocr.transcripts import ROUNDS
 
 BOOK_COMMANDS = """\
 book commands (see `polytypst COMMAND --help`):
@@ -76,6 +77,12 @@ def main() -> None:
         help="Redo stored transcripts that another backend or prompt made",
     )
     parser.add_argument(
+        "--rounds",
+        type=int,
+        default=ROUNDS,
+        help=f"Send the pages that are still pending again, up to this many rounds in all (default: {ROUNDS})",
+    )
+    parser.add_argument(
         "--publisher",
         type=str,
         choices=["cambridge", "springer", "mit", "harvard", "ams"],
@@ -104,6 +111,8 @@ def main() -> None:
         help="Skip macOS Apple Vision OCR cross-verification",
     )
     args = parser.parse_args()
+    if args.rounds < 1:
+        parser.error("--rounds must be 1 or more")
     args.backend = args.backend or Backend.parse(DEFAULT_BACKEND)
 
     if args.export_web:
@@ -140,7 +149,7 @@ def main() -> None:
         elif args.output is not None and args.output.resolve() != book.out_dir.resolve():
             parser.error(f"{book.spec.slug} is a known book and writes to {book.out_dir}")
         print(f"Book: {book.spec.title} -> {book.out_dir}")
-        _ = book.transcribe(args.source, args.backend, args.pages, args.retranscribe)
+        _ = book.transcribe(args.source, args.backend, args.pages, args.retranscribe, args.rounds)
         if not args.no_verify and sys.platform == "darwin":
             from .ocr.verifier import verify_transcripts
 
@@ -152,7 +161,7 @@ def main() -> None:
     except SourceScanError as exc:
         sys.exit(f"Cannot read the source scan: {exc}")
     except TranscriptsPending as exc:
-        sys.exit(f"{exc}. The build did not run. Run the same command again to transcribe only these pages.")
+        sys.exit(f"{exc}. The build did not run.")
     edition = next(iter(book.editions.values()))
     formats = edition.formats
     if args.formats:
