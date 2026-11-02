@@ -56,6 +56,745 @@ png_max_height_ratio = 0.9
 png_min_pct_tall = 50
 note_before_caption = true
 
+[transcript_fixups]
+# These run before the cleaner, so they reach captions, figure notes, footnotes, and HTML tables.
+72 = [
+  # The transcript has 人超; the scan prints 入超.
+  ['人超', '入超'],
+]
+76 = [
+  # The transcript has MBGL,iu; the scan prints MBGL,it.
+  ['MBG<sub>L,iu</sub>', 'MBG<sub>L,it</sub>'],
+  # The transcript has MBGT,iu; the scan prints MBGT,it.
+  ['MBG<sub>T,iu</sub>', 'MBG<sub>T,it</sub>'],
+  # The transcript tag has stray space (< tr); the scan shows normal row.
+  ['< tr class=\"row-odd\">\s*<th>山梨县</th>', '<tr class="row-odd">\n    <th>山梨县</th>'],
+]
+83 = [
+  # The transcript tag has malformed </TH>; the scan prints normal header.
+  ['<th>1989—1998 年</TH>', '<th>1989—1998 年</th>'],
+]
+101 = [
+  # The transcript has 推算方案; the scan prints 推算方差.
+  ['推算方案的大小判断', '推算方差的大小判断'],
+]
+102 = [
+  # The transcript adds 同上; the scan cell is merged and empty.
+  ['<td>储蓄率函数</td><td>同上</td>', '<td>储蓄率函数</td><td></td>'],
+]
+111 = [
+  # The transcript table is garbled; the scan prints Table 3-3.
+  ['<th rowspan=\"3\">数据</th>.*?</table>', "<th rowspan=\"2\">数据</th>\n    <th rowspan=\"2\">推算方法</th>\n    <th rowspan=\"2\">推算公式</th>\n    <th>财政虚拟变量</th>\n    <th colspan=\"2\">非凯恩斯效应</th>\n  </tr>\n  <tr class=\"table-header\">\n    <th>财政重建和扩张的定义</th>\n    <th>有无</th>\n    <th>发生条件</th>\n  </tr>\n</thead>\n<tbody>\n  <tr class=\"row-odd\">\n    <th>中里（2002）</th>\n    <th>财年（1958—1998 财年）</th>\n    <th>OLS</th>\n    <th>Perotti（1999）</th>\n    <th>（1）在日本被称为财政重建期的 1980 财年至 1987 财年<br>（2）在税负平衡条件下，与最优财政赤字相比，基础财政收支占 GDP 比重超过 0.5% 及以上的时期<br>（3）Perotti（1999）中的 Type2 虚拟变量</th>\n    <th>○<br>×<br>×</th>\n    <th>—<br>—<br>—</th>\n  </tr>\n  <tr class=\"row-even\">\n    <th rowspan=\"2\">小林和小卷（2003）</th>\n    <th rowspan=\"2\">季度（1970：Ⅰ—2002：Ⅲ）</th>\n    <th rowspan=\"2\">OLS</th>\n    <th>Perotti（1999）</th>\n    <th>（1）在日本被称为财政重建期的 1980 财年至 1987 财年<br>（2）在税负平衡条件下，与最优财政赤字相比，基础财政收支占 GDP 比重超过 0.5% 及以上的时期<br>（3）Perotti（1999）中的 Type2 虚拟变量<br>（4）政府债务占 GDP 比重 >1（1997 年：Ⅱ后）</th>\n    <th>○<br>×<br>×<br>×</th>\n    <th>—<br>—<br>—<br>—</th>\n  </tr>\n  <tr class=\"row-odd\">\n    <th>ad hoc（Δc = f（Debt））</th>\n    <th>（5）1999 年：Ⅰ后</th>\n    <th>○</th>\n    <th>—</th>\n  </tr>\n  <tr class=\"row-even\">\n    <th>伊藤和渡边（2004）</th>\n    <th>都道府县面板（1957—2001 财年）</th>\n    <th>GMM</th>\n    <th>Bertola 和 Drazen（1993）+ Campbell 和 Mankiw（1989，1990，1991）</th>\n    <th>（1）财政支出占 GDP 比重超过 15% 中只取同比增加 0.4% 及以上的年份<br>（2）财政赤字规模占名义 GDP 比重超过 3% 中只取财政赤字同比增加的年份<br>（3）政府债务余额超过一般会计收入的 3.2 倍的年份</th>\n    <th>○<br>△<br>×</th>\n    <th>—<br>—<br>债务水平（×）</th>\n  </tr>\n  <tr class=\"row-odd\">\n    <th>竹田、小卷和矢岛（2005）</th>\n    <th>季度（1980：Ⅰ—2003：Ⅳ）</th>\n    <th>OLS</th>\n    <th>Perotti（1999）</th>\n    <th>（1）结构性基础财政赤字占 GDP 比重连续 2 年改善 1.25% 及以上时<br>（2）结构性财政赤字占 GDP 比重连续 2 年为 3% 及以上时</th>\n    <th>×<br>×</th>\n    <th>—<br>—</th>\n  </tr>\n</tbody>\n</table>"],
+]
+112 = [
+  # The transcript table is garbled; the scan prints Table 3-3 continuation.
+  ['<th rowspan=\"2\">数据</th>.*?</table>', "<th rowspan=\"2\">数据</th>\n    <th rowspan=\"2\">推算方法</th>\n    <th rowspan=\"2\">推算公式</th>\n    <th>财政虚拟变量</th>\n    <th colspan=\"2\">非凯恩斯效应</th>\n  </tr>\n  <tr class=\"table-header\">\n    <th>财政重建和扩张的定义</th>\n    <th>有无</th>\n    <th>发生条件</th>\n  </tr>\n</thead>\n<tbody>\n  <tr class=\"row-odd\">\n    <th>龟田（2008）</th>\n    <th>财年（1980—2003 财年）</th>\n    <th>GMM</th>\n    <th>Hjelm（2002）</th>\n    <th>（1）结构性基础财政收支占潜在 GDP 比重同比改善 1% 的年份，或与上一年的累计改善 1.5% 的年份<br>（2）结构性基础财政收支占潜在 GDP 比重同比增加 1% 的年份，或与上一年的累计增加 1.5% 的年份</th>\n    <th>○<br>×</th>\n    <th>规模（○） 结构（×） 债务水平（×） 汇率（×）<br>—</th>\n  </tr>\n  <tr class=\"row-even\">\n    <th>Kinari 和 Shibamoto（2007）</th>\n    <th>季度（1980：Ⅰ—2004：Ⅲ）</th>\n    <th>ML</th>\n    <th>Perotti（1999）</th>\n    <th>在 Regime-Switching Model 中，根据 Hansen（1996，2000）的检验，内生性决定（政府债务占 GDP 比重 >1.899 的时期）</th>\n    <th>○</th>\n    <th>债务水平（○）</th>\n  </tr>\n</tbody>\n</table>"],
+  # The transcript has 有过载; the scan prints 有记载.
+  ['有过载', '有记载'],
+  # The transcript has 作为发生条件使用; the scan prints 作为发生条件起作用.
+  ['作为发生条件使用', '作为发生条件起作用'],
+  # The transcript has 不能使用; the scan prints 不起作用.
+  ['不能使用', '不起作用'],
+  # The transcript has 以上为笔者编辑; the scan prints 以上为笔者编制.
+  ['以上为笔者编辑', '以上为笔者编制'],
+]
+117 = [
+  # The transcript tag has stray </ 1; the scan prints 财政虚拟变量.
+  ['colspan="2">财政虚拟变量</ 1</th>', 'colspan="2">财政虚拟变量</th>'],
+]
+118 = [
+  # The transcript tag has stray space (< tr>); the scan shows normal tr.
+  ['< tr>', '<tr>'],
+]
+119 = [
+  # The transcript tag has stray space (< th>); the scan shows normal th.
+  ['< th>竹田、小卷和矢岛（2005）', '<th>竹田、小卷和矢岛（2005）'],
+]
+130 = [
+  # The transcript has 细川; the scan prints 绢川.
+  ['细川', '绢川'],
+]
+133 = [
+  # The transcript has 基础财政收入处于盈余状态; the scan prints 基础财政收支处于盈余状态.
+  ['基础财政收入处于盈余状态', '基础财政收支处于盈余状态'],
+]
+150 = [
+  # The transcript has 1970: 1—1999: 1 (季度)；(1970: 1—1984: 4)；(1985: 1—1999: 1); the scan prints <br> between ranges.
+  ['1970: 1—1999: 1 \(季度\)；\(1970: 1—1984: 4\)；\(1985: 1—1999: 1\)', '1970: 1—1999: 1 (季度)<br>(1970: 1—1984: 4)<br>(1985: 1—1999: 1)'],
+]
+151 = [
+  # The transcript has 10 年附息国债; the scan prints 10 年期附息国债.
+  ['>\(长期利率 \(10 年附息国债\) \)<br>货', '>(长期利率 (10 年期附息国债) )<br>货'],
+]
+152 = [
+  # The transcript has <.tr class="row-odd">; the scan prints <tr class="row-odd">.
+  ['<.tr class="row-odd">', '<tr class="row-odd">'],
+]
+166 = [
+  # The transcript has \Delta y = \frac{1}{2}\Delta z; the scan prints \Delta y は \Delta z.
+  ['\\Delta y = \\frac\{1\}\{2\}\\Delta z', '\Delta y は \Delta z'],
+]
+169 = [
+  # The transcript has Cabinett Office; the scan prints Cabinet Office.
+  ['Cabinett Office', 'Cabinet Office'],
+]
+187 = [
+  # The transcript tag has malformed </  </th>; the scan prints normal th.
+  ['</  </th>', '</th>'],
+  ['<th colspan="3">国民年金</th>', '<th colspan="2">国民年金</th>'],
+  ['<th colspan="3">缴费 40 年的情况</th>', '<th colspan="2">缴费 40 年的情况</th>'],
+]
+188 = [
+  # The transcript tag has malformed </th </tr>; the scan prints normal closing tags.
+  ['</th </tr>', '</th>\n  </tr>'],
+]
+233 = [
+  # The transcript has 亦可自; the scan prints 亦引自.
+  ['亦可自', '亦引自'],
+]
+277 = [
+  # The transcript has extra 税; the scan prints 个人所得减税.
+  ['通过1995年的个人所得税减税', '通过1995年的个人所得减税'],
+  # Scan typo: the scan prints Linsday; meant Lindsay.
+  ['95）及更早之前Linsday（1987）针对', '95）及更早之前Lindsay（1987）针对'],
+]
+280 = [
+  # Scan typo: the scan prints SpaceWorld; meant Space World.
+  ['SpaceWorld', 'Space World'],
+]
+281 = [
+  # Scan typo: the scan prints The Windsor Hote; meant The Windsor Hotel.
+  ['The Windsor Hote', 'The Windsor Hotel'],
+  # Scan typo: the scan prints HuisTenBosch; meant Huis Ten Bosch.
+  ['HuisTenBosch', 'Huis Ten Bosch'],
+  # Scan typo: the scan prints ReomaWorld; meant Reoma World.
+  ['ReomaWorld', 'Reoma World'],
+  # Scan typo: the scan prints KabutoDecom; meant Kabuto Decom.
+  ['KabutoDecom', 'Kabuto Decom'],
+]
+290 = [
+  # The transcript has extra 税; the scan prints 最优所得征税理论.
+  ['以下有关最优所得税征税理论', '以下有关最优所得征税理论'],
+]
+303 = [
+  # Scan typo: the scan prints 针开展; meant 开展.
+  ['针开展', '开展'],
+]
+324 = [
+  # The transcript table lacks 5% and 10% headers; the scan prints them.
+  ['表 10-3 RESET 的概要\s*<table>\s*<thead>\s*<tr class=\"table-header\">\s*<th></th>\s*<th>1%水平以下</th>\s*</tr>', "表 10-3 RESET 的概要\n\n<table>\n<thead>\n  <tr class=\"table-header\">\n    <th></th>\n    <th>1%水平以下</th>\n    <th>5%水平以下</th>\n    <th>10%水平以下</th>\n  </tr>"],
+]
+326 = [
+  # The transcript has <th>实际价格指数<br>基本价值</th>; the scan prints <th>实际价格指数</th>.
+  ['<th>实际价格指数<br>基本价值</th>', '<th>实际价格指数</th>'],
+]
+345 = [
+  # The transcript has extra 税; the scan prints 消费税等消费征税.
+  ['消费税等消费税征税', '消费税等消费征税'],
+]
+356 = [
+  # The transcript has stray comma; the scan prints normal header.
+  [', \(1\) 私营法人企业', '<th>(1) 私营法人企业</th>'],
+  # The transcript has 法人税 (YCVDIV); the scan cell is blank.
+  ["    <th>法人税 \\(YCVDIV\\)</th>\n  ", "    <th></th>\n  "],
+  # The transcript splits 对私营法人企业的收入和财富征收的普通税 across two cells; the scan prints it in one cell.
+  ['<th>对私营法人企业的收入和</th>', '<th>对私营法人企业的收入和财富征收的普通税</th>'],
+  # Blank the second cell after merging 对私营法人企业的收入和财富征收的普通税 into the first cell.
+  ['<th>财富征收的普通税</th>', '<th></th>'],
+]
+357 = [
+  # The transcript has ,<tr class="row-odd">; the scan prints <tr class="row-odd">.
+  [',<tr class="row-odd">', '<tr class="row-odd">'],
+]
+379 = [
+  # The transcript has 收入支; the scan prints 收支.
+  ['基础财政收入支', '基础财政收支'],
+  # Scan typo: the scan prints 要素分解）; meant 要素分解.
+  ['要素分解）', '要素分解'],
+]
+447 = [
+  # The transcript has +; the scan cell is blank.
+  ['<th>常数项</th>\s*<th>\+</th>', '<th>常数项</th>\n    <th></th>'],
+]
+
+[page_fixups]
+# The page check (output/page_check/5/verdicts.jsonl) found these. A rewrite marked "Scan typo"
+# corrects a typo that the scan prints; every other rewrite makes the page match the scan.
+4 = [
+  # The transcript has extra 学; the scan prints 法经学部.
+  ['法学经学部', '法经学部'],
+]
+12 = [
+  # The transcript has 必不可少; the scan prints 必不可免.
+  ['必不可少', '必不可免'],
+]
+16 = [
+  # The transcript has 行政管理; the scan prints 财政管理.
+  ['行政管理', '财政管理'],
+]
+30 = [
+  # The transcript lacks author 国枝繁树; the scan prints it.
+  ['9 税收制度 …………………………………………………………………………… 234', '9 税收制度 …………………………………………………………………………… 国枝繁树 234'],
+  # The transcript lacks author 石桥英宣; the scan prints it.
+  ['11 对所得征税中税收弹性系数的分析 ………………………………………… 313', '11 对所得征税中税收弹性系数的分析 ………………………………………… 石桥英宣 313'],
+]
+52 = [
+  # The transcript has \gamma_t; the scan prints y_t.
+  ['\$\\gamma_t\$ 为GDP', '$y_t$ 为GDP'],
+  # The transcript has \gamma_t; the scan prints y_t.
+  ['用 \$\\gamma_t\$ 除公式', '用 $y_t$ 除公式'],
+  # The transcript has \gamma_t,; the scan prints y_t.
+  ['\\frac\{t_t\}\{\\gamma_t,\}', '\frac{t_t}{y_t}'],
+]
+55 = [
+  # Scan typo: the scan prints g.y; meant g/y.
+  ['g\.y', 'g/y'],
+]
+59 = [
+  # Scan typo: the scan prints Ahemd; meant Ahmed.
+  ['Ahemd', 'Ahmed'],
+  # Scan typo: the scan prints arepresent and the transcript has represent; meant are present.
+  ['represent value', 'are present value'],
+]
+69 = [
+  # The transcript has 生产方向题; the scan prints 生产方问题.
+  ['生产方向题', '生产方问题'],
+]
+70 = [
+  # The transcript has v_i^i; the scan prints v_j^i.
+  ['v_i\^i', 'v_j^i'],
+  # The transcript has G_c; the scan prints G.
+  ['G_c', 'G'],
+  # The transcript has v_c^i; the scan prints v_G^i.
+  [' dr_i \+ v_c\^i dG_i = ', ' dr_i + v_G^i dG_i = '],
+]
+71 = [
+  # The transcript has C_i^G; the scan prints C_G^i.
+  ['C_i\^G', 'C_G^i'],
+]
+72 = [
+  # The transcript has \alpha_i^k; the scan prints \alpha_{it}^k.
+  ['\\alpha_i\^k', '\alpha_{it}^k'],
+  # The transcript has a_i^1; the scan prints a_{it}^1.
+  ['a_i\^1', 'a_{it}^1'],
+  # The transcript has a_i^2; the scan prints a_{it}^2.
+  ['a_i\^2', 'a_{it}^2'],
+  # The transcript has a_i^3; the scan prints a_{it}^3.
+  ['a_i\^3', 'a_{it}^3'],
+]
+73 = [
+  # The transcript has e_{ii}; the scan prints e_{it}.
+  ['e_\{ii\}', 'e_{it}'],
+  # The transcript has \varepsilon_{ii}; the scan prints \varepsilon_{it}.
+  ['\\varepsilon_\{ii\}', '\varepsilon_{it}'],
+  # The transcript has G_{j, ii}; the scan prints G_{j, it}.
+  ['G_\{j, ii\}', 'G_{j, it}'],
+  # The transcript has \alpha_{ii}^k; the scan prints \alpha_{it}^k.
+  ['\\alpha_\{ii\}\^k', '\alpha_{it}^k'],
+  # The transcript has T_{ii}; the scan prints T_{it}.
+  ['T_\{ii\}', 'T_{it}'],
+]
+75 = [
+  # The transcript has \beta_r; the scan prints \beta_T.
+  ['施相关的弹性 \$\\beta_r\$ 为负，该数据', '施相关的弹性 $\beta_T$ 为负，该数据'],
+]
+81 = [
+  # The transcript lacks 需; the scan prints 还需要注意的是.
+  ['还要注意的是', '还需要注意的是'],
+]
+87 = [
+  # The transcript has Hednic; the scan prints Hedonic.
+  ['Hednic', 'Hedonic'],
+]
+99 = [
+  # The transcript has \widehat{\varepsilon}_t^C; the scan prints \widehat{\varepsilon}_t^G.
+  ['\\widehat\{\\varepsilon\}_t\^C', '\widehat{\varepsilon}_t^G'],
+]
+100 = [
+  # The transcript has 1^\circ; the scan prints 1①.
+  ['1\^\\circ', '1①'],
+  # The transcript has \beta_t > 0; the scan prints \beta_7 > 0.
+  ['\\beta_t > 0', '\beta_7 > 0'],
+]
+104 = [
+  # Scan typo: the scan prints \pi_{i+j}; meant \pi_{t+j}.
+  ['\\pi_\{i\+j\}', '\pi_{t+j}'],
+]
+107 = [
+  # The transcript has misplaced 是; the scan prints 推算结果是.
+  ['他得出的推算是结果', '他得出的推算结果是'],
+]
+110 = [
+  # The transcript has ( $\gamma \theta$ ); the scan prints (\gamma \theta)'.
+  ['\( \$\\gamma \\theta\$ \)', "(\\gamma \\theta)'"],
+]
+113 = [
+  # Scan typo: the scan prints （1782，2.378）; meant （1.782，2.378）.
+  ['（1782，2.378）', '（1.782，2.378）'],
+  # Scan typo: the scan prints kinari; meant Kinari.
+  ['kinari', 'Kinari'],
+]
+114 = [
+  # Scan typo: the scan prints Cambell; meant Campbell.
+  ['Cambell', 'Campbell'],
+  # Scan typo: the scan prints Pagnno; meant Pagano.
+  ['Pagnno', 'Pagano'],
+]
+115 = [
+  # Scan typo: the scan prints Blanvhard; meant Blanchard.
+  ['Blanvhard', 'Blanchard'],
+  # Scan typo: the scan prints kinari 和 Yakemoto; meant Kinari 和 Shibamoto.
+  ['kinari 和 Yakemoto', 'Kinari 和 Shibamoto'],
+]
+117 = [
+  # The transcript has 人均实际消费同比变化比率比基准县低; the scan prints 人均实际消费同比变化率比基准县低.
+  ['人均实际消费同比变化比率比基准县低', '人均实际消费同比变化率比基准县低'],
+]
+121 = [
+  # Scan typo: the scan prints kinari; meant Kinari.
+  ['kinari', 'Kinari'],
+]
+123 = [
+  # The transcript has P.; the scan prints A..
+  ['P.', 'A.'],
+]
+139 = [
+  # The transcript has 的门在内; the scan prints 部门在内.
+  ['容易受到公共投资减少影响的门在内', '容易受到公共投资减少影响的部门在内'],
+]
+154 = [
+  # The transcript has 經濟分析; the scan prints 経済分析.
+  ['經濟分析', '経済分析'],
+]
+155 = [
+  # Scan typo: the scan prints ChristelRendu; meant Christel Rendu.
+  ['ChristelRendu', 'Christel Rendu'],
+]
+159 = [
+  # The transcript has \gamma_t; the scan prints y_t.
+  ["t, g_t, \\\\gamma_t\\]'\\$\\$\n\n其中", "t, g_t, y_t]'$$\n\n其中"],
+  # The transcript has u_t^\gamma; the scan prints u_t^y.
+  [" u_t\\^g, u_t\\^\\\\gamma\\]'\\$\\$\n\n诱导", " u_t^g, u_t^y]'$$\n\n诱导"],
+  # The transcript has v_t^\gamma; the scan prints v_t^y.
+  ['u_t\^g \+ v_t\^\\gamma \\quad \(', 'u_t^g + v_t^y \quad ('],
+]
+161 = [
+  # Scan typo: the scan prints \gamma_2; meant \gamma_1.
+  ['a_2\$ 、 \$\\gamma_2\$ 、 \$\\ga', 'a_2$ 、 $\gamma_1$ 、 $\ga'],
+]
+164 = [
+  # Scan typo: the scan prints 两辐图; meant 两幅图.
+  ['两辐图', '两幅图'],
+]
+178 = [
+  # The transcript has 所有得税; the scan prints 所得税.
+  ['所有得税', '所得税'],
+]
+179 = [
+  # Scan typo: the scan prints I_{t,i}; meant I_{t,j}.
+  ['I_\{t,i\}', 'I_{t,j}'],
+]
+180 = [
+  # The transcript has 市政区町村; the scan prints 市或区町村.
+  ['的道府县民税和由市政区町村征收的市町村民税', '的道府县民税和由市或区町村征收的市町村民税'],
+]
+186 = [
+  # The transcript has PV_t \equiv SSW_t (r^{**} - SSW_t (t)); the scan prints PV_t \equiv SSW_t (r^{**}) - SSW_t (t).
+  ['PV_t \\equiv SSW_t \(r\^\{\*\*\} - SSW_t \(t\)\)', 'PV_t \equiv SSW_t (r^{**}) - SSW_t (t)'],
+]
+194 = [
+  # Scan typo: the scan prints 资金; meant 资产.
+  ['资金', '资产'],
+]
+197 = [
+  # The transcript has s(D-t); the scan prints 2(D-t).
+  ['_\{i=1\}\^\{s\(D-t\)\} p_i SS', '_{i=1}^{2(D-t)} p_i SS'],
+  # The transcript has p_j^B; the scan prints p_i^B.
+  ['p_j\^B', 'p_i^B'],
+]
+206 = [
+  # The transcript has 計算結果」.; the scan prints 計算結果』..
+  ['計算結果」.', '計算結果』.'],
+  # Scan typo: the scan prints Wiseeds.; meant Wise (eds.).
+  ['Wiseeds.', 'Wise (eds.)'],
+  # Scan typo: the scan prints WiseD. A.; meant Wise, D. A..
+  ['WiseD. A.', 'Wise, D. A.'],
+]
+207 = [
+  # The transcript has 削减医疗费用; the scan prints 削减医疗费作用.
+  ['削减医疗费用', '削减医疗费作用'],
+]
+209 = [
+  # The transcript lacks 个; the scan prints 近四分之一个世纪中.
+  ['近四分之一世纪中', '近四分之一个世纪中'],
+]
+211 = [
+  # The transcript has 各项保险制度的 该保险人的老 全国老人参保率平均值; the scan prints 各项保险制度的老人保健支付金 = 该保险人的老人医疗费用.
+  ['各项保险制度的 该保险人的老 全国老人参保率平均值', '各项保险制度的老人保健支付金 = 该保险人的老人医疗费用'],
+]
+212 = [
+  # The transcript lacks 财; the scan prints 1992 财年开始.
+  ['1992年开始', '1992财年开始'],
+]
+215 = [
+  # The transcript lacks 人; the scan prints 由于被保险人人数.
+  ['由于被保险人数', '由于被保险人人数'],
+]
+219 = [
+  # Scan typo: the scan prints Over the Counce Drug; meant Over the Counter Drug.
+  ['Over the Counce Drug', 'Over the Counter Drug'],
+]
+221 = [
+  # The transcript has 齐藤和鹈田; the scan prints 齐藤和鸨田.
+  ['齐藤和鹈田', '齐藤和鸨田'],
+  # The transcript has 鹈田编著; the scan prints 鸨田编著.
+  ['鹈田编著', '鸨田编著'],
+  # The transcript lacks 并; the scan prints 商业医疗保险市场尚并未充分发挥作用.
+  ['商业医疗保险市场尚未充分发挥作用', '商业医疗保险市场尚并未充分发挥作用'],
+]
+227 = [
+  # The transcript has 末来; the scan prints 未来.
+  ['末来', '未来'],
+]
+228 = [
+  # Scan typo: the scan prints 采用用; meant 采用.
+  ['采用用', '采用'],
+  # Scan typo: the scan prints 养老金、年金和照护; meant 养老金、医疗和照护.
+  ['养老金、年金和照护', '养老金、医疗和照护'],
+]
+230 = [
+  # The transcript lacks 的; the scan prints 医疗技术进步的体现.
+  ['康复医学的作业治疗师', '康复治疗和医疗技术进步的体现，增加了康复医学的作业治疗师'],
+]
+234 = [
+  # The transcript has 生产效率应; the scan prints 生产率效应.
+  ['生产效率应', '生产率效应'],
+  # The transcript has 生产效率效应; the scan prints 生产率效应.
+  ['生产效率效应', '生产率效应'],
+  # The transcript has 相匹配; the scan prints 相匹敌.
+  ['相匹配', '相匹敌'],
+]
+237 = [
+  # The transcript has Y; the scan prints 70.
+  ["值与最小值）\n\nY岁以上死亡率（相", "值与最小值）\n\n70岁以上死亡率（相"],
+]
+243 = [
+  # The transcript has 学; the scan prints 筑波大社会工系.
+  ['よび供給」筑波大学社会学工学系 D', 'よび供給」筑波大社会工系 D'],
+  # Scan typo: the scan prints aJapanese; meant a Japanese.
+  ['aJapanese', 'a Japanese'],
+]
+244 = [
+  # Scan typo: the scan prints ExploringThe; meant Exploring The.
+  ['ExploringThe', 'Exploring The'],
+]
+257 = [
+  # The transcript lacks 一; the scan prints 但不是在一个时间点上.
+  ['但不是在个时间点上分析代际再分配', '但不是在一个时间点上分析代际再分配'],
+]
+258 = [
+  # The transcript has . 40~49岁; the scan prints 40~49岁.
+  ['\| ?\. 40[~～]49岁 \|', '| 40～49岁 |'],
+  # The transcript has . 1990; the scan prints 1990.
+  ['\| ?\. 1990 \|', '| 1990 |'],
+]
+263 = [
+  # Scan typo: the scan prints andLeibfritz; meant and Leibfritz.
+  ['andLeibfritz', 'and Leibfritz'],
+]
+264 = [
+  # Scan typo: the scan prints United State:; meant United States:.
+  ['United State:', 'United States:'],
+  # Scan typo: the scan prints GenerationalAccountng; meant Generational Accounting.
+  ['GenerationalAccountng', 'Generational Accounting'],
+  # Scan typo: the scan prints andLeibfritz; meant and Leibfritz.
+  ['andLeibfritz', 'and Leibfritz'],
+]
+268 = [
+  # Scan typo: the scan prints 利率; meant 税率.
+  ['利率', '税率'],
+]
+282 = [
+  # The transcript has \frac{(1-\tau_g) (p_{t+1}-p_t) + (1-\tau_d) d_t}{p_t}; the scan prints \frac{(1-\tau_g) (p_{t+1}-p_t)}{p_t} + \frac{(1-\tau_d) d_t}{p_t}.
+  ['\\frac\{\(1-\\tau_g\) \(p_\{t\+1\}-p_t\) \+ \(1-\\tau_d\) d_t\}\{p_t\}', '\frac{(1-\tau_g) (p_{t+1}-p_t)}{p_t} + \frac{(1-\tau_d) d_t}{p_t}'],
+]
+286 = [
+  # Scan typo: the scan prints r/\left(1-t_{g}\right); meant r/(1-\tau_g).
+  ['r/\\left\(1-t_\{g\}\\right\)', 'r/(1-\tau_g)'],
+]
+287 = [
+  # Scan typo: the scan prints extra parenthesis; meant r/(1-\tau_g).
+  ['\$r/ \(1-\\tau_g\)\$ \)', '$r/(1-\tau_g)$'],
+  # Scan typo: the scan prints 分别与与上述; meant 分别与上述.
+  ['分别与与上述', '分别与上述'],
+]
+288 = [
+  # Scan typo: the scan prints 导致泡破灭; meant 导致泡沫破灭.
+  ['导致泡破灭', '导致泡沫破灭'],
+  # Scan typo: the scan prints 开始下降低; meant 开始下降.
+  ['开始下降低', '开始下降'],
+]
+289 = [
+  # Scan typo: the scan prints 基本的上; meant 基本上.
+  ['基本的上', '基本上'],
+]
+292 = [
+  # The transcript has D(w) =; the scan prints D(w) \equiv.
+  ['D\(w\) =', 'D(w) \equiv'],
+  # Scan typo: the scan prints [w + \infty]; meant [w, +\infty].
+  ['\[w \+ \\infty\]', '[w, +\infty]'],
+]
+293 = [
+  # Scan typo: the scan prints 是 $y$ 用; meant 是用.
+  ['是 \$y\$ 用', '是用'],
+  # Scan typo: the scan prints 最优边际效率; meant 最优边际税率.
+  ['最优边际效率', '最优边际税率'],
+]
+295 = [
+  # Scan typo: the scan prints \varepsilon_l; meant \varepsilon_L.
+  ['ac\{\(1 \+ \\varepsilon_l\)\(1 - g\)', 'ac{(1 + \varepsilon_L)(1 - g)'],
+  # Scan typo: the scan prints \varepsilon_l^u; meant \varepsilon_L^u.
+  ['\\varepsilon_l\^u', '\varepsilon_L^u'],
+]
+297 = [
+  # Scan typo: the scan prints 0. 25408; meant 2.5406.
+  ['0. 25408', '2.5406'],
+]
+299 = [
+  # The transcript has 从税收中达到; the scan prints 从税收中立到.
+  ['从税收中达到', '从税收中立到'],
+]
+302 = [
+  # Scan typo: the scan prints 应在经济繁荣时期应实施; meant 应在经济繁荣时期实施.
+  ['应在经济繁荣时期应实施', '应在经济繁荣时期实施'],
+]
+304 = [
+  # The transcript has 卷; the scan prints 巻.
+  ['保障研究』第31卷第2号，pp. ', '保障研究』第31巻第2号，pp. '],
+]
+305 = [
+  # Scan typo: the scan prints 税制制; meant 税制.
+  ['税制制', '税制'],
+]
+306 = [
+  # Scan typo: the scan prints NorthHolland; meant North-Holland.
+  ['NorthHolland', 'North-Holland'],
+]
+307 = [
+  # Scan typo: the scan prints Brooking Institution; meant Brookings Institution.
+  ['Brooking Institution', 'Brookings Institution'],
+]
+308 = [
+  # Scan typo: the scan prints Besho; meant Bessho.
+  ['Besho', 'Bessho'],
+  # Scan typo: the scan prints 1997rate; meant 1997 rate.
+  ['1997rate', '1997 rate'],
+  # Scan typo: the scan prints Linsday; meant Lindsay.
+  ['Linsday', 'Lindsay'],
+]
+314 = [
+  # Scan typo: the scan prints $Pt$; meant $.
+  ['\$Pt\$', '$'],
+  # Scan typo: the scan prints $Rt$; meant $.
+  ['\$Rt\$', '$'],
+]
+324 = [
+  # The transcript has 上述; the scan prints 上式.
+  ['上述', '上式'],
+]
+327 = [
+  # Scan typo: the scan prints (1 + \alpha - \beta) < 4\alpha; meant (1+\alpha-\beta)^2 < 4\alpha.
+  ['\(1 \+ \\alpha - \\beta\) < 4\\alpha', '(1+\alpha-\beta)^2 < 4\alpha'],
+]
+328 = [
+  # Scan typo: the scan prints Potterba; meant Poterba.
+  ['Potterba', 'Poterba'],
+]
+329 = [
+  # The transcript has Q^p; the scan prints Q^D.
+  ['Q\^p', 'Q^D'],
+  # Scan typo: the scan prints Potterba; meant Poterba.
+  ['Potterba', 'Poterba'],
+]
+330 = [
+  # The transcript has 存量一流量; the scan prints 存量—流量.
+  ['存量一流量', '存量—流量'],
+]
+335 = [
+  # Scan typo: the scan prints 虚假变量; meant 虚拟变量.
+  ['虚假变量', '虚拟变量'],
+]
+336 = [
+  # The transcript lacks 期; the scan prints 从“泡沫”顶峰期开始下跌.
+  ['从“泡沫”顶峰开始下跌', '从“泡沫”顶峰期开始下跌'],
+]
+337 = [
+  # The transcript has P_{jt, t-1}; the scan prints P_{j, t-1}.
+  ['P_\{jt, t-1\}', 'P_{j, t-1}'],
+]
+340 = [
+  # The transcript has \alpha_t; the scan prints \alpha_1.
+  ['\\alpha_t', '\alpha_1'],
+]
+341 = [
+  # Scan typo: the scan prints Partic H. Hendershott; meant Patric H. Hendershott.
+  [' M. and Partic H. Hendershott（1992），“', ' M. and Patric H. Hendershott（1992），“'],
+]
+342 = [
+  # The transcript has Prentice Hall;; the scan prints Prentice Hall:.
+  ['Prentice Hall;', 'Prentice Hall:'],
+  # Scan typo: the scan prints Hedeaki; meant Hideaki.
+  ['Hedeaki', 'Hideaki'],
+  # The transcript has Press;; the scan prints Press:.
+  ['Press;', 'Press:'],
+]
+343 = [
+  # Scan typo: the scan prints Stilgitz; meant Stiglitz.
+  ['Stilgitz', 'Stiglitz'],
+  # Scan typo: the scan prints Eco– nomics; meant Economics.
+  ['Eco– nomics', 'Economics'],
+]
+353 = [
+  # The transcript has 所得税+法入税; the scan prints 所得税+法人税.
+  ['所得税\+法入税', '所得税+法人税'],
+]
+361 = [
+  # Scan typo: the scan prints 税收弹性数; meant 税收弹性系数.
+  ['税收弹性数', '税收弹性系数'],
+]
+362 = [
+  # The transcript split formula denominator into separate block; the scan prints compound fraction.
+  ['\\text\{TXB\} = \\frac\{\\text\{YCVS\}\}\{1 \+ \\text\{YCVSS\}\} \\quad \(11\.2\)\s*\$\$\s*\$\$\s*\\text\{RTYCVH\} \+ \\text\{RTYCVL\} \\times \\text\{YCVSS\}', '\text{TXB} = \frac{\frac{\text{YCVS}}{1 + \text{YCVSS}}}{\text{RTYCVH} + \text{RTYCVL} \times \text{YCVSS}} \quad (11.2)'],
+]
+363 = [
+  # The transcript has (t \text{ 值}); the scan prints (3.31) (t 值) (11.4).
+  ['\(t \\text\{ 值\}\)', '(3.31) (t 值) (11.4)'],
+]
+364 = [
+  # The transcript has ，处于同期基准，; the scan prints （同一时间），.
+  ['，处于同期基准，', '（同一时间），'],
+]
+376 = [
+  # The transcript has 地方公务人员人工费; the scan prints 地方公务员人工费.
+  ['地方公务人员人工费', '地方公务员人工费'],
+]
+380 = [
+  # The transcript has L_x(P); the scan prints L_X(P).
+  ['L_x\(P\)', 'L_X(P)'],
+  # The transcript has G_x; the scan prints G_X.
+  ["们将基尼系数 \\$G_x\\$ 定义为\n\n\\$", "们将基尼系数 $G_X$ 定义为\n\n$"],
+  # The transcript has L_x(p); the scan prints L_X(p).
+  ["将劳伦茨曲线 \\$L_x\\(p\\)\\$ 定义为\n\n\\$", "将劳伦茨曲线 $L_X(p)$ 定义为\n\n$"],
+  # The transcript has L_r(p); the scan prints L_\tau(p).
+  [" 定义为\n\n\\$\\$L_r\\(p\\) = \\\\int_", " 定义为\n\n$$L_\\tau(p) = \\int_"],
+  # The transcript has \mu_r; the scan prints \mu_\tau.
+  ['\\mu_r', '\mu_\tau'],
+  # Scan typo: the scan prints fx(x); meant f_x(x).
+  ['fx\(x\)', 'f_x(x)'],
+]
+381 = [
+  # Scan typo: the scan prints V_T; meant C_T.
+  ['V_T', 'C_T'],
+  # Scan typo: the scan prints L_z(p); meant L_z(q).
+  ['L_z\\left\(p\\right\)', 'L_z(q)'],
+  # Scan typo: the scan prints \mu_\chi; meant \mu_x.
+  ['\\mu_\\chi', '\mu_x'],
+]
+382 = [
+  # Scan typo: the scan prints At - kinson; meant Atkinson.
+  ['At - kinson', 'Atkinson'],
+  # Scan typo: the scan prints 普通会计之合; meant 普通会计之和.
+  ['普通会计之合', '普通会计之和'],
+]
+388 = [
+  # Scan typo: the scan prints Man-chester; meant Manchester.
+  ['Man-chester', 'Manchester'],
+  # Scan typo: the scan prints Ameasure; meant A measure.
+  ['Ameasure', 'A measure'],
+]
+397 = [
+  # Scan typo: the scan prints DelRossi; meant Del Rossi.
+  ['DelRossi', 'Del Rossi'],
+]
+398 = [
+  # Scan typo: the scan prints g_2(1 + r)D; meant g_2 + (1 + r)D.
+  ['g_2\(1 \+ r\)D', 'g_2 + (1 + r)D'],
+]
+400 = [
+  # The transcript has \lfloor 1/ (1 + r) \rfloor; the scan prints \{ 1/ (1+r) \}.
+  ['\\lfloor 1/ \(1 \+ r\) \\rfloor', '\{ 1/ (1+r) \}'],
+]
+401 = [
+  # The transcript has \mid; the scan prints \}. Scan typo: the scan prints G2; meant G_2.
+  ['r\) \\mid G2\$ 的基础上实现', 'r) \} G_2$ 的基础上实现'],
+  # The transcript has G_{2'}; the scan prints G_2.
+  ["G_\\{2'\\}", 'G_2'],
+  # The transcript has g_{2'}; the scan prints g_2.
+  ["g_\\{2'\\}", 'g_2'],
+]
+402 = [
+  # Scan typo: the scan prints (1 + \beta); meant (1 - \beta).
+  ['\(1 \+ \\beta\)', '(1 - \beta)'],
+]
+404 = [
+  # Scan typo: the scan prints J(D, K); meant J(D, k).
+  ['J\(D, K\)', 'J(D, k)'],
+  # Scan typo: the scan prints -\omega v_{g2} P_k; meant -\omega \delta v_{g2} P_k.
+  ['-\s*\\omega v_\{g2\} P_k', '-\omega \delta v_{g2} P_k'],
+  # Scan typo: the scan prints G; meant G_2.
+  ['\$g_2\$ 和 \$G\$ 相对过小', '$g_2$ 和 $G_2$ 相对过小'],
+]
+405 = [
+  # Scan typo: the scan prints 公式 (13.8); meant 公式 (13.29).
+  ['公式 \(13.8\)', '公式 (13.29)'],
+]
+406 = [
+  # The transcript has 公式（13.6）; the scan prints 公式（13.6）'.
+  ['公式（13.6）', "公式（13.6）'"],
+]
+416 = [
+  # Scan typo: the scan prints Papers 717. Papers 717.; meant Papers 717..
+  ['Papers 717. Papers 717.', 'Papers 717.'],
+  # Scan typo: the scan prints DelRossi; meant Del Rossi.
+  ['DelRossi', 'Del Rossi'],
+]
+420 = [
+  # The transcript has 民营企业金融公库; the scan prints 公营企业金融公库.
+  ['民营企业金融公库', '公营企业金融公库'],
+]
+445 = [
+  # Scan typo: the scan prints 贷款余额）”; meant 贷款余额”.
+  ['贷款余额）”', '贷款余额”'],
+]
+446 = [
+  # Scan typo: the scan prints 反之依然; meant 反之亦然.
+  ['反之依然', '反之亦然'],
+]
+449 = [
+  # The transcript has 房屋会场; the scan prints 房展会场.
+  ['房屋会场', '房展会场'],
+]
+450 = [
+  # Scan typo: the scan prints 带造成; meant 带来.
+  ['带造成', '带来'],
+]
+453 = [
+  # The transcript has 現代マクロ経済勤学; the scan prints 現代マクロ経済動学.
+  ['現代マクロ経済勤学', '現代マクロ経済動学'],
+  # The transcript has glued words; the scan prints RIETI Discussion Paper Series.
+  ['RIETIDiscussionPaperSeries', 'RIETI Discussion Paper Series'],
+]
+454 = [
+  # Scan typo: the scan prints Ahmed, Shagill; meant Ahmed, Shaghil.
+  ['Ahmed, Shagill', 'Ahmed, Shaghil'],
+  # Scan typo: the scan prints Williamson S. D.; meant Williamson, S. D..
+  ['Williamson S. D.', 'Williamson, S. D.'],
+]
+455 = [
+  # The transcript lacks 日; the scan prints 日本经济与经济政策.
+  ['《泡沫/通缩时期的本经济与经济政策》', '《泡沫/通缩时期的日本经济与经济政策》'],
+]
+
 [editions.monograph]
 summary = '14 chapters, monochrome academic monograph'
 

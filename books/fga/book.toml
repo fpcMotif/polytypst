@@ -36,7 +36,7 @@ latex_preamble = '''
 \fancyhead[LE]{\small\thepage\quad\textsc{Alexander Grothendieck}}
 \fancyhead[RO]{\small\textsc{Fondements de la géométrie algébrique}\quad\thepage}
 \renewcommand{\headrulewidth}{0pt}'''
-pdf_name_markers = ['fondements de la geometrie algebrique', 'fga']
+pdf_name_markers = ['fondements de la geometrie algebrique']
 pdf_page_count = 208
 source_pdf = 'Fondements de la geometrie algebrique (FGA) (Grothendieck A.).pdf'
 

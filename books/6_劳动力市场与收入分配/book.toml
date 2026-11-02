@@ -85,8 +85,72 @@ png_single_range = [45, 100]
 png_max_height_ratio = 1.35
 png_min_pct_tall = 45
 
+[transcript_fixups]
+# These run before the cleaner, so they reach captions and figure notes, which page fixups cannot.
+171 = [
+  # The transcript has 《工资情况等综合调查)); the scan prints 《工资情况等综合调查》).
+  ['《工资情况等综合调查\)\)', '《工资情况等综合调查》)'],
+]
+334 = [
+  # The transcript has 性别，按年龄划分 on its own line; the scan prints 男性，按年龄划分 as part of the 图 10-22 caption.
+  ['（1992—2007 年，%）\n+性别，按年龄划分', '（1992—2007 年，%）男性，按年龄划分'],
+]
+
 [page_fixups]
+6 = [
+  # The transcript has 都经历了大波动; the scan prints 都经历了很大波动.
+  ['都经历了大波动', '都经历了很大波动'],
+]
+8 = [
+  # The transcript has 其中中曾根提供的策论报告; the scan prints 其为中曾根提供的策论报告.
+  ['其中中曾根提供的策论报告', '其为中曾根提供的策论报告'],
+]
+12 = [
+  # The transcript has 必不可少的资产泡沫破灭; the scan prints 必不可免的资产泡沫破灭.
+  ['必不可少的资产泡沫破灭', '必不可免的资产泡沫破灭'],
+]
+14 = [
+  # The transcript has 最后以泡沫必不可少的破灭; the scan prints 最后以泡沫必不可免的破灭.
+  ['最后以泡沫必不可少的破灭', '最后以泡沫必不可免的破灭'],
+]
+21 = [
+  # The transcript has 20世纪90年代末见成效; the scan prints 20世纪90年代未见成效.
+  ['20世纪90年代末见成效', '20世纪90年代未见成效'],
+  # Scan typo: the scan prints 供需平衡对的工资; meant 供需平衡对工资.
+  ['供需平衡对的工资', '供需平衡对工资'],
+]
+36 = [
+  # The transcript has 除此之外指标定义问题外; the scan prints 除此类指标定义问题外.
+  ['除此之外指标定义问题外', '除此类指标定义问题外'],
+]
+37 = [
+  # The transcript has \sum_i \alpha_i \cdot WS.; the scan prints \sum_i \alpha_i \cdot WS_i.
+  ['\\sum_i \\alpha_i \\cdot WS\.', '\sum_i \alpha_i \cdot WS_i'],
+  # The transcript has 其中， before equation (1.2); the scan prints 而.
+  ['其中，\n\$\$\n\\Delta WS_t', '而\n$$\n\Delta WS_t'],
+]
+44 = [
+  # Scan typo: the scan prints 给工资决定机制带的影响; meant 给工资决定机制带来的影响.
+  ['给工资决定机制带的影响', '给工资决定机制带来的影响'],
+]
+48 = [
+  # The transcript has 在市场资和企业利润方面; the scan prints 在市场工资和企业利润方面.
+  ['在市场资和企业利润方面', '在市场工资和企业利润方面'],
+]
+50 = [
+  # Scan typo: the scan prints u(e^*); meant u(w^*).
+  ['u\(e\^\*\)', 'u(w^*)'],
+]
+69 = [
+  # The transcript has 因此我们可以理论角度; the scan prints 因此我们可从理论角度.
+  ['因此我们可以理论角度', '因此我们可从理论角度'],
+]
+# The transcript has (2, 5) and (2, 6); the scan prints (2.5) and (2.6).
 76 = [['\\quad \(2, ([56])\)\$\$', '\\quad (2.\1)$$']]
+86 = [
+  # The transcript has 参数（φ），代表实际摩擦）; the scan prints 参数（φ，代表实际摩擦）.
+  ['参数（φ），代表实际摩擦）', '参数（φ，代表实际摩擦）'],
+]
 # Panel titles printed inside the figure crops.
 71 = [['(?m)^（[1-6]）(?:日本|美国|加拿大|英国|法国|意大利)\n*', '']]
 72 = [['(?m)^（[1-6]）(?:日本|美国|加拿大|英国|法国|意大利)\n*', '']]
@@ -95,10 +159,22 @@ png_min_pct_tall = 45
 233 = [['(?m)^（男性，大学/高中学历，年薪，对数差）\n*', '']]
 234 = [['(?m)^（男性，(?:大学|高中)学历，年薪，与25[~～]29岁的对数差）\n*', '']]
 298 = [['(?m)^（[12]）(?:小学|初中)图书预算措施率和语文学力的关系\n*', '']]
+299 = [
+  # The transcript has 自身教育和教育措施的成本与存在的问题; the scan prints 自身教育和教育措施的成果与存在的问题.
+  ['自身教育和教育措施的成本与存在的问题', '自身教育和教育措施的成果与存在的问题'],
+]
+304 = [
+  # Scan typo: the scan prints StudentSorting; meant Student Sorting.
+  ['StudentSorting', 'Student Sorting'],
+]
 310 = [['(?m)^（[12]）\d+[~～]\d+岁\n*', '']]
 333 = [['(?m)^（[12]）40岁(?:以下|及以上)年龄段与不分年龄段时的比较\n*', '']]
-334 = [['(?m)^（[12]）不同(?:规模企业间|学历间)工资差距.*的变化（.*）\n*', '']]
+334 = [['(?m)^（[12]）不同(?:规模企业间|学历间)工资差距[^\n]*的变化(?:（[^\n]*）)?\n*', '']]
 368 = [['(?m)^[^\n]*1986年的(?:教育水平|连续工龄|年龄结构成)[^\n]*\n*', '']]
+483 = [
+  # The transcript has 分析现在的就业形态和人职时的就业形态; the scan prints 分析现在的就业形态和入职时的就业形态.
+  ['分析现在的就业形态和人职时的就业形态', '分析现在的就业形态和入职时的就业形态'],
+]
 496 = [['(?m)^[#\s]*(?:65岁及以上|55[~～]59岁)\n*', '']]
 516 = [
   ['男性 在职年金领取者 60.*?1997 2002年\n*', ''],
@@ -109,6 +185,10 @@ png_min_pct_tall = 45
 
 $$R = \frac{y_i / D}{S^{0.5}}$$''',
   ],
+]
+562 = [
+  # The transcript has 《泡沫/通缩时期的本经济与经济政策》; the scan prints 《泡沫/通缩时期的日本经济与经济政策》.
+  ['《泡沫/通缩时期的本经济与经济政策》', '《泡沫/通缩时期的日本经济与经济政策》'],
 ]
 386 = [['(?m)^\([ab]\) (?:基本工资|年度工资)\n*', '']]
 390 = [['(?m)^\([a-d]\) (?:相对地区就业|相对地区失业率|各地区失业率|相对劳动力参与率)\n*', '']]

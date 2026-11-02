@@ -1,0 +1,11 @@
+slug = "grothendieck_serre"
+title = "Grothendieck-Serre Correspondence"
+author = "Alexandre Grothendieck and Jean-Pierre Serre"
+domain = "math"
+source_pdf = "Grothendieck-Serre Correspondence (Jean-Pierre Serre) .pdf"
+pdf_page_count = 480
+cross_references = true
+latex_preamble = '\AtBeginDocument{\pdfstringdefDisableCommands{\def\ell{l}\def\mathcal#1{#1}\def\mathrm#1{#1}}}'
+chapters = [
+  { number = 1, title = "Grothendieck-Serre Correspondence", start_page = 1, end_page = 480 },
+]

@@ -1,0 +1,81 @@
+slug = 'riemann'
+title = "On Riemann's Theory of Algebraic Functions and Their Integrals"
+author = 'Felix Klein'
+translator = 'Frances Hardcastle'
+publisher = 'Dover Publications, Inc.'
+year = 1963
+domain = 'math'
+lang = 'en'
+preface_page = 13
+chapters = [
+  { number = 1, title = "Part I: Introductory Remarks", start_page = 17, end_page = 38 },
+  { number = 2, title = "Part II: Riemann's Theory", start_page = 39, end_page = 74 },
+  { number = 3, title = "Part III: Conclusions", start_page = 75, end_page = 91 },
+  { number = 4, title = "Glossary of Technical Terms", start_page = 92, end_page = 92 },
+]
+running_header_regexes = [
+  '''^(?:#+\s*)?(?:SECT[.,\s]+[IVXLCDM]+[.,\]\s]*)?(?:INTRODUCTORY REMARKS|RIEMANN[’']S THEORY|CONCLUSIONS|PART [I|V|X]+|PREFACE|CONTENTS|TRANSLATOR[’']S NOTE|PUBLISHER[’']S NOTE|GLOSSARY OF TECHNICAL TERMS)(?:[\s.\[\]PARTIVX]+)?(?:\s+\d{1,3})?$''',
+  '''^\d{1,3}\s+(?:INTRODUCTORY REMARKS|RIEMANN[’']S THEORY|CONCLUSIONS|PART [I|V|X]+)(?:[\s.\[\]PARTIVX]+)?$''',
+  '''^SECT[.,\s]+[IVXLCDM]+[.,\]\s]*$''',
+  '''^\d{1,3}$''',
+]
+drop_line_regexes = [
+  '''^#+\s*(?:SECT[.,\s]+[IVXLCDM]+[.,\]\s]*)?(?:INTRODUCTORY REMARKS|RIEMANN[’']S THEORY|CONCLUSIONS)(?:[\s.\[\]PARTIVX0-9]+)?\s*$''',
+  '''^SECT[.,\s]+[IVXLCDM]+[.,\]\s]*$''',
+]
+footnote_style = 'symbol'
+footnote_marks = ['*', '†', '‡', '**', '***']
+pdf_name_markers = ['on riemann', 'riemanns theory']
+pdf_page_count = 100
+source_pdf = 'On Riemanns theory of algebraic functions and their integrals a supplement to the usual treatises (Klein, Felix, 1849-1925) .pdf'
+cross_references = true
+latex_preamble = '''
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE]{\small\thepage\quad\textsc{Felix Klein}}
+\fancyhead[RO]{\small\textsc{Theory of Algebraic Functions}\quad\thepage}
+\renewcommand{\headrulewidth}{0pt}'''
+
+[sections]
+"1.1" = [17, "Steady Streamings in the Plane as an Interpretation of the Functions of x + iy"]
+"1.2" = [19, "Consideration of the Infinities of w=f(z)"]
+"1.3" = [24, "Rational Functions and their Integrals. Derivation of the Infinities of higher Order from those of lower Order"]
+"1.4" = [28, "Experimental Production of these Streamings"]
+"1.5" = [31, "Transition to the Surface of a Sphere. Streamings on arbitrary curved Surfaces"]
+"1.6" = [35, "Connection between the foregoing Theory and the Functions of a complex Argument"]
+"1.7" = [37, "Streamings on the Sphere resumed. Riemann's general Problem"]
+"2.8" = [39, "Classification of closed Surfaces according to the Value of the Integer p"]
+"2.9" = [43, "Preliminary Determination of steady Streamings on arbitrary Surfaces"]
+"2.10" = [47, "The most general steady Streaming. Proof of the Impossibility of other Streamings"]
+"2.11" = [50, "Illustration of the Streamings by means of Examples"]
+"2.12" = [55, "On the Composition of the most general Function of Position from single Summands"]
+"2.13" = [57, "On the Multiformity of the Functions. Special Treatment of multiform Functions"]
+"2.14" = [59, "The ordinary Riemann's Surfaces over the x+iy Plane"]
+"2.15" = [62, "The Anchor-ring, p = 1, and the two-sheeted Surface over the Plane with four Branch-points"]
+"2.16" = [69, "Functions of x+iy which correspond to the Streamings already investigated"]
+"2.17" = [72, "Scope and Significance of the previous Investigations"]
+"2.18" = [73, "Extension of the Theory"]
+"3.19" = [75, "On the Moduli of Algebraical Equations"]
+"3.20" = [81, "Conformal Representation of closed Surfaces upon themselves"]
+"3.21" = [83, "Special Treatment of symmetrical Surfaces"]
+"3.22" = [87, "Conformal Representation of different closed Surfaces upon each other"]
+"3.23" = [89, "Surfaces with Boundaries and unifacial Surfaces"]
+"3.24" = [91, "Conclusion"]
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Fig(?:ure)?\.?\s*(?P<number>\d+[a-z]?)\.?(?:\*\*)?\s*(?P<tail>.*)$'
+caption_format = 'Figure {number}'
+
+[editions.monograph]
+summary = 'monograph'
+
+[page_fixups]
+13 = [
+  # The transcript has Part 1, ... Part 11; the scan prints Part I, ... Part II.
+  ['Part 1, Winter-semester 1880—81, Part 11', 'Part I, Winter-semester 1880—81, Part II'],
+]
+65 = [
+  # The transcript has missing Fig. 38; the scan prints Fig. 38.
+  ['(?s)(divisions of Fig\. 37 are reproduced\..*?specially noticed\.)(\n\nIt would perhaps)', '\1\n\nFig. 38.\2'],
+]

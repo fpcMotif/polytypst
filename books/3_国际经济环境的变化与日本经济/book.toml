@@ -72,6 +72,7 @@ png_min_pct_tall = 60
 
 # The compiler sets each chapter title itself, so a note on the scan's title line moves to the byline.
 [page_fixups]
+# The compiler sets each chapter title itself, so a note on the scan's title line moves to the byline.
 1 = [
   [
     '\n+---.*\Z',
@@ -82,14 +83,14 @@ png_min_pct_tall = 60
 ]
 2 = [['\A.*?(?=日文版)', ''], ['(葛 俊).*\Z', '\1\n']]
 # The table writer merges trailing empty header cells into a colspan, so cells under a two-row heading get a joiner.
-132 = [['(?m)(兼业农户 \|)  \|  \|$', '\1 ⁠ | ⁠ |']]
 171 = [
   ['(?m)^(\| constant .*\| GMPRD \|)  \|$', '\1 ⁠ |'],
   ['(?m)(\| <mark>0\.063<br>-2\.289</mark> \|)  \|  \|', '\1 ⁠ | ⁠ |'],
 ]
-175 = [['(?m)(\| 超过 \| 低于 \|)  \|  \|  \|$', '\1 ⁠ | ⁠ | ⁠ |']]
-247 = [['(?m)(\| 服务收支 \|)  \|  \|$', '\1 ⁠ | ⁠ |']]
-248 = [['(?m)(\| 资产 \| 负债 \|)  \|  \|$', '\1 ⁠ | ⁠ |']]
+175 = [
+  # The transcript has 额度; the scan prints 频度.
+  ['偶尔小额度地实施了', '偶尔小频度地实施了'],
+]
 255 = [['(?m)^(\| 1955 \| 11\.9 \|)  \|  \|( 1980 \| 17\.9 \| 15\.4 \|)  \|$', '\1 ⁠ | ⁠ |\2 ⁠ |']]
 256 = [['(?m)^(\| 1963 \| 14\.9 \|)  \|  \|( 1988 \| 13\.0 \| 11\.9 \|)  \|$', '\1 ⁠ | ⁠ |\2 ⁠ |']]
 285 = [['(?m)^(\| 1990 \| 1\.03 \|)  \|  \|  \|$', '\1 ⁠ | ⁠ | ⁠ |']]
@@ -106,6 +107,308 @@ png_min_pct_tall = 60
 ]
 252 = [['^### 8 从老龄化等结构性要因来看日本的国际收支问题(①)\n+(查尔斯 堀冈雄二 \(Charles Yuji Horioka\))', '\2\1']]
 324 = [['^### 11 经济全球化对20世纪90年代劳动力市场的影响(①)\n+(神田玲子)', '\2\1']]
+# The page check (output/page_check/3/verdicts.jsonl) found the rest. A rewrite marked "Scan typo"
+# corrects a typo that the scan prints; every other rewrite makes the page match the scan.
+6 = [
+  # The transcript has 经历了很多波动; the scan prints 经历了很大波动.
+  ['经历了很多波动', '经历了很大波动'],
+]
+12 = [
+  # The transcript has 必不可少; the scan prints 必不可免.
+  ['必不可少的资产泡沫', '必不可免的资产泡沫'],
+]
+14 = [
+  # The transcript has 必不可少; the scan prints 必不可免.
+  ['泡沫必不可少的破灭', '泡沫必不可免的破灭'],
+]
+19 = [
+  # The transcript has 对于出口加工; the scan prints 对用于出口加工.
+  ['对于出口加工的原材料和产品', '对用于出口加工的原材料和产品'],
+]
+41 = [
+  # The transcript has Tomimura; the scan prints Tomiura.
+  ['Tomimura', 'Tomiura'],
+]
+42 = [
+  # The transcript has Tomimura; the scan prints Tomiura.
+  ['Tomimura', 'Tomiura'],
+]
+48 = [
+  # The transcript has w_g^L L_{g'}/w_g^K K_{g'}; the scan prints w_{\gamma j}^L L_{\gamma j}/w_{\gamma j}^K K_{\gamma j}.
+  ["w_g\\^L L_\\{g'\\}/w_g\\^K K_\\{g'\\}", "w_{\\gamma j}^L L_{\\gamma j}/w_{\\gamma j}^K K_{\\gamma j}"],
+  # The transcript has w_j^L L_{j'}/w_j^K K_{j'}; the scan prints w_j^L L_j/w_j^K K_j.
+  ["w_j\\^L L_\\{j'\\}/w_j\\^K K_\\{j'\\}", "w_j^L L_j/w_j^K K_j"],
+]
+55 = [
+  # The transcript has Tomimura; the scan prints Tomiura.
+  ['Tomimura', 'Tomiura'],
+]
+100 = [
+  # The transcript has 卷; the scan prints 巻.
+  ['第 53 卷第 2 号', '第 53 巻第 2 号'],
+]
+104 = [
+  # The transcript has 沉启; the scan prints 开启.
+  ['沉启了新历程', '开启了新历程'],
+]
+110 = [
+  # The transcript lacks 日 in 日美协议; the scan prints 日美协议.
+  ['这一时期实施的美协议中', '这一时期实施的日美协议中'],
+]
+115 = [
+  # The transcript has 模型; the scan prints 规模型.
+  ['追求模型且沉重的', '追求规模型且沉重的'],
+]
+118 = [
+  # The transcript has 通讯; the scan prints 通识.
+  ['通商规则和通讯进行判断', '通商规则和通识进行判断'],
+]
+119 = [
+  # The transcript has 小渊; the scan prints 小渕.
+  ['当时小渊内阁', '当时小渕内阁'],
+  # The transcript has extra 一 in 参与了一其政策; the scan prints 参与了其政策.
+  ['参与了一其政策建议的制定', '参与了其政策建议的制定'],
+]
+127 = [
+  # The transcript has 别; the scan prints 別.
+  ['别掲', '別掲'],
+]
+133 = [
+  # The transcript has 政治家庭压; the scan prints 政治家施压.
+  ['农户会对政治家庭压', '农户会对政治家施压'],
+]
+162 = [
+  # The transcript has 」; the scan prints 』.
+  ['济研究」第80卷第1号', '济研究』第80卷第1号'],
+]
+183 = [
+  # The transcript has extra 很; the scan prints 也是有必要的.
+  ['也是很有必要的', '也是有必要的'],
+]
+194 = [
+  # The transcript lacks 方 in 对方国家; the scan prints 对方国家.
+  ['鉴于对国家或企业的风险', '鉴于对方国家或企业的风险'],
+]
+209 = [
+  # The transcript paraphrases the text; the scan prints 还探讨了汇率担保（汇率稳定化基金或利息担保型的公共支援）及向日元结算债务转换等方案.
+  ['还探讨了建立汇率稳定化基金、提供利息担保型公共支援以及向日元结算', '还探讨了汇率担保（汇率稳定化基金或利息担保型的公共支援）及向日元结算'],
+]
+218 = [
+  # Scan typo: the scan prints InternationalMonetary; meant International Monetary.
+  ['InternationalMonetary', 'International Monetary'],
+]
+250 = [
+  # The transcript has 卷; the scan prints 巻.
+  ['融研究』第8卷第4号', '融研究』第8巻第4号'],
+]
+251 = [
+  # The transcript has Intraday; the scan prints Intradaily.
+  ['The Intraday Exchange Rate Dynamics', 'The Intradaily Exchange Rate Dynamics'],
+]
+253 = [
+  # The transcript lacks 府; the scan prints 内阁府制作的国民经济核算.
+  ['根据日本内阁制作的国民经济核算', '根据日本内阁府制作的国民经济核算'],
+]
+254 = [
+  # The transcript has 「; the scan prints ［.
+  ['两种数据「内阁府', '两种数据［内阁府'],
+]
+267 = [
+  # The transcript has “黑字率”数据; the scan prints 黑字率数据.
+  ['“家庭调查”的“黑字率”数据', '“家庭调查”的黑字率数据'],
+]
+269 = [
+  # The transcript lacks 以; the scan prints 数年以内.
+  ['很有可能在数年内变为零或负值', '很有可能在数年以内变为零或负值'],
+]
+276 = [
+  # The transcript has hyphens in page ranges; the scan prints en dashes.
+  ['pp\. 23-45', 'pp. 23–45'],
+  ['pp\. 6-18', 'pp. 6–18'],
+  ['pp\. 118-135', 'pp. 118–135'],
+  ['pp\. 291-321', 'pp. 291–321'],
+  ['pp\. 797-815', 'pp. 797–815'],
+  ['pp\. 185-210', 'pp. 185–210'],
+  # The transcript has Faruque; the scan prints Faruqee.
+  ['Faruque,', 'Faruqee,'],
+]
+293 = [
+  # The transcript lacks 比; the scan prints 价格波动来比较各国.
+  ['价格波动来较各国', '价格波动来比较各国'],
+]
+307 = [
+  # The transcript has doubled 在; the scan prints 不存在利润.
+  ['不存在在利润', '不存在利润'],
+]
+311 = [
+  # The transcript has extra 量 in 量和质量; the scan prints 托儿所的量和质.
+  ['托儿所的量和质量', '托儿所的量和质'],
+]
+316 = [
+  # The transcript has l_{1B}^{-B}; the scan prints l_{1B}^{1-B}.
+  ['l_\{1B\}\^\{-B\}', 'l_{1B}^{1-B}'],
+]
+317 = [
+  # The transcript has numerate; the scan prints numeraire.
+  ['计价标准（numerate）', '计价标准（numeraire）'],
+]
+321 = [
+  # The transcript has 值得注意的是; the scan prints 值得注目的是.
+  ['值得注意的是', '值得注目的是'],
+]
+322 = [
+  # The transcript has 两个方案; the scan prints 两个方策.
+  ['两个方案', '两个方策'],
+]
+329 = [
+  # The transcript has 二十世纪90年代制造业的负增长; the scan prints 20世纪90年代的制造业的负增长.
+  ['## 3.2 二十世纪90年代制造业的负增长', '## 3.2 20世纪90年代的制造业的负增长'],
+  # The transcript has Productivity Database; the scan prints Productivity Data-base.
+  ['Productivity Database', 'Productivity Data-base'],
+]
+333 = [
+  # The transcript has 通信业的关系数值; the scan prints 通信业的相关系数值.
+  ['通信业的关系数值', '通信业的相关系数值'],
+]
+345 = [
+  # Scan typo: the scan prints TomiuraEiichi; meant Tomiura Eiichi.
+  ['TomiuraEiichi', 'Tomiura Eiichi'],
+]
+
+[transcript_fixups]
+# These run before the cleaner, so they reach captions, figure notes and footnotes.
+31 = [
+  # The transcript has NIES; the scan prints NIEs.
+  ['亚洲 NIES', '亚洲 NIEs'],
+]
+39 = [
+  # The transcript omits the note above the caption of 图 1-3.
+  ['图 1-3 进口渗透率和就业变化的行业间不均衡', "注：使用工业统计和贸易统计数据。重新登载富浦（2002）的图2、3。\\n\\n图 1-3 进口渗透率和就业变化的行业间不均衡"],
+  # The transcript has 相比）①; the scan prints 相比①）.
+  ['相比）①', '相比①）'],
+]
+48 = [
+  # Scan typo: the scan prints 贸易理模型; meant 贸易理论模型.
+  ['贸易模型的说服力', '贸易理论模型的说服力'],
+]
+49 = [
+  # The transcript has 受到日本收入差距小及统计数据限制所致; the scan prints 受到日本收入差距小的时期较长和统计数据的限制所致.
+  ['受到日本收入差距小及统计数据限制所致（工业统计废除了生产和非生产劳动的分类）', '受到日本收入差距小的时期较长和统计数据的限制（在工业统计中废除了生产和非生产劳动的分类）所致'],
+  # The scan puts the note above the caption of 图 1-6.
+  ["(图 1-6 薪酬水平的地区性变化)\n\n(注：全部都道府县按薪酬水平顺序排列.*?重新制作。)", '\2\n\n\1'],
+]
+78 = [
+  # The scan prints circled marks ①②③ in the footnote; the transcript has （1）（2）（3）.
+  ['（1）未规定必须回答的统计', '①未规定必须回答的统计'],
+  ['（2）经营不动产业', '②经营不动产业'],
+  ['（3）仅以外资比例', '③仅以外资比例'],
+]
+79 = [
+  # The transcript has broken tag </the>; the scan prints </th>.
+  ['</the>', '</th>'],
+]
+109 = [
+  # Scan typo: the scan prints SemiconductorIndustryAssociation; meant Semiconductor Industry Association.
+  ['SemiconductorIndustryAssociation', 'Semiconductor Industry Association'],
+]
+152 = [
+  # The transcript has extra 在; the scan prints 2003年11月(合同调整组).
+  ['2003年11月在<br>\(合同调整组\)', '2003年11月<br>(合同调整组)'],
+]
+167 = [
+  # The transcript has 根据各货币在欧洲货币市场中以外国货币结算负债的份额; the scan prints 根据各货币份额（欧洲货币市场中以外国货币结算负债的份额）.
+  ['根据各货币在欧洲货币市场中以外国货币结算负债的份额①', '根据各货币份额（欧洲货币市场中以外国货币结算负债的份额①）'],
+]
+184 = [
+  # The transcript has zujij; the scan prints zuiji.
+  ['zujij', 'zuiji'],
+]
+205 = [
+  # The scan prints circled marks ①②③ in the table cells; the transcript has (1)(2)(3).
+  ['• 对外方面，\(1\) 经常收支', '• 对外方面，①经常收支'],
+  ['\(2\) 短期债务', '②短期债务'],
+  ['\(3\) 外汇储备的增加', '③外汇储备的增加'],
+  ['优先政策课题：\(1\) 加速处理', '优先政策课题：①加速处理'],
+  ['policy）、\(2\) 强化银行', 'policy）、②强化银行'],
+  ['规制、\(3\) 改善风险管理', '规制、③改善风险管理'],
+]
+207 = [
+  # The scan prints 5 bullets for 援助合并 row 对银行制度的信任; the transcript has 6.
+  ['(<th>援助合并</th>\s*<th>• • •</th>\s*<th>• • • • •</th>\s*<th>• • •</th>\s*)<th>• • • • • •</th>', '\1<th>• • • • •</th>'],
+  # The scan prints 4 bullets for 资本重组 row 财政成本; the transcript has 5.
+  ['(<th>资本重组</th>\s*<th>• •</th>\s*)<th>• • • • •</th>', '\1<th>• • • •</th>'],
+  # The scan prints 3 bullets for 事业重组 row 对银行制度的信任; the transcript has 4.
+  ['(<th>事业重组</th>\s*<th>• •</th>\s*<th>• • • • • •</th>\s*<th>• • • • •</th>\s*)<th>• • • •</th>', '\1<th>• • •</th>'],
+  # The scan prints 6 bullets for 清算·pay off row 对经营改善的激励; the transcript has 5.
+  ['(<th>清算·pay off</th>\s*<th>• • • • •</th>\s*<th>• • •</th>\s*)<th>• • • • •</th>', '\1<th>• • • • • •</th>'],
+]
+208 = [
+  # Note 2 binds to enumeration ② in footnote 1, so give the call and note line mark ⑳ (scanned-books.md).
+  ['这被认为是丧失日系客户所致①②。', '这被认为是丧失日系客户所致①⑳。'],
+  ['(?m)^② 即使是在全面缩小', '⑳ 即使是在全面缩小'],
+  # The scan prints circled marks ①②③ in the footnote; the transcript has （1）（2）（3）.
+  ['壁垒有：（1）不仅是', '壁垒有：①不仅是'],
+  ['可能性高；（2）在海外', '可能性高；②在海外'],
+  ['变难；（3）作为参与', '变难；③作为参与'],
+]
+212 = [
+  # The scan prints 要因; the transcript has 原因.
+  ['导致日系银行收益性低的原因有', '导致日系银行收益性低的要因有'],
+  # The scan prints circled marks ①②③ in the footnote; the transcript has （1）（2）（3）.
+  ['：（1）日系银行单纯依存于法人融资，利润空间小；（2）来自投资银行业务及咨询的费用收入低；（3）不根据借款方风险状况决定贷款利率', '：①日系银行单纯依存于法人融资，利润空间小；②来自投资银行业务及咨询的费用收入低；③不根据借款方风险状况决定贷款利率'],
+]
+227 = [
+  # The transcript has 日美元日—美元委员会; the scan prints 日美日元—美元委员会.
+  ['日美元日—美元委员会', '日美日元—美元委员会'],
+]
+232 = [
+  # The transcript has 成大于预; the scan prints 平成大干预.
+  ['成大于预', '平成大干预'],
+  # The transcript has 深层; the scan prints 深尾.
+  ['深层', '深尾'],
+]
+238 = [
+  # The transcript footnote omits 的, 由此, and adds an extra comma; the scan prints the complete phrase.
+  ['根据日本储蓄率上升、交易条件改善（原油价格下跌）、美国长期利率居高不下（导致资本向海外流出）等因素，可以说明在20世纪80年代后半期日元升值形势下', '根据日本的储蓄率上升、交易条件的改善（原油价格的下跌）、美国长期利率的居高不下（由此导致资本向海外流出）等因素可以说明在20世纪80年代后半期日元升值的形势下'],
+]
+242 = [
+  # The transcript has 值得注日的事情; the scan prints 值得注目的事情.
+  ['值得注日的事情', '值得注目的事情'],
+]
+282 = [
+  # False negative (the page check missed it): the transcript has Pi^{\text{买}} and Pi^{\text{卖}}; the scan prints Pi^¥ and Pi^$.
+  ['\\text\{买\}', '¥'],
+  ['\\text\{卖\}', '\$'],
+]
+287 = [
+  # Scan typo: the scan prints FinanclaStatistlcs; meant Financial Statistics.
+  ['International FinanclaStatistlcs', 'International Financial Statistics'],
+]
+290 = [
+  # The transcript has \alpha_u and P_u; the scan prints \alpha_{it} and P_{it}.
+  ['\\alpha_u', '\alpha_{it}'],
+  ['P_u\^\{ex\}', 'P_{it}^{ex}'],
+  ['P_\{u\}', 'P_{it}'],
+  ['P_u', 'P_{it}'],
+]
+320 = [
+  # The transcript has malformed <th 780</th>; the scan prints <th>780</th>.
+  ['<th 780</th>', '<th>780</th>'],
+]
+340 = [
+  # False negative (the page check missed it): the transcript has 从业者; the scan prints 就业者.
+  ['初中及高中毕业从业者薪酬同比', '初中及高中毕业就业者薪酬同比'],
+]
+341 = [
+  # False negative (the page check missed it): the transcript has extra 的; the scan prints 薪酬同比.
+  ['大学毕业就业者的薪酬的同比', '大学毕业就业者的薪酬同比'],
+]
+343 = [
+  # False negative (the page check missed it): the scan prints duplicated 薪酬薪酬增长率 (scan typo); meant 薪酬增长率.
+  ['薪酬薪酬增长率', '薪酬增长率'],
+  # The transcript has unescaped asterisks parsed as markdown emphasis; the scan prints ***, **, *.
+  ['\*\*\*为显著水平1%，\*\*为显著水平5%，\*为显著水平10%。', '\*\*\*为显著水平1%，\*\*为显著水平5%，\*为显著水平10%。'],
+]
 
 [hooks]
 heading_hook = 'intl_econ_heading_hook'

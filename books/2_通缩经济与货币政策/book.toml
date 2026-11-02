@@ -1,0 +1,417 @@
+slug = '2'
+title = '通缩经济与货币政策'
+author = '（日本）内阁府经济社会综合研究所'
+publisher = '中国金融出版社'
+year = 2022
+lang = 'zh'
+domain = 'economics'
+aliases = ['2', '2 通缩经济与货币政策', '2_通缩经济与货币政策']
+source_pdf = '2 通缩经济与货币政策.pdf'
+
+chapters = [
+  { number = 0, title = '作者简介', start_page = 4, end_page = 5 },
+  { number = 0, title = '中文版前言', start_page = 6, end_page = 7 },
+  { number = 0, title = '中文版序言', start_page = 8, end_page = 15 },
+  { number = 0, title = '序 通缩经济与货币政策', start_page = 16, end_page = 27 },
+  { number = 1, title = '根据泡沫形成与破灭的经验考察货币政策框架', start_page = 32, end_page = 58, label = '1' },
+  { number = 2, title = '全球化与通货膨胀', start_page = 59, end_page = 96, label = '2' },
+  { number = 3, title = '“零利率约束”再思考', start_page = 97, end_page = 126, label = '3' },
+  { number = 4, title = '通货紧缩与货币政策', start_page = 127, end_page = 155, label = '4' },
+  { number = 5, title = '通货紧缩期的价格走势与货币的作用', start_page = 156, end_page = 172, label = '5' },
+  { number = 6, title = '债务—通货紧缩理论与通货紧缩心理预期', start_page = 173, end_page = 194, label = '6' },
+  { number = 7, title = '泡沫破灭后的金融市场动荡与货币政策', start_page = 195, end_page = 223, label = '7' },
+  { number = 8, title = '量化宽松政策改善经济的传导机制', start_page = 224, end_page = 260, label = '8' },
+  { number = 9, title = '四分之一世纪的价格波动', start_page = 261, end_page = 274, label = '9' },
+  { number = 10, title = '日本消费者物价指数的各种特性与货币政策运行', start_page = 275, end_page = 317, label = '10' },
+  { number = 11, title = '互联网泡沫破灭后的美国货币政策', start_page = 318, end_page = 344, label = '11' },
+  { number = 12, title = '泡沫—通货紧缩时期的日本货币政策', start_page = 345, end_page = 376, label = '12' },
+  { number = 0, title = '后记', start_page = 377, end_page = 377 },
+]
+
+running_header_regexes = [
+  '^(?:#+\s*|=+\s*)?\d{1,3}\s+通缩经济与货币政策.*$',
+  '^(?:#+\s*|=+\s*)?通缩经济与货币政策\s+\d{1,3}.*$',
+  '^(?:#+\s*|=+\s*)?\d{1,2}\s+(?:根据泡沫形成与破灭的经验考察货币政策框架|全球化与通货膨胀|“?零利率约束”?再思考|通货紧缩与货币政策|通货紧缩期的价格走势与货币的作用|债务[—\-]+通货紧缩理论与通货紧缩心理预期|泡沫破灭后的金融市场动荡与货币政策|量化宽松政策改善经济的传导机制|四分之一世纪的价格波动|日本消费者物价指数的各种特性与货币政策运行|互联网泡沫破灭后的美国货币政策|泡沫[—\-]+通货紧缩时期的日本货币政策)(?:\s+\d{1,3})?$',
+  '^(?:#+\s*|=+\s*)?(?:根据泡沫形成与破灭的经验考察货币政策框架|全球化与通货膨胀|“?零利率约束”?再思考|通货紧缩与货币政策|通货紧缩期的价格走势与货币的作用|债务[—\-]+通货紧缩理论与通货紧缩心理预期|泡沫破灭后的金融市场动荡与货币政策|量化宽松政策改善经济的传导机制|四分之一世纪的价格波动|日本消费者物价指数的各种特性与货币政策运行|互联网泡沫破灭后的美国货币政策|泡沫[—\-]+通货紧缩时期的日本货币政策)\s+\d{1,3}$',
+  '^(?:#+\s*|=+\s*)?序\s+通缩经济与货币政策(?:\s+\d{1,3})?$',
+  '^(?:#+\s*|=+\s*)?中文版序言(?:\s+\d{1,3})?$',
+  '^(?:#+\s*|=+\s*)?中文版前言(?:\s+\d{1,3})?$',
+  '^(?:#+\s*|=+\s*)?作者简介(?:\s+\d{1,3})?$',
+  '^(?:#+\s*|=+\s*)?后记(?:\s+\d{1,3})?$',
+  '^(?:#+\s*|=+\s*)?目录(?:\s+\d{1,3})?$',
+]
+
+footnote_reset = 'chapter'
+cross_references = true
+chapter_heading = '{title}'
+
+typst_front_matter = '''
+@STYLE:japan_economy@
+#show heading.where(level: 1): it => { counter(footnote).update(0); it }
+#show heading.where(level: 2): set heading(numbering: (..n) => str(n.pos().at(1)) + "\u{2002}")
+#show heading.where(level: 3): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
+#show emph: set text(font: ("Source Serif 4", "Songti SC", "STSong"))
+'''
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
+caption_format = '图 {chapter}-{number}'
+svg_single_pct = 100
+svg_scan_text_width = 0.78
+pair_figures = false
+note_before_caption = true
+png_single_divisor = 2880
+png_single_range = [50, 100]
+png_max_height_ratio = 1.3
+
+[transcript_fixups]
+101 = [
+  # Scan typo: the scan prints UedaandUgai in footnote 3; meant Ueda and Ugai.
+  ['UedaandUgai', 'Ueda and Ugai'],
+]
+# The transcript is missing notes under 图 3-7; the scan prints 注：1. 企业的预期增长率... 2. 短期实际利率...
+110 = [
+  ['（资料来源：白川，2006）', """
+（资料来源：白川，2006）
+
+注：1. 企业的预期增长率（见《企业行为问卷调查》〈内阁府经济社会综合研究所〉）利用线性插值进行了补全。
+
+2. 短期实际利率=无担保隔夜拆借利率-CPI （剔除生鲜食品） 的同比变化率。"""],
+]
+# The transcript has 二人及以上户家庭; the scan prints 二人及二人以上户家庭.
+180 = [
+  ['涵盖了二人及以上户家庭', '涵盖了二人及二人以上户家庭'],
+]
+# The transcript has 维; the scan prints 为.
+211 = [
+  ['术语维“污名效应”', '术语为“污名效应”'],
+]
+# The transcript is missing the note under 图 8-21; the scan prints 注：基础货币为平均余额，季节调整值，准备率未调整.
+255 = [
+  ['（资料来源：日本央行《金融经济统计月报》）', """
+（资料来源：日本央行《金融经济统计月报》）
+
+注：基础货币为平均余额，季节调整值，准备率未调整"""],
+]
+# The transcript has 白璟; the scan prints 白塚.
+315 = [
+  ['白璟（1997）', '白塚（1997）'],
+]
+
+[page_fixups]
+# The transcript has 都经历很大波动; the scan prints 都经历了很大波动.
+6 = [
+  ['都经历很大波动', '都经历了很大波动'],
+]
+# The transcript has 应对局; the scan prints 应对时局.
+8 = [
+  ['为他提供应对局的政策建议', '为他提供应对时局的政策建议'],
+]
+# The transcript has 必不可少; the scan prints 必不可免.
+12 = [
+  ['必不可少', '必不可免'],
+]
+# The transcript has 必不可少; the scan prints 必不可免.
+14 = [
+  ['必不可少', '必不可免'],
+]
+# The transcript has Kyldland; the scan prints Kydland.
+17 = [
+  ['Kyldland', 'Kydland'],
+]
+# The transcript has 完全可行①; the scan prints 完全可行的①.
+24 = [
+  ['完全可行①', '完全可行的①'],
+]
+# The transcript has 2 提出问题; the scan prints 2 问题.
+28 = [
+  ["2\\ 提出问题", '2 问题'],
+]
+# The transcript has entries on p29; the scan prints them on p30.
+29 = [
+  ['(?m)^7 基本估算[^\n]*\n', ''],
+  ['(?m)^8 非对称效应的研究[^\n]*\n', ''],
+  ['(?m)^9 结束语[^\n]*\n', ''],
+]
+# The transcript is missing entries on p30; the scan prints them on p30.
+# The transcript has 量化宽松政策改善经济传导机制; the scan prints 量化宽松政策改善经济的传导机制.
+# The transcript has 2000-2005; the scan prints 2000—2005.
+30 = [
+  ['(?m)(?=### 8 量化宽松)', """
+7 基本估算 .................................................... 187
+8 非对称效应的研究 ............................................ 188
+9 结束语 ...................................................... 190
+
+"""],
+  ['量化宽松政策改善经济传导机制', '量化宽松政策改善经济的传导机制'],
+  ["2000\\-2005", '2000—2005'],
+]
+# The transcript has 当前标准框架; the scan prints - 当前标准框架.
+35 = [
+  ['当前标准框架存在的最大问题是', '- 当前标准框架存在的最大问题是'],
+]
+# The transcript has 相关点; the scan prints 相交点.
+47 = [
+  ['在应对金融失衡方面的相关点。', '在应对金融失衡方面的相交点。'],
+]
+# Scan typo: the scan prints NewYork; meant New York.
+56 = [
+  ['NewYork', 'New York'],
+]
+# The transcript has theFederal; the scan prints the Federal.
+58 = [
+  ['theFederal', 'the Federal'],
+]
+# The transcript has 年度影响，; the scan prints 年度影响；.
+# The transcript has βx; the scan prints β×.
+# The transcript has Gap_{t-1}^p; the scan prints Gap_{t-1}^D.
+63 = [
+  ['年度影响，', '年度影响；'],
+  ['βx', 'β×'],
+  ["Gap_\\{t\\-1\\}\\^p", 'Gap_{t-1}^D'],
+]
+# Baseline fixup: remove spurious heading block
+69 = [
+  ['(?s)通货膨胀率：CPI.*（横轴表示估算起始期，年）', ''],
+]
+# The transcript has 90年代末能入围前35; the scan prints 90年代未能入围前35.
+71 = [
+  ['90年代末能入围前35', '90年代未能入围前35'],
+]
+# Baseline fixup: table cell alignment
+72 = [
+  ["(?m)^(\\|  \\| BIS \\|  \\| FRB \\|  \\|)  \\|", "\\1 ⁠ |"],
+]
+# Baseline fixup: table cell alignment
+# The transcript has \Phi \mathrm{GAP}_t^{D}; the scan prints \Phi \mathrm{GAP}_t^{G}.
+73 = [
+  ["(?m)^(\\|  \\| BIS \\|  \\| FRB \\|  \\|)  \\|", "\\1 ⁠ |"],
+  ["\\\\beta\\ \\\\mathrm\\{GAP\\}_t\\^\\{D\\}\\ \\+\\ \\\\Phi\\ \\\\mathrm\\{GAP\\}_t\\^\\{D\\}", "\\beta \\mathrm{GAP}_t^{D} + \\Phi \\mathrm{GAP}_t^{G}"],
+]
+# Baseline fixup: table cell alignment
+74 = [
+  ["(?m)^(\\|  \\| FRB \\|  \\|)  \\|", "\\1 ⁠ |"],
+]
+# The transcript has 对日本的一些进一步研究; the scan prints 对日本的一些进一步研究①.
+# The transcript has \theta_t; the scan prints \theta_i.
+# The transcript has \theta_t; the scan prints \theta_i.
+75 = [
+  ["\\#\\#\\#\\ 4\\.3\\ 对日本的一些进一步研究", '### 4.3 对日本的一些进一步研究①'],
+  ["\\\\theta_t\\^0", "\\theta_i^0"],
+  ["\\\\theta_t\\^1", "\\theta_i^1"],
+]
+# Baseline fixup: table cell alignment
+76 = [
+  ["(?m)^(\\|  \\| FRB \\|  \\|  \\|  \\|)  \\|", "\\1 ⁠ |"],
+]
+# The transcript has v/v 对数变化 in 表 2-7; the scan prints y/y 对数变化.
+82 = [
+  ['是 v/v 对数变化', '是 y/y 对数变化'],
+]
+# Baseline fixup: table cell alignment
+99 = [
+  ["(?m)^(\\|  \\| 消费者物价指数<br>（剔除生鲜食品） \\| 同比<br>（%） \\|)  \\|", "\\1 ⁠ |"],
+]
+# The transcript has 第一个要素; the scan prints - 第一个要素.
+100 = [
+  ['第一个要素：', '- 第一个要素：'],
+]
+# The transcript has 浏; the scan prints 渕.
+101 = [
+  ['浏，2007', '渕，2007'],
+]
+# The text 3-3、表 3-2）... belongs on page 105, not page 104.
+104 = [
+  ["\\ 3\\-3、表\\ 3\\-2）。总之，有必要明确哪个期限的利率降为零后可被视为“达到零利率下限”。", ''],
+]
+# The text 3-3、表 3-2）... belongs on page 105, not page 104.
+105 = [
+  ["(?m)^(b\\. 无风险利率)", """
+3-3、表 3-2）。总之，有必要明确哪个期限的利率降为零后可被视为“达到零利率下限”。
+
+\\1"""],
+]
+# The transcript has 更加自然。（见第五节的讨论） 6 节）; the scan prints 更加自然（见第 6 节）.
+106 = [
+  ["更加自然。（见第五节的讨论）\\ 6\\ 节）", '更加自然（见第 6 节）'],
+]
+# Scan typo: the scan prints Odaand; meant Oda and.
+111 = [
+  ['Odaand', 'Oda and'],
+]
+# The transcript has and; the scan prints 和.
+112 = [
+  ["伊弉诺景气\\ and\\ 泡沫经济", '伊弉诺景气和泡沫经济'],
+]
+# The transcript has Nineteenth; the scan prints Ninetieth.
+126 = [
+  ["Nineteenth\\ Birthday", 'Ninetieth Birthday'],
+]
+# The transcript has \approx; the scan prints \cong.
+142 = [
+  ["\\\\log\\(1\\+x\\)\\ \\\\approx\\ x", "\\log(1+x) \\cong x"],
+]
+# The transcript has 1/p; the scan prints 1/\rho.
+# The transcript has \frac{\Pi = (P^* - P)}{P}; the scan prints \Pi = \frac{(P^* - P)}{P}.
+145 = [
+  ["\\\\frac\\{1\\}\\{p\\}", "\\frac{1}{\\rho}"],
+  ["\\\\frac\\{\\\\Pi\\ =\\ \\(P\\^\\*\\ \\-\\ P\\)\\}\\{P\\}", "\\Pi = \\frac{(P^* - P)}{P}"],
+]
+# The transcript has 1/p%; the scan prints 1/\rho%.
+148 = [
+  ['1/p%', "1/\\rho%"],
+]
+# The transcript has 货币流动论; the scan prints 货币数量论.
+149 = [
+  ['货币流动论', '货币数量论'],
+]
+# Scan typo: the scan prints andH.; meant and H.
+154 = [
+  ['andH\.', 'and H.'],
+]
+# The transcript has his × Economics; the scan prints his *Economics in Practice*.
+155 = [
+  ["his\\ ×\\ Economics\\ in\\ Practice\\*", 'his *Economics in Practice*'],
+]
+# The transcript has βr (滞后=2) on row 3 of 表 5-3 continuation; the scan prints βy (滞后=2).
+164 = [
+  ['\| βr \(滞后=2\) \| 0\.647', '| βy (滞后=2) | 0.647'],
+]
+# The transcript merges F-statistics and p-values onto single lines in 表 5-4; the scan prints p-values on their own lines below each F-statistic.
+165 = [
+  ['\| \(滞后=2\) \| 4\.82\\\*\\\*\(0\.004\) \| 3\.81\\\*\(0\.013\) \| 2\.04\(0\.11\) \| 1\.68\(0\.18\) \|', "| (滞后=2) | 4.82\\*\\* | 3.81\\* | 2.04 | 1.68 |\n|  | (0.004) | (0.013) | (0.11) | (0.18) |"],
+  ['\| \(滞后=4\) \| 2\.95\\\*\(0\.018\) \| 2\.58\\\*\(0\.033\) \| 2\.11†\(0\.072\) \| 1\.83\(0\.11\) \|', "| (滞后=4) | 2.95\\* | 2.58\\* | 2.11† | 1.83 |\n|  | (0.018) | (0.033) | (0.072) | (0.11) |"],
+  ['\| \(滞后=2\) \| 3\.00\\\*\(0\.035\) \| 2\.31†\(0\.082\) \| 1\.10\(0\.35\) \| 0\.94\(0\.42\) \|', "| (滞后=2) | 3.00\\* | 2.31† | 1.10 | 0.94 |\n|  | (0.035) | (0.082) | (0.35) | (0.42) |"],
+  ['\| \(滞后=4\) \| 2\.33†\(0\.051\) \| 2\.03†\(0\.083\) \| 1\.81\(0\.12\) \| 1\.60\(0\.17\) \|', "| (滞后=4) | 2.33† | 2.03† | 1.81 | 1.60 |\n|  | (0.051) | (0.083) | (0.12) | (0.17) |"],
+]
+# Scan typo: the scan prints Univesitiy; meant University.
+172 = [
+  ["Kobe\\ Univesity", 'Kobe University'],
+]
+# Scan typo: the scan prints kim; meant Kim.
+183 = [
+  ["kim\\ 和\\ Nelson（1998）", 'Kim 和 Nelson（1998）'],
+]
+# Baseline fixup: table cell alignment
+# The transcript has mincer; the scan prints Mincer.
+185 = [
+  ["(?m)^(\\|  \\|  \\| F 值 \\| P 值 \\|)  \\|  \\|", "\\1 ⁠ | ⁠ |"],
+  ["mincer\\ 和\\ Zarnowitz（1969）", 'Mincer 和 Zarnowitz（1969）'],
+]
+# Prevent source_numbers from resetting standalone sub-table heading （4）向存款保险机构贷款 to (1).
+204 = [
+  ['（4）向存款保险机构贷款', "（4）\u2060向存款保险机构贷款"],
+]
+# The transcript has 最低值为负的情 值与最低值始终接近0%; the scan prints 加权平均值与最低值始终接近 0%.
+216 = [
+  ["这一时期，银行间拆借市场利率的最低值为负的情\\ 值与最低值始终接近0%", '这一时期，银行间拆借市场利率的加权平均值与最低值始终接近 0%'],
+]
+# The transcript duplicates log（$DSpread_{t-1}$） on row 3 of 表 7-5; the scan prints log（$USpread_{t-1}$）.
+220 = [
+  ['\| log（\$DSpread_\{t-1\}\$） \| -0\.039', '| log（$USpread_{t-1}$） | -0.039'],
+]
+# The transcript has Mashkin; the scan prints Mishkin.
+226 = [
+  ['Mashkin（1995）', 'Mishkin（1995）'],
+]
+# The transcript has CCPI; the scan prints CGPI.
+227 = [
+  ['CCPI变化率和PPI变化率之差', 'CGPI变化率和PPI变化率之差'],
+]
+# Scan typo: the scan prints Barnanke; meant Bernanke.
+229 = [
+  ['Barnanke', 'Bernanke'],
+]
+# Baseline fixup: replace duplicated table with figure
+251 = [
+  ["(?s)\\A.*\\Z", '![](figures/fig_8-20-a.png)'],
+]
+# Baseline fixup: replace duplicated table with figure
+252 = [
+  ["(?s)\\A.*\\Z", '![](figures/fig_8-20-b.png)'],
+]
+# The transcript has —— (2000),; the scan prints —— (2000) ;.
+259 = [
+  ["——\\ \\(2000\\),", '—— (2000) ;'],
+]
+# Scan typo: the scan prints vanGoethem; meant van Goethem.
+272 = [
+  ['vanGoethem', 'van Goethem'],
+]
+# The transcript has 正确定管理; the scan prints 正确管理.
+273 = [
+  ['正确定管理', '正确管理'],
+]
+# Scan typo: the scan prints vanGoethem; meant van Goethem.
+274 = [
+  ['vanGoethem', 'van Goethem'],
+]
+# Baseline fixup: table cell alignment
+280 = [
+  ["(?m)(\\| C-CPI-U \\|)  \\|", "\\1 ⁠ |"],
+]
+# The transcript has 黄鳝金枪鱼; the scan prints 黄鳍金枪鱼.
+282 = [
+  ['黄鳝金枪鱼', '黄鳍金枪鱼'],
+]
+# The transcript has misaligned header cells; the scan prints | |  | 新车 |  |  |  | 电脑 |  |  |  |.
+289 = [
+  ["\\|\\ \\|\\ 新车\\ \\|\\ \\ \\|\\ \\ \\|\\ \\ \\|\\ \\ \\|\\ 电脑\\ \\|\\ \\ \\|\\ \\ \\|\\ \\ \\|", '| |  | 新车 |  |  |  | 电脑 |  |  |  |'],
+]
+# The transcript has CCPI; the scan prints CGPI.
+298 = [
+  ["表\\ 10\\-8\\ CCPI、CPI\\ 共同品类同比价格波动情况", '表 10-8 CGPI、CPI 共同品类同比价格波动情况'],
+]
+# The transcript has 几手; the scan prints 几乎.
+315 = [
+  ['采用了几手相同', '采用了几乎相同'],
+]
+# The transcript has 实施更加强息; the scan prints 实施更强加息.
+321 = [
+  ['实施更加强息', '实施更强加息'],
+]
+# Scan typo: the scan prints u-nites; meant units.
+338 = [
+  ["multi\\ family\\ un\\-\\ nites", 'multi family units'],
+]
+# Scan typo: the scan prints SteveKamin; meant Steve Kamin.
+344 = [
+  ['SteveKamin', 'Steve Kamin'],
+]
+# Scan typo: the scan prints P_T = P_T^{\theta_T} \cdot P_N^{\theta_N}; meant P = P_T^{\theta_T} \cdot P_N^{\theta_N}.
+361 = [
+  ['P_T = P_T\^\{\\theta_T\}', 'P = P_T^{\theta_T}'],
+]
+# Scan typo: the scan prints pr = \delta_1 and p = \theta_T \cdot p_r; meant p_T = \delta_1 and p = \theta_T \cdot p_T.
+362 = [
+  ['pr = \\delta_1', 'p_T = \delta_1'],
+  ['p_r \+ \\theta_N', 'p_T + \theta_N'],
+]
+# Scan typo: the scan prints \frac{P_2^*}{P^* 2}; meant \frac{P_2^*}{P^*}.
+365 = [
+  ['\\frac\{P_2\^\*\}\{P\^\* 2\}', '\frac{P_2^*}{P^*}'],
+]
+# Scan typo: the scan prints p_r + \theta_N; meant p_T + \theta_N.
+# The transcript has p_x; the scan prints p.
+373 = [
+  ['p_r \+ \\theta_N', 'p_T + \theta_N'],
+  ["p_x\\ \\-\\ p_T", 'p - p_T'],
+]
+# Scan typo: the scan prints (\delta_2 - \delta_1^*) \cdot p_2 and mismatched [ ... )); meant (\delta_2 - \delta_2^*) \cdot p_2 and [ ... )].
+374 = [
+  ['\(\\delta_2 - \\delta_1\^\*\) \\cdot p_2', '(\delta_2 - \delta_2^*) \cdot p_2'],
+  ['\)\)\$\$', ')]$$'],
+]
+# The transcript has 勤学理论; the scan prints 動学理論.
+# The transcript has TheJapan; the scan prints The Japan.
+375 = [
+  ['勤学理論', '動学理論'],
+  ["TheJapan\\-U\\.\\ S\\.", 'The Japan-U. S.'],
+]
+# The transcript has baak; the scan prints baaak.
+376 = [
+  ["It’s\\ baak:", 'It’s baaak:'],
+]
+
+[editions.monograph]
+summary = '12 chapters, monochrome academic monograph'
