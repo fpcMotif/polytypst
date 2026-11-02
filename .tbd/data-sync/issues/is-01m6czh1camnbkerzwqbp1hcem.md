@@ -5,7 +5,7 @@ title: Deepen page check into a src/page_check module behind PageCheck(book)
 kind: task
 status: in_progress
 priority: 2
-version: 3
+version: 4
 delegate: claude-code@f
 labels:
   - architecture
@@ -13,7 +13,7 @@ dependencies: []
 hold: null
 hold_until: null
 created_at: 2026-11-02T01:56:03.590Z
-updated_at: 2026-11-02T02:32:04.333Z
+updated_at: 2026-11-02T02:33:38.393Z
 started_at: 2026-11-02T01:57:10.091Z
 ---
 Move scripts/page_check.py, book_check.py, render_check.py and scan_sheet.py (branch `mixed`) into a deep `src/page_check/` module behind `PageCheck(book)`, reached through `polytypst page-check …`.
@@ -36,4 +36,4 @@ Related: pt-x20z (BookPaths) and pt-un3g (book.paths). Use book.paths if it has 
 
 ## Notes
 
-Built and described as jj change okwwrwxq (bookmark page-check-module), with parent tvuslvko (mixed-review wip). Code, tests and docs are done. Book 4 parity matches the old scripts. Push waits on the user's decision about publishing the wip parent. Rename output/page_check/1-6 to book keys when this merges into mixed.
+Pushed: mixed-review 5b001ee2 and page-check-module c6203759 on origin. Decided: when page-check-module merges into mixed, rename output/page_check/1-6 in the mixed checkout to the full book keys (1_宏观经济与产业结构 … 6_劳动力市场与收入分配) in the same step, then close this bead.
