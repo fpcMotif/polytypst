@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 import pymupdf
@@ -242,3 +243,32 @@ def test_an_ocr_space_between_inline_math_and_its_hyphenated_word_is_removed():
     assert "$sigma$-algebra" in out
     assert "$C^oo$-function" in out
     assert latex_safe_markdown("An $L^p$ -norm, and $x$ - $y$.") == "An $L^p$-norm, and $x$ - $y$."
+
+
+def test_heading_rules_are_unhyphenated_and_sticky():
+    from polytypst.compiler.presets import resolve_composition
+    rules = MonographCompiler(replace(KODAIRA_SPEC, theorem_layout=True)).composition.typst_heading_rules()
+    assert "#show heading: set block(sticky: true)" in rules
+    assert "#show heading: set text(hyphenate: false)" in rules
+    assert 'style: "italic"' not in rules
+    rules_ams = resolve_composition(publisher="ams", domain="math", theorem_layout=True).typst_heading_rules()
+    assert "CHAPTER #counter(heading).display()" in rules_ams
+    assert "CHAPTER #counter(heading).display()" not in resolve_composition(publisher="ams", domain="math").typst_heading_rules()
+
+
+def test_theorem_head_period_stripped_and_statement_italicized():
+    compiler = MonographCompiler(replace(KODAIRA_SPEC, theorem_layout=True))
+    raw = "### 1.2 THEOREM (Monotone class theorem).\n\nLet Omega be a set.\n\nPROOF. Let S be the set."
+    out = compiler.format_typst(raw)
+    assert "=== 1.2 THEOREM (Monotone class theorem)" in out
+    assert "=== 1.2 THEOREM (Monotone class theorem)." not in out
+    assert "#emph[Let Omega be a set.]" in out
+    assert "#emph[Proof.]" in out
+    assert "#emph[Let Omega be a set.]" not in MonographCompiler(KODAIRA_SPEC).format_typst(raw)
+
+
+def test_glued_strong_theorem_head_splits_onto_its_own_paragraph():
+    compiler = MonographCompiler(replace(KODAIRA_SPEC, theorem_layout=True))
+    raw = "**1.6 REMARKS.** (1) By Fatou's lemma."
+    out = compiler.format_typst(raw)
+    assert "#strong[1.6 REMARKS]\n\n#item-break\n(1) By Fatou's lemma." in out

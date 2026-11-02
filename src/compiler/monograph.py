@@ -35,10 +35,13 @@ from .diagrams import (
 from .page_cleaner import Figure, PageCleaner, has_circled_footnotes
 from .presets import CompositionConfig, domain_profile, resolve_composition
 from .source_numbers import LATEX, link_citations, link_references, number_chapter
+from .source_numbers import LATEX_LAYOUT_RULES as SOURCE_NUMBER_LATEX_LAYOUT_RULES
 from .source_numbers import LATEX_RULES as SOURCE_NUMBER_LATEX_RULES
 from .source_numbers import TYPST_EQUATION_LAYOUT as SOURCE_EQUATION_LAYOUT
+from .source_numbers import TYPST_LAYOUT_RULES as SOURCE_NUMBER_LAYOUT_RULES
 from .source_numbers import TYPST_RULES as SOURCE_NUMBER_RULES
 from .source_numbers import labels as source_labels
+from .tables import continued_table_split, layout_tables, merge_continued_tables
 from .typst_math import (
     clean_margin_and_inline_math,
     compile_typst,
@@ -135,6 +138,8 @@ class MonographSpec:
     drop_line_regexes: tuple[str, ...] = ()
     normalize_headings: bool = True
     theorem_heads_upper: bool = False
+    theorem_layout: bool = False
+    merge_continued_tables: bool = False
     footnote_style: Literal["", "superscript", "paren", "parenthesized", "circled", "symbol"] = ""
     footnote_marks: tuple[str, ...] = ()
     footnote_numbering: str = "1"
@@ -537,7 +542,18 @@ def split_first_paragraph(text: str) -> tuple[str, str]:
 
 
 
-def latex_safe_markdown(text: str) -> str:
+def _bare_title(title: str) -> str:
+    return re.sub(r"^\d+\.?\s*", "", clean_margin_and_inline_math(title))
+
+
+def _proof_of_head(m: re.Match[str], open_: str, close: str) -> str:
+    tail = (m.group(2) or "").strip()
+    parts = re.split(r"(@@\w+@@|\$[^$]*\$)", m.group(1))
+    title = "".join(p if i % 2 else p.title() for i, p in enumerate(parts))
+    return f"{open_}Proof of {title}.{close}" + (f" {tail}" if tail else "")
+
+
+def latex_safe_markdown(text: str, *, proof_blocks: bool = False, proof_end_mark: bool = False) -> str:
     """Repair OCR math that LaTeX rejects but Typst tolerates."""
     text = _LATEX_ACCENT_SUPERSCRIPT_RE.sub(r"{}^{\1\2}", text)
     text = _LATEX_UNICODE_GREEK_RE.sub(
@@ -563,12 +579,24 @@ def latex_safe_markdown(text: str) -> str:
         text,
     )
     text = re.sub(r"(?<!\$)((?<!\\)\$[^$\n]+\$)[ \t]+([-‑]\w)", r"\1\2", text)
+    if proof_blocks:
+        text = re.sub(r"(?:\*+|\\emph\{)PROOF\.\s*([^\*\}]+)(?:\*+|\})", r"\\emph{Proof.} \1", text)
+        text = re.sub(r"(?:\*+|\\emph\{|\\textbf\{)(?:PROOF|Proof)\.(?:\*+|\})", r"\\emph{Proof.}", text)
+        text = re.sub(r"^PROOF\.", r"\\emph{Proof.}", text, flags=re.MULTILINE)
+        text = re.sub(r"(?:\*+|\\emph\{|\\textbf\{)PROOF OF\s+(.+?)(?:\.\s+([A-Z“\"$][^\*\}]*))?\.?(?:\*+|\})", lambda m: _proof_of_head(m, "\\emph{", "}"), text, flags=re.IGNORECASE)
+
+    if proof_end_mark:
+        text = re.sub(r"(\\begin\{equation\*?\}[\s\S]*?)(?:\\quad|\s)*\\blacksquare(\s*\\end\{equation\*?\})", r"\1\2\n\\hfill$\\blacksquare$", text)
+        text = re.sub(r"(\$\$[\s\S]*?)(?:\\quad|\s)*\\blacksquare\s*(\$\$)", r"\1\2\n\\hfill$\\blacksquare$", text)
+        text = re.sub(r"(?:[ \t]*[■□]|\$\\blacksquare\$|\$\\square\$)", r"\\hfill$\\blacksquare$", text)
+        text = re.sub(r"(\\hfill\$\\blacksquare\$)[ \t]+(-|\S)", r"\1\n\n\2", text)
+
     def _escape_amp(m: re.Match[str]) -> str:
         blk = m.group(0)
         if blk.startswith(("$", "|", "\\")):
             return blk
         return re.sub(r"(?<!\\)&", r"\&", blk)
-    return re.sub(r"\$\$[\s\S]*?\$\$|(?<!\\)\$(?:[^$\n\\]|\\.)+\$|^\|[^\n]+\|$|[^$|\n]+", _escape_amp, text, flags=re.MULTILINE)
+    return re.sub(r"\\begin\{equation\*?\}[\s\S]*?\\end\{equation\*?\}|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$\$[\s\S]*?\$\$|(?<!\\)\$(?:[^$\n\\]|\\.)+\$|^\|[^\n]+\|$|[^$|\n]+", _escape_amp, text, flags=re.MULTILINE)
 
 def _split_trailing_note_block(text: str) -> tuple[str, str]:
     """Split a trailing reference/rule block off the prose that precedes it."""
@@ -935,324 +963,61 @@ def _merge_display_run(run: str, display_blocks: list[tuple[str, str]]) -> str:
     return f"@@DISPLAYBLOCK{ids[0]}@@"
 
 
-CELL_STYLE_TAGS = {"b": "strong", "i": "emph"}
-CELL_SPAN_RE = re.compile(r'<span data-colspan="(\d+)">(.*)</span>')
-
-
-def _merge_cell_spans(row: list[str]) -> list[tuple[str, int]]:
-    """Fold each span-marked cell and the cells it covers into one (text, colspan) cell."""
-    cells: list[tuple[str, int]] = []
-    idx = 0
-    while idx < len(row):
-        m = CELL_SPAN_RE.fullmatch(row[idx])
-        span = min(int(m.group(1)), len(row) - idx) if m else 1
-        cells.append((m.group(2) if m else row[idx], span))
-        idx += span
-    return cells
-
-
-TYPST_MATH_SPAN = re.compile(r"((?<!\\)\$.*?(?<!\\)\$)")
-
-
-def _escape_table_cell_text(cell: str) -> str:
-    parts = TYPST_MATH_SPAN.split(cell)
-    for idx in range(0, len(parts), 2):
-        part = re.sub(r"<(?!eq-|fig-|sec-)", r"\<", parts[idx])
-        part = re.sub(r"(?<![@\\])@(?=[\w])(?!@)", r"\@", part)
-        part = re.sub(r"(?<!\\)\[", r"\[", part)
-        part = re.sub(r"(?<!\\)\]", r"\]", part)
-        part = re.sub(r"(?<!\\)\*", r"\*", part)
-        parts[idx] = re.sub(r"(?<!\\)_", r"\_", part)
-    return "".join(parts)
-
-
-THREE_LINE_MIN_WEIGHT = 3
-THREE_LINE_MAX_WEIGHT = 30
-
-
-def _display_width(cell: str) -> int:
-    return sum(2 if ord(ch) >= 0x2E80 else 1 for ch in cell)
-
-
-TABLE_NUMBER = re.compile(r"([−\-+]?[\d,]*\d)(\.\d+)?(%?)")
-NUMERIC_COLUMN_SHARE = 0.7
-STUB_AUTO_MAX_WIDTH = 12
-FIGURE_SPACE, POINT_SPACE = " ", " "
-
-
-def _decimal_pads(column: list[str]) -> dict[str, str] | None:
-    """Each number of a numeric column, padded with figure spaces so that the decimal points line up when the
-    cells are centred. None when the column is mostly text."""
-    filled = [c for c in column if c and c not in ("—", "-", "–", "…")]
-    numbers = [m for c in filled if (m := TABLE_NUMBER.fullmatch(c))]
-    if len(numbers) < 2 or len(numbers) < NUMERIC_COLUMN_SHARE * len(filled):
-        return None
-    whole = max(len(m[1]) for m in numbers)
-    tail = max(len(m[2] or "") + len(m[3]) for m in numbers)
-    pads = {}
-    for m in numbers:
-        fraction = (m[2] or "") + m[3]
-        right = (POINT_SPACE + FIGURE_SPACE * (tail - 1) if not fraction and tail else FIGURE_SPACE * (tail - len(fraction)))
-        pads[m[0]] = FIGURE_SPACE * (whole - len(m[1])) + m[0] + right
-    return pads
-
-
-TEXT_TABLE_MIN_COLUMNS = 4
-TEXT_TABLE_MIN_CELL_WIDTH = 30
-TEXT_TABLE_MAX_NATURAL_WIDTH = 110
-TABLE_CAPTION_BLOCK = r"#v\(0\.6em\)\n#block\(sticky: true, width: 100%\)\[#align\(center\)\[#strong\[[^\n]*\]\]\]\n#v\(0\.2em\)"
-TABLE_RUN = re.compile(
-    rf"^(?:{TABLE_CAPTION_BLOCK}\n+)?(?:#block\(sticky: true\)\[[^\n]*\]\n+)?@@TABLEBLOCK\d+@@"
-    rf"(?:\n+(?:(?:@@PAGEBREAK@@ *)?(?:#block\(sticky: true\)\[[^\n]*\]|续表)\n+)?@@TABLEBLOCK\d+@@)*"
-    r"(?:\n+(?:注|资料来源|（注|\(注)[^\n]*)*\n*",
-    re.MULTILINE,
+_THM_HEAD = (
+    r"(?:(?:\d+(?:\.\d+)*|[A-Z]\.?\d*)\s+)?"
+    r"(?:THEOREM|LEMMA|COROLLARY|PROPOSITION|DEFINITIONS?|REMARKS?|EXAMPLES?|ASSUMPTIONS?|AXIOMS?|CONJECTURES?|CLAIMS?|PROPERT(?:Y|IES)|NOTATION)"
+    r"(?:\s*\([^)]*\))?"
 )
 
 
-def _is_prose_column(column: list[str]) -> bool:
-    cells = [_display_width(re.sub(r"<[^>]+>", "", c)) for c in column if c.strip()]
-    return bool(cells) and sum(cells) / len(cells) >= TEXT_TABLE_MIN_CELL_WIDTH
+def _split_strong_head(m: re.Match[str]) -> str:
+    stars = m.group(1)
+    head = m.group(2).rstrip(".")
+    rest = m.group(3).strip()
+    return f"{stars}{head}{stars}\n\n{rest}"
 
 
-def _is_text_table(table: str) -> bool:
-    """A table of four or more columns whose cells hold sentences, which a portrait page squeezes into narrow columns."""
-    rows = [[c.strip() for c in line.strip().split("|")[1:-1]] for line in table.splitlines() if line.strip().startswith("|")]
-    rows = [r for r in rows if not all(set(c) <= set(" -:—–") for c in r)]
-    if not rows or len(rows[0]) < TEXT_TABLE_MIN_COLUMNS or len(rows) < 2:
-        return False
-    widths = [[_display_width(re.sub(r"<[^>]+>", "", c)) for c in r] for r in rows[1:]]
-    cells = [w for r in widths for w in r[1:] if w]
-    natural = sum(max((r[c] for r in widths if c < len(r)), default=0) for c in range(len(rows[0])))
-    phrase_columns = sum(
-        1
-        for c in range(1, len(rows[0]))
-        if sum(bool(re.search(r"[一-鿿]{4}", r[c])) for r in rows[1:] if c < len(r)) * 2 > len(rows) - 1
+def _theorem_heads_on_own_lines(s: str) -> str:
+    s = re.sub(
+        rf"^(={{2,4}}|#{{2,4}})\s+({_THM_HEAD})\.[ \t]*$",
+        r"\1 \2",
+        s,
+        flags=re.MULTILINE | re.IGNORECASE,
     )
-    return bool(cells) and (
-        sum(cells) / len(cells) >= TEXT_TABLE_MIN_CELL_WIDTH
-        or (natural > TEXT_TABLE_MAX_NATURAL_WIDTH and phrase_columns >= 2)
+    s = re.sub(
+        rf"^(={{2,4}}|#{{2,4}})\s+({_THM_HEAD})\.\s+([A-Z“\"$].+)$",
+        r"\1 \2\n\n\3",
+        s,
+        flags=re.MULTILINE | re.IGNORECASE,
     )
-
-
-def rotate_text_tables(text: str, table_blocks: list[str]) -> str:
-    """Set each run of caption, text tables, continuation label and note on its own landscape page."""
-
-    def rotate(m: re.Match[str]) -> str:
-        tables = [table_blocks[int(n)] for n in re.findall(r"@@TABLEBLOCK(\d+)@@", m[0])]
-        if not any(_is_text_table(t) for t in tables):
-            return m[0]
-        run = re.sub(r"(?m)^(?:@@PAGEBREAK@@ *)?续表$", "#block(sticky: true)[续表]", m[0]).strip()
-        return f"#page(flipped: true)[\n#set table.cell(breakable: false)\n{run}\n]\n\n"
-
-    return TABLE_RUN.sub(rotate, text)
-
-
-PANEL = r"(?:#block\(sticky: true\)\[[^\n]*\]\n+)?@@TABLEBLOCK\d+@@"
-NOTE_LINES = re.compile(r"^((?:注|资料来源)[:：][^\n]*)((?:\n[^\n]+)+)", re.MULTILINE)
-
-
-def panel_grid(section: str, columns: int) -> str | None:
-    """Set the `columns` adjacent panel tables of a multi-column scan page side by side in one grid, so that no
-    panel breaks across page columns, and put each of the notes below on its own line. None when the page holds
-    other than `columns` adjacent panels."""
-    run = re.search(rf"{PANEL}(?:\n+{PANEL})*", section)
-    panels = re.findall(PANEL, run[0]) if run else []
-    if len(panels) != columns or len(re.findall(r"@@TABLEBLOCK\d+@@", section)) != columns:
-        return None
-    head = section[: run.start()]
-    unit = re.search(r"\n*^(单位[:：][^\n]*)\n*$", head, re.MULTILINE)
-    if unit and all(p.startswith("#block") for p in panels):
-        head = head[: unit.start()] + "\n\n"
-        panels = [re.sub(r"\]\n", rf"#h(1fr){unit[1]}]\n", p, count=1) for p in panels]
-    grid = (
-        f"#set table(inset: (x: 3pt, y: 1pt))\n#grid(columns: (1fr,) * {columns}, column-gutter: 1.5em,\n"
-        + "".join(f"[{p}],\n" for p in panels)
-        + ")"
+    s = re.sub(
+        rf"^(\*{{2,3}})({_THM_HEAD})\.\s*\1[ \t]+([A-Z“\"$(].+)$",
+        _split_strong_head,
+        s,
+        flags=re.MULTILINE | re.IGNORECASE,
     )
-    rest = NOTE_LINES.sub(
-        lambda m: "#block(above: 0.8em)[#set text(size: 8.5pt)\n#set par(first-line-indent: 0pt, leading: 0.55em)\n"
-        + m[1] + m[2].replace("\n", "\\\n") + "]",
-        section[run.end() :],
-    )
-    return head + grid + rest
+    paras = s.split("\n\n")
+    for idx in range(len(paras) - 1):
+        p_strip = paras[idx].strip()
+        next_p = paras[idx + 1].strip()
+        if (
+            re.match(
+                r"^(?:={2,4}|#{2,4}|\*{2,3})\s*(?:(?:\d+(?:\.\d+)*|[A-Z]\.?\d*)\s+)?(?:THEOREM|LEMMA|COROLLARY|PROPOSITION)\b",
+                p_strip,
+                re.IGNORECASE,
+            )
+            and re.fullmatch(r"(?:={2,4}|#{2,4})[^\n]*|(\*{2,3})[^*\n]+\1", p_strip)
+            and next_p
+            and not re.match(
+                r"^(?:={1,4}|#{1,4}|\*{1,3}|PROOF\b|#emph\[Proof|#strong\[Proof|\*Proof|\*\*Proof)",
+                next_p,
+                re.IGNORECASE,
+            )
+            and not (next_p.startswith(("*", "_")) and next_p.endswith(("*", "_")))
+        ):
+            paras[idx + 1] = f"*{next_p}*"
+    return "\n\n".join(paras)
 
-
-TABLE_LABEL_MAX_WIDTH = 24
-SHORT_COLUMN_MAX_WIDTH = 8
-
-
-def _is_table_label(line: str) -> bool:
-    """A short line right before a table, such as a panel label or a unit, which belongs on the table's page."""
-    text = line.strip()
-    return (
-        0 < _display_width(text) <= TABLE_LABEL_MAX_WIDTH
-        and not re.search(r"[。，；]|@@", text)
-        and not text.startswith(("#", "|", "]", ")", "=", "- ", "+ ", "/ "))
-    )
-
-
-def _column_weights(header: list[list[str]], body: list[list[str]], ncols: int, short_auto: bool = False) -> str:
-    """Column widths in proportion to each column's widest body cell, with room for its header on two lines.
-    A short stub column takes `auto`, so that its labels stay on one line; with `short_auto`, so does every
-    column of short cells, which the long prose columns of the table would otherwise squeeze."""
-    def width(cell: str) -> int:
-        return _display_width(re.sub(r"<[^>]+>", "", cell))
-
-    weights = []
-    for c in range(ncols):
-        widest = max((width(r[c]) for r in body), default=0)
-        head = max((-(-width(r[c]) // 2) for r in header), default=0)
-        weights.append(min(THREE_LINE_MAX_WEIGHT, max(THREE_LINE_MIN_WEIGHT, widest, head)))
-    stub = "auto" if max((width(r[0]) for r in body), default=0) <= STUB_AUTO_MAX_WIDTH else f"{weights[0]}fr"
-    rest = ["auto" if short_auto and w <= SHORT_COLUMN_MAX_WIDTH else f"{w}fr" for w in weights[1:]]
-    return "(" + ", ".join([stub, *rest]) + ")"
-
-
-def format_pipe_tables_as_typst(text: str, three_line: bool = False) -> str:
-    """Typst tables for the Markdown pipe tables in `text`. A `three_line` table (三线表) fills the text width,
-    weights each narrow table's columns by their widest cell, and rules only its top, header and bottom."""
-    lines = text.split("\n")
-    out: list[str] = []
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-        if line.startswith("|") and line.endswith("|") and i + 1 < len(lines):
-            next_line = lines[i + 1].strip()
-            if next_line.startswith("|") and next_line.endswith("|") and all(c in " |-:—–" for c in next_line):
-                table_lines = [line]
-                i += 2
-                while i < len(lines):
-                    curr = lines[i].strip()
-                    if curr.startswith("|") and curr.endswith("|"):
-                        table_lines.append(curr)
-                        i += 1
-                    else:
-                        break
-
-                parsed_rows: list[list[str]] = []
-                for tl in table_lines:
-                    cells = [c.strip() for c in tl.split("|")[1:-1]]
-                    parsed_rows.append(cells)
-
-                if parsed_rows:
-                    ncols = max(len(r) for r in parsed_rows)
-                    for r in parsed_rows:
-                        r.extend([""] * (ncols - len(r)))
-                    nrows = len(parsed_rows)
-                    first_row = parsed_rows[0]
-                    two_level = nrows > 2 and any(
-                        first_row[c].strip() and not first_row[c + 1].strip() for c in range(1, ncols - 1)
-                    ) and any(not c.strip() for c in parsed_rows[1]) and any(c.strip() for c in parsed_rows[1])
-                    header_rows = 2 if two_level else 1
-                    body_rows = parsed_rows[header_rows:]
-                    pads = [_decimal_pads([r[c].strip() for r in body_rows]) for c in range(ncols)]
-                    items: list[str] = []
-                    row_starts: list[int] = []
-                    for r_idx, r in enumerate(parsed_rows):
-                        row_starts.append(len(items))
-                        merged = _merge_cell_spans(r)
-                        first = r[0].strip()
-                        if first and all(not c.strip() for c in r[1:]) and first.startswith(("#strong", "**", "一、", "二、", "三、", "四、", "A ", "B ", "A面板", "B面板", "A 面板", "B 面板")):
-                            title_text = re.sub(r"^\*\*(.*?)\*\*$", r"\1", first)
-                            title_text = re.sub(r"^#strong\[(.*?)\]$", r"\1", title_text)
-                            items.append(f"table.cell(colspan: {ncols}, fill: luma(245))[#strong[{title_text}]]")
-                        elif r_idx < 2 and any(not c.strip() for c, _ in merged) and any(c.strip() for c in r):
-                            col_idx = 0
-                            while col_idx < len(r):
-                                c = r[col_idx]
-                                c_clean = _escape_table_cell_text(c.replace("<br>", "\\ ").replace("<br/>", "\\ "))
-                                span = 1
-                                if c.strip():
-                                    while col_idx + span < len(r) and not r[col_idx + span].strip():
-                                        span += 1
-                                    if span > 1:
-                                        items.append(f"table.cell(colspan: {span})[#strong[{c_clean}]]")
-                                        col_idx += span
-                                        continue
-                                items.append(f"[#strong[{c_clean}]]" if c_clean.strip() else "[]")
-                                col_idx += 1
-                        else:
-                            col = 0
-                            for c, span in merged:
-                                shaded = re.fullmatch(r"<mark>(.*)</mark>", c)
-                                if shaded:
-                                    c = shaded.group(1)
-                                column_pads = pads[col] if r_idx >= header_rows and span == 1 else None
-                                col += span
-                                if column_pads and c.strip() in column_pads:
-                                    c = column_pads[c.strip()]
-                                for tag, mark in CELL_STYLE_TAGS.items():
-                                    c = c.replace(f"<{tag}>", f"@@{mark}@@").replace(f"</{tag}>", "@@END@@")
-                                c_clean = _escape_table_cell_text(c.replace("<br>", "\\ ").replace("<br/>", "\\ "))
-                                for mark in CELL_STYLE_TAGS.values():
-                                    c_clean = c_clean.replace(f"@@{mark}@@", f"#{mark}[")
-                                c_clean = c_clean.replace("@@END@@", "]")
-                                if r_idx == 0 and c_clean.strip() and not c_clean.strip().startswith(("#strong", "**")):
-                                    cell = f"[#strong[{c_clean}]]"
-                                else:
-                                    cell = f"[{c_clean}]"
-                                args = ([f"colspan: {span}"] if span > 1 else []) + (["fill: luma(215)"] if shaded else [])
-                                items.append(f"table.cell({', '.join(args)}){cell}" if args else cell)
-                    if nrows > 1:
-                        split = row_starts[header_rows] if header_rows < nrows else len(items)
-                        body = ", ".join([f"table.header({', '.join(items[:split])})", *items[split:]])
-                    else:
-                        body = ", ".join(items)
-                    size_pt = "6.8pt" if ncols >= 10 else "7.2pt" if ncols >= 8 else "7.8pt" if ncols >= 6 else "8.2pt" if ncols >= 5 else "8.8pt"
-                    prose_cols = any(_is_prose_column([r[c] for r in body_rows]) for c in range(1, ncols))
-                    col_def = (
-                        _column_weights(parsed_rows[:header_rows], body_rows, ncols, short_auto=prose_cols)
-                        if ncols >= 5
-                        else f"{ncols}"
-                    )
-                    if three_line and ncols < 5:
-                        weights = [
-                            min(THREE_LINE_MAX_WEIGHT, max(THREE_LINE_MIN_WEIGHT, *(_display_width(r[c]) for r in parsed_rows)))
-                            for c in range(ncols)
-                        ]
-                        col_def = "(" + ", ".join(f"{w}fr" for w in weights) + ")"
-
-                    align_str = (
-                        f"if row < {header_rows} {{ center + horizon }} else {{ left + top }},\n  inset: (x: 0.5em, y: 0.6em)"
-                        if prose_cols
-                        else "if col == 0 { left + horizon } else { center + horizon }"
-                    )
-                    head_rule = "bottom: 0.5pt + luma(30)" if three_line else "bottom: 0.6pt + luma(60)"
-                    head_stroke = (
-                        f"if y == 0 {{ (top: 1.0pt + luma(30)) }} else if y == 1 {{ ({head_rule}) }}"
-                        if header_rows == 2
-                        else f"if y == 0 {{ (top: 1.0pt + luma(30), {head_rule}) }}"
-                    )
-                    if nrows > 1 and three_line and prose_cols:
-                        stroke_str = f"  stroke: (x, y) => {head_stroke} else if y == {nrows - 1} {{ (bottom: 1.0pt + luma(30)) }} else {{ (bottom: 0.3pt + luma(190)) }},\n"
-                    elif nrows > 1 and three_line:
-                        stroke_str = f"  stroke: (x, y) => {head_stroke} else if y == {nrows - 1} {{ (bottom: 1.0pt + luma(30)) }} else {{ none }},\n"
-                    elif nrows > 1:
-                        stroke_str = f"  stroke: (x, y) => {head_stroke} else if y == {nrows - 1} {{ (bottom: 1.0pt + luma(30)) }} else {{ (bottom: 0.3pt + luma(220)) }},\n"
-                    else:
-                        stroke_str = "  stroke: (x, y) => (top: 1.0pt + luma(30), bottom: 1.0pt + luma(30)),\n"
-                    fill_str = "  fill: (col, row) => if row > 0 and calc.even(row) { luma(252) } else { none },\n" if ncols >= 6 and not three_line else ""
-                    typst_table = (
-                        f"\n#align(center)[\n"
-                        f"#set text(size: {size_pt})\n"
-                        f"{'#set par(justify: false)' + chr(10) if prose_cols else ''}"
-                        f"#table(\n"
-                        f"  columns: {col_def},\n"
-                        f"  align: (col, row) => {align_str},\n"
-                        f"{stroke_str}"
-                        f"{fill_str}"
-                        f"  {body}\n"
-                        f")\n"
-                        f"]\n"
-                    )
-                    label_at = next((k for k in range(len(out) - 1, -1, -1) if out[k].strip()), None)
-                    if label_at is not None and _is_table_label(out[label_at]):
-                        out[label_at] = f"#block(sticky: true)[{out[label_at].strip()}]"
-                    out.append(typst_table)
-                continue
-        out.append(lines[i])
-        i += 1
-    return "\n".join(out)
 
 class MonographCompiler:
     """Compiles transcribed Markdown pages and figures into Markdown, LaTeX, Typst, and PDF."""
@@ -1263,6 +1028,7 @@ class MonographCompiler:
             publisher=spec.publisher_key,
             lang=spec.lang,
             domain=spec.domain,
+            theorem_layout=spec.theorem_layout,
         )
         self._out_dir: Path = Path()
         self.cleaner: PageCleaner = PageCleaner.for_spec(spec)
@@ -1291,6 +1057,11 @@ class MonographCompiler:
         heading_rules = self.composition.typst_heading_rules()
         header_style = "normal" if self.composition.language.code in ("zh", "ja") else "italic"
         caption_separator = "#h(1em)" if self.composition.language.code in ("zh", "ja") else ": "
+        qed_filled = (
+            "#let qed-filled = { h(0.6em); box(width: 1fr, align(right)[$square.filled.medium$]) }\n"
+            if self.spec.theorem_layout
+            else ""
+        )
         return f"""#set document(
   title: "{escape_quoted(" — ".join(filter(None, (self.spec.title, self.spec.author))))}",
   author: "{self.spec.author}",
@@ -1361,7 +1132,7 @@ class MonographCompiler:
 #let sub-break = block(above: 1.35em, below: 0pt, sticky: true)[]
 #let item-break = block(above: 1.0em, below: 0pt)[]
 #let qed = {{ h(0.6em); box(width: 1fr, align(right)[$square.stroked$]) }}
-#let dd = math.dif
+{qed_filled}#let dd = math.dif
 #let dv(f, x, deg: none) = if deg == none {{ $(dif f)/(dif x)$ }} else {{ $(dif^deg f)/(dif x^deg)$ }}
 #let pdv(f, x, deg: none) = if deg == none {{ $(partial f)/(partial x)$ }} else {{ $(partial^deg f)/(partial x^deg)$ }}
 #let const = math.op("const")
@@ -1686,10 +1457,13 @@ class MonographCompiler:
             all_top_figs = pending_figs + top_figs
             pending_figs = []
             starts_lower = bool(text.strip()) and text.lstrip()[0].islower()
+            continued_table = continued_table_split(text) if self.spec.merge_continued_tables else None
+            starts_cont_table = continued_table is not None
             prose, note_block = _split_trailing_note_block(acc)
             continues_prev = (
-                not ends_complete_paragraph(prose) and not starts_new_block(text)
-            ) or starts_lower
+                not starts_cont_table
+                and ((not ends_complete_paragraph(prose) and not starts_new_block(text)) or starts_lower)
+            )
             columns = self.spec.landscape_columns.get(pno, 1) if pno in self.spec.landscape_pages else 0
             if columns != page_columns:
                 page_columns = columns
@@ -1707,6 +1481,14 @@ class MonographCompiler:
                     acc += "\n\n" + note_block
                 if rest_p:
                     acc += "\n\n" + rest_p
+            elif continued_table is not None:
+                if all_top_figs:
+                    cont_part, rest_part = continued_table
+                    acc += "\n\n" + cont_part + self.render_figure_group(all_top_figs, fig_dir)
+                    if rest_part:
+                        acc += "\n\n" + rest_part
+                else:
+                    acc += "\n\n" + text
             else:
                 if all_top_figs:
                     acc += self.render_figure_group(all_top_figs, fig_dir)
@@ -1718,7 +1500,12 @@ class MonographCompiler:
                     and bool(pages_data[idx + 1][1].strip())
                     and pages_data[idx + 1][1].lstrip()[0].islower()
                 )
-                if ends_complete_paragraph(acc) and not next_starts_lower:
+                next_continues_table = (
+                    self.spec.merge_continued_tables
+                    and idx + 1 < len(pages_data)
+                    and continued_table_split(pages_data[idx + 1][1]) is not None
+                )
+                if ends_complete_paragraph(acc) and not next_starts_lower and not next_continues_table:
                     acc += self.render_figure_group(bot_figs, fig_dir)
                 else:
                     pending_figs.extend(bot_figs)
@@ -1727,7 +1514,7 @@ class MonographCompiler:
             acc += self.render_figure_group(pending_figs, fig_dir)
         if page_columns:
             acc += "\n\n@@FLIPPED0@@\n\n"
-        return acc
+        return merge_continued_tables(acc) if self.spec.merge_continued_tables else acc
 
 
     def _printed_source(self, fig_block: str) -> str | None:
@@ -1770,6 +1557,9 @@ class MonographCompiler:
         )
         s = re.sub(r"^(\s*)=", r"\1\\=", s, flags=re.MULTILINE)
         s = re.sub(r"^>\s?", "", s, flags=re.MULTILINE)
+        if spec.theorem_layout:
+            s = re.sub(r"^[ \t]*●[ \t]+", r"- ", s, flags=re.MULTILINE)
+            s = _theorem_heads_on_own_lines(s)
 
         for pattern, repl in spec.heading_rewrites:
             s = re.sub(pattern, repl, s, flags=re.MULTILINE)
@@ -1999,7 +1789,16 @@ class MonographCompiler:
                 flags=re.MULTILINE,
             )
             s = re.sub(r"[ \t]*□", r"#qed", s)
+            if spec.theorem_layout:
+                s = re.sub(r"[ \t]*■", r"#qed-filled", s)
+                s = re.sub(r"(#qed(?:-filled)?)[ \t]*(?:\n[ \t]*)?(-[ \t]+\S)", r"\1\n\n\2", s)
             s = re.sub(r"(\n\n)(?=#emph\[Proof)", r"\1#sub-break\n", s)
+        if spec.theorem_layout and self.composition.domain.proof_end_mark:
+            s = re.sub(r"(?:\\?\*+|#emph\[)PROOF\.\s*([^\]\*]+)(?:\\?\*+|\])", r"#emph[Proof.] \1", s)
+            s = re.sub(r"(?:\\?\*+|#emph\[|#strong\[)(?:PROOF|Proof)\.(?:\\?\*+|\])", r"#emph[Proof.]", s)
+            s = re.sub(r"^PROOF\.", r"#emph[Proof.]", s, flags=re.MULTILINE)
+            s = re.sub(r"(?:\\?\*+|#emph\[|#strong\[)PROOF OF\s+(.+?)(?:\.\s+([A-Z“\"$][^\]\*]*))?\.?(?:\\?\*+|\])", lambda m: _proof_of_head(m, "#emph[", "]"), s, flags=re.IGNORECASE)
+
         s = re.sub(r"(\n\n)(?=#strong\[)", r"\1#thm-break\n", s)
         s = re.sub(
             r"(\n\n)(?=\((?:[1-9]\d?|[ivx]{1,4}|[1-9]-[1-9])\)\s+)",
@@ -2012,17 +1811,20 @@ class MonographCompiler:
         s = re.sub(r"(\()\s+(@@INLINEMATH\d+@@)", r"\1\2", s)
         converted = convert_math_batch(
             [(code, False) for code in inline_blocks]
-            + [(body, True) for body, _ in display_blocks]
+            + [(body, True) for body, _ in display_blocks],
+            spec.theorem_layout,
         )
         inline_typst = converted[: len(inline_blocks)]
         display_typst = converted[len(inline_blocks) :]
         s = re.sub(
             r"@@INLINEMATH(\d+)@@", lambda m: f"${inline_typst[int(m.group(1))].strip()}$", s
         )
+        if spec.theorem_layout:
+            s = re.sub(r"(\$[^$\n]+\$)[ \t]+([-‑]\w)", r"\1\2", s)
         diagrams = (
             convert_diagrams(
                 [body for body, _ in display_blocks],
-                lambda cells: convert_math_batch([(c, False) for c in cells]),
+                lambda cells: convert_math_batch([(c, False) for c in cells], spec.theorem_layout),
             )
             if spec.commutative_diagrams
             else {}
@@ -2033,9 +1835,19 @@ class MonographCompiler:
             if scan := SCAN_DIAGRAM_RE.fullmatch(display_blocks[i][0].strip()):
                 fig = scan_diagram_typst(scan.group(1), self._out_dir / spec.figure_dir, spec.figure_dir)
                 return f"\n$ {fig} $ {label}\n"
+            disp_math = display_typst[i]
+            qed_box = ""
+            if spec.theorem_layout and self.composition.domain.proof_end_mark:
+                m_end = re.search(r"(?:\\quad|quad)?\s*(square\.filled(?:\.medium)?|square\.stroked|square)\s*$", disp_math)
+                if m_end:
+                    disp_math = disp_math[:m_end.start()].rstrip()
+                    glyph = "square.filled.medium" if "filled" in m_end[1] else "square.stroked"
+                    qed_box = f"\n#v(-0.4em, weak: true)\n#align(right)[${glyph}$]"
             if i not in diagrams:
-                return f"\n$ {display_typst[i]} $ {label}\n"
-            return f"\n$ #{diagrams[i]} $ {label}\n" if label else f"\n#align(center, {diagrams[i]})\n"
+                body = f"\n$ {disp_math} $ {label}\n"
+            else:
+                body = f"\n$ #{diagrams[i]} $ {label}\n" if label else f"\n#align(center, {diagrams[i]})\n"
+            return body + qed_box
 
         s = re.sub(r"@@DISPLAYBLOCK(\d+)@@", display, s)
         indent = self.composition.language.first_line_indent
@@ -2091,33 +1903,15 @@ class MonographCompiler:
         s = FOOTNOTE_RE.sub(r"#footnote[\1]", s)
         if spec.footnote_style:
             s = keep_note_paragraph_lines(s)
-        def _expand_table(m: re.Match[str]) -> str:
-            raw_tbl = table_blocks[int(m.group(1))]
-            if spec.lang in ("zh", "ja"):
-                raw_tbl = raw_tbl.replace("~", "～")
-            tbl_math = re.sub(
+        tables = [
+            re.sub(
                 r"@@INLINEMATH(\d+)@@",
                 lambda im: f"${inline_typst[int(im.group(1))].strip()}$",
-                raw_tbl,
+                tbl.replace("~", "～") if spec.lang in ("zh", "ja") else tbl,
             )
-            tbl_out = format_pipe_tables_as_typst(tbl_math, spec.three_line_tables)
-            return FOOTNOTE_RE.sub(r"#footnote[\1]", tbl_out)
-
-        s = re.sub(
-            r"^([^\n]+)\n(?:[ \t]*\n)*(?=@@TABLEBLOCK\d+@@)",
-            lambda m: f"#block(sticky: true)[{m[1].strip()}]\n\n" if _is_table_label(m[1]) else m[0],
-            s,
-            flags=re.MULTILINE,
-        )
-        s = re.sub(
-            r"@@FLIPPED([2-9])@@(.*?)(?=@@FLIPPED)",
-            lambda m: f"@@FLIPPED1@@{grid}" if (grid := panel_grid(m[2], int(m[1]))) else m[0],
-            s,
-            flags=re.DOTALL,
-        )
-        s = rotate_text_tables(s, table_blocks)
-        s = re.sub(r"@@TABLEBLOCK(\d+)@@", _expand_table, s)
-        s = format_pipe_tables_as_typst(s, spec.three_line_tables)
+            for tbl in table_blocks
+        ]
+        s = FOOTNOTE_RE.sub(r"#footnote[\1]", layout_tables(s, tables, spec.three_line_tables, spec.merge_continued_tables))
         if spec.paginate_like_source:
             s = re.sub(
                 r"(?:#h\([^)]*\);)?@@SRCPAGE(\d+)@@",
@@ -2179,6 +1973,10 @@ class MonographCompiler:
         title = self.spec.index_title
         entries: list[str] = []
         store = TranscriptStore(md_dir)
+        prepositions = ("of ", "in ", "for ", "with ", "by ", "on ", "to ", "and ", "under ", "from ", "as ", "at ")
+        current_section = None
+        header_term = None
+
         for pno in range(start_p, end_p + 1):
             text = store.text(pno)
             if text is None:
@@ -2193,14 +1991,47 @@ class MonographCompiler:
                     re.IGNORECASE,
                 ):
                     continue
+                if self.spec.theorem_layout and (m_sec := re.match(r"^#+\s*([A-Z])\s*$", lt)):
+                    current_section = m_sec.group(1).lower()
+                    header_term = None
+                    entries.append(f"#heading(level: 2, numbering: none, outlined: false)[{m_sec.group(1)}]")
+                    continue
+
                 line_clean = lt.replace('"', "''").replace("#", r"\#")
                 line_clean = re.sub(r"\*([^\*]+)\*", r"#emph[\1]", line_clean)
                 line_clean = clean_margin_and_inline_math(line_clean)
-                is_sub = self.spec.index_subentries and (
-                    raw_line.startswith("  ")
-                    or (lt[0].islower() and not lt.startswith(("i.e.", "e.g.")))
-                )
-                entries.append(f"#h(1.2em){line_clean}" if is_sub else line_clean)
+                if not self.spec.theorem_layout:
+                    is_sub = self.spec.index_subentries and (
+                        raw_line.startswith("  ")
+                        or (lt[0].islower() and not lt.startswith(("i.e.", "e.g.")))
+                    )
+                    entries.append(f"#h(1.2em){line_clean}" if is_sub else line_clean)
+                    continue
+
+                has_page =bool(re.search(r",\s*\d+|\s+\d+$", lt))
+                clean = re.sub(r"^\$[^$]+\$\s*", "", lt).lstrip("(\"'`")
+                m_alpha = re.search(r"[a-zA-Z]", clean)
+                first_alpha = m_alpha.group(0).lower() if m_alpha else None
+
+                is_sub = False
+                if (
+                    raw_line.startswith(("  ", "\t"))
+                    or lt.lower().startswith(prepositions)
+                    or (current_section and first_alpha and first_alpha != current_section)
+                ):
+                    is_sub = True
+                elif header_term:
+                    is_sub = not (
+                        first_alpha == current_section
+                        and clean.lower() >= header_term.lower()
+                        and has_page
+                        and not clean.lower().startswith(prepositions)
+                    )
+
+                if not is_sub:
+                    header_term = None if has_page else clean
+
+                entries.append(f"#h(1.5em){line_clean}" if is_sub else line_clean)
 
         joined = "\n\n".join(entries)
         return (
@@ -2279,7 +2110,7 @@ class MonographCompiler:
             TYPST_CIRCLED_GLYPHS
             if spec.lang != "zh" and spec.footnote_style != "circled" and any(CIRCLED_GLYPH_RE.search(t) for t in page_texts)
             else "",
-            SOURCE_NUMBER_RULES if spec.cross_references else "",
+            (SOURCE_NUMBER_LAYOUT_RULES if spec.theorem_layout else SOURCE_NUMBER_RULES) if spec.cross_references else "",
             SOURCE_EQUATION_LAYOUT if spec.cross_references and (not spec.typst_preamble or "fit-display" in spec.typst_preamble) else "",
             FLETCHER_IMPORT if spec.commutative_diagrams else "",
         ]
@@ -2297,6 +2128,7 @@ class MonographCompiler:
 
         seen_typst: set[str] = set()
         seen_latex: set[str] = set()
+        words = self.composition.language.numbering
         for chap in spec.chapters:
             if chap.typst_file:
                 prebuilt = self._prebuilt_chapter(out_dir, chap)
@@ -2304,8 +2136,9 @@ class MonographCompiler:
                     typst_sections += [prebuilt, "\n#pagebreak(weak: true)\n"]
                 continue
             pages_data: list[PageParts] = []
+            clean_title = _bare_title(chap.title) if spec.theorem_layout else chap.title
             ch_md_pages: list[str] = [
-                f"\n# {chap.title}\n"
+                f"\n# {clean_title}\n"
                 if spec.cross_references or is_unnumbered_chapter(chap.title)
                 else f"\n# Chapter {chap.number}: {chap.title}\n"
             ]
@@ -2319,6 +2152,10 @@ class MonographCompiler:
                 ):
                     continue
                 p_body, top_f, bot_f = self.cleaner.clean(raw_text, pno)
+                if spec.theorem_layout and pno == chap.start_page:
+                    m_dup =re.match(r"^\s*#+\s*([^\n]+)\n*", p_body)
+                    if m_dup and _bare_title(m_dup.group(1)).strip().lower() == clean_title.strip().lower():
+                        p_body = p_body[m_dup.end():]
                 if spec.commutative_diagrams:
                     p_body = use_scan_diagrams(p_body, pno, fig_dir)
                 pages_data.append((pno, p_body, top_f, bot_f))
@@ -2335,7 +2172,8 @@ class MonographCompiler:
                         md_page += f"\n\n![{cap}]({spec.figure_dir}/{asset.name})"
                 ch_md_pages.append(md_page)
 
-            md_sections.append("\n\n".join(join_markdown_pages(ch_md_pages)))
+            chapter_md = "\n\n".join(join_markdown_pages(ch_md_pages))
+            md_sections.append(merge_continued_tables(chapter_md) if spec.merge_continued_tables else chapter_md)
             title = clean_margin_and_inline_math(chap.title)
             label = (
                 chap.label
@@ -2357,6 +2195,8 @@ class MonographCompiler:
                 )
             stitched = self.stitch_chapter(pages_data, fig_dir)
             formatted = self.format_typst(stitched)
+            if spec.theorem_layout:
+                formatted = f"\n{heading}\n\n" + formatted
             should_number = spec.cross_references and (
                 bool(chap.label)
                 if has_explicit_labels
@@ -2364,12 +2204,25 @@ class MonographCompiler:
             )
             if should_number:
                 formatted, chapter_resyncs = number_chapter(
-                    formatted, chap.number, seen=seen_typst, circled=spec.circled_items
+                    formatted,
+                    chap.number,
+                    seen=seen_typst,
+                    circled=spec.circled_items,
+                    words=words,
+                    theorem_layout=spec.theorem_layout,
                 )
                 resyncs += [r.line() for r in chapter_resyncs]
                 numbered_chapters.append((len(typst_sections), chap.number))
                 latex_chapters[len(md_sections) - 1] = (
-                    number_chapter(md_sections[-1], chap.number, LATEX, seen=seen_latex, circled=spec.circled_items)[0],
+                    number_chapter(
+                        md_sections[-1],
+                        chap.number,
+                        LATEX,
+                        seen=seen_latex,
+                        circled=spec.circled_items,
+                        words=words,
+                        theorem_layout=spec.theorem_layout,
+                    )[0],
                     chap.number,
                 )
             if "索引" in title or "Index" in title:
@@ -2381,16 +2234,20 @@ class MonographCompiler:
                     f"  {formatted}\n"
                     "]"
                 )
-            typst_sections.append(f"\n{heading}\n\n" + formatted)
+            typst_sections.append(formatted if spec.theorem_layout else f"\n{heading}\n\n" + formatted)
             typst_sections.append("\n#pagebreak(weak: true)\n")
 
         known = set().union(*(source_labels(typst_sections[i]) for i, _ in numbered_chapters))
         roman = reference_chapters(spec)
         for i, number in numbered_chapters:
-            typst_sections[i] = link_references(typst_sections[i], number, roman, known)
+            typst_sections[i] = link_references(
+                typst_sections[i], number, roman, known, words=words, theorem_layout=spec.theorem_layout
+            )
         latex_known = set().union(*(source_labels(text) for text, _ in latex_chapters.values()))
         latex_sections = [
-            link_references(latex_chapters[i][0], latex_chapters[i][1], roman, latex_known, LATEX)
+            link_references(
+                latex_chapters[i][0], latex_chapters[i][1], roman, latex_known, LATEX, words, spec.theorem_layout
+            )
             if i in latex_chapters
             else section
             for i, section in enumerate(md_sections)
@@ -2483,13 +2340,17 @@ class MonographCompiler:
             compiled.unlink(missing_ok=True)
 
     def _write_latex(self, md_out: Path, tex_out: Path, markdown: str | None = None) -> None:
-        xy_inc = r"\usepackage[all,cmtip]{xy}" if self.spec.commutative_diagrams else ""
+        xy_inc = r"\IfFileExists{xy.sty}{\usepackage[all,cmtip]{xy}}{}" if self.spec.commutative_diagrams else ""
         header_includes = (
             xy_inc
             + r"\usepackage{graphicx}\usepackage{amscd}\usepackage{amsthm}\usepackage{caption}\captionsetup[figure]{labelformat=empty}"
             + LATEX_CIRCLED_GLYPHS
             + latex_footnote_header(self.spec)
-            + (SOURCE_NUMBER_LATEX_RULES if self.spec.cross_references else "")
+            + (
+                (SOURCE_NUMBER_LATEX_LAYOUT_RULES if self.spec.theorem_layout else SOURCE_NUMBER_LATEX_RULES)
+                if self.spec.cross_references
+                else ""
+            )
             + (SCAN_DIAGRAM_LATEX if self.spec.commutative_diagrams else "")
             + (LATEX_CHINESE_PARAGRAPHS if self.composition.language.code == "zh" else "")
         )

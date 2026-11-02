@@ -189,3 +189,42 @@ def test_index_chapter_formats_in_two_columns():
     rendered = compiler.render(Path("output/test_scratch"))
     assert "= 人名索引" in rendered.typst
     assert "#columns(2, gutter: 1.8em)" in rendered.typst
+
+
+def test_format_index_letter_headings_and_sub_entry_indentation(tmp_path: Path):
+    spec = MonographSpec(
+        domain="math",
+        slug="test_book",
+        title="Test Book",
+        author="Author",
+        index_title="Subject Index",
+        theorem_layout=True,
+    )
+    compiler = MonographCompiler(spec)
+    index_text = (
+        "Subject Index\n\n"
+        "# A\n"
+        "Absolute value, 5\n"
+        "  explicitly indented sub-entry, 6\n"
+        "Approximation\n"
+        "by smooth functions, 12\n"
+        "# C\n"
+        "Capacity\n"
+        "definition of, 20\n"
+        "distribution, 25\n"
+        "Cauchy-Schwarz inequality, 30\n"
+    )
+    (tmp_path / "p_001.md").write_text(index_text, encoding="utf-8")
+    out = compiler.format_index(tmp_path, 1, 1)
+
+    assert "#heading(level: 2, numbering: none, outlined: false)[A]" in out
+    assert "#heading(level: 2, numbering: none, outlined: false)[C]" in out
+    assert "\n\nAbsolute value, 5\n\n" in out
+    assert "#h(1.5em)explicitly indented sub-entry, 6" in out
+    assert "\n\nApproximation\n\n" in out
+    assert "#h(1.5em)by smooth functions, 12" in out
+    assert "\n\nCapacity\n\n" in out
+    assert "#h(1.5em)definition of, 20" in out
+    assert "#h(1.5em)distribution, 25" in out
+    assert "\n\nCauchy-Schwarz inequality, 30" in out
+

@@ -20,6 +20,26 @@ class PublisherPreset:
 
 
 @dataclass(frozen=True)
+class NumberingWords:
+    item_kinds: str
+    reference_kinds: str
+    chapter_references: str
+    chapter_word: str
+    theorems: tuple[tuple[str, str], ...] = ()
+
+
+ENGLISH_WORDS = NumberingWords(
+    item_kinds=r"Proposition|Corollaire|D[ée]finition|Remarques?|Lemme|Th[ée]or[èe]me|Exemples?|Scholie",
+    reference_kinds=r"Theorems?|Lemmas?|Corollar(?:y|ies)|Propositions?|Definitions?|Remarks?|Examples?|Exercises?|Sections?|Sects?\.",
+    chapter_references=r"Chapters?|Chap\.",
+    chapter_word="Chapter",
+)
+FRENCH_WORDS = ENGLISH_WORDS
+CHINESE_WORDS = ENGLISH_WORDS
+JAPANESE_WORDS = ENGLISH_WORDS
+
+
+@dataclass(frozen=True)
 class LanguageProfile:
     code: str
     typst_lang: str
@@ -32,6 +52,7 @@ class LanguageProfile:
     cjk_punctuation_compress: bool
     contents_title: str
     ocr_instruction: str
+    numbering: NumberingWords
 
 
 @dataclass(frozen=True)
@@ -40,6 +61,7 @@ class DomainProfile:
     equation_numbering: str
     theorem_heads: tuple[str, ...]
     proof_end_mark: bool
+    layout_theorem_heads: tuple[str, ...] = ()
 
 
 PUBLISHER_PRESETS: dict[str, PublisherPreset] = {
@@ -187,6 +209,7 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         cjk_punctuation_compress=False,
         contents_title="Contents",
         ocr_instruction="Transcribe English text and LaTeX math faithfully.",
+        numbering=ENGLISH_WORDS,
     ),
     "en_baskerville": LanguageProfile(
         code="en_baskerville",
@@ -200,6 +223,7 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         cjk_punctuation_compress=False,
         contents_title="Contents",
         ocr_instruction="Transcribe English text and LaTeX math faithfully.",
+        numbering=ENGLISH_WORDS,
     ),
     "ja": LanguageProfile(
         code="ja",
@@ -217,6 +241,7 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         cjk_punctuation_compress=True,
         contents_title="目次",
         ocr_instruction="Transcribe Japanese kanji/kana and LaTeX math faithfully without dropping okurigana.",
+        numbering=JAPANESE_WORDS,
     ),
     "fr": LanguageProfile(
         code="fr",
@@ -230,6 +255,7 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         cjk_punctuation_compress=False,
         contents_title="Table des matières",
         ocr_instruction="Transcribe French accents, guillemets, and LaTeX math faithfully.",
+        numbering=FRENCH_WORDS,
     ),
     "fr_times": LanguageProfile(
         code="fr_times",
@@ -243,6 +269,7 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         cjk_punctuation_compress=False,
         contents_title="Table des matières",
         ocr_instruction="Transcribe French accents, guillemets, and LaTeX math faithfully.",
+        numbering=FRENCH_WORDS,
     ),
     "zh": LanguageProfile(
         code="zh",
@@ -256,6 +283,7 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         cjk_punctuation_compress=True,
         contents_title="目录",
         ocr_instruction="Transcribe Chinese characters, full-width punctuation, and LaTeX math faithfully.",
+        numbering=CHINESE_WORDS,
     ),
 }
 
@@ -276,6 +304,7 @@ DOMAIN_PROFILES: dict[str, DomainProfile] = {
             "Axiom",
             "Conjecture",
         ),
+        layout_theorem_heads=("Assumption", "Claim", "Notation"),
     ),
     "physics": DomainProfile(
         key="physics",
@@ -290,6 +319,7 @@ DOMAIN_PROFILES: dict[str, DomainProfile] = {
             "Example",
             "Exercise",
         ),
+        layout_theorem_heads=("Assumption", "Claim", "Notation"),
     ),
     "economics": DomainProfile(
         key="economics",
@@ -338,6 +368,11 @@ class CompositionConfig:
     publisher: PublisherPreset
     language: LanguageProfile
     domain: DomainProfile
+    theorem_layout: bool = False
+
+    @property
+    def theorem_heads(self) -> tuple[str, ...]:
+        return self.domain.theorem_heads + (self.domain.layout_theorem_heads if self.theorem_layout else ())
 
     def typst_font_tuple(self) -> str:
         if len(self.language.font_stack) == 1:
@@ -345,12 +380,30 @@ class CompositionConfig:
         quoted = ", ".join(f'"{f}"' for f in self.language.font_stack)
         return f"({quoted})"
 
+    def theorem_words(self) -> tuple[tuple[str, str], ...]:
+        spelled = dict(self.language.numbering.theorems)
+        return tuple((kind, spelled.get(kind, kind)) for kind in self.theorem_heads)
+
     def typst_heading_rules(self) -> str:
+        tests = [
+            f'(s.contains("{word.lower()}") and not s.contains("{word.lower()} of"))'
+            if kind == "Definition"
+            else f's.contains("{word.lower()}")'
+            for kind, word in self.theorem_words()
+        ]
+        is_thm = "\n".join(("    " if i == 0 else "    or ") + test for i, test in enumerate(tests)) or "    false"
         font_expr = self.typst_font_tuple()
         style = self.publisher.heading_style
         use_sc = self.language.code != "zh"
         sc_body = "#smallcaps(it.body)" if use_sc else "#it.body"
-        italic_h3 = 'style: "italic", ' if self.language.code != "zh" else ""
+        chapter_number = (
+            f""" else if it.numbering != none {{
+      align(center, text(11pt, weight: "regular", tracking: 0.14em, font: {font_expr})[CHAPTER #counter(heading).display()])
+      v(0.4em)
+    }}"""
+            if self.theorem_layout
+            else ""
+        )
         if style == "centered-smallcaps":
             h1 = f"""#show heading.where(level: 1): it => {{
   v(2.8em)
@@ -367,7 +420,7 @@ class CompositionConfig:
     if label != none {{
       align(center, text(11pt, tracking: 0.12em, font: {font_expr})[#smallcaps(label)])
       v(0.9em)
-    }}
+    }}{chapter_number}
   }}
   align(center)[
     #text(14pt, weight: "bold", tracking: 0.06em, font: {font_expr})[#smallcaps(it.body)]
@@ -421,7 +474,9 @@ class CompositionConfig:
   v(1.4em)
 }}"""
         h4_body = "#smallcaps(it.body)" if use_sc else "#it.body"
-        return f"""{h1}
+        if not self.theorem_layout:
+            italic_h3 = 'style: "italic", ' if self.language.code != "zh" else ""
+            return f"""{h1}
 
 #show heading.where(level: 2): it => block(above: 1.75em, below: 0.75em, sticky: true)[
   #text(12.5pt, weight: "bold", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
@@ -434,6 +489,45 @@ class CompositionConfig:
 #show heading.where(level: 4): it => block(above: 1.1em, below: 0.45em, sticky: true)[
   #text(10pt, weight: "bold", font: {font_expr})[{h4_body}]
 ]"""
+        return f"""#show heading: set block(sticky: true)
+#show heading: set text(hyphenate: false)
+
+{h1}
+
+#let is-thm-heading(it) = {{
+  let s = lower(repr(it.body))
+  (
+{is_thm}
+  )
+}}
+
+#show heading.where(level: 2): it => {{
+  if is-thm-heading(it) {{
+    block(above: 1.35em, below: 0.55em, sticky: true)[
+      #text(10.5pt, weight: "bold", style: "normal", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+    ]
+  }} else {{
+    block(above: 1.9em, below: 0.9em, sticky: true)[
+      #text(12pt, weight: "bold", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]{sc_body}]
+    ]
+  }}
+}}
+
+#show heading.where(level: 3): it => {{
+  if is-thm-heading(it) {{
+    block(above: 1.35em, below: 0.55em, sticky: true)[
+      #text(10.5pt, weight: "bold", style: "normal", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+    ]
+  }} else {{
+    block(above: 1.6em, below: 0.7em, sticky: true)[
+      #text(11pt, weight: "bold", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
+    ]
+  }}
+}}
+
+#show heading.where(level: 4): it => block(above: 1.1em, below: 0.45em, sticky: true)[
+  #text(10pt, weight: "bold", font: {font_expr})[{h4_body}]
+]"""
 
 
 def resolve_composition(
@@ -441,6 +535,7 @@ def resolve_composition(
     lang: str = "en",
     *,
     domain: str,
+    theorem_layout: bool = False,
 ) -> CompositionConfig:
     pub_key = publisher.strip().lower()
     lang_key = lang.strip().lower().split("-")[0]
@@ -448,6 +543,7 @@ def resolve_composition(
         publisher=PUBLISHER_PRESETS.get(pub_key, PUBLISHER_PRESETS["cambridge"]),
         language=LANGUAGE_PROFILES.get(lang_key, LANGUAGE_PROFILES["en"]),
         domain=domain_profile(domain),
+        theorem_layout=theorem_layout,
     )
 
 

@@ -5,6 +5,7 @@ publisher = 'American Mathematical Society'
 series = 'Graduate Studies in Mathematics, Vol. 14'
 year = 2001
 domain = 'math'
+theorem_layout = true
 preface_page = 18
 chapters = [
   { number = 1, title = 'Measure and Integration', start_page = 24, end_page = 63 },

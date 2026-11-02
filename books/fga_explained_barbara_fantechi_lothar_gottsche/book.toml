@@ -33,6 +33,7 @@ drop_line_regexes = [
 ]
 cross_references = true
 commutative_diagrams = true
+theorem_layout = true
 latex_preamble = '''
 \ifPDFTeX
   \DeclareUnicodeCharacter{25A0}{\ensuremath{\blacksquare}}

@@ -12,7 +12,11 @@ from typing import Literal
 from PIL import Image
 
 FLETCHER_IMPORT = '#import "@preview/fletcher:0.5.8" as fletcher\n'
-SCAN_DIAGRAM_LATEX = r"\usepackage{graphicx}\usepackage[export]{adjustbox}\newcommand{\scandiagram}[1]{\includegraphics[max width=\linewidth,max height=0.45\textheight,keepaspectratio]{figures/fig_#1.png}}"
+SCAN_DIAGRAM_LATEX = (
+    r"\usepackage{graphicx}\IfFileExists{adjustbox.sty}"
+    r"{\usepackage[export]{adjustbox}\newcommand{\scandiagram}[1]{\includegraphics[max width=\linewidth,max height=0.45\textheight,keepaspectratio]{figures/fig_##1.png}}}"
+    r"{\newcommand{\scandiagram}[1]{\includegraphics[width=\linewidth,height=0.45\textheight,keepaspectratio]{figures/fig_##1.png}}}"
+)
 SCAN_DIAGRAM_RE = re.compile(r"\\scandiagram\{(\d+_\d+)\}")
 DISPLAY_RE = re.compile(r"\$\$(.*?)\$\$", re.DOTALL)
 
