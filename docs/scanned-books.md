@@ -35,7 +35,9 @@ A monograph edition compiles the transcripts in the book's transcript store, `$P
 | `mistral` | the Mistral OCR API | `MISTRAL_API_KEY` |
 | `cached:?dir=PATH` | the transcripts in another folder | nothing |
 
-Options follow a `?`, as in `colab?gpu=A100&workers=3` or `openai:qwen2.5-vl?base_url=http://gpu-box:8000/v1&key_env=`. An unknown option stops the command and lists the valid options. `uv run polytypst-colab gpus` shows which self-hosted model fits which Colab GPU.
+Options follow a `?`, as in `colab?gpu=G4&workers=2&shards=3` or `openai:qwen2.5-vl?base_url=http://gpu-box:8000/v1&key_env=`. An unknown option stops the command and lists the valid options. `uv run polytypst-colab gpus` shows which self-hosted model fits which Colab GPU. The older flags `--mode`, `--ocr-model`, `--gpu-type`, `--colab-workers` and `--shards` build the backend in the same way. `--gpu-type`, `--colab-workers` and `--shards` are Colab-only, and any of these flags stops the command when `--backend` is also given. Each Colab run names its VMs `ocr-RUN-N`, with a new RUN for each run. So when you stop a VM, use only the names that your own run printed.
+
+Long jobs: a whole-book OCR run, a build of a long book, and the figure pass take from minutes to hours. Start each one once, in the background, with its output in a log. Report its expected end time and its log path. For a Colab run, also report the compute units per hour that `uv run polytypst-colab usage` shows. Then wait for it to exit, or read its log every 15 to 30 minutes. The figure pass prints `OCR lines: page N/M` every 10 pages.
 
 Varlock reads the API keys from the macOS Keychain, through `.env.schema`. To add a key, run `security add-generic-password -s polytypst.GEMINI_API_KEY -a "$USER" -w`. Then `varlock load` shows the key as set.
 

@@ -4,6 +4,8 @@ You check one book for transcript errors and scan typos. Then you fix the real o
 
 Run every command from `/Users/martinfan/devv/polytypst.mixed`. `BOOK` is a book number from 1 to 6, or the folder name of any other book under `books/`. `KEY` is the folder name under `books/`, such as `4_不良债权与金融危机`. `CHECK` is `output/page_check/BOOK/`.
 
+Long jobs: `page_check.py run`, `book_check.py verify` and `render_check.py --run` take tens of minutes. `render_check --run` takes about 50 minutes for 121 pairs. Start each one once, in the background, and report its expected end time and its log path. Then wait for it to exit, or read its log every 15 to 30 minutes. A tool timeout stops a foreground job before it ends.
+
 `status` prints each stage's counts and the commands that are due:
 
 ```bash
@@ -129,7 +131,7 @@ mise exec -- uv run python scripts/one_book.py KEY audit --against "CHECK/audit_
 uv run pytest -q
 ```
 
-`tests/test_book_snapshots.py` compares each book spec with `tests/fixtures/book_snapshots.json`, so it fails for each new fixup. When it fails only for your fixups, write the fixture again from `snapshot()` in `tests/book_snapshot.py`. Then run `lint` again: a fixed error leaves `lint.jsonl`, because `lint` reads each page with its fixups.
+`tests/test_book_snapshots.py` compares each book spec with `tests/fixtures/book_snapshots.json`, so it fails for each new fixup. When it fails only for your fixups, write the fixture again from `snapshot()` in `tests/book_snapshot.py`. The commit that changes the fixture needs a `Protected-change: <reason>` line in its message, or `hk check` and the commit-msg hook stop it. Then run `lint` again: a fixed error leaves `lint.jsonl`, because `lint` reads each page with its fixups.
 
 Done when the build exits 0, no audit rule rises, the tests pass, and each fixed text is in the built `.typ` file.
 
@@ -152,3 +154,13 @@ Steps 1 to 6 check the words of the transcript. This step checks how the rebuilt
 Fix each content error of grade `C` in `books/KEY/book.toml` as in step 4. A presentation flaw of grade `B` or `C` and a layout finding usually come from shared code, so record it as a finding and do not patch it in the book.
 
 Done when every caption has a line in `output/render_check/BOOK/`, and the review wrote its findings.
+
+## Step 8. Run the gate
+
+```bash
+uv run python scripts/book_check.py gate BOOK
+```
+
+`gate` checks the page-check receipts, the lint run and the verdicts. It also checks that each figure caption in the scan is in `figures_manifest.json` and in the rebuilt PDF, and that `polytypst audit` exits 0. It prints one `PASS`, `WARN` or `FAIL` line for each check. The last line is `PASS` only when no check failed. Otherwise the command exits 1. A `WARN` line for 0 issues from more than 100 pages means that you open five pages beside their scans and compare them.
+
+Done when the last line is `PASS`. Quote the whole output in your report.
