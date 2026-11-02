@@ -95,7 +95,8 @@ def test_a_number_table_too_wide_for_the_text_prints_at_7pt_or_more_with_no_over
     if not shutil.which("typst"):
         pytest.skip("typst is not installed")
     table_rules = [line for line in BOOK_STYLE.read_text().splitlines() if line.startswith(("#show table", "#set table"))]
-    page = f"#set page(width: {PAGE_WIDTH_PT}pt, height: 663pt, margin: {MARGIN_PT}pt)\n" + "\n".join(table_rules) + "\n"
+    note_rule = re.search(r"^#let fig-note.*?^\]$", BOOK_STYLE.read_text(), re.DOTALL | re.MULTILINE)[0]
+    page = f"#set page(width: {PAGE_WIDTH_PT}pt, height: 663pt, margin: {MARGIN_PT}pt)\n" + "\n".join([*table_rules, note_rule]) + "\n"
     (tmp_path / "t.typ").write_text(page + '#set text(font: ("Songti SC", "STSong"), lang: "zh")\n' + out, encoding="utf-8")
     subprocess.run(["typst", "compile", str(tmp_path / "t.typ"), str(tmp_path / "t.pdf")], check=True)
     doc = pymupdf.open(tmp_path / "t.pdf")
@@ -104,6 +105,26 @@ def test_a_number_table_too_wide_for_the_text_prints_at_7pt_or_more_with_no_over
     assert all(w[2] <= p.rect.width - MARGIN_PT + 0.5 for p in doc for w in p.get_text("words"))
     sizes = [s["size"] for p in doc for b in p.get_text("dict")["blocks"] for line in b.get("lines", []) for s in line["spans"] if NUMBER_WORD.fullmatch(s["text"].strip("  "))]
     assert sizes and min(sizes) >= 7
+
+
+def test_the_notes_under_a_table_and_the_numbered_note_its_header_calls_set_as_one_note_block():
+    table = row("被解释变量", "换算时薪（日元）⁽¹⁾") + row("---", "---") + row("日工", "-266.2")
+    out = layout_tables("@@TABLEBLOCK0@@\n\n注：BASE：男性。\n\n（1）制作程序如下。\n\n（2）正文的列举。\n", [table])
+    note = re.search(r"fig-note\[\n(.*?)\n\]", out, re.DOTALL)
+    assert note and note[1] == "注：BASE：男性。\n\n（1）制作程序如下。"
+    assert out.count("注：BASE") == 1 and out.rstrip().endswith("\n\n（2）正文的列举。")
+
+
+def test_the_note_of_a_table_turned_onto_landscape_pages_prints_on_its_last_landscape_page(tmp_path):
+    labels = ("供电供气供热及水务行业", "专业性、技术性职业", "农林渔业工作者", "批发零售、餐饮店", "公务")
+    table = "".join(wide_regression_table().splitlines(keepends=True)[:4])
+    table += "".join(row(labels[i % len(labels)], *["−1413.6", "13.372"] * 6) for i in range(50))
+    out = layout_tables(f"正文。\n\n{CAPTION}\n\n@@TABLEBLOCK0@@\n\n注：表注。\n\n后文。\n", [table])
+    note_rule = re.search(r"^#let fig-note.*?^\]$", BOOK_STYLE.read_text(), re.DOTALL | re.MULTILINE)[0]
+    compiled_words(tmp_path, note_rule + "\n" + out)
+    doc = pymupdf.open(tmp_path / "t.pdf")
+    note_page = next(p for p in doc if "表注" in p.get_text())
+    assert note_page.rect.width > note_page.rect.height and "后文" not in note_page.get_text()
 
 
 def test_a_number_table_too_wide_and_too_long_to_turn_whole_breaks_across_landscape_pages_with_no_overprint(tmp_path):
@@ -397,7 +418,10 @@ def test_a_text_heavy_table_moves_to_a_landscape_page_with_its_caption_continuat
     caption = "block(sticky: true, width: 100%)[#align(center)[#strong[表1-1 比较]]]; v(0.2em); "
     assert out.count(caption + "fit-table(") == 3 and out.count(caption + "set-table(") == 2
     assert "\n]\n\n\n\n#block(sticky: true)[续表]\n\n\n#align(center)[" in out
-    assert out.endswith("\n]\n\n\n\n注：根据内阁府制作。\n]\n\n下一段正文。\n")
+    assert "注：根据内阁府制作。\n]\n]" not in out
+    landscape, after = out.rsplit("\n]\n\n", 1)
+    assert after.strip() == "下一段正文。" and landscape.count("fig-note[\n注：根据内阁府制作。\n]") == 4
+    assert landscape.rindex("#block(sticky: true)[续表]") < landscape.index("fig-note[")
     assert out.count("#context {") == 2
 
 

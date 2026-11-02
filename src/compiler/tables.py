@@ -116,6 +116,33 @@ def _rotate_text_tables(text: str, table_blocks: list[str]) -> str:
     return TABLE_RUN.sub(rotate, text)
 
 
+NOTE_PARAGRAPH = r"(?:注|资料来源|（注|\(注|（资料来源|\(资料来源)[:：）)]?[^\n]*(?:\n(?![ \t]*\n|[\]#])[^\n]+)*"
+CALL_NOTE_PARAGRAPH = r"[（(](\d{1,2})[）)][^\n]*(?:\n(?![ \t]*\n|[\]#])[^\n]+)*"
+TABLE_NOTES = re.compile(rf"@@TABLEBLOCK(\d+)@@((?:\n\n+{NOTE_PARAGRAPH})+)((?:\n\n+{CALL_NOTE_PARAGRAPH})*)")
+SUPERSCRIPT_DIGITS = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
+
+
+def _take_table_notes(text: str, tables: list[str]) -> tuple[str, dict[int, str]]:
+    """Take out the notes under each table, and the numbered notes that its cells call, keyed by table, so that
+    the table prints them on its own page, turned or not."""
+    notes_of: dict[int, str] = {}
+
+    def take(m: re.Match[str]) -> str:
+        table = tables[int(m[1])]
+        notes = [p.strip() for p in re.split(r"\n\n+", m[2]) if p.strip()]
+        end = 0
+        for para in re.finditer(rf"\n\n+({CALL_NOTE_PARAGRAPH})", m[3]):
+            n = para[2]
+            if not re.search(rf"[（(]{n}[）)]|⁽{n.translate(SUPERSCRIPT_DIGITS)}⁾", table):
+                break
+            notes.append(para[1])
+            end = para.end()
+        notes_of[int(m[1])] = "\n\n".join(notes)
+        return f"@@TABLEBLOCK{m[1]}@@" + m[3][end:]
+
+    return TABLE_NOTES.sub(take, text), notes_of
+
+
 PANEL = r"(?:#block\(sticky: true\)\[[^\n]*\]\n+)?@@TABLEBLOCK\d+@@"
 NOTE_LINES = re.compile(r"^((?:注|资料来源)[:：][^\n]*)((?:\n[^\n]+)+)", re.MULTILINE)
 
@@ -395,7 +422,9 @@ def merge_continued_tables(text: str) -> str:
     return text
 
 
-def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bool = False, caption: str = "") -> str:
+def _format_pipe_tables(
+    text: str, three_line: bool = False, merge_continued: bool = False, caption: str = "", note: str = ""
+) -> str:
     """Typst tables for the Markdown pipe tables in `text`. A `three_line` table (三线表) fills the text width,
     weights each narrow table's columns by their widest cell, and rules only its top, header and bottom."""
     if merge_continued:
@@ -531,6 +560,7 @@ def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bo
                         probe, narrow, fit, dense = _column_widths(parsed_rows[:header_rows], body_rows, ncols)
                         tiers = PROSE_TABLE_TIERS if prose_cols else TABLE_TIERS
                         head = f"block(sticky: true, width: 100%)[{caption}]; v(0.2em); " if caption else ""
+                        tail = f"; v(0.5em); align(start, fig-note[\n{note}\n])" if note else ""
                         fit_table = (
                             f"let fit-table(width, t) = set-table({fit}, ..t)\n"
                             if fit
@@ -558,15 +588,15 @@ def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bo
                             f"{narrow_tier}"
                             f"let turned = if tier == none {{ {tiers}"
                             f".filter(t => measure(set-table({probe}, ..t)).width <= size.height)"
-                            f".map(t => block(width: size.height, {{ {head}fit-table(size.height, t) }}))"
+                            f".map(t => block(width: size.height, {{ {head}fit-table(size.height, t){tail} }}))"
                             f".find(b => measure(b).height <= size.width) }}\n"
-                            f"if tier != none {{ {head}fit-table(size.width, tier) }}"
+                            f"if tier != none {{ {head}fit-table(size.width, tier){tail} }}"
                             f" else if turned != none {{ place(auto, float: true, clearance: 1.2em, rotate(-90deg, reflow: true, turned)) }}"
-                            f" else if page.flipped {{ {head}set-table({dense}, ..{tiers}.last()) }}"
+                            f" else if page.flipped {{ {head}set-table({dense}, ..{tiers}.last()){tail} }}"
                             f" else {{ page(flipped: true, layout(turned => {{ let tier = {tiers}"
                             f".find(t => measure(set-table({probe}, ..t)).width <= turned.width);"
                             f" if tier != none {{ {head}fit-table(turned.width, tier) }}"
-                            f" else {{ {head}set-table({dense}, ..{tiers}.last()) }} }})) }}\n"
+                            f" else {{ {head}set-table({dense}, ..{tiers}.last()) }}{tail} }})) }}\n"
                             f"}}\n"
                         )
                         typst_table = (
@@ -587,8 +617,10 @@ def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bo
                     label_at = next((k for k in range(len(out) - 1, -1, -1) if out[k].strip()), None)
                     if label_at is not None and _is_table_label(out[label_at]):
                         out[label_at] = f"#block(sticky: true)[{out[label_at].strip()}]"
+                    if note and "#context {" not in typst_table:
+                        typst_table += f"\n#v(0.5em)\n#fig-note[\n{note}\n]\n"
                     out.append(typst_table)
-                    caption = ""
+                    caption = note = ""
                 continue
         out.append(lines[i])
         i += 1
@@ -612,13 +644,18 @@ def layout_tables(text: str, tables: list[str], three_line: bool = False, merge_
         flags=re.DOTALL,
     )
     text = _rotate_text_tables(text, tables)
+    text, notes = _take_table_notes(text, tables)
     text = CAPTIONED_TABLE.sub(
         lambda m: "#v(0.6em)\n" + code.lstrip("\n")
-        if "#context {" in (code :=_format_pipe_tables(tables[int(m[2])], three_line, merge_continued, m[1]))
+        if "#context {" in (
+            code := _format_pipe_tables(tables[int(m[2])], three_line, merge_continued, m[1], notes.get(int(m[2]), ""))
+        )
         else m[0],
         text,
     )
     text = re.sub(
-        r"@@TABLEBLOCK(\d+)@@", lambda m: _format_pipe_tables(tables[int(m[1])], three_line, merge_continued), text
+        r"@@TABLEBLOCK(\d+)@@",
+        lambda m: _format_pipe_tables(tables[int(m[1])], three_line, merge_continued, note=notes.get(int(m[1]), "")),
+        text,
     )
     return _format_pipe_tables(text, three_line, merge_continued)
