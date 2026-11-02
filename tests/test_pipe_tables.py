@@ -1,8 +1,148 @@
+import itertools
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+import pymupdf
+import pytest
+
 from polytypst.compiler.tables import (
     continued_table_split,
     layout_tables,
     merge_continued_tables,
 )
+
+PAGE_WIDTH_PT, MARGIN_PT = 442, 56
+BOOK_STYLE = Path(__file__).parent.parent / "books" / "styles" / "japan_economy.typ"
+
+
+def compiled_words(tmp_path, typst: str) -> list[tuple[float, float, float, float, str]]:
+    if not shutil.which("typst"):
+        pytest.skip("typst is not installed")
+    table_rules = [line for line in BOOK_STYLE.read_text().splitlines() if line.startswith(("#show table", "#set table"))]
+    page = (
+        f"#set page(width: {PAGE_WIDTH_PT}pt, height: 663pt, margin: {MARGIN_PT}pt)\n"
+        '#set text(font: ("Songti SC", "STSong", "New Computer Modern"), size: 10pt, lang: "zh")\n'
+        + "\n".join(table_rules)
+        + "\n"
+    )
+    (tmp_path / "t.typ").write_text(page + typst, encoding="utf-8")
+    subprocess.run(["typst", "compile", str(tmp_path / "t.typ"), str(tmp_path / "t.pdf")], check=True)
+    return [w[:5] for p in pymupdf.open(tmp_path / "t.pdf") for w in p.get_text("words")]
+
+
+MIN_GAP_PT = 3
+GLUED_NUMBERS = re.compile(r"\d\.\d+[−\-]?\d+\.\d")
+NUMBER_WORD = re.compile(r"[−\-+(]?[\d.,]+[)%*]*")
+
+
+def overprinted(words) -> list[tuple[str, str]]:
+    """Neighbouring numbers on one line that overlap or sit closer than MIN_GAP_PT, and words that are two numbers
+    printed with no gap between them."""
+    words = [w for w in words if w[4].strip("  ")]
+    rows: dict[int, list] = {}
+    for w in words:
+        rows.setdefault(round(w[3]), []).append(w)
+    pairs = [(w[4], "") for w in words if GLUED_NUMBERS.search(w[4])]
+    for row in rows.values():
+        row.sort(key=lambda w: w[0])
+        pairs += [
+            (a[4], b[4])
+            for a, b in itertools.pairwise(row)
+            if b[0] - a[2] < MIN_GAP_PT and NUMBER_WORD.fullmatch(a[4].strip(" ")) and NUMBER_WORD.fullmatch(b[4].strip(" "))
+        ]
+    return pairs
+
+
+def row(*cells: str) -> str:
+    return "| " + " | ".join(cells) + " |\n"
+
+
+def wide_regression_table() -> str:
+    years = ("Pooled", "1982", "1987", "1992", "1997", "2002")
+    table = row("被解释变量<br>估计方法", "劳动时间等级中位数（15～60）<br>OLS", *[""] * 11) + row(*["---"] * 13)
+    table += row("Sample", *(cell for y in years for cell in (y, "")))
+    table += row("", *["Coef.", "s. e."] * 6)
+    table += row("供电供气供热及水务行业", "-496.4", "4.236", "-307.1", "8.055", "-368.9", "8.610", "-514.5", "9.345", "-596.5", "10.055", "-602.0", "9.712")
+    table += row("年龄", "0.298", "0.003", "0.226", "0.007", "0.245", "0.007", "0.311", "0.006", "0.282", "0.006", "0.417", "0.007")
+    table += row("日工", "-266.2", "7.443", "-145.2", "11.842", "-188.6", "14.507", "-301.0", "16.167", "-353.8", "18.886", "-305.0", "19.020")
+    table += row("服务业", "-7.1", "3.506", "8.2", "6.197", "14.8", "6.951", "-17.8", "7.300", "-5.2", "8.286", "-3.5", "9.178")
+    table += row("公务", "276.8", "7.517", "99.3", "12.348", "179.0", "14.676", "319.8", "16.229", "455.7", "18.432", "461.7", "19.710")
+    return table
+
+
+def bracketed_t_values_table() -> str:
+    table = row("", "const.", "bt", "Y_temp", "G_temp", "trend", "st (-1)", "Y_type", "G_type", "ρ", "Akaikecr.", "adj. R-2")
+    table += row(*["---"] * 12) + row("①主模型", *[""] * 11)
+    for n, values, t_values in (
+        ("（1）", ("-0.0036", "-0.0272", "-0.7824", "0.7452"), ("(-0.2425)", "(-1.112)", "(-1.818)", "(1.9161)")),
+        ("（2）", ("-0.0116", "-0.0168", "-0.66051", "0.491979"), ("(-0.9882)", "(-0.8330)", "(-1.6565)", "(1.7194)")),
+        ("（3）", ("-0.0028", "-0.0284", "-0.6463", "2.1631"), ("(-0.2061)", "(-1.2070)", "(-1.5844)", "(1.9794)")),
+    ):
+        table += row(n, *values, "", "", "struc.", "Kalman", "0.9081", "-6.9433", "0.8174")
+        table += row("", *t_values, "", "", "", "", "(15.122)", "", "")
+    return table
+
+
+@pytest.mark.parametrize("table", [wide_regression_table(), bracketed_t_values_table()], ids=["coef-se", "t-values"])
+def test_a_number_table_too_wide_for_the_text_prints_at_7pt_or_more_with_no_overprint(tmp_path, table):
+    out = layout_tables(f"{CAPTION}\n\n@@TABLEBLOCK0@@\n\n注：数据。\n", [table])
+    if not shutil.which("typst"):
+        pytest.skip("typst is not installed")
+    table_rules = [line for line in BOOK_STYLE.read_text().splitlines() if line.startswith(("#show table", "#set table"))]
+    page = f"#set page(width: {PAGE_WIDTH_PT}pt, height: 663pt, margin: {MARGIN_PT}pt)\n" + "\n".join(table_rules) + "\n"
+    (tmp_path / "t.typ").write_text(page + '#set text(font: ("Songti SC", "STSong"), lang: "zh")\n' + out, encoding="utf-8")
+    subprocess.run(["typst", "compile", str(tmp_path / "t.typ"), str(tmp_path / "t.pdf")], check=True)
+    doc = pymupdf.open(tmp_path / "t.pdf")
+    words = [w[:5] for p in doc for w in p.get_text("words")]
+    assert overprinted(words) == []
+    assert all(w[2] <= p.rect.width - MARGIN_PT + 0.5 for p in doc for w in p.get_text("words"))
+    sizes = [s["size"] for p in doc for b in p.get_text("dict")["blocks"] for line in b.get("lines", []) for s in line["spans"] if NUMBER_WORD.fullmatch(s["text"].strip("  "))]
+    assert sizes and min(sizes) >= 7
+
+
+def test_a_number_table_too_wide_for_the_text_moves_to_a_landscape_page():
+    out = layout_tables(f"{CAPTION}\n\n@@TABLEBLOCK0@@\n\n注：数据。\n", [wide_regression_table()])
+    assert out.startswith("#page(flipped: true)")
+
+
+def test_a_table_wider_than_the_text_prints_no_number_over_its_neighbour_and_stays_inside_the_margins(tmp_path):
+    years = ("Pooled", "1982", "1987", "1992", "1997", "2002")
+    table = row("被解释变量<br>估计方法", "劳动时间等级中位数（15～60）<br>OLS", *[""] * 11) + row(*["---"] * 13)
+    table += row("Sample", *(cell for y in years for cell in (y, "")))
+    table += row("", *["Coef.", "s. e."] * 6)
+    table += row("女性虚拟变量", "-4.316", "0.018", "-3.618", "0.041", "-4.179", "0.042", "-4.174", "0.037", "-4.403", "0.038", "-5.254", "0.044")
+    table += row("年龄", "0.298", "0.003", "0.226", "0.007", "0.245", "0.007", "0.311", "0.006", "0.282", "0.006", "0.417", "0.007")
+    table += row("已婚、非户主、普通家庭", "-2.296", "0.021", "-1.537", "0.046", "-1.971", "0.047", "-2.301", "0.042", "-2.698", "0.044", "-2.959", "0.050")
+    table += row("大专、高等专科学校学历", "-0.672", "0.021", "-0.531", "0.055", "-0.576", "0.053", "-0.906", "0.043", "-0.710", "0.041", "-0.249", "0.045")
+    words = compiled_words(tmp_path, layout_tables(table, []))
+    assert overprinted(words) == []
+    assert max(w[2] for w in words) <= PAGE_WIDTH_PT - MARGIN_PT + 0.5
+
+
+def test_a_long_table_breaks_across_pages_and_no_row_runs_past_the_bottom_margin(tmp_path):
+    if not shutil.which("typst"):
+        pytest.skip("typst is not installed")
+    table = row("year", "a", "b", "c", "d") + row(*["---"] * 5)
+    table += "".join(row(f"Y{1900 + i}", "1.25", "−3.5", "10.0", "2") for i in range(80))
+    page = f"#set page(width: {PAGE_WIDTH_PT}pt, height: 663pt, margin: {MARGIN_PT}pt)\n"
+    (tmp_path / "t.typ").write_text(page + layout_tables(table, []), encoding="utf-8")
+    subprocess.run(["typst", "compile", str(tmp_path / "t.typ"), str(tmp_path / "t.pdf")], check=True)
+    doc = pymupdf.open(tmp_path / "t.pdf")
+    assert len(doc) >= 2
+    assert all(w[3] <= 663 - MARGIN_PT + 0.5 for p in doc for w in p.get_text("words"))
+    assert sum("Y1979" in p.get_text() for p in doc) == 1
+
+
+def test_a_long_spanning_header_does_not_squeeze_the_number_columns_under_it(tmp_path):
+    groups = ("1958年至X年：无常数项", "1958年至X年：有常数项", "1958年至X年：常数项+时间趋势")
+    table = row(*(cell for g in groups for cell in (g, "", "", ""))) + row(*["---"] * 12)
+    table += row(*["X", "t-Statistic", "Prob.*", "lag"] * 3)
+    table += "".join(row(*[year, "−1.2262", "0.1973", "0"] * 3) for year in ("1989", "1990", "2005"))
+    words = compiled_words(tmp_path, layout_tables(table, []))
+    assert overprinted(words) == []
+    assert max(w[2] for w in words) <= PAGE_WIDTH_PT - MARGIN_PT + 0.5
 
 TABLE = "| a | b |\n| :--- | :---: |\n| <mark>1.0</mark> | <b>2.0</b> |\n| <i>3.0<br>(4.0)</i> | 0.71** |\n"
 
@@ -67,14 +207,14 @@ def test_a_text_column_keeps_its_text():
 
 def test_a_short_stub_column_fits_its_labels_and_long_columns_get_more_room():
     table = "| 时间 | 非正式雇员总和 | 临时员工 | 派遣员工 | 其他 |\n| --- | --- | --- | --- | --- |\n| 1984年 | 15.3 | 2.6 | — | 4.2 |\n"
-    assert "columns: (auto, " in layout_tables(table, [])
+    assert "let weights = (0, " in layout_tables(table, [])
     wide = "| 概念 | 内阁府 | 日本银行 | IMF | OECD |\n| --- | --- | --- | --- | --- |\n| 潜在GDP（增长率）的概念 | 在平均运营率下使用生产要素时可达成的GDP。 | 中期可持续的GDP。 | 产出。 | 产出。 |\n"
     assert "columns: (23fr, 30fr, 17fr, auto, auto)" in layout_tables(wide, [])
 
 
 def test_a_span_marker_does_not_widen_its_column():
     table = '| 时间 | 总和 | 临时 | 合同工 | 其他 |\n| --- | --- | --- | --- | --- |\n| 1984年 | 15.3 | 2.6 | <span data-colspan="2">4.2</span> |  |\n| 2002年 | 29.4 | 6.8 | 4.7 | 2.5 |\n'
-    assert "columns: (auto, 4fr, 3fr, 3fr, 3fr)" in layout_tables(table, [])
+    assert "let weights = (0, 4, 3, 3, 3, )" in layout_tables(table, [])
 
 
 def test_a_panel_label_stays_with_its_table():

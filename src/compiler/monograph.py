@@ -1044,6 +1044,7 @@ class MonographCompiler:
         self._out_dir: Path = Path()
         self.cleaner: PageCleaner = PageCleaner.for_spec(spec)
         self._figure_labels: set[str] = set()
+        self._placed_figures: set[str] = set()
         self._sourced_figures: dict[str, str] = {}
         self._scan_boxes: dict[Path, dict[str, tuple[float, float, float, float]]] = {}
 
@@ -1380,6 +1381,7 @@ class MonographCompiler:
                 return f'#align(center)[#figure(caption: [{cap_body}], numbering: _ => "{raw_num}")[]{label}]'
             return f"#emph[{clean_cap}]"
         width_pct = self._figure_width_pct(asset, paired)
+        self._placed_figures.add(asset.stem)
         if asset.suffix == ".svg" and "资料来源" in (svg := asset.read_text(encoding="utf-8")):
             self._sourced_figures[f"{fig_dir.name}/{asset.name}"] = _squeezed_source(
                 html.unescape(re.sub(r"<[^>]+>", "", svg))
@@ -1771,6 +1773,8 @@ class MonographCompiler:
             if cap_after and not post_is_cap:
                 trail = f"\n\n{cap_after}"
 
+            if Path(path).stem in self._placed_figures:
+                return f"\n\n{lead}{trail}\n\n"
             if cap and re.match(r"^(?:#+\s*)?图\s*\d+[-－]\d+", cap):
                 clean_c = re.sub(r"^(?:#+\s*)?(图\s*\d+[-－]\d+[a-z]?\.?)", r"#strong[\1]", cap)
                 if post_is_cap and not pre_is_cap and not (alt and is_real_caption(alt)):
@@ -2091,6 +2095,7 @@ class MonographCompiler:
         """Build the Markdown and Typst sources from the page files in `out_dir`."""
         spec = self.spec
         self._figure_labels = set()
+        self._placed_figures = set()
         out_dir = Path(out_dir)
         md_dir = book_state(out_dir) / spec.markdown_dir
         store = TranscriptStore(md_dir)

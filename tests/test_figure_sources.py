@@ -1,6 +1,8 @@
 import json
 from dataclasses import replace
 
+from PIL import Image
+
 from polytypst.compiler.monograph import (
     ChapterSpec,
     FigureLayout,
@@ -87,6 +89,30 @@ def test_each_source_that_a_figure_of_the_block_prints_leaves_the_body(tmp_path)
     )
     assert typst.count("（资料来源：日本厚生劳动省）") == 0
     assert "后文继续。" in typst
+
+
+def test_a_page_link_to_a_figure_that_is_already_placed_prints_no_second_copy(tmp_path):
+    fig_dir = tmp_path / "figures"
+    fig_dir.mkdir()
+    (fig_dir / "fig_6-7.svg").write_text(svg(""), encoding="utf-8")
+    Image.new("RGB", (900, 600), "white").save(fig_dir / "fig_6-7.png")
+    compiler = MonographCompiler(replace(SPEC, cross_references=True))
+    compiler._out_dir = tmp_path
+    figures = compiler.render_figure_group([("6_7", "图 6-7 预期通货膨胀率")], fig_dir)
+    typst = compiler.format_typst(figures + "\n\n![图 6-7](figures/fig_6-7.png)\n\n后文继续。")
+    assert typst.count("fig_6-7.") == 1
+    assert "@fig-6-7]" not in typst
+    assert "后文继续。" in typst
+
+
+def test_a_page_link_to_a_figure_not_yet_placed_still_prints(tmp_path):
+    fig_dir = tmp_path / "figures"
+    fig_dir.mkdir()
+    Image.new("RGB", (900, 600), "white").save(fig_dir / "fig_6-8.png")
+    compiler = MonographCompiler(replace(SPEC, cross_references=True))
+    compiler._out_dir = tmp_path
+    typst = compiler.format_typst("![图 6-8](figures/fig_6-8.png)\n\n后文继续。")
+    assert typst.count("fig_6-8.png") == 1
 
 
 def test_a_source_that_no_figure_of_the_block_prints_stays(tmp_path):
