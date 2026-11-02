@@ -31,8 +31,20 @@ hooks {
         stash = "git"
         steps = linters
     }
+    ["commit-msg"] {
+        steps {
+            ["protected"] {
+                check = "uv run python scripts/protected_paths.py --message-file {{commit_msg_file}}"
+            }
+        }
+    }
     ["check"] {
-        steps = linters
+        steps {
+            ...linters
+            ["protected"] {
+                check = "uv run python scripts/protected_paths.py"
+            }
+        }
     }
     ["fix"] {
         fix = true
