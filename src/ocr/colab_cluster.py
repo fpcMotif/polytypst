@@ -168,7 +168,7 @@ class ColabOCRCluster:
             " stdout=log, stderr=subprocess.STDOUT)\n"
             "open('/content/worker.pid', 'w').write(str(p.pid))\n"
         )
-        print(f"[{session.name}] Launching {self.model.key} on {self.gpu_type}...")
+        print(f"[{session.name}] Launching {self.model.key} on {self.gpu_type}...", flush=True)
         return session.exec(launch, timeout=30).returncode == 0
 
     def _wait(self, session: ColabSession) -> bool:
@@ -187,14 +187,16 @@ class ColabOCRCluster:
             if state["done"]:
                 return True
             print(
-                f"[{session.name}] {state['pages']} pages transcribed ({time.time() - start:.0f}s)"
+                f"[{session.name}] {state['pages']} pages transcribed ({time.time() - start:.0f}s)",
+                flush=True,
             )
             if not state["alive"]:
                 print(
-                    f"[{session.name}] Worker exited early. Log tail:\n{state['log']}"
+                    f"[{session.name}] Worker exited early. Log tail:\n{state['log']}",
+                    flush=True,
                 )
                 return False
-        print(f"[{session.name}] Timed out after {self.timeout_sec:.0f}s.")
+        print(f"[{session.name}] Timed out after {self.timeout_sec:.0f}s.", flush=True)
         return False
 
     def _run_node(
@@ -240,7 +242,8 @@ class ColabOCRCluster:
         pending = list(pages)
         print(
             f"=== COLAB OCR: {self.model.key} on {self.num_workers}x {self.gpu_type} | "
-            f"{len(pending)} pages ==="
+            f"{len(pending)} pages ===",
+            flush=True,
         )
         if not pending:
             return ClusterStats(0, 0, 0.0, 0.0, 0)
@@ -271,7 +274,8 @@ class ColabOCRCluster:
         completed = sum(n for n, _ in results)
         rate = completed / duration if duration > 0 else 0.0
         print(
-            f"Cluster finished {completed} pages in {duration:.1f}s ({rate:.2f} pages/s)."
+            f"Cluster finished {completed} pages in {duration:.1f}s ({rate:.2f} pages/s).",
+            flush=True,
         )
         return ClusterStats(
             total_pages=len(pending),

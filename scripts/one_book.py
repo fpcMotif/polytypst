@@ -36,6 +36,8 @@ def audit(edition, issue_rules: set[str]) -> Counter[str]:
             continue
         path = format_output(edition, fmt)
         if not path.exists():
+            if fmt == "pdf":
+                sys.exit(f"missing {fmt}: {path}")
             print(f"missing {fmt}: {path}")
             continue
         for issue in DocumentQualityChecker(path, spec).run_all_checks().issues:
