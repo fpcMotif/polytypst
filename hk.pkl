@@ -6,8 +6,18 @@ local linters = new Mapping {
         check = "uv run ruff check {{files}}"
         fix = "uv run ruff check --fix {{files}}"
     }
+    ["rustfmt"] {
+        glob = List("native/**/*.rs", "native/rustfmt.toml")
+        check = "mbx fmt --manifest-path native/Cargo.toml --check"
+        fix = "mbx fmt --manifest-path native/Cargo.toml"
+    }
+    ["clippy"] {
+        glob = List("native/**/*.rs", "native/Cargo.toml", "native/clippy.toml")
+        check = "mbx clippy --manifest-path native/Cargo.toml --release -- -D warnings"
+        depends = List("rustfmt")
+    }
     ["pytest"] {
-        glob = List("*.py", "*.pkl", "quality/baseline.json")
+        glob = List("*.py", "*.pkl", "quality/baseline.json", "native/**/*.rs")
         check = "uv run pytest -q --deselect tests/test_ocr_robustness.py::TestOCREngineMachine::runTest"
         depends = List("ruff")
     }

@@ -158,7 +158,8 @@ impl Typst {
         let doc = match docs.entry((main.clone(), root.clone())) {
             std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
             std::collections::hash_map::Entry::Vacant(e) => {
-                let vpath = VirtualPath::virtualize(&root, &main).map_err(|_| "source file must be inside the root".to_string())?;
+                let vpath = VirtualPath::virtualize(&root, &main)
+                    .map_err(|_| "source file must be inside the root".to_string())?;
                 let packages = SystemPackages::from_parts(
                     FsPackages::system_data(),
                     FsPackages::system_cache(),
@@ -220,35 +221,37 @@ impl Typst {
         pdf_tags: bool,
     ) -> PyResult<(Option<Py<PyBytes>>, String)> {
         let format = format.to_owned();
-        let out = py.detach(|| on_big_stack(|| {
-            self.with_doc(&main, root.as_deref(), inputs, |doc| {
-                let (document, warnings) = Self::compile_doc(doc)?;
-                let bytes = match format.as_str() {
-                    "pdf" => {
-                        let options = PdfOptions {
-                            ident: Smart::Auto,
-                            creator: Smart::Auto,
-                            timestamp: None,
-                            page_ranges: None,
-                            standards: PdfStandards::default(),
-                            tagged: pdf_tags,
-                            pretty: false,
-                        };
-                        Some(typst_pdf::pdf(&document, &options).map_err(|errors| report(doc, &errors))?)
-                    }
-                    "png" => {
-                        let [page] = document.pages() else {
-                            return Err(format!("png export needs one page, got {}", document.pages().len()));
-                        };
-                        let options = RenderOptions { pixel_per_pt: (ppi / 72.0).into(), render_bleed: false };
-                        Some(typst_render::render(page, &options).encode_png().map_err(|e| e.to_string())?)
-                    }
-                    "none" => None,
-                    other => return Err(format!("unknown format {other}")),
-                };
-                Ok((bytes, warnings))
+        let out = py.detach(|| {
+            on_big_stack(|| {
+                self.with_doc(&main, root.as_deref(), inputs, |doc| {
+                    let (document, warnings) = Self::compile_doc(doc)?;
+                    let bytes = match format.as_str() {
+                        "pdf" => {
+                            let options = PdfOptions {
+                                ident: Smart::Auto,
+                                creator: Smart::Auto,
+                                timestamp: None,
+                                page_ranges: None,
+                                standards: PdfStandards::default(),
+                                tagged: pdf_tags,
+                                pretty: false,
+                            };
+                            Some(typst_pdf::pdf(&document, &options).map_err(|errors| report(doc, &errors))?)
+                        }
+                        "png" => {
+                            let [page] = document.pages() else {
+                                return Err(format!("png export needs one page, got {}", document.pages().len()));
+                            };
+                            let options = RenderOptions { pixel_per_pt: (ppi / 72.0).into(), render_bleed: false };
+                            Some(typst_render::render(page, &options).encode_png().map_err(|e| e.to_string())?)
+                        }
+                        "none" => None,
+                        other => return Err(format!("unknown format {other}")),
+                    };
+                    Ok((bytes, warnings))
+                })
             })
-        }));
+        });
         let (bytes, warnings) = out.map_err(TypstError::new_err)?;
         Ok((bytes.map(|b| PyBytes::new(py, &b).unbind()), warnings))
     }
@@ -263,35 +266,37 @@ impl Typst {
         root: Option<PathBuf>,
         inputs: HashMap<String, String>,
     ) -> PyResult<String> {
-        py.detach(|| on_big_stack(|| {
-            self.with_doc(&main, root.as_deref(), inputs, |doc| {
-                let (document, _) = Self::compile_doc(doc)?;
-                let selector = typst_eval::eval_string(
-                    (doc as &dyn World).track(),
-                    doc.library(),
-                    Sink::new().track_mut(),
-                    EmptyIntrospector.track(),
-                    Context::none().track(),
-                    &selector,
-                    SpanMode::Uniform(Span::detached()),
-                    SyntaxMode::Code,
-                    Scope::default(),
-                )
-                .map_err(|errors| format!("failed to evaluate selector: {}", report(doc, &errors)))?
-                .cast::<LocatableSelector>()
-                .map_err(|e| e.message().to_string())?;
-                let values: Vec<_> = document
-                    .introspector()
-                    .query(&selector.0)
-                    .into_iter()
-                    .filter_map(|c| match &field {
-                        Some(name) => c.get_by_name(name).ok(),
-                        None => Some(c.into_value()),
-                    })
-                    .collect();
-                serde_json::to_string(&values).map_err(|e| e.to_string())
+        py.detach(|| {
+            on_big_stack(|| {
+                self.with_doc(&main, root.as_deref(), inputs, |doc| {
+                    let (document, _) = Self::compile_doc(doc)?;
+                    let selector = typst_eval::eval_string(
+                        (doc as &dyn World).track(),
+                        doc.library(),
+                        Sink::new().track_mut(),
+                        EmptyIntrospector.track(),
+                        Context::none().track(),
+                        &selector,
+                        SpanMode::Uniform(Span::detached()),
+                        SyntaxMode::Code,
+                        Scope::default(),
+                    )
+                    .map_err(|errors| format!("failed to evaluate selector: {}", report(doc, &errors)))?
+                    .cast::<LocatableSelector>()
+                    .map_err(|e| e.message().to_string())?;
+                    let values: Vec<_> = document
+                        .introspector()
+                        .query(&selector.0)
+                        .into_iter()
+                        .filter_map(|c| match &field {
+                            Some(name) => c.get_by_name(name).ok(),
+                            None => Some(c.into_value()),
+                        })
+                        .collect();
+                    serde_json::to_string(&values).map_err(|e| e.to_string())
+                })
             })
-        }))
+        })
         .map_err(TypstError::new_err)
     }
 }

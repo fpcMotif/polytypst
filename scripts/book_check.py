@@ -333,7 +333,7 @@ def book_title(book: str) -> str:
     return re.sub(r"^\d+[_ ]", "", page_check.book_key(book))
 
 
-def zoom(book: str, doc: pymupdf.Document, issue: dict, out: Path) -> str:
+def zoom(book: str, issue: dict, out: Path) -> scan_sheet.Strip:
     """A 300 dpi strip of the scan around the issue's line, or the whole page when no OCR line holds its text."""
     texts = [t for t in (issue.get("scan", ""), issue.get("transcript", "")) if t]
     keys = [
@@ -346,12 +346,9 @@ def zoom(book: str, doc: pymupdf.Document, issue: dict, out: Path) -> str:
         if band
         else (0.0, 1.0)
     )
-    out.write_bytes(
-        scan_sheet.strip_png(
-            doc, issue["page"], band, ZOOM_DPI if band != (0.0, 1.0) else PAGE_DPI
-        )
+    return scan_sheet.Strip(
+        issue["page"], band, ZOOM_DPI if band != (0.0, 1.0) else PAGE_DPI, out
     )
-    return str(out)
 
 
 def triage(book: str, scan: Path) -> tuple[int, int]:
@@ -392,16 +389,24 @@ def triage(book: str, scan: Path) -> tuple[int, int]:
         else:
             open_claims.append(issue)
     append_jsonl(results(book) / "verdicts.jsonl", settled)
-    doc = pymupdf.open(scan)
-    queue = []
-    for k, issue in enumerate(open_claims):
-        page_image = folder / f"page{issue['page']}.png"
-        if not page_image.exists():
-            page_image.write_bytes(
-                scan_sheet.strip_png(doc, issue["page"], (0.0, 1.0), PAGE_DPI)
-            )
-        zoomed = zoom(book, doc, issue, folder / f"p{issue['page']}_{k}.png")
-        queue.append({**issue, "zoom": zoomed, "page_image": str(page_image)})
+    page_images = {
+        p: folder / f"page{p}.png" for p in sorted({i["page"] for i in open_claims})
+    }
+    zooms = [
+        zoom(book, issue, folder / f"p{issue['page']}_{k}.png")
+        for k, issue in enumerate(open_claims)
+    ]
+    pages = [
+        scan_sheet.Strip(p, (0.0, 1.0), PAGE_DPI, path)
+        for p, path in page_images.items()
+        if not path.exists()
+    ]
+    if open_claims:
+        scan_sheet.write_strips(pymupdf.open(scan), pages + zooms)
+    queue = [
+        {**issue, "zoom": str(z.out), "page_image": str(page_images[issue["page"]])}
+        for issue, z in zip(open_claims, zooms, strict=True)
+    ]
     (results(book) / "queue.jsonl").write_text(
         "".join(json.dumps(q, ensure_ascii=False) + "\n" for q in queue),
         encoding="utf-8",

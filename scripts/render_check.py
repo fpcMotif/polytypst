@@ -21,6 +21,9 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pymupdf
+import scan_sheet
+
+from polytypst.process_pool import process_pool
 
 CAPTION = re.compile(r"^(附表|表|图)[\s ]*(\d+-\d+|[A-Z])(?:\s|$)")
 CAPTION_MAX_CHARS = 80
@@ -75,7 +78,18 @@ def render(doc: pymupdf.Document, page: int, path: Path) -> None:
     for p in pages:
         sheet.show_pdf_page(pymupdf.Rect(x, 0, x + p.rect.width, p.rect.height), doc, p.number)
         x += p.rect.width
-    sheet.get_pixmap(matrix=pymupdf.Matrix(DPI / 72, DPI / 72)).save(path)
+    path.write_bytes(scan_sheet.pixmap_png(sheet.get_pixmap(matrix=pymupdf.Matrix(DPI / 72, DPI / 72))))
+
+
+_DOCS: dict[str, pymupdf.Document] = {}
+
+
+def _open_docs(rebuilt: Path, scan: Path) -> None:
+    _DOCS["rebuilt"], _DOCS["scan"] = pymupdf.open(rebuilt), pymupdf.open(scan)
+
+
+def _render_job(job: tuple[str, int, Path]) -> None:
+    render(_DOCS[job[0]], job[1], job[2])
 
 
 def check_batch(book: str, labels: list[str], out: Path, model: str) -> str:
@@ -109,9 +123,13 @@ def main() -> None:
     if args.run:
         paired = [label for label in rebuilt if label in scan]
         args.out.mkdir(parents=True, exist_ok=True)
-        for label in paired:
-            render(rebuilt_doc, rebuilt[label], args.out / f"{label}_rebuilt.png")
-            render(scan_doc, scan[label], args.out / f"{label}_scan.png")
+        jobs = [
+            job
+            for label in paired
+            for job in (("rebuilt", rebuilt[label], args.out / f"{label}_rebuilt.png"), ("scan", scan[label], args.out / f"{label}_scan.png"))
+        ]
+        with process_pool(len(jobs), _open_docs, (args.pdf, args.scan)) as pool:
+            list(pool.map(_render_job, jobs, chunksize=4))
         batches = [(paired[i : i + args.size], args.out / f"r{i // args.size + 1}.jsonl") for i in range(0, len(paired), args.size)]
         todo = [(labels, out) for labels, out in batches if not out.exists()]
         print(f"{len(paired)} pairs, {len(todo)} of {len(batches)} batches to run, {args.jobs} at a time", flush=True)

@@ -41,7 +41,7 @@ class InkCache:
         if path.exists():
             with np.load(path) as stored:
                 shape = tuple(int(v) for v in stored["shape"])
-                ink = np.unpackbits(stored["bits"], count=shape[0] * shape[1]).reshape(shape).astype(bool)
+                ink = np.unpackbits(stored["bits"], count=shape[0] * shape[1]).reshape(shape).view(bool)
         else:
             if self._doc is None:
                 self._doc = pymupdf.open(self.source)

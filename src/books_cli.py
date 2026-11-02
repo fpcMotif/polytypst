@@ -230,7 +230,7 @@ def _visual(
 ) -> int:
     results = visual_check(scan, rebuilt, page_map)
     against = (args.against, visual_check(scan, args.against, page_map)) if args.against else None
-    summary = write_visual_report(results, out, scan.source, rebuilt, against, args.top)
+    summary = write_visual_report(results, out, scan, rebuilt, against, args.top)
     regions = summary["regions"]
     print(f"{summary['pages_with_regions']}/{summary['pages']} pages differ from the scan: "
           f"{regions['extra']} extra, {regions['missing']} missing regions; report: {out / 'index.html'}")

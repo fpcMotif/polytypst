@@ -268,8 +268,9 @@ def review_folder(
             page_map = {
                 m.scan_page: [m.rebuilt_page] for m in matches if m.rebuilt_page
             }
+            scan_ink = InkCache(scan, out / "ink", page_ink)
             summary = write_visual_report(
-                visual_check(InkCache(scan, out / "ink", page_ink), pdf, page_map), out / f"visual_{pdf.stem}", scan, pdf
+                visual_check(scan_ink, pdf, page_map), out / f"visual_{pdf.stem}", scan_ink, pdf
             )
             measures[pdf.name] |= {
                 k: summary[k] for k in ("mean_missing", "mean_extra", "mean_layout")

@@ -15,6 +15,9 @@ dependencies = [
     "polytypst-native",
 ]
 
+[tool.uv]
+compile-bytecode = true
+
 [tool.uv.sources]
 polytypst-native = { path = "native" }
 

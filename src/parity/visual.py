@@ -8,7 +8,6 @@ so it works for any edition whose pages map onto the scan's.
 import csv
 import html
 import json
-import os
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -17,11 +16,19 @@ from typing import Literal
 import numpy as np
 import pymupdf
 from PIL import Image, ImageDraw
+from polytypst_native import InkPair, text_lines
 
-from .compare import _dilate, common_crop
+from ..process_pool import process_pool
 from .ink_cache import InkCache
-from .report import write_overlay
-from .words import EDGE_GAP_PT, PT_PER_PX, line_measure, page_ink, without_edge_lines
+from .report import REVIEW_INK, ink_overlay
+from .words import (
+    EDGE_GAP_PT,
+    EDGE_LINE_SHARE,
+    EDGE_STRIP_SHARE,
+    PT_PER_PX,
+    line_measure,
+    page_ink,
+)
 
 MATCH_PT = 1.0
 MERGE_X_PT = 6.0
@@ -73,83 +80,65 @@ class PageVisual:
         return max(abs(d) for d in self.shift)
 
 
-def _near(ink: np.ndarray) -> np.ndarray:
-    out = ink
-    for _ in range(round(MATCH_PT / PT_PER_PX)):
-        out = _dilate(out)
-    return out
+Block = tuple[int, int, int, int, int]
 
 
-def _runs(idx: np.ndarray, gap_px: int) -> list[np.ndarray]:
-    return np.split(idx, np.flatnonzero(np.diff(idx) > gap_px) + 1) if idx.size else []
+def _diff(pair: InkPair) -> tuple[int, int, int, int, list[Block], list[Block]]:
+    return pair.diff(round(MATCH_PT / PT_PER_PX), round(MERGE_Y_PT / PT_PER_PX), round(MERGE_X_PT / PT_PER_PX))
 
 
-def _regions(mask: np.ndarray, kind: Literal["extra", "missing"]) -> list[Region]:
+def _regions(blocks: list[Block], kind: Literal["extra", "missing"]) -> list[Region]:
     out = []
-    for band in _runs(np.flatnonzero(mask.any(axis=1)), round(MERGE_Y_PT / PT_PER_PX)):
-        rows = mask[band[0] : band[-1] + 1]
-        for run in _runs(np.flatnonzero(rows.any(axis=0)), round(MERGE_X_PT / PT_PER_PX)):
-            block = rows[:, run[0] : run[-1] + 1]
-            area = float(block.sum()) * PT_PER_PX**2
-            if area < MIN_AREA_PT2:
-                continue
-            ys = np.flatnonzero(block.any(axis=1)) + band[0]
-            box = (run[0] * PT_PER_PX, ys[0] * PT_PER_PX, (run[-1] + 1) * PT_PER_PX, (ys[-1] + 1) * PT_PER_PX)
-            out.append(Region(kind, tuple(round(float(v), 2) for v in box), round(area, 1)))
+    for left, top, right, bottom, ink in blocks:
+        area = float(ink) * PT_PER_PX**2
+        if area < MIN_AREA_PT2:
+            continue
+        box = (left * PT_PER_PX, top * PT_PER_PX, right * PT_PER_PX, bottom * PT_PER_PX)
+        out.append(Region(kind, tuple(round(float(v), 2) for v in box), round(area, 1)))
     return out
 
 
-def _masks(source: np.ndarray, rebuilt: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    a, b = common_crop(source, rebuilt)
-    return b & ~_near(a), a & ~_near(b)
+def _largest_first(extra: list[Block], missing: list[Block]) -> list[Region]:
+    return sorted(_regions(extra, "extra") + _regions(missing, "missing"), key=lambda r: -r.area_pt2)
 
 
 def ink_regions(source: np.ndarray, rebuilt: np.ndarray) -> list[Region]:
     """The extra and missing regions of two page ink masks compared in place, largest first."""
-    extra, missing = _masks(source, rebuilt)
-    return sorted(_regions(extra, "extra") + _regions(missing, "missing"), key=lambda r: -r.area_pt2)
-
-
-def _inked_cells(ink: np.ndarray, cell_px: int) -> np.ndarray:
-    h, w = ink.shape[0] // cell_px * cell_px, ink.shape[1] // cell_px * cell_px
-    cells = ink[:h, :w].reshape(h // cell_px, cell_px, w // cell_px, cell_px)
-    return cells.mean(axis=(1, 3)) >= LAYOUT_INK_SHARE
+    *_, extra, missing = _diff(InkPair(source, rebuilt))
+    return _largest_first(extra, missing)
 
 
 def layout_share(source: np.ndarray, rebuilt: np.ndarray) -> float:
-    a, b = common_crop(source, rebuilt)
-    cell_px = max(1, a.shape[1] // LAYOUT_COLUMNS)
-    ca, cb = _inked_cells(a, cell_px), _inked_cells(b, cell_px)
+    return _layout_share(InkPair(source, rebuilt))
+
+
+def _layout_share(pair: InkPair) -> float:
+    ca, cb = pair.inked_cells(max(1, pair.width // LAYOUT_COLUMNS), LAYOUT_INK_SHARE)
     union = int((ca | cb).sum())
     return round(float((ca ^ cb).sum() / union), 4) if union else 0.0
 
 
-def _lines(ink: np.ndarray) -> list[tuple[int, int]]:
-    rows = np.flatnonzero(ink.sum(axis=1) > LINE_ROW_MIN_PX)
-    bands = [(int(r[0]), int(r[-1]) + 1) for r in _runs(rows, LINE_GAP_PX)]
-    bands = [(a, b) for a, b in bands if ink[a:b].sum() > LINE_MIN_INK_PX]
-    if not bands:
+def _lines(ink: np.ndarray, h: int, w: int) -> list[tuple[int, int, tuple[int, int] | None]]:
+    lines = text_lines(
+        ink, h, w, edge_line_share=EDGE_LINE_SHARE, edge_strip_share=EDGE_STRIP_SHARE,
+        edge_gap=EDGE_GAP_PT / PT_PER_PX, extent_gap=round(EDGE_GAP_PT / PT_PER_PX),
+        row_min=LINE_ROW_MIN_PX, line_gap=LINE_GAP_PX, line_min_ink=LINE_MIN_INK_PX,
+    )
+    if not lines:
         return []
-    height = float(np.median([b - a for a, b in bands]))
-    while len(bands) > 1 and bands[0][1] - bands[0][0] < DUST_LINE_SHARE * height:
-        bands.pop(0)
-    while len(bands) > 1 and bands[-1][1] - bands[-1][0] < DUST_LINE_SHARE * height:
-        bands.pop()
-    return bands
+    height = float(np.median([b - a for a, b, _ in lines]))
+    while len(lines) > 1 and lines[0][1] - lines[0][0] < DUST_LINE_SHARE * height:
+        lines.pop(0)
+    while len(lines) > 1 and lines[-1][1] - lines[-1][0] < DUST_LINE_SHARE * height:
+        lines.pop()
+    return lines
 
 
-def _line_extent(band: np.ndarray) -> tuple[int, int] | None:
-    """First and last ink column of a text line, leaving out specks set apart from the text by `EDGE_GAP_PT`."""
-    runs = [r for r in _runs(np.flatnonzero(band.any(axis=0)), round(EDGE_GAP_PT / PT_PER_PX))
-            if band[:, r[0] : r[-1] + 1].sum() > LINE_MIN_INK_PX]
-    return (int(runs[0][0]), int(runs[-1][-1])) if runs else None
-
-
-def _edges(ink: np.ndarray) -> tuple[float, float, float, float]:
-    lines = _lines(ink)
+def _edges(ink: np.ndarray, h: int, w: int) -> tuple[float, float, float, float]:
+    lines = _lines(ink, h, w)
     if not lines:
         return (0.0, 0.0, 0.0, 0.0)
-    extents = [ext for a, b in lines if (ext := _line_extent(ink[a:b])) is not None]
+    extents = [ext for *_, ext in lines if ext is not None]
     if not extents:
         return (0.0, 0.0, 0.0, 0.0)
     starts, ends = zip(*extents, strict=True)
@@ -161,20 +150,20 @@ def text_block_shift(source: np.ndarray, rebuilt: np.ndarray) -> tuple[float, fl
     """How far (pt) each edge of the rebuilt text block (left, top, right, bottom) sits from the scan's.
     Top and bottom are the first and last text line, without dust lines thinner than `DUST_LINE_SHARE`
     of the median line; left and right come from the line starts and ends by `line_measure`."""
-    a, b = common_crop(without_edge_lines(source), without_edge_lines(rebuilt))
-    sa, sb = _edges(a), _edges(b)
+    h, w = min(source.shape[0], rebuilt.shape[0]), min(source.shape[1], rebuilt.shape[1])
+    sa, sb = _edges(source, h, w), _edges(rebuilt, h, w)
     return (round(sb[0] - sa[0], 1), round(sb[1] - sa[1], 1), round(sb[2] - sa[2], 1), round(sb[3] - sa[3], 1))
 
 
 def page_visual(source: np.ndarray, rebuilt: np.ndarray, source_page: int, rebuilt_page: int) -> PageVisual:
-    extra, missing = _masks(source, rebuilt)
-    a, b = common_crop(source, rebuilt)
+    pair = InkPair(source, rebuilt)
+    scan_ink, rebuilt_ink, extra_ink, missing_ink, extra, missing = _diff(pair)
     return PageVisual(
         source_page, rebuilt_page,
-        round(float(extra.sum() / max(1, b.sum())), 4),
-        round(float(missing.sum() / max(1, a.sum())), 4),
-        tuple(ink_regions(source, rebuilt)),
-        layout_share(source, rebuilt),
+        round(extra_ink / max(1, rebuilt_ink), 4),
+        round(missing_ink / max(1, scan_ink), 4),
+        tuple(_largest_first(extra, missing)),
+        _layout_share(pair),
         text_block_shift(source, rebuilt),
     )
 
@@ -197,12 +186,12 @@ def visual_check(scan: InkCache, rebuilt: Path, page_map: dict[int, list[int]]) 
 _WORKER: dict = {}
 
 
-def _start_worker(scan: InkCache | Path, rebuilt: Path) -> None:
-    _WORKER.update(scan=pymupdf.open(scan) if isinstance(scan, Path) else scan, rebuilt=pymupdf.open(rebuilt))
+def _start_worker(scan: InkCache, rebuilt: Path) -> None:
+    _WORKER.update(scan=scan, rebuilt=pymupdf.open(rebuilt))
 
 
-def _pool(scan: InkCache | Path, rebuilt: Path, jobs: int) -> ProcessPoolExecutor:
-    return ProcessPoolExecutor(min(os.cpu_count() or 1, max(jobs, 1)), initializer=_start_worker, initargs=(scan, rebuilt))
+def _pool(scan: InkCache, rebuilt: Path, jobs: int) -> ProcessPoolExecutor:
+    return process_pool(jobs, _start_worker, (scan, rebuilt))
 
 
 def _visual_job(pair: tuple[int, int]) -> PageVisual:
@@ -210,9 +199,19 @@ def _visual_job(pair: tuple[int, int]) -> PageVisual:
     return page_visual(_WORKER["scan"](pno), page_ink(_WORKER["rebuilt"][ours - 1]), pno, ours)
 
 
+def _start_report_worker(scan: InkCache, docs: dict[str, Path]) -> None:
+    _WORKER.update(scan=scan, docs={name: pymupdf.open(path) for name, path in docs.items()})
+    _WORKER["rebuilt"] = _WORKER["docs"]["rebuilt"]
+
+
 def _overlay_job(job: tuple[int, int, Path]) -> None:
     pno, ours, path = job
-    write_overlay(_gray(_WORKER["scan"], pno), _gray(_WORKER["rebuilt"], ours), path)
+    ink_overlay(_WORKER["scan"](pno), overlay_ink(_WORKER["rebuilt"][ours - 1]), path)
+
+
+def _crop_job(job: tuple[str, int, Region, Path]) -> None:
+    name, page, region, path = job
+    _crop(_WORKER["docs"][name], page, region, path)
 
 
 def compare_runs(new: list[PageVisual], old: list[PageVisual]) -> dict[str, list[int]]:
@@ -243,23 +242,23 @@ def _crop(doc: pymupdf.Document, page: int, region: Region, path: Path) -> None:
     img.save(path)
 
 
-def _gray(doc: pymupdf.Document, page: int) -> np.ndarray:
-    pix = doc[page - 1].get_pixmap(dpi=OVERLAY_DPI, colorspace=pymupdf.csGRAY)
-    return np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width)
+def overlay_ink(page: pymupdf.Page) -> np.ndarray:
+    pix = page.get_pixmap(dpi=OVERLAY_DPI, colorspace=pymupdf.csGRAY)
+    return np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width) < REVIEW_INK
 
 
 def write_visual_report(
-    results: list[PageVisual], out_dir: Path, source: Path, rebuilt: Path,
+    results: list[PageVisual], out_dir: Path, scan: InkCache, rebuilt: Path,
     against: tuple[Path, list[PageVisual]] | None = None, top: int = TOP_REGIONS,
 ) -> dict[str, object]:
     """Write regions.csv, summary.json and index.html: crops of the book's `top` largest regions, then every
     differing page with its overlay, worst first. Returns the summary."""
     img = out_dir / "img"
     img.mkdir(parents=True, exist_ok=True)
-    docs = {"scan": pymupdf.open(source), "rebuilt": pymupdf.open(rebuilt)}
+    docs = {"scan": scan.source, "rebuilt": rebuilt}
     old = {p.source_page: p for p in against[1]} if against else {}
     if against:
-        docs["before"] = pymupdf.open(against[0])
+        docs["before"] = against[0]
     changes = compare_runs(results, against[1]) if against else {}
     with (out_dir / "regions.csv").open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
@@ -268,23 +267,27 @@ def write_visual_report(
             for r in p.regions:
                 writer.writerow([p.source_page, p.rebuilt_page, r.kind, *r.box, r.area_pt2])
     largest = sorted(((r, p) for p in results for r in p.regions), key=lambda rp: -rp[0].area_pt2)[:top]
-    crops = []
+    crops, crop_jobs = [], []
     for n, (r, p) in enumerate(largest):
         cells = []
-        for name, doc in docs.items():
+        for name in docs:
             if name == "before" and p.source_page not in old:
                 continue
             page = p.source_page if name == "scan" else old[p.source_page].rebuilt_page if name == "before" else p.rebuilt_page
             path = img / f"r{n:04d}_p{p.source_page:03d}_{name}.png"
-            _crop(doc, page, r, path)
+            crop_jobs.append((name, page, r, path))
             cells.append(f'<figure><figcaption>{name}</figcaption><img loading="lazy" src="img/{path.name}"></figure>')
         crops.append(
             f'<div class="region {r.kind}"><b>#{n + 1} {r.kind}</b> source page {p.source_page}, '
             f'{r.area_pt2}pt² at {r.box}{"".join(cells)}</div>'
         )
     shown = [p for p in sorted(results, key=lambda p: -p.score) if p.regions or p.source_page in old]
-    with _pool(source, rebuilt, len(shown)) as pool:
-        list(pool.map(_overlay_job, [(p.source_page, p.rebuilt_page, img / f"p{p.source_page:03d}_overlay.png") for p in shown], chunksize=4))
+    overlay_jobs = [(p.source_page, p.rebuilt_page, img / f"p{p.source_page:03d}_overlay.png") for p in shown]
+    overlay_scan = InkCache(scan.source, scan.folder.parent, overlay_ink)
+    with process_pool(len(crop_jobs) + len(overlay_jobs), _start_report_worker, (overlay_scan, docs)) as pool:
+        pending = [pool.map(_crop_job, crop_jobs), pool.map(_overlay_job, overlay_jobs, chunksize=4)]
+        for done in pending:
+            list(done)
     rows = []
     for p in shown:
         stem = f"p{p.source_page:03d}"
