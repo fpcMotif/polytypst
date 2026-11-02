@@ -268,5 +268,4 @@ def test_glued_strong_theorem_head_splits_onto_its_own_paragraph():
     compiler = MonographCompiler(KODAIRA_SPEC)
     raw = "**1.6 REMARKS.** (1) By Fatou's lemma."
     out = compiler.format_typst(raw)
-    assert "#strong[1.6 REMARKS]" in out
-    assert "#par(first-line-indent: 0pt, hanging-indent: 1.8em)[#box(width: 1.8em)[(1)]By Fatou's lemma.]" in out
+    assert "#strong[1.6 REMARKS]\n\n#item-break\n(1) By Fatou's lemma." in out

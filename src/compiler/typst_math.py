@@ -1229,26 +1229,16 @@ def _rewrite_abs(code: str) -> str:
 
 
 SIZED_CHEVRON_RE = re.compile(
-    r"(?:\\left|\\bigl|\\Bigl|\\biggl|\\Biggl)\s*\\langle\s*(.*?)\s*(?:\\right|\\bigr|\\Bigr|\\biggr|\\Biggr)\s*\\rangle",
+    r"\\left\s*\\langle\s*(.*?)\s*\\right\s*\\rangle",
     re.DOTALL,
 )
 
 
 def _rewrite_sized_delimiters(code: str) -> str:
     code = SIZED_CHEVRON_RE.sub(r"\\operatorname{polytypstlrchevron}(\1)", code)
-    code = re.sub(
-        r"(?:\\left|\\bigl|\\Bigl|\\biggl|\\Biggl)\s*\[\s*(.*?)\s*(?:\\right|\\bigr|\\Bigr|\\biggr|\\Biggr)\s*\]",
-        r"\\operatorname{polytypstlrbracket}(\1)",
-        code,
-    )
-    code = re.sub(
-        r"(?:\\left|\\bigl|\\Bigl|\\biggl|\\Biggl)\s*\\\{\s*(.*?)\s*(?:\\right|\\bigr|\\Bigr|\\biggr|\\Biggr)\s*\\\}",
-        r"\\operatorname{polytypstlrbrace}(\1)",
-        code,
-    )
-    code = re.sub(r"\\[bB]igg?[lr]?\s*\(", r"\\left(", code)
-    code = re.sub(r"\\[bB]igg?[lr]?\s*\)", r"\\right)", code)
-    return code
+    plain = r"((?:(?!\\begin\{).)*?)"
+    code = re.sub(rf"\\left\s*\[\s*{plain}\s*\\right\s*\]", r"\\operatorname{polytypstlrbracket}(\1)", code)
+    return re.sub(rf"\\left\s*\\\{{\s*{plain}\s*\\right\s*\\\}}", r"\\operatorname{polytypstlrbrace}(\1)", code)
 
 
 def _find_balanced_parens(s: str, start: int) -> int:

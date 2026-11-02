@@ -80,7 +80,8 @@ def test_math_domain_normalizes_proof_labels():
 
 def test_proof_end_mark_in_text_and_display_math():
     out_text = _typst("math", "This completes the proof. ■\n- Next topic")
-    assert "#qed\n\n- Next topic" in out_text
+    assert "#qed-filled\n\n- Next topic" in out_text
+    assert "#qed\n\n- Next" in _typst("math", "This completes the proof. □\n- Next topic")
 
     out_disp1 = _typst("math", "$$\nx = y \\quad \\blacksquare\n$$")
     assert "$ x = y $" in out_disp1
@@ -91,16 +92,9 @@ def test_proof_end_mark_in_text_and_display_math():
     assert "#v(-0.4em, weak: true)\n#align(right)[$square.filled.medium$]" in out_disp2
 
 
-def test_bullet_and_parenthesized_list_formatting():
+def test_bullet_list_formatting():
     out_bullets = _typst("math", "● First bullet\n● Second bullet")
     assert "- First bullet\n- Second bullet" in out_bullets
-
-    out_num = _typst("math", "(1) First item\n\n(2) Second item")
-    assert "#par(first-line-indent: 0pt, hanging-indent: 1.8em)[#box(width: 1.8em)[(1)]First item]" in out_num
-    assert "#par(first-line-indent: 0pt, hanging-indent: 1.8em)[#box(width: 1.8em)[(2)]Second item]" in out_num
-
-    out_roman = _typst("math", "(i) First roman\n\n(ii) Second roman")
-    assert "#par(first-line-indent: 0pt, hanging-indent: 1.8em)[#box(width: 1.8em)[(i)]First roman]" in out_roman
 
 
 def test_latex_safe_markdown_preserves_equations_and_proofs():

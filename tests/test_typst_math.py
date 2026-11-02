@@ -271,7 +271,7 @@ def test_sized_delimiters():
     res1 = convert(r"\left\langle x, y \right\rangle")
     assert res1.startswith("lr(chevron.l") and res1.endswith("chevron.r)")
     res2 = convert(r"\bigl\langle x, y \bigr\rangle")
-    assert res2.startswith("lr(chevron.l") and res2.endswith("chevron.r)")
+    assert res2.startswith("#scale(x: 120%, y: 120%)[chevron.l]")
     assert convert(r"\left[ \frac{a}{b} \right]") == "lr([ a / b ])"
     assert convert(r"\left\{ \frac{a}{b} \right\}") == "lr({ a / b })"
 

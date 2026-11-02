@@ -1047,9 +1047,6 @@ class MonographCompiler:
   linebreaks: "optimized"
 )
 
-#set list(indent: 1.2em, body-indent: 0.5em)
-#set enum(indent: 1.2em, body-indent: 0.5em)
-
 #show math.equation: set text(font: ({", ".join(f'"{f}"' for f in (lang.math_font, *lang.font_stack[1:]))},))
 #set math.equation(numbering: {eq_num_str})
 #set math.mat(row-gap: 0.55em, column-gap: 0.8em)
@@ -1063,7 +1060,8 @@ class MonographCompiler:
 #let thm-break = block(above: 1.65em, below: 0pt, sticky: true)[]
 #let sub-break = block(above: 1.35em, below: 0pt, sticky: true)[]
 #let item-break = block(above: 1.0em, below: 0pt)[]
-#let qed = {{ h(1fr); $square.filled.medium$ }}
+#let qed = {{ h(0.6em); box(width: 1fr, align(right)[$square.stroked$]) }}
+#let qed-filled = {{ h(0.6em); box(width: 1fr, align(right)[$square.filled.medium$]) }}
 #let dd = math.dif
 #let dv(f, x, deg: none) = if deg == none {{ $(dif f)/(dif x)$ }} else {{ $(dif^deg f)/(dif x^deg)$ }}
 #let pdv(f, x, deg: none) = if deg == none {{ $(partial f)/(partial x)$ }} else {{ $(partial^deg f)/(partial x^deg)$ }}
@@ -1517,16 +1515,18 @@ class MonographCompiler:
                 r"^(?:={2,4}|#{2,4}|\*{2,3})\s*(?:(?:\d+(?:\.\d+)*|[A-Z]\.?\d*)\s+)?(?:THEOREM|LEMMA|COROLLARY|PROPOSITION)\b",
                 p_strip,
                 re.IGNORECASE,
-            ):
-                if idx + 1 < len(paras):
-                    next_p = paras[idx + 1].strip()
-                    if next_p and not re.match(
+            ) and re.fullmatch(r"(?:={2,4}|#{2,4})[^\n]*|(\*{2,3})[^*\n]+\1", p_strip) and idx + 1 < len(paras):
+                next_p = paras[idx + 1].strip()
+                if (
+                    next_p
+                    and not re.match(
                         r"^(?:={1,4}|#{1,4}|\*{1,3}|PROOF\b|#emph\[Proof|#strong\[Proof|\*Proof|\*\*Proof)",
                         next_p,
                         re.IGNORECASE,
-                    ):
-                        if not (next_p.startswith(("*", "_")) and next_p.endswith(("*", "_"))):
-                            paras[idx + 1] = f"*{next_p}*"
+                    )
+                    and not (next_p.startswith(("*", "_")) and next_p.endswith(("*", "_")))
+                ):
+                    paras[idx + 1] = f"*{next_p}*"
         s = "\n\n".join(paras)
 
         for pattern, repl in spec.heading_rewrites:
@@ -1752,12 +1752,13 @@ class MonographCompiler:
         if self.composition.domain.proof_end_mark:
             s = re.sub(
                 r"^\s*□\s*$",
-                r"#v(-0.35em, weak: true)\n#align(right)[$square.filled.medium$]",
+                r"#v(-0.35em, weak: true)\n#align(right)[$square.stroked$]",
                 s,
                 flags=re.MULTILINE,
             )
-            s = re.sub(r"(?:\$square\.filled\.medium\$|[ \t]*[■□])", r"#qed", s)
-            s = re.sub(r"(#qed)[ \t]*(?:\n[ \t]*)?(-[ \t]+\S)", r"\1\n\n\2", s)
+            s = re.sub(r"[ \t]*□", r"#qed", s)
+            s = re.sub(r"[ \t]*■", r"#qed-filled", s)
+            s = re.sub(r"(#qed(?:-filled)?)[ \t]*(?:\n[ \t]*)?(-[ \t]+\S)", r"\1\n\n\2", s)
             s = re.sub(r"(\n\n)(?=#emph\[Proof)", r"\1#sub-break\n", s)
         if self.composition.domain.proof_blocks:
             def _norm_typst_proof_of(m: re.Match[str]) -> str:
@@ -1771,16 +1772,6 @@ class MonographCompiler:
             s = re.sub(r"^PROOF\.", r"#emph[Proof.]", s, flags=re.MULTILINE)
             s = re.sub(r"(?:\\?\*+|#emph\[|#strong\[)PROOF OF\s+(.+?)(?:\.\s+([A-Z“\"$][^\]\*]*))?\.?(?:\\?\*+|\])", _norm_typst_proof_of, s, flags=re.IGNORECASE)
 
-        def _format_hanging_par(m: re.Match[str]) -> str:
-            marker = m.group(1)
-            body = m.group(2)
-            return f"#par(first-line-indent: 0pt, hanging-indent: 1.8em)[#box(width: 1.8em)[({marker})]{body}]"
-
-        s = re.sub(
-            r"(?m)^\(([0-9]{1,2}|[a-z]{1,4})\)[ \t]+([^\n]+(?:\n(?!\n|\([0-9a-z]{1,4}\)[ \t]|#)[^\n]+)*)",
-            _format_hanging_par,
-            s,
-        )
         s = re.sub(r"(\n\n)(?=#strong\[)", r"\1#thm-break\n", s)
         s = re.sub(
             r"(\n\n)(?=\((?:[1-9]\d?|[ivx]{1,4}|[1-9]-[1-9])\)\s+)",
@@ -1818,10 +1809,11 @@ class MonographCompiler:
             disp_math = display_typst[i]
             qed_box = ""
             if self.composition.domain.proof_end_mark:
-                m_end = re.search(r"(?:\\quad|quad)?\s*(?:square\.filled(?:\.medium)?|square\.stroked|square)\s*$", disp_math)
+                m_end = re.search(r"(?:\\quad|quad)?\s*(square\.filled(?:\.medium)?|square\.stroked|square)\s*$", disp_math)
                 if m_end:
                     disp_math = disp_math[:m_end.start()].rstrip()
-                    qed_box = "\n#v(-0.4em, weak: true)\n#align(right)[$square.filled.medium$]"
+                    glyph = "square.filled.medium" if "filled" in m_end[1] else "square.stroked"
+                    qed_box = f"\n#v(-0.4em, weak: true)\n#align(right)[${glyph}$]"
             if i not in diagrams:
                 return f"\n$ {disp_math} $ {label}\n{qed_box}"
             return f"\n$ #{diagrams[i]} $ {label}\n{qed_box}" if label else f"\n#align(center, {diagrams[i]})\n{qed_box}"
@@ -1984,11 +1976,11 @@ class MonographCompiler:
                 first_alpha = m_alpha.group(0).lower() if m_alpha else None
 
                 is_sub = False
-                if raw_line.startswith("  ") or raw_line.startswith("\t"):
-                    is_sub = True
-                elif any(lt.lower().startswith(p) for p in prepositions):
-                    is_sub = True
-                elif current_section and first_alpha and first_alpha != current_section:
+                if (
+                    raw_line.startswith(("  ", "\t"))
+                    or any(lt.lower().startswith(p) for p in prepositions)
+                    or (current_section and first_alpha and first_alpha != current_section)
+                ):
                     is_sub = True
                 elif header_term:
                     if first_alpha == current_section and clean.lower() >= header_term.lower() and has_page and not any(clean.lower().startswith(p) for p in prepositions):
@@ -2307,7 +2299,7 @@ class MonographCompiler:
             + LATEX_CIRCLED_GLYPHS
             + latex_footnote_header(self.spec)
             + (SOURCE_NUMBER_LATEX_RULES if self.spec.cross_references else "")
-            + (r"\IfFileExists{adjustbox.sty}{\usepackage[export]{adjustbox}\newcommand{\scandiagram}[1]{\includegraphics[max width=\linewidth,max height=0.45\textheight,keepaspectratio]{figures/fig_##1.png}}}{\newcommand{\scandiagram}[1]{\includegraphics[width=\linewidth,height=0.45\textheight,keepaspectratio]{figures/fig_##1.png}}}" if self.spec.commutative_diagrams else "")
+            + (SCAN_DIAGRAM_LATEX if self.spec.commutative_diagrams else "")
             + (LATEX_CHINESE_PARAGRAPHS if self.composition.language.code == "zh" else "")
         )
         if self.spec.latex_preamble:
