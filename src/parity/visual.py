@@ -199,9 +199,19 @@ def _visual_job(pair: tuple[int, int]) -> PageVisual:
     return page_visual(_WORKER["scan"](pno), page_ink(_WORKER["rebuilt"][ours - 1]), pno, ours)
 
 
+def _start_report_worker(scan: InkCache, docs: dict[str, Path]) -> None:
+    _WORKER.update(scan=scan, docs={name: pymupdf.open(path) for name, path in docs.items()})
+    _WORKER["rebuilt"] = _WORKER["docs"]["rebuilt"]
+
+
 def _overlay_job(job: tuple[int, int, Path]) -> None:
     pno, ours, path = job
     ink_overlay(_WORKER["scan"](pno), overlay_ink(_WORKER["rebuilt"][ours - 1]), path)
+
+
+def _crop_job(job: tuple[str, int, Region, Path]) -> None:
+    name, page, region, path = job
+    _crop(_WORKER["docs"][name], page, region, path)
 
 
 def compare_runs(new: list[PageVisual], old: list[PageVisual]) -> dict[str, list[int]]:
@@ -245,10 +255,10 @@ def write_visual_report(
     differing page with its overlay, worst first. Returns the summary."""
     img = out_dir / "img"
     img.mkdir(parents=True, exist_ok=True)
-    docs = {"scan": pymupdf.open(scan.source), "rebuilt": pymupdf.open(rebuilt)}
+    docs = {"scan": scan.source, "rebuilt": rebuilt}
     old = {p.source_page: p for p in against[1]} if against else {}
     if against:
-        docs["before"] = pymupdf.open(against[0])
+        docs["before"] = against[0]
     changes = compare_runs(results, against[1]) if against else {}
     with (out_dir / "regions.csv").open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
@@ -257,23 +267,27 @@ def write_visual_report(
             for r in p.regions:
                 writer.writerow([p.source_page, p.rebuilt_page, r.kind, *r.box, r.area_pt2])
     largest = sorted(((r, p) for p in results for r in p.regions), key=lambda rp: -rp[0].area_pt2)[:top]
-    crops = []
+    crops, crop_jobs = [], []
     for n, (r, p) in enumerate(largest):
         cells = []
-        for name, doc in docs.items():
+        for name in docs:
             if name == "before" and p.source_page not in old:
                 continue
             page = p.source_page if name == "scan" else old[p.source_page].rebuilt_page if name == "before" else p.rebuilt_page
             path = img / f"r{n:04d}_p{p.source_page:03d}_{name}.png"
-            _crop(doc, page, r, path)
+            crop_jobs.append((name, page, r, path))
             cells.append(f'<figure><figcaption>{name}</figcaption><img loading="lazy" src="img/{path.name}"></figure>')
         crops.append(
             f'<div class="region {r.kind}"><b>#{n + 1} {r.kind}</b> source page {p.source_page}, '
             f'{r.area_pt2}pt² at {r.box}{"".join(cells)}</div>'
         )
     shown = [p for p in sorted(results, key=lambda p: -p.score) if p.regions or p.source_page in old]
-    with _pool(InkCache(scan.source, scan.folder.parent, overlay_ink), rebuilt, len(shown)) as pool:
-        list(pool.map(_overlay_job, [(p.source_page, p.rebuilt_page, img / f"p{p.source_page:03d}_overlay.png") for p in shown], chunksize=4))
+    overlay_jobs = [(p.source_page, p.rebuilt_page, img / f"p{p.source_page:03d}_overlay.png") for p in shown]
+    overlay_scan = InkCache(scan.source, scan.folder.parent, overlay_ink)
+    with process_pool(len(crop_jobs) + len(overlay_jobs), _start_report_worker, (overlay_scan, docs)) as pool:
+        pending = [pool.map(_crop_job, crop_jobs), pool.map(_overlay_job, overlay_jobs, chunksize=4)]
+        for done in pending:
+            list(done)
     rows = []
     for p in shown:
         stem = f"p{p.source_page:03d}"
