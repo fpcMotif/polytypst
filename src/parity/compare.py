@@ -1,14 +1,13 @@
 """Scan parity: how far a rebuilt PDF's words, lines and diagrams sit from the same ink on the source scan."""
 
 import difflib
-import os
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import pymupdf
 
+from ..process_pool import process_pool
 from .diagrams import DiagramText, diagram_box, diagram_ink
 from .ink_cache import InkCache
 from .source import SCAN_DPI, read_source_page
@@ -183,9 +182,8 @@ def compare(
     pages = sorted(page_map.items())
     work = work or Path(rebuilt).parent / "parity_work"
     results = []
-    with ProcessPoolExecutor(
-        min(os.cpu_count() or 1, max(len(pages), 1)), initializer=_start_worker,
-        initargs=(scan, Path(rebuilt), ocr, diagram_snippets(diagrams), work, diagram_text),
+    with process_pool(
+        len(pages), _start_worker, (scan, Path(rebuilt), ocr, diagram_snippets(diagrams), work, diagram_text)
     ) as pool:
         for result in pool.map(_parity_job, pages, chunksize=4):
             results.append(result)

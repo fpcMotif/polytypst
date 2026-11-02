@@ -27,6 +27,7 @@ import pymupdf
 import scan_sheet
 
 from polytypst.figure_leaks import apply_page_fixups
+from polytypst.process_pool import process_pool
 
 GLUED_WORDS = re.compile(r"\b[A-Za-z]*?[a-z]{2}[A-Z][a-z]{2,}\b")
 NAME_PREFIX = re.compile(r"(?:Ma?c|Mc|De|Le|La|Van|Von|O)[A-Z]")
@@ -268,6 +269,22 @@ def zoom(book: str, doc: pymupdf.Document, issue: dict, out: Path) -> str:
     return str(out)
 
 
+_SCAN: dict[str, pymupdf.Document] = {}
+
+
+def _open_scan(scan: Path) -> None:
+    _SCAN["doc"] = pymupdf.open(scan)
+
+
+def _page_image_job(job: tuple[int, Path]) -> None:
+    page, path = job
+    path.write_bytes(scan_sheet.strip_png(_SCAN["doc"], page, (0.0, 1.0), PAGE_DPI))
+
+
+def _zoom_job(job: tuple[str, dict, Path]) -> str:
+    return zoom(job[0], _SCAN["doc"], job[1], job[2])
+
+
 def triage(book: str, scan: Path) -> tuple[int, int]:
     folder = results(book) / "verify"
     folder.mkdir(parents=True, exist_ok=True)
@@ -306,16 +323,27 @@ def triage(book: str, scan: Path) -> tuple[int, int]:
         else:
             open_claims.append(issue)
     append_jsonl(results(book) / "verdicts.jsonl", settled)
-    doc = pymupdf.open(scan)
-    queue = []
-    for k, issue in enumerate(open_claims):
-        page_image = folder / f"page{issue['page']}.png"
-        if not page_image.exists():
-            page_image.write_bytes(
-                scan_sheet.strip_png(doc, issue["page"], (0.0, 1.0), PAGE_DPI)
+    page_images = {
+        p: folder / f"page{p}.png" for p in sorted({i["page"] for i in open_claims})
+    }
+    zooms = [
+        (book, issue, folder / f"p{issue['page']}_{k}.png")
+        for k, issue in enumerate(open_claims)
+    ]
+    zoomed = []
+    if open_claims:
+        with process_pool(len(zooms), _open_scan, (scan,)) as pool:
+            list(
+                pool.map(
+                    _page_image_job,
+                    [(p, path) for p, path in page_images.items() if not path.exists()],
+                )
             )
-        zoomed = zoom(book, doc, issue, folder / f"p{issue['page']}_{k}.png")
-        queue.append({**issue, "zoom": zoomed, "page_image": str(page_image)})
+            zoomed = list(pool.map(_zoom_job, zooms, chunksize=4))
+    queue = [
+        {**issue, "zoom": z, "page_image": str(page_images[issue["page"]])}
+        for issue, z in zip(open_claims, zoomed, strict=True)
+    ]
     (results(book) / "queue.jsonl").write_text(
         "".join(json.dumps(q, ensure_ascii=False) + "\n" for q in queue),
         encoding="utf-8",

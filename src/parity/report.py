@@ -3,8 +3,6 @@
 import csv
 import html
 import json
-import os
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
@@ -13,6 +11,7 @@ import numpy as np
 import pymupdf
 from PIL import Image
 
+from ..process_pool import process_pool
 from .compare import PageParity, common_crop
 
 REVIEW_DPI = 100
@@ -109,12 +108,18 @@ def _diagram_crops(src: pymupdf.Document, ours: pymupdf.Document, page: PagePari
 
 def write_overlay(source: np.ndarray, rebuilt: np.ndarray, path: Path) -> None:
     """Red ink only on the scan, cyan only in the rebuilt page, black in both; pages in place, no shift."""
-    a, b = common_crop(source < REVIEW_INK, rebuilt < REVIEW_INK)
-    rgb = np.full((*a.shape, 3), 255, np.uint8)
-    rgb[a & ~b] = (220, 0, 0)
-    rgb[b & ~a] = (0, 170, 220)
-    rgb[a & b] = (0, 0, 0)
-    Image.fromarray(rgb).save(path)
+    ink_overlay(source < REVIEW_INK, rebuilt < REVIEW_INK, path)
+
+
+OVERLAY_PALETTE = [255, 255, 255, 220, 0, 0, 0, 170, 220, 0, 0, 0]
+
+
+def ink_overlay(source: np.ndarray, rebuilt: np.ndarray, path: Path) -> None:
+    a, b = common_crop(source, rebuilt)
+    index = a.view(np.uint8) | (b.view(np.uint8) << 1)
+    img = Image.frombytes("P", (index.shape[1], index.shape[0]), index.tobytes())
+    img.putpalette(OVERLAY_PALETTE)
+    img.save(path)
 
 
 _DOCS: dict[Path, pymupdf.Document] = {}
@@ -159,7 +164,7 @@ def write_report(results: list[PageParity], out_dir: Path, tolerance: Tolerance)
     img = out_dir / "img"
     img.mkdir(parents=True, exist_ok=True)
     rows, items = [], []
-    with ProcessPoolExecutor(min(os.cpu_count() or 1, max(len(results), 1))) as pool:
+    with process_pool(len(results)) as pool:
         crops = list(pool.map(_write_page_images, results, [img] * len(results), chunksize=4))
     for page, diagram_html in zip(results, crops, strict=True):
         reasons = verdict(page, tolerance)

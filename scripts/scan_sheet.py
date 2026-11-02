@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pymupdf
+from polytypst_native import encode_png
 
 STRIP_PAD = 0.008
 STYLE = """:root{--bg:#fff;--fg:#1d1d1f;--mut:#666;--card:#f6f6f4;--mark:#ffe08a;--ok:#1a7f37}
@@ -102,7 +103,11 @@ def strip_png(doc: pymupdf.Document, page: int, band: tuple[float, float], dpi: 
     rect = doc[page - 1].rect
     top, bottom = max(0.0, band[0] - STRIP_PAD), min(1.0, band[1] + STRIP_PAD)
     clip = pymupdf.Rect(rect.x0, rect.y0 + top * rect.height, rect.x1, rect.y0 + bottom * rect.height)
-    return doc[page - 1].get_pixmap(matrix=pymupdf.Matrix(dpi / 72, dpi / 72), clip=clip).tobytes("png")
+    return pixmap_png(doc[page - 1].get_pixmap(matrix=pymupdf.Matrix(dpi / 72, dpi / 72), clip=clip))
+
+
+def pixmap_png(pix: pymupdf.Pixmap) -> bytes:
+    return encode_png(pix.samples, pix.width, pix.height, pix.n)
 
 
 def main() -> None:

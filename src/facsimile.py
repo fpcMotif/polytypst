@@ -10,12 +10,10 @@ import copy
 import difflib
 import itertools
 import json
-import os
 import re
 import unicodedata
 from collections import Counter
 from collections.abc import Callable, Sequence
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
@@ -57,6 +55,7 @@ from .parity.words import (
     segments,
     without_edge_lines,
 )
+from .process_pool import process_pool
 
 MAX_SCALE = 1.25
 UNREAD_INK_GAP_PT = 20.0
@@ -1675,9 +1674,8 @@ def build_facsimile(
             (p, skips[p], page_chunks[p], {i: math[i] for i in math_items(page_chunks[p])}, table_cells(cleaned[p]))
             for p in todo
         ]
-        with ProcessPoolExecutor(
-            min(os.cpu_count() or 1, len(todo)), initializer=_start_strict_worker,
-            initargs=(scan_ink, scan_faint, cache, style.font_file, family, style.size),
+        with process_pool(
+            len(todo), _start_strict_worker, (scan_ink, scan_faint, cache, style.font_file, family, style.size)
         ) as pool:
             for n, (p, body, found) in enumerate(pool.map(_strict_job, jobs, chunksize=4), 1):
                 (kept / f"p_{p:04d}.json").write_text(json.dumps({"body": body, "found": found}, ensure_ascii=False), encoding="utf-8")

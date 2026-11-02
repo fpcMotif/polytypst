@@ -7,16 +7,16 @@ shares of `page_visual`.
 """
 
 import json
-import os
-from collections import Counter, deque
+from collections import Counter
 from collections.abc import Iterable
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import numpy as np
 import pymupdf
+from polytypst_native import regions
 
+from ..process_pool import process_pool
 from .ink_cache import InkCache
 from .visual import REGRESSION_SHARE, page_visual
 from .words import PT_PER_PX, page_ink
@@ -50,29 +50,6 @@ def grow(grid: np.ndarray) -> np.ndarray:
     return np.logical_or.reduce(
         [g[1 + dy : g.shape[0] - 1 + dy, 1 + dx : g.shape[1] - 1 + dx] for dy in (-1, 0, 1) for dx in (-1, 0, 1)]
     )
-
-
-def regions(grid: np.ndarray) -> list[tuple[int, int, int, int, int]]:
-    """The (top, left, bottom, right, cells) of each 8-connected region of set cells."""
-    seen = np.zeros_like(grid)
-    found = []
-    for y, x in zip(*np.nonzero(grid), strict=True):
-        if seen[y, x]:
-            continue
-        queue, box, n = deque([(y, x)]), [y, x, y, x], 0
-        seen[y, x] = True
-        while queue:
-            cy, cx = queue.popleft()
-            n += 1
-            box = [min(box[0], cy), min(box[1], cx), max(box[2], cy), max(box[3], cx)]
-            for dy in (-1, 0, 1):
-                for dx in (-1, 0, 1):
-                    ny, nx = cy + dy, cx + dx
-                    if 0 <= ny < grid.shape[0] and 0 <= nx < grid.shape[1] and grid[ny, nx] and not seen[ny, nx]:
-                        seen[ny, nx] = True
-                        queue.append((ny, nx))
-        found.append((*box, n))
-    return found
 
 
 def miss_kind(top: int, left: int, bottom: int, right: int) -> str:
@@ -114,9 +91,7 @@ def _measure_job(pair: tuple[int, int]) -> PageMeasure:
 def measure_pages(scan: InkCache, rebuilt: Path, page_map: dict[int, int]) -> list[PageMeasure]:
     """Measure each scan page against the `rebuilt` page it maps to, in parallel, in scan page order."""
     pairs = sorted(page_map.items())
-    with ProcessPoolExecutor(
-        min(os.cpu_count() or 1, max(len(pairs), 1)), initializer=_start_worker, initargs=(scan, rebuilt)
-    ) as pool:
+    with process_pool(len(pairs), _start_worker, (scan, rebuilt)) as pool:
         return list(pool.map(_measure_job, pairs, chunksize=4))
 
 
