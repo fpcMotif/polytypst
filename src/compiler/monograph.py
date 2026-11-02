@@ -562,6 +562,7 @@ def latex_safe_markdown(text: str) -> str:
         lambda m: re.sub(r"(?<!\\)&", r"\\&", m.group(0)),
         text,
     )
+    text = re.sub(r"(?<!\$)((?<!\\)\$[^$\n]+\$)[ \t]+([-‑]\w)", r"\1\2", text)
     def _escape_amp(m: re.Match[str]) -> str:
         blk = m.group(0)
         if blk.startswith(("$", "|", "\\")):
@@ -2006,6 +2007,7 @@ class MonographCompiler:
             s,
         )
 
+        s = re.sub(r"(@@INLINEMATH\d+@@)[ \t]+([-‑]\w)", r"\1\2", s)
         s = re.sub(r"(@@INLINEMATH\d+@@)\s+([.,;:?!\)])", r"\1\2", s)
         s = re.sub(r"(\()\s+(@@INLINEMATH\d+@@)", r"\1\2", s)
         converted = convert_math_batch(

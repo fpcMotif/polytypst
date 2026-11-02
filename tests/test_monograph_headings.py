@@ -8,6 +8,7 @@ from polytypst.compiler.monograph import (
     MonographCompiler,
     compile_typst,
     is_unnumbered_chapter,
+    latex_safe_markdown,
 )
 from polytypst.compiler.page_cleaner import normalize_run_in
 
@@ -232,3 +233,12 @@ def test_section_sign_heading_becomes_a_section_once():
     compiler = MonographCompiler(HECKE_SPEC)
     assert compiler.cleaner._normalized_heading("## §20 Generating Field Elements", 76) == "## §20 Generating Field Elements"
     assert compiler.cleaner._normalized_heading("## §20 Generating Field Elements", 77) == ""
+
+
+def test_an_ocr_space_between_inline_math_and_its_hyphenated_word_is_removed():
+    compiler = MonographCompiler(KODAIRA_SPEC)
+    out = compiler.format_typst("An $L^p$ -norm, a $\\sigma$ -algebra and a $C^\\infty$ -function.")
+    assert "$L^p$-norm" in out
+    assert "$sigma$-algebra" in out
+    assert "$C^oo$-function" in out
+    assert latex_safe_markdown("An $L^p$ -norm, and $x$ - $y$.") == "An $L^p$-norm, and $x$ - $y$."
