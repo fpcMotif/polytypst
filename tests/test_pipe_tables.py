@@ -367,6 +367,36 @@ def test_a_numeric_column_lines_up_on_the_decimal_point():
     assert "[−3   ]" in out
 
 
+def test_a_wrapped_list_label_breaks_only_after_a_list_comma(tmp_path):
+    labels = ("未婚、非户主、单身家庭", "已婚、户主、普通家庭（BASE）", "批发零售、餐饮店")
+    table = row("Sample", *(str(y) for y in range(1982, 2008, 5)), "Pooled") + row(*["---"] * 7)
+    table += "".join(row(label, *["(13.767)"] * 6) for label in labels)
+    compiled_words(tmp_path, layout_tables(table, []))
+    lines = [
+        "".join(s["text"] for s in line["spans"]).strip()
+        for p in pymupdf.open(tmp_path / "t.pdf") for b in p.get_text("dict")["blocks"] for line in b.get("lines", [])
+    ]
+    breaks = [
+        (line, label[len(line) :])
+        for line in lines
+        for label in labels
+        if line and label.startswith(line) and label != line
+    ]
+    assert breaks and all(line.endswith("、") or rest.startswith("（") for line, rest in breaks)
+
+
+def test_a_sample_size_under_shares_stays_centred_and_does_not_widen_the_shares():
+    table = "| 职业 | 1982 |\n| --- | --- |\n| 公务 | 0.037 |\n| 服务业 | 0.235 |\n| 样本数量 | 470552 |\n"
+    out = layout_tables(table, [])
+    assert "[0.037]" in out and "[0.235]" in out and "[470552]" in out
+
+
+def test_a_bracketed_standard_error_lines_up_with_the_mean_above_it():
+    table = "| 变量 | Pooled |\n| --- | --- |\n| 劳动时间 | 4.876 |\n| （标准差） | (1.337) |\n"
+    out = layout_tables(table, [])
+    assert "[ 4.876 ]" in out and "[(1.337)]" in out
+
+
 def test_a_text_column_keeps_its_text():
     table = "| 年 | a | b | c | d |\n| --- | --- | --- | --- | --- |\n| x | 甲 | 1 | 1 | 1 |\n| y | 1.5 | 2 | 2 | 2 |\n| z | 乙 | 3 | 3 | 3 |\n"
     assert "[1.5]" in layout_tables(table, [])

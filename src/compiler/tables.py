@@ -40,6 +40,7 @@ def _display_width(cell: str) -> int:
 
 
 TABLE_NUMBER = re.compile(r"([−\-+]?[\d,]*\d)(\.\d+)?(%?)")
+BRACKETED_TABLE_NUMBER = re.compile(r"(\(?[−\-+]?[\d,]*\d)(\.\d+)?(%?\)?)")
 NUMERIC_COLUMN_SHARE = 0.7
 STUB_AUTO_MAX_WIDTH = 12
 FIGURE_SPACE, POINT_SPACE = " ", " "
@@ -49,9 +50,12 @@ def _decimal_pads(column: list[str]) -> dict[str, str] | None:
     """Each number of a numeric column, padded with figure spaces so that the decimal points line up when the
     cells are centred. None when the column is mostly text."""
     filled = [c for c in column if c and c not in ("—", "-", "–", "…")]
-    numbers = [m for c in filled if (m := TABLE_NUMBER.fullmatch(c))]
+    numbers = [m for c in filled if (m := BRACKETED_TABLE_NUMBER.fullmatch(c))]
     if len(numbers) < 2 or len(numbers) < NUMERIC_COLUMN_SHARE * len(filled):
         return None
+    decimal_whole = max((len(m[1]) for m in numbers if m[2]), default=None)
+    if decimal_whole is not None:
+        numbers = [m for m in numbers if m[2] or len(m[1]) <= decimal_whole]
     whole = max(len(m[1]) for m in numbers)
     tail = max(len(m[2] or "") + len(m[3]) for m in numbers)
     pads = {}
@@ -203,6 +207,13 @@ FLEX_PROBE_WIDTH = 12
 NARROW_PROBE_WIDTH = 8
 HYPHEN_MINUS = re.compile(r"(?<![\w.)\]}>])-(?=\d)")
 LABEL_TAIL = re.compile(r"(?<=.)(\w ?[一-鿿][）)]?)(?=\\ |$)")
+LIST_LABEL_ITEM = re.compile(r"(?<![^、])[^、（\\#\[\]@$\s]{1,4}(?=、)|(?<=、)[^、（\\#\[\]@$\s]{1,4}(?=（|$)")
+
+
+def _box_label(cell: str) -> str:
+    """`cell` with each short item of a 、 list kept on one line, so that a wrapped label breaks after a 、."""
+    cell = LIST_LABEL_ITEM.sub(lambda m: f"#box[{m[0]}]", cell) if "、" in cell else cell
+    return LABEL_TAIL.sub(r"#box[\1]", cell)
 TABLE_TIERS = "((1, auto), (1, 2.5pt), (0.92, 2.5pt), (0.85, 2.5pt))"
 PROSE_TABLE_TIERS = "((1, auto), (0.92, auto), (0.85, auto))"
 
@@ -486,7 +497,7 @@ def _format_pipe_tables(
                             col_idx = 0
                             while col_idx < len(r):
                                 c = r[col_idx]
-                                c_clean = LABEL_TAIL.sub(r"#box[\1]", _escape_table_cell_text(c.replace("<br>", "\\ ").replace("<br/>", "\\ ")))
+                                c_clean = _box_label(_escape_table_cell_text(c.replace("<br>", "\\ ").replace("<br/>", "\\ ")))
                                 span = 1
                                 if c.strip():
                                     while col_idx + span < len(r) and not r[col_idx + span].strip():
@@ -510,7 +521,7 @@ def _format_pipe_tables(
                                     c = column_pads[c.strip()]
                                 for tag, mark in CELL_STYLE_TAGS.items():
                                     c = c.replace(f"<{tag}>", f"@@{mark}@@").replace(f"</{tag}>", "@@END@@")
-                                c_clean = LABEL_TAIL.sub(r"#box[\1]", _escape_table_cell_text(c.replace("<br>", "\\ ").replace("<br/>", "\\ ")))
+                                c_clean = _box_label(_escape_table_cell_text(c.replace("<br>", "\\ ").replace("<br/>", "\\ ")))
                                 for mark in CELL_STYLE_TAGS.values():
                                     c_clean = c_clean.replace(f"@@{mark}@@", f"#{mark}[")
                                 c_clean = c_clean.replace("@@END@@", "]")
