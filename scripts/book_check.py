@@ -25,9 +25,11 @@ from pathlib import Path
 
 import page_check
 import pymupdf
+import render_check
 import scan_sheet
 
 from polytypst.figure_leaks import apply_page_fixups
+from polytypst.vision.figure_extractor import load_figures_manifest
 
 GLUED_WORDS = re.compile(r"\b[A-Za-z]*?[a-z]{2}[A-Z][a-z]{2,}\b")
 NAME_PREFIX = re.compile(r"(?:Ma?c|Mc|De|Le|La|Van|Von|O)[A-Z]")
@@ -546,14 +548,95 @@ def sheets(book: str, size: int = 30) -> list[Path]:
     return written
 
 
+def unverified_issues(book: str) -> set[tuple]:
+    lint_hits = read_jsonl(results(book) / "lint.jsonl")
+    claims = [*agent_issues(book), *(h for h in lint_hits if h["page"])]
+    return {issue_key(i["page"], i) for i in claims} - verdict_keys(book)
+
+
+def audit(book: str) -> tuple[int, str]:
+    """The exit code and the last output line of `polytypst audit` for BOOK."""
+    done = subprocess.run(
+        ["polytypst", "audit", page_check.book_key(book)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    lines = (done.stdout + done.stderr).strip().splitlines()
+    return done.returncode, lines[-1] if lines else ""
+
+
+def figure_labels(captions) -> set[str]:
+    return {
+        label
+        for caption in captions
+        if (label := render_check.caption_label(caption))
+        and label.startswith(("图", "Figure"))
+    }
+
+
+def gate(book: str, pdf: Path | None, manifest: Path) -> list[str]:
+    """One line per check, each PASS, WARN or FAIL, then PASS only when no check fails."""
+    lines = []
+
+    def check(ok: bool, text: str) -> None:
+        lines.append(f"{'PASS' if ok else 'FAIL'} {text}")
+
+    t = page_check.tally(book)
+    missing = sorted(t.pages - t.checked)
+    check(
+        not missing,
+        f"page check: {len(t.checked & t.pages)}/{len(t.pages)} pages with a valid receipt"
+        + (f", missing {page_check.ranges(missing)}" if missing else ""),
+    )
+    issues = len(agent_issues(book))
+    if not issues and len(t.pages) > 100:
+        lines.append(
+            f"WARN page check: 0 issues from {len(t.pages)} pages; open five pages beside their scans and compare them"
+        )
+    linted = (results(book) / "lint.jsonl").exists()
+    check(linted, "lint: run" if linted else f"lint: not run; run `book_check.py lint {book}`")
+    unverified = unverified_issues(book)
+    check(not unverified, f"verdicts: {issues} issues, {len(unverified)} unverified")
+    scan = {
+        label
+        for label in render_check.scan_pages(book)
+        if label.startswith(("图", "Figure"))
+    }
+    listed = (
+        figure_labels(f.caption for f in load_figures_manifest(manifest))
+        if manifest.exists()
+        else set()
+    )
+    absent = sorted(scan - listed)
+    check(
+        not absent,
+        f"figures: {len(scan)} figure captions in the scan"
+        + (f", not in {manifest}: {', '.join(absent)}" if absent else ", all in the manifest"),
+    )
+    if pdf is None or not pdf.exists():
+        check(False, f"figures: no rebuilt PDF at {pdf}; build the book first")
+    else:
+        dropped = sorted(scan - set(render_check.rebuilt_pages(pymupdf.open(pdf))))
+        check(
+            not dropped,
+            "figures: "
+            + (f"not in the rebuilt PDF {pdf}: {', '.join(dropped)}" if dropped else "all in the rebuilt PDF"),
+        )
+    code, last = audit(book)
+    check(code == 0, f"audit: exit {code}, {last}")
+    failed = sum(line.startswith("FAIL") for line in lines)
+    checks = sum(line.startswith(("PASS", "FAIL")) for line in lines)
+    return [*lines, f"FAIL: {failed} of {checks} checks" if failed else "PASS"]
+
+
 def status(book: str) -> list[str]:
     t = page_check.tally(book)
     linted = (results(book) / "lint.jsonl").exists()
     lint_hits = read_jsonl(results(book) / "lint.jsonl")
     claims = [*agent_issues(book), *(h for h in lint_hits if h["page"])]
     verdicts = read_jsonl(results(book) / "verdicts.jsonl")
-    keys = {issue_key(v["page"], v) for v in verdicts}
-    unverified = {issue_key(i["page"], i) for i in claims} - keys
+    unverified = unverified_issues(book)
     queued = {
         issue_key(q["page"], q) for q in read_jsonl(results(book) / "queue.jsonl")
     }
@@ -613,7 +696,30 @@ def main() -> None:
             p.add_argument("--model", default=VERIFY_MODEL)
     p = sub.add_parser("status")
     p.add_argument("books", nargs="*", default=list(page_check.BOOKS))
+    p = sub.add_parser("gate")
+    p.add_argument(
+        "book", help="a book number from 1 to 6, or a folder name under books/"
+    )
+    p.add_argument(
+        "--pdf", type=Path, help="the rebuilt PDF (default: beside the built .typ)"
+    )
+    p.add_argument(
+        "--manifest",
+        type=Path,
+        help="the figure manifest (default: output/BOOK/figures_manifest.json)",
+    )
     args = parser.parse_args()
+
+    if args.command == "gate":
+        typ = built_typ(args.book)
+        lines = gate(
+            args.book,
+            args.pdf or (typ.with_suffix(".pdf") if typ else None),
+            args.manifest
+            or Path("output") / page_check.book_key(args.book) / "figures_manifest.json",
+        )
+        print("\n".join(lines))
+        return 0 if lines[-1] == "PASS" else 1
 
     if args.command == "lint":
         found = lint(args.book)
