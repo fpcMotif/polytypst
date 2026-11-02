@@ -1,6 +1,12 @@
+from pathlib import Path
+
+from PIL import Image
+
 from scripts.book_check import (
     auto_verdict,
+    contact_sheet,
     issue_key,
+    lint_fixups,
     lint_page,
     lint_typ,
     running_head_claim,
@@ -90,3 +96,68 @@ def test_a_verdict_matches_its_issue_by_page_kind_and_both_texts() -> None:
     }
     verdict = {**issue, "verdict": "real", "detail": "p12"}
     assert issue_key(12, issue) == issue_key(verdict["page"], verdict)
+
+
+def test_a_line_fixup_that_deletes_across_lines_under_dotall_is_found() -> None:
+    page = "（1）不同年龄段的变化（1980年=0）\n\n表10-1 估计结果\n\n（2）不同学历的变化（高中=100）\n"
+    greedy = ((r"(?m)^（[12]）不同.*的变化（.*）\n*", ""),)
+    bounded = ((r"(?m)^（[12]）不同[^\n]*的变化（[^\n]*）\n*", ""),)
+    assert [h["rule"] for h in lint_fixups(page, greedy)] == ["multiline_delete"]
+    assert lint_fixups(page, bounded) == []
+    greedy_without_m = ((r"（1）不同.*的变化（.*）\n*", ""),)
+    assert [h["rule"] for h in lint_fixups(page, greedy_without_m)] == ["multiline_delete"]
+    lazy = ((r"（1）.*?（高中=100）", ""),)
+    assert [h["rule"] for h in lint_fixups(page, lazy)] == ["multiline_delete"]
+
+
+def test_dead_and_misplaced_fixups_are_found() -> None:
+    page = "正文①。\n\n<table><tr><th>旧值</th></tr></table>\n\n① 注文原词。\n"
+    assert [h["rule"] for h in lint_fixups(page, (("不存在", "新值"),))] == [
+        "dead_fixup"
+    ]
+    assert [
+        h["rule"]
+        for h in lint_fixups(
+            page,
+            (),
+            page_fixups=(("<th>旧值</th>", "<th>新值</th>"), ("注文原词", "注文新词")),
+        )
+    ] == ["dead_fixup", "dead_fixup"]
+    assert (
+        lint_fixups(
+            page,
+            (("<th>旧值</th>", "<th>新值</th>"), ("注文原词", "注文新词")),
+            page_fixups=(("正文", "修订正文"),),
+        )
+        == []
+    )
+    big = "首行\n" + ("中段文字" * 90) + "\n尾行\n"
+    assert [h["rule"] for h in lint_fixups(big, ((r"首行.*尾行", ""),))] == [
+        "multiline_delete"
+    ]
+    assert lint_fixups(big, ((r"(?s)\A.*?\Z", ""),)) == []
+    assert [h["rule"] for h in lint_fixups(big, ((r"首行.*?尾行", ""),))] == [
+        "multiline_delete"
+    ]
+    assert [h["rule"] for h in lint_fixups(big, ((r"中段文字(中段文字)+", ""),))] == [
+        "multiline_delete"
+    ]
+
+
+def test_contact_sheet_tiles_strips_into_single_snapshot(tmp_path: Path) -> None:
+    strip1 = tmp_path / "s1.png"
+    strip2 = tmp_path / "s2.png"
+    Image.new("RGB", (600, 80), (255, 255, 255)).save(strip1)
+    Image.new("RGB", (600, 120), (240, 240, 240)).save(strip2)
+    out = contact_sheet(
+        [
+            ("#0 p1 L2 [word] | T: a | S: b", strip1),
+            ("#1 p2 L5 [math] | T: x | S: y", strip2),
+        ],
+        tmp_path / "sheet_01.png",
+        width=800,
+    )
+    assert out.exists()
+    with Image.open(out) as sheet:
+        assert sheet.width == 800
+        assert sheet.height > 200

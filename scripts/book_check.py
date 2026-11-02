@@ -3,6 +3,7 @@
 Usage:
   uv run python scripts/book_check.py lint BOOK                  # known-error rules over the transcript and the built .typ
   uv run python scripts/book_check.py triage BOOK [--scan PDF]   # settle width-only issues, cut a scan zoom for each other one
+  uv run python scripts/book_check.py sheets BOOK [--size 30]
   uv run python scripts/book_check.py verify BOOK [--size 30] [--jobs 4] [--model claude-sonnet-5-5]
   uv run python scripts/book_check.py status [BOOK ...]          # each stage's counts and the next command
 
@@ -40,6 +41,8 @@ RULE_KINDS = {
     "broken_tag": "table_shape",
     "spaced_decimal": "number",
     "lone_book_mark": "mark",
+    "dead_fixup": "word",
+    "multiline_delete": "missing_text",
 }
 NO_AUTO_VERDICT = {"sum", "table_shape"}
 ZOOM_PAD = 0.02
@@ -124,6 +127,56 @@ def lint_typ(typ: str, title: str) -> list[dict]:
     ]
 
 
+def is_multiline_delete(pat: str, rep: str, matched: str) -> bool:
+    if rep or ("\n" not in matched.strip() and len(matched) <= 300):
+        return False
+    return not any(k in pat for k in (r"\A", r"\Z", "(?s)"))
+
+
+def lint_fixups(
+    markdown: str,
+    fixups: tuple[tuple[str, str], ...],
+    page_fixups: tuple[tuple[str, str], ...] = (),
+    cleaned: str | None = None,
+) -> list[dict]:
+    from polytypst.compiler.page_cleaner import (
+        normalize_html_tables,
+        split_page_footnotes,
+    )
+
+    found = []
+    text = markdown
+    for pat, rep in fixups:
+        m = re.search(pat, text, flags=re.DOTALL)
+        if not m:
+            found.append(hit("dead_fixup", 1, pat[:40]))
+            continue
+        if is_multiline_delete(pat, rep, m[0]):
+            line = text[: m.start()].count("\n") + 1
+            found.append(hit("multiline_delete", line, m[0].splitlines()[0][:40]))
+        text = apply_page_fixups(text, ((pat, rep),))
+    if not page_fixups:
+        return found
+    if cleaned is None:
+        cleaned, _ = split_page_footnotes(
+            normalize_html_tables(text), "circled", r"^\d+$"
+        )
+    for pat, rep in page_fixups:
+        m = re.search(pat, cleaned, flags=re.DOTALL) or (
+            None if rep else re.search(pat, text, flags=re.DOTALL)
+        )
+        if not m:
+            found.append(hit("dead_fixup", 1, pat[:40]))
+            continue
+        if is_multiline_delete(pat, rep, m[0]):
+            src = cleaned if re.search(pat, cleaned, flags=re.DOTALL) else text
+            line = src[: m.start()].count("\n") + 1
+            found.append(hit("multiline_delete", line, m[0].splitlines()[0][:40]))
+        cleaned = apply_page_fixups(cleaned, ((pat, rep),))
+        text = apply_page_fixups(text, ((pat, rep),))
+    return found
+
+
 def squash(text: str) -> str:
     text = unicodedata.normalize("NFKC", text)
     return re.sub(r"\s+(?=[^\x00-\x7f])|(?<=[^\x00-\x7f])\s+", "", text)
@@ -203,15 +256,19 @@ def built_typ(book: str) -> Path | None:
     )
 
 
-def book_fixups(book: str) -> dict[int, tuple]:
-    """The book's transcript and page fixups by page, so that lint reads each page as the book prints it."""
+def book_spec(book: str):
     from polytypst.books import books
 
-    spec = (
+    return (
         books()[book_key].spec
         if (book_key := page_check.book_key(book)) in books()
         else None
     )
+
+
+def book_fixups(book: str) -> dict[int, tuple]:
+    """The book's transcript and page fixups by page, so that lint reads each page as the book prints it."""
+    spec = book_spec(book)
     if spec is None:
         return {}
     pages = set(spec.transcript_fixups) | set(spec.page_fixups)
@@ -222,13 +279,40 @@ def book_fixups(book: str) -> dict[int, tuple]:
 
 
 def lint(book: str) -> list[dict]:
+    from dataclasses import replace
+
+    from polytypst.compiler.page_cleaner import PageCleaner
+
     found = []
     pages = page_check.transcript_pages(book)
-    fixups = book_fixups(book)
+    spec = book_spec(book)
+    cleaner = (
+        PageCleaner.for_spec(
+            replace(spec, page_fixups={}, equation_numbering=None),
+            asset_root=Path("output") / page_check.book_key(book),
+        )
+        if spec is not None
+        else None
+    )
     texts = []
     for page in pages:
         text = page_check.transcript_path(book, page).read_text(encoding="utf-8")
-        texts.append(apply_page_fixups(text, fixups.get(page, ())))
+        t_rules = spec.transcript_fixups.get(page, ()) if spec else ()
+        p_rules = spec.page_fixups.get(page, ()) if spec else ()
+        cleaned = (
+            re.sub(
+                r"@@FNSTART@@.*?@@FNEND@@",
+                "①",
+                cleaner.clean(text, page).body,
+                flags=re.DOTALL,
+            )
+            if cleaner is not None
+            else None
+        )
+        found += [
+            {"page": page, **h} for h in lint_fixups(text, t_rules, p_rules, cleaned)
+        ]
+        texts.append(apply_page_fixups(text, (*t_rules, *p_rules)))
     for k, page in enumerate(pages):
         before, after = (
             texts[k - 1] if k else "",
@@ -401,6 +485,67 @@ def verify(book: str, size: int, jobs: int, model: str) -> int:
     return len(added)
 
 
+def contact_sheet(
+    cards: list[tuple[str, Path]], out: Path, width: int = 1200, max_crop_h: int = 260
+) -> Path:
+    from PIL import Image, ImageDraw, ImageFont
+
+    header_h, pad = 28, 6
+    font = ImageFont.load_default(size=14)
+    loaded: list[tuple[str, Image.Image]] = []
+    for label, img_path in cards:
+        with Image.open(img_path) as raw:
+            img = raw.convert("RGB")
+        if img.width > width - 2 * pad:
+            scale = (width - 2 * pad) / img.width
+            img = img.resize(
+                (width - 2 * pad, max(1, round(img.height * scale))), Image.LANCZOS
+            )
+        if img.height > max_crop_h:
+            img = img.crop((0, 0, img.width, max_crop_h))
+        loaded.append((label, img))
+    total_h = sum(header_h + img.height + pad for _, img in loaded) + pad
+    canvas = Image.new("RGB", (width, max(1, total_h)), (245, 245, 245))
+    draw = ImageDraw.Draw(canvas)
+    y = pad
+    for label, img in loaded:
+        draw.rectangle([pad, y, width - pad, y + header_h - 2], fill=(35, 40, 50))
+        draw.text((pad + 6, y + 6), label[:140], fill=(255, 255, 255), font=font)
+        y += header_h
+        canvas.paste(img, (pad, y))
+        y += img.height + pad
+    out.parent.mkdir(parents=True, exist_ok=True)
+    canvas.save(out)
+    return out
+
+
+def sheets(book: str, size: int = 30) -> list[Path]:
+    done = verdict_keys(book)
+    seen: set[tuple] = set()
+    cards: list[tuple[str, Path]] = []
+    for idx, q in enumerate(read_jsonl(results(book) / "queue.jsonl")):
+        key = issue_key(q["page"], q)
+        if key in done or key in seen:
+            continue
+        seen.add(key)
+        img_path = Path(q.get("zoom") or q.get("page_image", ""))
+        if not img_path.exists():
+            continue
+        t = " ".join(q.get("transcript", "").splitlines())[:42]
+        s = " ".join(q.get("scan", "").splitlines())[:42]
+        label = (
+            f"#{idx} p{q['page']} L{q.get('line', 1)} [{q['kind']}] | T: {t} | S: {s}"
+        )
+        cards.append((label, img_path))
+    out_dir = results(book) / "verify" / "sheets"
+    written = []
+    for n, start in enumerate(range(0, len(cards), size), 1):
+        written.append(
+            contact_sheet(cards[start : start + size], out_dir / f"sheet_{n:02d}.png")
+        )
+    return written
+
+
 def status(book: str) -> list[str]:
     t = page_check.tally(book)
     linted = (results(book) / "lint.jsonl").exists()
@@ -449,7 +594,7 @@ def main() -> None:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("lint", "triage", "verify"):
+    for name in ("lint", "triage", "sheets", "verify"):
         p = sub.add_parser(name)
         p.add_argument(
             "book", help="a book number from 1 to 6, or a folder name under books/"
@@ -457,6 +602,10 @@ def main() -> None:
         if name == "triage":
             p.add_argument(
                 "--scan", type=Path, help="the scan PDF, when the book has no book.toml"
+            )
+        if name == "sheets":
+            p.add_argument(
+                "--size", type=int, default=30, help="strips per contact sheet"
             )
         if name == "verify":
             p.add_argument("--size", type=int, default=30, help="issues per agent")
@@ -484,6 +633,11 @@ def main() -> None:
         settled, queued = triage(args.book, args.scan or page_check.scan_pdf(args.book))
         print(
             f"{settled} settled as false_positive (width, spacing or running head), {queued} queued with zooms -> {results(args.book) / 'queue.jsonl'}"
+        )
+    elif args.command == "sheets":
+        written = sheets(args.book, args.size)
+        print(
+            f"{len(written)} contact sheet(s) -> {results(args.book) / 'verify' / 'sheets'}"
         )
     elif args.command == "verify":
         print(f"{verify(args.book, args.size, args.jobs, args.model)} verdicts added")
