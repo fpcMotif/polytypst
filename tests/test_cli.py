@@ -288,7 +288,7 @@ def test_pending_pages_stop_the_scan_command_before_the_build(monkeypatch, tmp_p
 
     class PendingBook(Book):
         def transcribe(self, *_):
-            raise TranscriptsPending([41, 42, 43, 44, 45])
+            raise TranscriptsPending([41, 42, 43, 44, 45], rounds=3)
 
     built = []
     book = PendingBook(
@@ -305,6 +305,31 @@ def test_pending_pages_stop_the_scan_command_before_the_build(monkeypatch, tmp_p
     assert stop.value.code not in (0, None)
     assert "41-45" in str(stop.value.code)
     assert built == []
+
+
+def test_the_scan_command_passes_its_round_limit_to_the_transcript_store(monkeypatch, tmp_path):
+    from polytypst.ocr.transcripts import TranscriptsPending
+
+    calls = []
+
+    class RecordingBook(Book):
+        def transcribe(self, *args):
+            calls.append(args)
+            raise TranscriptsPending([7], rounds=5)
+
+    book = RecordingBook(
+        MonographSpec(domain="math", slug="x", title="X", author="A"),
+        tmp_path,
+        {"monograph": Edition(tmp_path / "x.pdf", lambda source, formats, footnotes: None)},
+    )
+    monkeypatch.setattr(books_module, "book_for_scan", lambda source, key: book)
+    scan = tmp_path / "scan.pdf"
+    scan.write_bytes(b"%PDF")
+    monkeypatch.setattr("sys.argv", ["polytypst", str(scan), "--no-verify", "--rounds", "5"])
+    with pytest.raises(SystemExit) as stop:
+        cli.main()
+    assert calls[0][-1] == 5
+    assert "after 5 rounds" in str(stop.value.code)
 
 
 def test_book_build_runs_figures_and_shares_page_parser(tmp_path):

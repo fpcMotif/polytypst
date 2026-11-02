@@ -14,11 +14,16 @@ UNKNOWN = "unknown"
 BLANK = "blank"
 
 
+ROUNDS = 3
+
+
 class TranscriptsPending(RuntimeError):
-    def __init__(self, pages: list[int]) -> None:
+    def __init__(self, pages: list[int], rounds: int) -> None:
         noun = "page" if len(pages) == 1 else "pages"
-        super().__init__(f"{len(pages)} {noun} still pending: {_page_ranges(pages)}")
+        tries = "round" if rounds == 1 else "rounds"
+        super().__init__(f"{len(pages)} {noun} still pending after {rounds} {tries}: {_page_ranges(pages)}")
         self.pages = pages
+        self.rounds = rounds
 
 
 _FENCED_RE = re.compile(
@@ -226,21 +231,27 @@ class TranscriptStore:
         pages: Sequence[PageImage],
         transcriber: Transcriber,
         retranscribe: bool = False,
+        rounds: int = ROUNDS,
     ) -> dict[int, str]:
         self.directory.mkdir(parents=True, exist_ok=True)
         made_by = self._made_by()
         pending = self._pending(pages, made_by, transcriber, retranscribe)
-        written: set[int] = set()
-        for transcript in transcriber.transcribe(pending):
-            text = normalize_ocr_markdown(transcript.text)
-            if not text:
-                print(f"Page {transcript.number}: the transcript came back empty.")
-                continue
-            source = BLANK if text == BLANK_TRANSCRIPT else transcriber.provenance
-            self._write(transcript.number, text, source, made_by)
-            written.add(transcript.number)
-        if missing := [p.number for p in pending if p.number not in written]:
-            raise TranscriptsPending(missing)
+        for done in range(1, rounds + 1):
+            written: set[int] = set()
+            for transcript in transcriber.transcribe(pending):
+                text = normalize_ocr_markdown(transcript.text)
+                if not text:
+                    print(f"Page {transcript.number}: the transcript came back empty.")
+                    continue
+                source = BLANK if text == BLANK_TRANSCRIPT else transcriber.provenance
+                self._write(transcript.number, text, source, made_by)
+                written.add(transcript.number)
+            pending = [p for p in pending if p.number not in written]
+            if not pending:
+                break
+            if not written or done == rounds:
+                raise TranscriptsPending([p.number for p in pending], done)
+            print(f"Round {done + 1} of {rounds}: {len(pending)} pages still pending: {_page_ranges([p.number for p in pending])}")
         return {
             p.number: text for p in pages if (text := self.text(p.number)) is not None
         }

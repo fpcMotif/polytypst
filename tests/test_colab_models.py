@@ -4,10 +4,11 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw
 
-from polytypst.ocr import colab, gpu_worker
+from polytypst.ocr import colab, colab_cluster, gpu_worker
 from polytypst.ocr.colab import COLAB_GPUS, account_usage, fit_problem
 from polytypst.ocr.colab_cli import sample_pages
 from polytypst.ocr.ocr_models import JINA_RUNTIME, OCR_MODELS, ocr_model
+from polytypst.ocr.pages import PageImage
 
 
 def test_unlimited_ocr_detection_markers_are_stripped() -> None:
@@ -129,3 +130,21 @@ def test_shard_worker_writes_cleaned_text_and_marks_blank_pages(
     assert seen == ["book prompt"]
     assert (out / "p_001.md").read_text(encoding="utf-8") == "Text1"
     assert (out / "p_002.md").read_text(encoding="utf-8") == "<!-- blank page -->\n"
+
+
+def test_two_cluster_runs_never_share_a_vm_name(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    names: list[list[str]] = []
+
+    def run_node(self, session, pages, out_dir, scratch):
+        names[-1].append(session.name)
+        return 0, None
+
+    monkeypatch.setattr(colab_cluster.ColabOCRCluster, "_run_node", run_node)
+    pages = [PageImage(n, tmp_path / f"p_{n:03d}.png") for n in (1, 2)]
+    for _ in range(2):
+        names.append([])
+        _ = colab_cluster.ColabOCRCluster(num_workers=2).run_cluster(pages, tmp_path / "md")
+    first, second = names
+    assert len(first) == 2 and len(second) == 2
+    assert not set(first) & set(second)
+    assert all(name.startswith("ocr-") for name in first + second)

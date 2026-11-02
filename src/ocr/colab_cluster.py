@@ -5,6 +5,7 @@ or whose worker dies still downloads the pages finished so far.
 """
 
 import json
+import secrets
 import shutil
 import tarfile
 import tempfile
@@ -256,8 +257,9 @@ class ColabOCRCluster:
         chunks = self.partition_pages(
             pending, min(self.num_workers, len(pending)), interleaved=True
         )
+        run_id = secrets.token_hex(3)
         sessions = [
-            ColabSession(f"{self.session_prefix}-{i + 1}", self.gpu_type)
+            ColabSession(f"{self.session_prefix}-{run_id}-{i + 1}", self.gpu_type)
             for i in range(len(chunks))
         ]
         t0 = time.time()

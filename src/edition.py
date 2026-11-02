@@ -19,7 +19,7 @@ from .compiler.monograph import (
 from .facsimile import FacsimileStyle, build_facsimile
 from .ocr.backend import Backend
 from .ocr.scan import SourceScan
-from .ocr.transcripts import TranscriptStore
+from .ocr.transcripts import ROUNDS, TranscriptStore
 from .parity.diagrams import DiagramText
 from .parity.report import FACSIMILE, Tolerance
 from .parity.source import source_ocr_dir, source_pdf
@@ -106,7 +106,12 @@ class Book:
         return cls(spec, out_dir, {"monograph": monograph_edition(spec, out_dir, "one chapter, generic rules")})
 
     def transcribe(
-        self, source: Path, backend: Backend, pages: set[int] | None = None, retranscribe: bool = False
+        self,
+        source: Path,
+        backend: Backend,
+        pages: set[int] | None = None,
+        retranscribe: bool = False,
+        rounds: int = ROUNDS,
     ) -> dict[int, str]:
         """Render the scan into `page_renders/`, find its figures, and transcribe the pages the store lacks."""
         scan = SourceScan(source)
@@ -123,7 +128,7 @@ class Book:
             renders = [p for p in renders if p.number in pages]
         transcriber = backend.transcriber(self.spec.ocr_prompt)
         print(f"Transcribing with {transcriber.provenance}")
-        return TranscriptStore(self.transcripts).transcribe(renders, transcriber, retranscribe=retranscribe)
+        return TranscriptStore(self.transcripts).transcribe(renders, transcriber, retranscribe, rounds)
 
     def build(
         self,

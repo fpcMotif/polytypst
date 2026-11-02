@@ -20,16 +20,18 @@ class FakeTranscriber:
         provenance: str = "fake:model",
         skip: Sequence[int] = (),
         crash_after: int | None = None,
+        misses: dict[int, int] | None = None,
     ) -> None:
         self.provenance = provenance
         self.skip = set(skip)
         self.crash_after = crash_after
+        self.misses = misses or {}
         self.seen: list[int] = []
 
     def transcribe(self, pages: Sequence[PageImage]) -> Iterator[Transcript]:
         for page in pages:
             self.seen.append(page.number)
-            if page.number in self.skip:
+            if page.number in self.skip or self.seen.count(page.number) <= self.misses.get(page.number, 0):
                 continue
             yield Transcript(
                 page.number,
@@ -160,13 +162,38 @@ def test_a_page_the_transcriber_skips_stops_the_run_and_stays_pending(
 ) -> None:
     pages = [page_render(n) for n in (1, 2, 3)]
     store = TranscriptStore(tmp_path / "md")
-    with pytest.raises(TranscriptsPending, match="1 page still pending: 2") as pending:
-        _ = store.transcribe(pages, FakeTranscriber(skip=[2]))
+    skipping = FakeTranscriber(skip=[2])
+    with pytest.raises(TranscriptsPending, match="1 page still pending after 2 rounds: 2") as pending:
+        _ = store.transcribe(pages, skipping)
     assert pending.value.pages == [2]
+    assert skipping.seen == [1, 2, 3, 2]
     assert store.text(1) is not None and store.text(3) is not None
     retry = FakeTranscriber()
     _ = store.transcribe(pages, retry)
     assert retry.seen == [2]
+
+
+def test_pages_that_a_round_misses_go_to_the_next_round(
+    tmp_path: Path, page_render: PageRender
+) -> None:
+    pages = [page_render(n) for n in (1, 2, 3)]
+    flaky = FakeTranscriber(misses={2: 1, 3: 2})
+    result = TranscriptStore(tmp_path / "md").transcribe(pages, flaky)
+    assert sorted(result) == [1, 2, 3]
+    assert flaky.seen == [1, 2, 3, 2, 3, 3]
+
+
+def test_the_run_stops_at_the_round_limit_while_pages_stay_pending(
+    tmp_path: Path, page_render: PageRender
+) -> None:
+    pages = [page_render(n) for n in (1, 2, 3)]
+    store = TranscriptStore(tmp_path / "md")
+    flaky = FakeTranscriber(misses={2: 1, 3: 2})
+    with pytest.raises(TranscriptsPending, match="1 page still pending after 2 rounds: 3"):
+        _ = store.transcribe(pages, flaky, rounds=2)
+    assert flaky.seen == [1, 2, 3, 2, 3]
+    with pytest.raises(TranscriptsPending, match="1 page still pending after 1 round: 3"):
+        _ = store.transcribe(pages, FakeTranscriber(skip=[3]), rounds=1)
 
 
 def test_a_retranscribe_rerun_redoes_only_the_pages_this_backend_has_not_made(
