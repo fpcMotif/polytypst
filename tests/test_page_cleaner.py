@@ -74,6 +74,17 @@ def test_a_section_heading_is_placed_once_and_its_running_head_is_dropped_later(
     assert later.body == "The radius is given by Hadamard."
 
 
+def test_each_chapter_keeps_its_own_copy_of_a_shared_section_heading():
+    spec = replace(SPEC, lang="zh", sections={}, chapters=[ChapterSpec(1, "储蓄", 1, 9), ChapterSpec(2, "投资", 10, 19)])
+    cleaner = PageCleaner.for_spec(spec)
+    first = cleaner.clean("### 1 前言\n\n储蓄率下降。", 2)
+    second = cleaner.clean("### 1 前言\n\n投资减少。", 11)
+    repeat = cleaner.clean("### 1 前言\n\n投资继续减少。", 12)
+    assert first.body.startswith("### 1 前言")
+    assert second.body.startswith("### 1 前言")
+    assert repeat.body == "投资继续减少。"
+
+
 def test_a_new_cleaner_has_placed_no_headings():
     _ = PageCleaner.for_spec(SPEC).clean("## 1.2 Power Series\n\nText.", 5)
     fresh = PageCleaner.for_spec(SPEC).clean("## 1.2 Power Series\n\nText.", 5)

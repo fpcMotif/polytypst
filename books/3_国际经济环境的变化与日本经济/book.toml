@@ -7,6 +7,7 @@ year = 2022
 lang = 'zh'
 domain = 'economics'
 merge_continued_tables = true
+chapter_openings = true
 chapters = [
   { number = 0, title = '（日本）内阁府经济社会综合研究所', start_page = 1, end_page = 1 },
   { number = 0, title = '编译委员会', start_page = 2, end_page = 2 },

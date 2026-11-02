@@ -7,6 +7,7 @@ year = 2022
 lang = 'zh'
 domain = 'economics'
 merge_continued_tables = true
+chapter_openings = true
 chapters = [
   { number = 0, title = '作者简介', start_page = 4, end_page = 5 },
   { number = 0, title = '中文版前言', start_page = 6, end_page = 7 },
@@ -37,7 +38,7 @@ running_header_regexes = [
 header_zone_lines = 4
 cross_references = true
 heading_rewrites = [['^(#{2,3}\s+\d{1,2})\s+(?=\d)', '\1 ⁠']]
-chapter_heading = '{title}'
+chapter_heading = '{number} {title}'
 typst_front_matter = '''
 @STYLE:japan_economy@
 @ENGINE_TITLE_PAGE@'''

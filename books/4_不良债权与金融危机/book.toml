@@ -7,6 +7,7 @@ year = 2022
 lang = 'zh'
 domain = 'economics'
 merge_continued_tables = true
+chapter_openings = true
 chapters = [
   { number = 0, title = '作者简介', start_page = 4, end_page = 5 },
   { number = 0, title = '中文版前言', start_page = 6, end_page = 7 },

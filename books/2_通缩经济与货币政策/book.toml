@@ -7,6 +7,7 @@ year = 2022
 lang = 'zh'
 domain = 'economics'
 merge_continued_tables = true
+chapter_openings = true
 aliases = ['2', '2 通缩经济与货币政策', '2_通缩经济与货币政策']
 source_pdf = '2 通缩经济与货币政策.pdf'
 

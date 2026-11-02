@@ -1,27 +1,83 @@
-#let serif = ((name: "Source Serif 4", covers: "latin-in-cjk"), "Songti SC", "STSong")
-#let sans = ((name: "Source Sans 3", covers: "latin-in-cjk"), "Noto Sans CJK SC", "Heiti SC")
+#let latin = (name: "STIX Two Text", covers: regex("[\u{0}-\u{24F}]"))
+#let serif = (latin, "Songti SC", "STSong")
+#let sans = ("Noto Sans CJK SC", "Heiti SC")
+#let kai = (latin, "STKaiti", "Kaiti SC")
 
-#set text(font: serif, size: 10.5pt, number-type: "lining")
-#set par(leading: 0.82em, spacing: 0.82em, first-line-indent: (amount: 2em, all: true), justify: true)
+#let pitch = 18.375pt
+#let gap = 7.875pt
+#let lines-tall(n) = n * pitch - gap
+
+#set text(font: serif, size: 10.5pt, number-type: "lining", top-edge: 0.88em, bottom-edge: -0.12em)
+#set par(leading: gap, spacing: gap, first-line-indent: (amount: 2em, all: true), justify: true)
 #show math.equation: set text(font: ("New Computer Modern Math", "Songti SC"))
 
-#let head-number(it) = if it.numbering != none and counter(heading).at(it.location()).first() > 0 {
-  counter(heading).display(it.numbering)
+#let plain-text(body) = if body.has("text") { body.text } else if body.has("children") { body.children.map(plain-text).join() } else { "" }
+#let in-numbered-chapter(loc) = {
+  let chaps = query(heading.where(level: 1).before(loc))
+  counter(heading).at(loc).first() > 0 or (chaps != () and plain-text(chaps.last().body).match(regex("^\d{1,2} ")) != none)
+}
+#let head-number(it) = if it.numbering != none and in-numbered-chapter(it.location()) {
+  context {
+    let nums = counter(heading).get()
+    let label = if type(it.numbering) == function { (it.numbering)(..nums) } else { numbering(it.numbering, ..nums) }
+    if type(label) == str { label.trim("\u{2002}", at: end).trim(".", at: end) + "\u{2002}" } else { label }
+  }
 }
 #show heading.where(level: 1): it => {
   let back-matter = it.body.has("text") and it.body.text == "后记"
-  v(if back-matter { 0em } else { 3em })
-  block(width: 100%, below: 0pt)[
-    #set par(first-line-indent: 0pt, justify: false)
-    #text(18pt, weight: "bold", font: sans)[#if it.numbering != none and counter(heading).at(it.location()).first() > 0 [#numbering(it.numbering, ..counter(heading).at(it.location()))#h(0.8em)]#it.body]
+  let lead = plain-text(it.body).match(regex("^(\d{1,2}) "))
+  let number = if lead != none { lead.captures.first() } else if it.numbering != none {
+    numbering(it.numbering, ..counter(heading).at(it.location()))
+  }
+  v(if back-matter { 0pt } else { 2 * pitch })
+  block(width: 100%, above: 0pt, below: 0pt)[
+    #set par(first-line-indent: 0pt, justify: false, leading: 0.45em)
+    #if number != none [
+      #text(9.5pt, weight: "bold", font: sans, tracking: 0.3em)[第#h(0.3em)#number#h(0.3em)章]
+      #v(0.4em)
+    ]
+    #line(length: 100%, stroke: 1.6pt)
+    #v(0.9em)
+    #layout(size => {
+      show regex("^\d{1,2} "): none
+      let title = text(20pt, weight: "bold", font: sans, it.body)
+      let lines = calc.ceil(measure(title).width / (size.width * 0.9))
+      block(width: if lines > 1 { measure(title).width / lines + 2em } else { 90% }, title)
+    })
   ]
-  v(0.7em)
-  line(length: 100%, stroke: 0.8pt + black)
-  v(if back-matter { 1em } else { 2em })
+  v(if number != none { 0.9em } else { 2 * pitch })
 }
-#show heading.where(level: 2): it => block(above: 2.1em, below: 1em, sticky: true, text(13.5pt, weight: "bold", font: sans)[#head-number(it)#it.body])
-#show heading.where(level: 3): it => block(above: 1.6em, below: 0.8em, sticky: true, text(11.5pt, weight: "bold", font: sans)[#head-number(it)#it.body])
-#show heading.where(level: 4): it => block(above: 1.3em, below: 0.6em, sticky: true, text(10.5pt, weight: "bold", font: sans)[#head-number(it)#it.body])
+#show heading.where(level: 2): set heading(numbering: (..n) => str(n.pos().at(1)) + "\u{2002}")
+#show heading.where(level: 3): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
+#show heading.where(level: 2): it => block(above: gap, below: gap, height: lines-tall(3), width: 100%, sticky: true, align(left + horizon, text(12pt, weight: "bold", font: sans)[#head-number(it)#it.body]))
+#show heading.where(level: 3): it => block(above: gap, below: gap, height: lines-tall(2), width: 100%, sticky: true, align(left + horizon, text(10.5pt, weight: "bold", font: sans)[#head-number(it)#it.body]))
+#show heading.where(level: 4): it => block(above: gap, below: gap, sticky: true, text(10.5pt, weight: "bold", font: sans)[#head-number(it)#it.body])
+
+#let chapter-subtitle(body) = block(above: 0pt, below: 0.6em, width: 100%)[
+  #set par(first-line-indent: 0pt, justify: false)
+  #text(11pt, body)
+]
+#let chapter-byline(body) = block(above: 0.6em, below: 1.6 * pitch, width: 100%)[
+  #show " ": h(1.2em)
+  #align(right, text(11.5pt, font: kai, body))
+  #v(0.2em)
+  #line(length: 100%, stroke: 0.4pt)
+]
+#let chapter-abstract(note: [], body) = block(above: 0pt, below: pitch, width: 100%, breakable: true, grid(
+  columns: (auto, 1fr),
+  column-gutter: 0.9em,
+  pad(top: 0.15em, stack(
+    dir: ttb,
+    spacing: 0.5em,
+    ..("导", "语").map(c => text(11pt, weight: "bold", font: sans, fill: luma(60), c)),
+    text(9.5pt, note),
+  )),
+  block(stroke: (left: 0.5pt + luma(120)), inset: (left: 1em, y: 0.1em), width: 100%)[
+    #set text(9.5pt, font: kai)
+    #set par(leading: 0.62em, spacing: 0.62em)
+    #body
+  ],
+))
 
 #show figure: set block(above: 1.8em, below: 1.2em)
 #show figure.caption: it => block(above: 0.7em)[

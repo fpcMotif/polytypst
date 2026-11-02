@@ -718,7 +718,7 @@ class PageCleaner:
             return ""
         if len(inner_h) > 90:
             return inner_h
-        key = f"heading:{inner_h}"
+        key = f"heading:{self._chapter_of(pno)}:{inner_h}"
         if key in self._seen_sections:
             return ""
         self._seen_sections.add(key)

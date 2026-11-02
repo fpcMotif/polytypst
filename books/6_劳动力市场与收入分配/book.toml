@@ -7,6 +7,7 @@ year = 2022
 lang = 'zh'
 domain = 'economics'
 merge_continued_tables = true
+chapter_openings = true
 chapters = [
   { number = 0, title = '作者简介', start_page = 4, end_page = 5 },
   { number = 0, title = '中文版前言', start_page = 6, end_page = 7 },
@@ -48,8 +49,6 @@ cross_references = true
 typst_front_matter = '''
 @STYLE:japan_economy@
 #show heading.where(level: 1): it => { counter(footnote).update(0); it }
-#show heading.where(level: 2): set heading(numbering: (..n) => str(n.pos().at(1)) + "\u{2002}")
-#show heading.where(level: 3): set heading(numbering: (..n) => n.pos().slice(1).map(str).join(".") + "\u{2002}")
 #set page(header: context {
   let page-number = counter(page).get().first()
   let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)

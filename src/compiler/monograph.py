@@ -140,6 +140,7 @@ class MonographSpec:
     theorem_heads_upper: bool = False
     theorem_layout: bool = False
     merge_continued_tables: bool = False
+    chapter_openings: bool = False
     footnote_style: Literal["", "superscript", "paren", "parenthesized", "circled", "symbol"] = ""
     footnote_marks: tuple[str, ...] = ()
     footnote_numbering: str = "1"
@@ -811,6 +812,54 @@ def keep_note_paragraph_lines(s: str) -> str:
     return "\n\n".join(f"#[{TYPST_NOTE_PARAGRAPH_COSTS}\n{b}]" if wrappable(b) else b for b in s.split("\n\n"))
 
 
+OPENING_NOTE = r"(?:\^\[.*\]|@@FNSTART@@.*@@FNEND@@)"
+CHAPTER_BYLINE_RE = re.compile(
+    rf"^(?:#+\s*)?[：:]?\s*(?P<names>[一-鿿]{{2,6}}(?:\s+[一-鿿]{{2,6}}){{0,3}})(?P<note>{OPENING_NOTE})?$",
+    re.DOTALL,
+)
+ABSTRACT_LABEL_RE = re.compile(rf"^#+\s*导\s*语\s*(?P<note>{OPENING_NOTE})?$", re.DOTALL)
+OPENING_SECTION_RE = re.compile(r"^#{2,4}\s+(?!导\s*语|——)(?P<title>\S.*)$", re.MULTILINE)
+FIRST_SECTION_RE = re.compile(r"1[\s⁠]|(?:前言|引言|序言|提出问题|问题的提出)$")
+
+
+def mark_chapter_opening(s: str) -> str:
+    """Mark the subtitle, byline and abstract that come before a chapter's first section."""
+    headings = list(OPENING_SECTION_RE.finditer(s))[:2]
+    first_section = headings[1] if len(headings) > 1 and CHAPTER_BYLINE_RE.match(headings[0][0]) else next(iter(headings), None)
+    if first_section is None:
+        return s
+    abstract_ends = bool(FIRST_SECTION_RE.match(first_section["title"]))
+    blocks = [b.strip() for b in s[: first_section.start()].split("\n\n") if b.strip()]
+    lead: list[str] = []
+    byline = None
+    label_note = ""
+    abstract: list[str] = []
+    for block in blocks:
+        if byline is None:
+            if (subtitle := re.sub(r"^#+\s*", "", block)).startswith("——"):
+                lead.append(f"@@SUBTITLE@@ {subtitle}")
+            elif len(lead) < 2 and (m := CHAPTER_BYLINE_RE.match(block)):
+                byline = f"@@BYLINE@@ {m['names']}{m['note'] or ''}"
+            else:
+                lead.append(block)
+        elif not abstract_ends:
+            abstract.append(block)
+        elif m := ABSTRACT_LABEL_RE.match(block):
+            label_note = m["note"] or ""
+        elif not abstract and not label_note and re.fullmatch(OPENING_NOTE, block, re.DOTALL):
+            label_note = block
+        else:
+            abstract.append(block)
+    if byline is None:
+        return s
+    parts = [*lead, byline]
+    if abstract_ends and abstract:
+        parts += [f"@@ABSTRACT@@{label_note}", *abstract, "@@ENDABSTRACT@@"]
+    else:
+        parts += abstract
+    return "\n\n".join(parts) + "\n\n" + s[first_section.start() :]
+
+
 def typst_footnote_rules(spec: MonographSpec) -> str:
     cjk_note_marks = TYPST_HEADING_NOTES + (TYPST_CJK_NOTE_MARKS if spec.lang == "zh" else "")
     if not spec.footnote_style:
@@ -873,6 +922,7 @@ UNNUMBERED_CHAPTER_PREFIXES = (
     "中文版前言",
     "中文版序言",
     "序",
+    "后记",
     "前言",
     "序言",
     "导读",
@@ -1958,6 +2008,10 @@ class MonographCompiler:
             else "\n#set page(flipped: false, columns: 1)\n#set table(inset: 5pt)\n",
             s,
         )
+        s = re.sub(r"^@@SUBTITLE@@ (.*)$", r"#chapter-subtitle[\1]", s, flags=re.MULTILINE)
+        s = re.sub(r"^@@BYLINE@@ (.*)$", r"#chapter-byline[\1]", s, flags=re.MULTILINE)
+        s = re.sub(r"^@@ABSTRACT@@(.*)$", r"#chapter-abstract(note: [\1])[", s, flags=re.MULTILINE)
+        s = re.sub(r"^@@ENDABSTRACT@@$", "]", s, flags=re.MULTILINE)
         return s
 
     def _stitch_by_source_page(self, pages_data: list[PageParts], fig_dir: Path) -> str:
@@ -2212,7 +2266,9 @@ class MonographCompiler:
                     number=chap.number, title=title
                 )
             stitched = self.stitch_chapter(pages_data, fig_dir)
-            formatted = self.format_typst(stitched)
+            formatted = self.format_typst(
+                mark_chapter_opening(stitched) if spec.chapter_openings and chap.number > 0 else stitched
+            )
             if spec.theorem_layout:
                 formatted = f"\n{heading}\n\n" + formatted
             should_number = spec.cross_references and (
