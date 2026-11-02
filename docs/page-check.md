@@ -74,7 +74,7 @@ Do steps 1 to 5 for each page `N` from `FIRST` to `LAST`, one page at a time. Th
 
 ### Step 1. Read the scan page and the transcript
 
-Read `PNG/pN.png` and the page's `text` output from the batch.
+Read `PNG/pN.png` and the page's `text` output from the batch. The last line of `text` is `receipt: R`, a hash of the page PNG and the transcript. Step 5 records `R`.
 
 Done when you know what the page holds: headings, paragraphs, tables, equations, figures and footnotes.
 
@@ -139,10 +139,10 @@ Before you add an issue, confirm that it is a real difference. In the first Book
 Add one line to `OUT` for the page. Each line is one JSON object:
 
 ```json
-{"book": 4, "page": 57, "issues": [{"kind": "word", "line": 9, "transcript": "使用", "scan": "便用", "note": ""}]}
+{"book": 4, "page": 57, "receipt": "7541ffa3fa67", "issues": [{"kind": "word", "line": 9, "transcript": "使用", "scan": "便用", "note": ""}]}
 ```
 
-A page with no differences gets `"issues": []`. Each issue has these fields:
+`receipt` is the `R` from the page's `text` output. `summary` counts a page as checked only when its receipt matches the current PNG and transcript. A line with a missing or wrong receipt leaves the page unchecked. When `text` prints `receipt: none`, render the page PNG and run `text` again. A page with no differences gets `"issues": []`. Each issue has these fields:
 
 | Field | Value |
 |---|---|
@@ -174,4 +174,4 @@ Done when `OUT` has the line for page `N`.
 uv run python scripts/page_check.py summary --books BOOK
 ```
 
-Done when the output names no `bad line` in `OUT`, and no page from `FIRST` to `LAST` is in the `unchecked` list. Then reply with one line: `BOOK FIRST-LAST: P pages, I issues`.
+Done when the output names no `bad line` in `OUT`, and no page from `FIRST` to `LAST` is in the `unchecked` or `no valid receipt` list. Then reply with one line: `BOOK FIRST-LAST: P pages, I issues`.

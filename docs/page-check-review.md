@@ -39,7 +39,9 @@ uv run python scripts/page_check.py summary --books BOOK
 
 `run` starts one `omp` agent for each range of 10 unchecked pages, 8 agents at a time. Run it in the background. Run it again for the pages that `summary` lists as `unchecked`. When the Gemini quota is out, `omp` exits 0 with a 429 error in the log, and the range stays unchecked.
 
-Done when `summary` lists no `unchecked` page and no `bad line`.
+A page counts as checked only when its line carries the receipt that `page_check.py text` printed for it. Writing result lines yourself leaves pages under `no valid receipt`. Result files checked before receipts existed are listed in `quality/page_check_legacy.json` with their sha256, so an edit to one of them voids it.
+
+Done when `summary` lists no `unchecked` page, no `no valid receipt` page and no `bad line`.
 
 ## Step 3. Verify every claim
 

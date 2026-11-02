@@ -14,6 +14,7 @@ output/page_check/BOOK/pFIRST-LAST.jsonl with one JSON line per scan page.
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -44,6 +45,7 @@ BOOKS = {
     "6": "6_劳动力市场与收入分配",
 }
 RESULTS = Path("output/page_check")
+LEGACY = Path("quality/page_check_legacy.json")
 KINDS = {"word", "number", "table_cell", "table_shape", "missing_text", "extra_text", "order", "mark", "math", "sum", "scan_typo"}
 KEPT_CHAR = re.compile(r"[一-鿿A-Za-z0-9.%]")
 BAND_PAD = 0.02
@@ -56,6 +58,7 @@ class Tally:
     issue_pages: set[int]
     kinds: Counter[str]
     bad_lines: list[str]
+    unproven: set[int]
 
 
 def book_key(book: str) -> str:
@@ -184,9 +187,24 @@ def cell_diffs(t_row: list[str], s_row: list[str]) -> list[str]:
     return diffs
 
 
+def receipt(book: str, page: int) -> str | None:
+    """The proof that a check saw page PAGE: a hash of its rendered scan PNG and its transcript. `text` prints it."""
+    png = RESULTS / book / "png" / f"p{page}.png"
+    if not png.is_file():
+        return None
+    return hashlib.sha256(png.read_bytes() + transcript_path(book, page).read_bytes()).hexdigest()[:12]
+
+
+def legacy_files(book: str) -> dict[str, str]:
+    """Result files checked before receipts existed, by name, with the sha256 they had then."""
+    return json.loads(LEGACY.read_text(encoding="utf-8")).get(book, {}) if LEGACY.is_file() else {}
+
+
 def tally(book: str) -> Tally:
-    t = Tally(set(transcript_pages(book)), set(), set(), Counter(), [])
+    t = Tally(set(transcript_pages(book)), set(), set(), Counter(), [], set())
+    legacy = legacy_files(book)
     for path in sorted((RESULTS / book).glob("p*.jsonl")):
+        trusted = legacy.get(path.name) == hashlib.sha256(path.read_bytes()).hexdigest()
         for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             try:
                 record = json.loads(line)
@@ -197,6 +215,9 @@ def tally(book: str) -> Tally:
                 continue
             if unknown := [k for k in kinds if k not in KINDS]:
                 t.bad_lines.append(f"{path}:{n}: unknown kind {unknown}")
+            if not trusted and (page not in t.pages or not record.get("receipt") or record["receipt"] != receipt(book, page)):
+                t.unproven.add(page)
+                continue
             t.checked.add(page)
             t.kinds.update(kinds)
             if issues:
@@ -257,6 +278,8 @@ def main() -> None:
     if args.command == "text":
         lines = transcript_path(args.book, args.page).read_text(encoding="utf-8").splitlines()
         print("\n".join(f"{n:4d}  {line}" for n, line in enumerate(lines, 1)))
+        proof = receipt(args.book, args.page)
+        print(f"receipt: {proof}" if proof else f"receipt: none; render {RESULTS / args.book / 'png' / f'p{args.page}.png'} first")
         return
     if args.command == "suspects":
         print("\n".join(suspects(args.book, args.page)) or "none")
@@ -294,6 +317,8 @@ def main() -> None:
         )
         if missing:
             print(f"  unchecked: {ranges(missing)}")
+        if unproven := sorted(t.unproven - t.checked):
+            print(f"  no valid receipt: {ranges(unproven)}")
         for bad in t.bad_lines:
             print(f"  bad line {bad}")
 
