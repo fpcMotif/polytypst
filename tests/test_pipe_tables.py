@@ -106,6 +106,36 @@ def test_a_number_table_too_wide_for_the_text_prints_at_7pt_or_more_with_no_over
     assert sizes and min(sizes) >= 7
 
 
+def test_a_number_table_too_wide_and_too_long_to_turn_whole_breaks_across_landscape_pages_with_no_overprint(tmp_path):
+    labels = ("供电供气供热及水务行业", "专业性、技术性职业", "农林渔业工作者", "批发零售、餐饮店", "公务")
+    table = "".join(wide_regression_table().splitlines(keepends=True)[:4])
+    table += "".join(row(labels[i % len(labels)], *["−1413.6", "13.372"] * 6) for i in range(50))
+    out = layout_tables(f"正文。\n\n{CAPTION}\n\n@@TABLEBLOCK0@@\n\n后文。\n", [table])
+    compiled_words(tmp_path, out)
+    doc = pymupdf.open(tmp_path / "t.pdf")
+    assert [overprinted([w[:5] for w in p.get_text("words")]) for p in doc] == [[]] * len(doc)
+    landscape = [p.rect.width > p.rect.height for p in doc]
+    assert len(doc) >= 4 and not landscape[0] and not landscape[-1] and all(landscape[1:-1])
+    assert all(w[2] <= p.rect.width - MARGIN_PT + 0.5 and w[3] <= p.rect.height - MARGIN_PT + 0.5 for p in doc for w in p.get_text("words"))
+
+
+def test_a_wrapped_label_keeps_its_last_two_characters_together(tmp_path):
+    if not shutil.which("typst"):
+        pytest.skip("typst is not installed")
+    table = row("行业", *(f"{y}年" for y in range(1982, 1994))) + row(*["---"] * 13)
+    for label in ("专业性、技术性职业", "农林渔业工作者", "同住的虚拟变量", "（调查行业共 30 以上）", "就业者（15～34岁）"):
+        table += row(label, *["−1329.4"] * 12)
+    page = '#set page(width: 348pt, height: 900pt, margin: 20pt)\n#set text(font: "Songti SC", size: 10pt, lang: "zh")\n'
+    (tmp_path / "t.typ").write_text(page + layout_tables(table, []), encoding="utf-8")
+    subprocess.run(["typst", "compile", str(tmp_path / "t.typ"), str(tmp_path / "t.pdf")], check=True)
+    lines = [
+        "".join(s["text"] for s in line["spans"]).strip()
+        for p in pymupdf.open(tmp_path / "t.pdf") for b in p.get_text("dict")["blocks"] for line in b.get("lines", [])
+    ]
+    assert "".join(lines).count("职业") == 1 and "".join(lines).count("工作者") == 1
+    assert not [line for line in lines if re.fullmatch(r"[一-鿿]", line)]
+
+
 def test_a_table_wider_than_the_text_prints_no_number_over_its_neighbour_and_stays_inside_the_margins(tmp_path):
     years = ("Pooled", "1982", "1987", "1992", "1997", "2002")
     table = row("被解释变量<br>估计方法", "劳动时间等级中位数（15～60）<br>OLS", *[""] * 11) + row(*["---"] * 13)
@@ -162,9 +192,9 @@ def test_number_and_short_label_columns_keep_their_width_beside_a_long_text_colu
     assert "let fit-table(width, t) = set-table((auto, 26fr, auto, auto, auto, auto, auto, auto), ..t)" in out
     assert f"else {{ set-table((auto, 26fr, 11fr, 4fr, 8fr, 7fr, 6fr, 10fr), ..{tiers}.last()) }}" in out
     assert "inset: (x: x, y: pad)" in out
-    assert "[#strong[连续工龄]]" in out
-    assert r"table.cell(colspan: 2)[#strong[每小时法定劳\ 动时间内工资]]" in out
-    assert r"[#strong[在劳动人口\ 中的占比]]" in out
+    assert "[#strong[连续#box[工龄]]]" in out
+    assert r"table.cell(colspan: 2)[#strong[每小时法#box[定劳]\ 动时间内#box[工资]]]" in out
+    assert r"[#strong[在劳动#box[人口]\ 中的#box[占比]]]" in out
     assert "[#strong[年龄]]" in out
     after_math = layout_tables("$ a & = b\\\n& = c $\n\n" + TABLE_7_6, [])
     assert after_math.startswith("$ a & = b\\\n& = c $\n")
@@ -204,7 +234,7 @@ ADF_TABLE = (
 def test_a_table_of_numbers_keeps_each_column_at_its_natural_width_and_spreads_the_rest(tmp_path: Path) -> None:
     typ = tmp_path / "t.typ"
     head = layout_tables(ADF_TABLE, [])
-    assert r"table.cell(colspan: 4, align: center + horizon)[#strong[1958 年至 X 年：\ 无常数项]]" in head and "[lag]), [1989]" in head
+    assert r"table.cell(colspan: 4, align: center + horizon)[#strong[1958 年至 X 年：\ 无常#box[数项]]]" in head and "[lag]), [1989]" in head
     preamble = PAGE + book_by_key("5").spec.typst_preamble + "\n#set table(inset: 5pt)\n"
     typ.write_text(preamble + layout_tables(ADF_TABLE, []), encoding="utf-8")
     compile_typst(typ, tmp_path / "t.pdf")
@@ -287,8 +317,8 @@ def test_asterisks_outside_tags_stay_literal():
 def test_a_span_marker_centres_one_value_across_columns_in_a_data_row():
     table = '| 时间 | 总和 | 合同工 | 其他 |\n| :--- | :---: | :---: | :---: |\n| 1984年 | 15.3 | <span data-colspan="2">4.2</span> |  |\n'
     out = layout_tables(table, [])
-    assert "[1984年], [15.3], table.cell(colspan: 2)[4.2]" in out
-    assert "#strong[1984年]" not in out
+    assert "[198#box[4年]], [15.3], table.cell(colspan: 2)[4.2]" in out
+    assert "#strong[198" not in out
 
 
 def test_a_span_marker_keeps_the_cell_shading():
@@ -299,7 +329,7 @@ def test_a_span_marker_keeps_the_cell_shading():
 def test_the_header_row_repeats_after_a_page_break():
     table = "| 时间 | 总和 | 男性 | 女性 | 其他 |\n| --- | --- | --- | --- | --- |\n| 1984年 | 15.3 | 7.7 | 29.0 | 4.2 |\n"
     out = layout_tables(table, [])
-    assert "table.header([#strong[时间]], [#strong[总和]], [#strong[男性]], [#strong[女性]], [#strong[其他]]), [1984年]" in out
+    assert "table.header([#strong[时间]], [#strong[总和]], [#strong[男性]], [#strong[女性]], [#strong[其他]]), [198#box[4年]]" in out
 
 
 def test_a_two_level_header_repeats_both_rows():
@@ -365,7 +395,7 @@ def test_a_text_heavy_table_moves_to_a_landscape_page_with_its_caption_continuat
     out = layout_tables(text, [TEXT_TABLE, TEXT_TABLE])
     assert out.startswith("正文。\n\n#page(flipped: true)[\n#set table.cell(breakable: false)\n#v(0.6em)\n#align(center)[")
     caption = "block(sticky: true, width: 100%)[#align(center)[#strong[表1-1 比较]]]; v(0.2em); "
-    assert out.count(caption + "fit-table(") == 2 and out.count(caption + "set-table(") == 1
+    assert out.count(caption + "fit-table(") == 3 and out.count(caption + "set-table(") == 2
     assert "\n]\n\n\n\n#block(sticky: true)[续表]\n\n\n#align(center)[" in out
     assert out.endswith("\n]\n\n\n\n注：根据内阁府制作。\n]\n\n下一段正文。\n")
     assert out.count("#context {") == 2
@@ -430,12 +460,12 @@ def test_a_wide_table_of_phrases_moves_to_a_landscape_page():
         "| 国内供需缺口 | 0.123***（0.045） | 0.118***（0.044） | 0.101**（0.047） | 0.097**（0.046） "
         "| 0.089*（0.049） | 0.085*（0.048） |\n"
     )
-    assert "flipped" not in layout_tables(text, [regression])
+    assert "#page(flipped" not in layout_tables(text, [regression])
 
 
 def test_a_numeric_table_stays_upright():
     out = layout_tables(f"{CAPTION}\n\n@@TABLEBLOCK0@@\n\n注：数据。\n", [NUMBER_TABLE])
-    assert out.startswith(f"{CAPTION}\n\n\n#align(center)[") and "flipped" not in out
+    assert out.startswith(f"{CAPTION}\n\n\n#align(center)[") and "#page(flipped" not in out
 
 
 def test_math_in_cells_keeps_its_subscripts():
@@ -462,7 +492,7 @@ def test_a_continued_table_merges_with_its_preceding_table_and_drops_the_repeate
     assert merged.count("| 年份 | 1980 | 1985 |") == 1
     out = layout_tables(text, [], three_line=True, merge_continued=True)
     assert out.count("#table(") == 1
-    assert "[制造业合计]" in out and "[有机化学基础产品]" in out and "[精密机械]" in out
+    assert "[制造业#box[合计]]" in out and "[有机化学基础#box[产品]]" in out and "[精密#box[机械]]" in out
     assert layout_tables(text, [], three_line=True).count("#table(") == 3
 
 

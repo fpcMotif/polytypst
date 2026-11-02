@@ -175,6 +175,7 @@ def _rigid_columns(body: list[list[str]], ncols: int) -> list[bool]:
 FLEX_PROBE_WIDTH = 12
 NARROW_PROBE_WIDTH = 8
 HYPHEN_MINUS = re.compile(r"(?<![\w.)\]}>])-(?=\d)")
+LABEL_TAIL = re.compile(r"(?<=.)(\w ?[一-鿿][）)]?)(?=\\ |$)")
 TABLE_TIERS = "((1, auto), (1, 2.5pt), (0.92, 2.5pt), (0.85, 2.5pt))"
 PROSE_TABLE_TIERS = "((1, auto), (0.92, auto), (0.85, auto))"
 
@@ -456,7 +457,7 @@ def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bo
                             col_idx = 0
                             while col_idx < len(r):
                                 c = r[col_idx]
-                                c_clean = _escape_table_cell_text(c.replace("<br>", "\\ ").replace("<br/>", "\\ "))
+                                c_clean = LABEL_TAIL.sub(r"#box[\1]", _escape_table_cell_text(c.replace("<br>", "\\ ").replace("<br/>", "\\ ")))
                                 span = 1
                                 if c.strip():
                                     while col_idx + span < len(r) and not r[col_idx + span].strip():
@@ -480,7 +481,7 @@ def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bo
                                     c = column_pads[c.strip()]
                                 for tag, mark in CELL_STYLE_TAGS.items():
                                     c = c.replace(f"<{tag}>", f"@@{mark}@@").replace(f"</{tag}>", "@@END@@")
-                                c_clean = _escape_table_cell_text(c.replace("<br>", "\\ ").replace("<br/>", "\\ "))
+                                c_clean = LABEL_TAIL.sub(r"#box[\1]", _escape_table_cell_text(c.replace("<br>", "\\ ").replace("<br/>", "\\ ")))
                                 for mark in CELL_STYLE_TAGS.values():
                                     c_clean = c_clean.replace(f"@@{mark}@@", f"#{mark}[")
                                 c_clean = c_clean.replace("@@END@@", "]")
@@ -561,7 +562,11 @@ def _format_pipe_tables(text: str, three_line: bool = False, merge_continued: bo
                             f".find(b => measure(b).height <= size.width) }}\n"
                             f"if tier != none {{ {head}fit-table(size.width, tier) }}"
                             f" else if turned != none {{ place(auto, float: true, clearance: 1.2em, rotate(-90deg, reflow: true, turned)) }}"
-                            f" else {{ {head}set-table({dense}, ..{tiers}.last()) }}\n"
+                            f" else if page.flipped {{ {head}set-table({dense}, ..{tiers}.last()) }}"
+                            f" else {{ page(flipped: true, layout(turned => {{ let tier = {tiers}"
+                            f".find(t => measure(set-table({probe}, ..t)).width <= turned.width);"
+                            f" if tier != none {{ {head}fit-table(turned.width, tier) }}"
+                            f" else {{ {head}set-table({dense}, ..{tiers}.last()) }} }})) }}\n"
                             f"}}\n"
                         )
                         typst_table = (
