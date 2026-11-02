@@ -1102,6 +1102,10 @@ def _is_balanced(text: str) -> bool:
     return all(d == 0 for d in depth.values())
 
 
+_REL_NAMES = "le|ge|leq|geq|in|notin|subset|supset|subseteq|supseteq|neq|ne|approx|sim|equiv|to|mapsto|rightarrow"
+_BARRIER_REL_RE = re.compile(rf"\\({_REL_NAMES}|coloneqq)\b")
+
+
 def _has_barrier_at_depth_zero(s: str) -> bool:
     depth = 0
     i = 0
@@ -1116,11 +1120,7 @@ def _has_barrier_at_depth_zero(s: str) -> bool:
                 return True
             if s[i : i + 2] == "\\\\":
                 return True
-            m = re.match(
-                r"\\(le|ge|leq|geq|in|notin|subset|supset|subseteq|supseteq|neq|ne|approx|sim|equiv|to|mapsto|rightarrow|coloneqq)\b",
-                s[i:],
-            )
-            if m:
+            if ch == "\\" and _BARRIER_REL_RE.match(s, i):
                 return True
         i += 1
     return False
@@ -1133,16 +1133,8 @@ def _parse_scripts(s: str, pos: int) -> tuple[str, int]:
             op = s[pos]
             pos += 1
             if pos < len(s) and s[pos] == "{":
-                depth = 1
-                i = pos + 1
-                while i < len(s) and depth > 0:
-                    if s[i] == "{" and s[i - 1] != "\\":
-                        depth += 1
-                    elif s[i] == "}" and s[i - 1] != "\\":
-                        depth -= 1
-                    i += 1
-                scripts += f"{op}{{{s[pos + 1 : i - 1]}}}"
-                pos = i
+                inner, pos = parse_braced(s, pos)
+                scripts += f"{op}{{{inner}}}"
             elif pos < len(s) and s[pos] == "\\":
                 m = re.match(r"\\[a-zA-Z]+", s[pos:])
                 if m:
@@ -1276,12 +1268,9 @@ def _replace_call_wrapper(body: str, marker: str, open_wrap: str, close_wrap: st
     return body
 
 
-REL_SPACING_BEFORE_RE = re.compile(
-    r"\s*(?:\\[:;!]|~)\s*(?=(?:=|lt|gt|<|>|\\le\b|\\ge\b|\\leq\b|\\geq\b|\\in\b|\\notin\b|\\subset\b|\\supset\b|\\subseteq\b|\\supseteq\b|\\neq\b|\\ne\b|\\approx\b|\\sim\b|\\equiv\b|\\to\b|\\mapsto\b|\\rightarrow\b|:=|\\coloneqq))"
-)
-REL_SPACING_AFTER_RE = re.compile(
-    r"((?:=|lt|gt|<|>|\\le\b|\\ge\b|\\leq\b|\\geq\b|\\in\b|\\notin\b|\\subset\b|\\supset\b|\\subseteq\b|\\supseteq\b|\\neq\b|\\ne\b|\\approx\b|\\sim\b|\\equiv\b|\\to\b|\\mapsto\b|\\rightarrow\b|:=|\\coloneqq))\s*(?:\\[:;!]|~)\s*"
-)
+_REL = rf"(?:=|lt|gt|<|>|\\(?:{_REL_NAMES})\b|:=|\\coloneqq)"
+REL_SPACING_BEFORE_RE = re.compile(rf"\s*(?:\\[:;!]|~)\s*(?={_REL})")
+REL_SPACING_AFTER_RE = re.compile(rf"({_REL})\s*(?:\\[:;!]|~)\s*")
 
 
 def _pair_escaped_bars(body: str) -> str:

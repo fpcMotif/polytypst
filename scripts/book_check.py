@@ -164,14 +164,15 @@ def lint_fixups(
             normalize_html_tables(text), "circled", r"^\d+$"
         )
     for pat, rep in page_fixups:
-        m = re.search(pat, cleaned, flags=re.DOTALL) or (
-            None if rep else re.search(pat, text, flags=re.DOTALL)
-        )
+        src = cleaned
+        m = re.search(pat, cleaned, flags=re.DOTALL)
+        if not m and not rep:
+            src = text
+            m = re.search(pat, text, flags=re.DOTALL)
         if not m:
             found.append(hit("dead_fixup", 1, pat[:40]))
             continue
         if is_multiline_delete(pat, rep, m[0]):
-            src = cleaned if re.search(pat, cleaned, flags=re.DOTALL) else text
             line = src[: m.start()].count("\n") + 1
             found.append(hit("multiline_delete", line, m[0].splitlines()[0][:40]))
         cleaned = apply_page_fixups(cleaned, ((pat, rep),))
@@ -268,21 +269,10 @@ def book_spec(book: str):
     )
 
 
-def book_fixups(book: str) -> dict[int, tuple]:
-    """The book's transcript and page fixups by page, so that lint reads each page as the book prints it."""
-    spec = book_spec(book)
-    if spec is None:
-        return {}
-    pages = set(spec.transcript_fixups) | set(spec.page_fixups)
-    return {
-        p: (*spec.transcript_fixups.get(p, ()), *spec.page_fixups.get(p, ()))
-        for p in pages
-    }
-
-
 def lint(book: str) -> list[dict]:
     from dataclasses import replace
 
+    from polytypst.compiler.monograph import FOOTNOTE_RE
     from polytypst.compiler.page_cleaner import PageCleaner
 
     found = []
@@ -302,13 +292,8 @@ def lint(book: str) -> list[dict]:
         t_rules = spec.transcript_fixups.get(page, ()) if spec else ()
         p_rules = spec.page_fixups.get(page, ()) if spec else ()
         cleaned = (
-            re.sub(
-                r"@@FNSTART@@.*?@@FNEND@@",
-                "①",
-                cleaner.clean(text, page).body,
-                flags=re.DOTALL,
-            )
-            if cleaner is not None
+            FOOTNOTE_RE.sub("①", cleaner.clean(text, page).body)
+            if cleaner is not None and p_rules
             else None
         )
         found += [
@@ -502,21 +487,20 @@ def contact_sheet(
     from PIL import Image, ImageDraw, ImageFont
 
     header_h, pad = 28, 6
+    inner_w = width - 2 * pad
     font = ImageFont.load_default(size=14)
     loaded: list[tuple[str, Image.Image]] = []
     for label, img_path in cards:
         with Image.open(img_path) as raw:
             img = raw.convert("RGB")
-        if img.width > width - 2 * pad:
-            scale = (width - 2 * pad) / img.width
-            img = img.resize(
-                (width - 2 * pad, max(1, round(img.height * scale))), Image.LANCZOS
-            )
+        if img.width > inner_w:
+            scale = inner_w / img.width
+            img = img.resize((inner_w, max(1, round(img.height * scale))), Image.LANCZOS)
         if img.height > max_crop_h:
             img = img.crop((0, 0, img.width, max_crop_h))
         loaded.append((label, img))
     total_h = sum(header_h + img.height + pad for _, img in loaded) + pad
-    canvas = Image.new("RGB", (width, max(1, total_h)), (245, 245, 245))
+    canvas = Image.new("RGB", (width, total_h), (245, 245, 245))
     draw = ImageDraw.Draw(canvas)
     y = pad
     for label, img in loaded:
@@ -532,13 +516,12 @@ def contact_sheet(
 
 def sheets(book: str, size: int = 30) -> list[Path]:
     done = verdict_keys(book)
-    seen: set[tuple] = set()
     cards: list[tuple[str, Path]] = []
     for idx, q in enumerate(read_jsonl(results(book) / "queue.jsonl")):
         key = issue_key(q["page"], q)
-        if key in done or key in seen:
+        if key in done:
             continue
-        seen.add(key)
+        done.add(key)
         img_path = Path(q.get("zoom") or q.get("page_image", ""))
         if not img_path.exists():
             continue

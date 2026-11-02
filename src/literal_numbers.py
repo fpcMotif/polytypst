@@ -27,6 +27,7 @@ from .compiler.source_numbers import (
     _REF_RE,
     LATEX,
     TYPST,
+    _sec_target,
     chapter_reference_re,
     kinds,
     labels,
@@ -171,15 +172,10 @@ def literal_numbering_counts(
             counts["UNLINKED_REFERENCE"] += sum(
                 1 for m in rx.finditer(text) if f"art-{m.group('art')}" in known
             )
-        for m in reference_re(words).finditer(text):
-            num = m.group("number")
-            target = "sec-" + num.replace(".", "-")
-            if target in known:
-                counts["UNLINKED_REFERENCE"] += 1
-        for m in chapter_reference_re(words).finditer(text):
-            target = f"sec-{m.group('number')}"
-            if target in known:
-                counts["UNLINKED_REFERENCE"] += 1
+        for rx in (reference_re(words), chapter_reference_re(words)):
+            counts["UNLINKED_REFERENCE"] += sum(
+                1 for m in rx.finditer(text) if _sec_target(m.group("number")) in known
+            )
     return {rule: n for rule, n in counts.items() if n}
 
 

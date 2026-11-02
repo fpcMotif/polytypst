@@ -538,6 +538,15 @@ def split_first_paragraph(text: str) -> tuple[str, str]:
 
 
 
+def _bare_title(title: str) -> str:
+    return re.sub(r"^\d+\.?\s*", "", clean_margin_and_inline_math(title))
+
+
+def _proof_of_head(m: re.Match[str], open_: str, close: str) -> str:
+    tail = (m.group(2) or "").strip()
+    return f"{open_}Proof of {m.group(1).title()}.{close}" + (f" {tail}" if tail else "")
+
+
 def latex_safe_markdown(text: str, *, proof_blocks: bool = False, proof_end_mark: bool = False) -> str:
     """Repair OCR math that LaTeX rejects but Typst tolerates."""
     text = _LATEX_ACCENT_SUPERSCRIPT_RE.sub(r"{}^{\1\2}", text)
@@ -565,16 +574,10 @@ def latex_safe_markdown(text: str, *, proof_blocks: bool = False, proof_end_mark
     )
     text = re.sub(r"(?<!\$)((?<!\\)\$[^$\n]+\$)[ \t]+([-‑]\w)", r"\1\2", text)
     if proof_blocks:
-        def _norm_latex_proof_of(m: re.Match[str]) -> str:
-            target = m.group(1).title()
-            rest = m.group(2) if m.group(2) else ""
-            tail = f" {rest.strip()}" if rest.strip() else ""
-            return f"\\emph{{Proof of {target}.}}{tail}"
-
         text = re.sub(r"(?:\*+|\\emph\{)PROOF\.\s*([^\*\}]+)(?:\*+|\})", r"\\emph{Proof.} \1", text)
         text = re.sub(r"(?:\*+|\\emph\{|\\textbf\{)(?:PROOF|Proof)\.(?:\*+|\})", r"\\emph{Proof.}", text)
         text = re.sub(r"^PROOF\.", r"\\emph{Proof.}", text, flags=re.MULTILINE)
-        text = re.sub(r"(?:\*+|\\emph\{|\\textbf\{)PROOF OF\s+(.+?)(?:\.\s+([A-Z“\"$][^\*\}]*))?\.?(?:\*+|\})", _norm_latex_proof_of, text, flags=re.IGNORECASE)
+        text = re.sub(r"(?:\*+|\\emph\{|\\textbf\{)PROOF OF\s+(.+?)(?:\.\s+([A-Z“\"$][^\*\}]*))?\.?(?:\*+|\})", lambda m: _proof_of_head(m, "\\emph{", "}"), text, flags=re.IGNORECASE)
 
     if proof_end_mark:
         text = re.sub(r"(\\begin\{equation\*?\}[\s\S]*?)(?:\\quad|\s)*\\blacksquare(\s*\\end\{equation\*?\})", r"\1\2\n\\hfill$\\blacksquare$", text)
@@ -952,6 +955,13 @@ def _merge_display_run(run: str, display_blocks: list[tuple[str, str]]) -> str:
     label = next((lbl for lbl in labels if lbl), "")
     display_blocks[ids[0]] = (merged, label)
     return f"@@DISPLAYBLOCK{ids[0]}@@"
+
+
+_THM_HEAD = (
+    r"(?:(?:\d+(?:\.\d+)*|[A-Z]\.?\d*)\s+)?"
+    r"(?:THEOREM|LEMMA|COROLLARY|PROPOSITION|DEFINITIONS?|REMARKS?|EXAMPLES?|ASSUMPTIONS?|AXIOMS?|CONJECTURES?|CLAIMS?|PROPERT(?:Y|IES)|NOTATION)"
+    r"(?:\s*\([^)]*\))?"
+)
 
 
 class MonographCompiler:
@@ -1485,13 +1495,13 @@ class MonographCompiler:
         s = re.sub(r"^>\s?", "", s, flags=re.MULTILINE)
         s = re.sub(r"^[ \t]*●[ \t]+", r"- ", s, flags=re.MULTILINE)
         s = re.sub(
-            r"^(={2,4}|#{2,4})\s+((?:(?:\d+(?:\.\d+)*|[A-Z]\.?\d*)\s+)?(?:THEOREM|LEMMA|COROLLARY|PROPOSITION|DEFINITIONS?|REMARKS?|EXAMPLES?|ASSUMPTIONS?|AXIOMS?|CONJECTURES?|CLAIMS?|PROPERT(?:Y|IES)|NOTATION)(?:\s*\([^)]*\))?)\.[ \t]*$",
+            rf"^(={{2,4}}|#{{2,4}})\s+({_THM_HEAD})\.[ \t]*$",
             r"\1 \2",
             s,
             flags=re.MULTILINE | re.IGNORECASE,
         )
         s = re.sub(
-            r"^(={2,4}|#{2,4})\s+((?:(?:\d+(?:\.\d+)*|[A-Z]\.?\d*)\s+)?(?:THEOREM|LEMMA|COROLLARY|PROPOSITION|DEFINITIONS?|REMARKS?|EXAMPLES?|ASSUMPTIONS?|AXIOMS?|CONJECTURES?|CLAIMS?|PROPERT(?:Y|IES)|NOTATION)(?:\s*\([^)]*\))?)\.\s+([A-Z“\"$].+)$",
+            rf"^(={{2,4}}|#{{2,4}})\s+({_THM_HEAD})\.\s+([A-Z“\"$].+)$",
             r"\1 \2\n\n\3",
             s,
             flags=re.MULTILINE | re.IGNORECASE,
@@ -1503,30 +1513,31 @@ class MonographCompiler:
             return f"{stars}{head}{stars}\n\n{rest}"
 
         s = re.sub(
-            r"^(\*{2,3})((?:(?:\d+(?:\.\d+)*|[A-Z]\.?\d*)\s+)?(?:THEOREM|LEMMA|COROLLARY|PROPOSITION|DEFINITIONS?|REMARKS?|EXAMPLES?|ASSUMPTIONS?|AXIOMS?|CONJECTURES?|CLAIMS?|PROPERT(?:Y|IES)|NOTATION)(?:\s*\([^)]*\))?)\.\s*\1[ \t]+([A-Z“\"$(].+)$",
+            rf"^(\*{{2,3}})({_THM_HEAD})\.\s*\1[ \t]+([A-Z“\"$(].+)$",
             _split_strong_head,
             s,
             flags=re.MULTILINE | re.IGNORECASE,
         )
         paras = s.split("\n\n")
-        for idx, para in enumerate(paras):
-            p_strip = para.strip()
-            if re.match(
-                r"^(?:={2,4}|#{2,4}|\*{2,3})\s*(?:(?:\d+(?:\.\d+)*|[A-Z]\.?\d*)\s+)?(?:THEOREM|LEMMA|COROLLARY|PROPOSITION)\b",
-                p_strip,
-                re.IGNORECASE,
-            ) and re.fullmatch(r"(?:={2,4}|#{2,4})[^\n]*|(\*{2,3})[^*\n]+\1", p_strip) and idx + 1 < len(paras):
-                next_p = paras[idx + 1].strip()
-                if (
-                    next_p
-                    and not re.match(
-                        r"^(?:={1,4}|#{1,4}|\*{1,3}|PROOF\b|#emph\[Proof|#strong\[Proof|\*Proof|\*\*Proof)",
-                        next_p,
-                        re.IGNORECASE,
-                    )
-                    and not (next_p.startswith(("*", "_")) and next_p.endswith(("*", "_")))
-                ):
-                    paras[idx + 1] = f"*{next_p}*"
+        for idx in range(len(paras) - 1):
+            p_strip = paras[idx].strip()
+            next_p = paras[idx + 1].strip()
+            if (
+                re.match(
+                    r"^(?:={2,4}|#{2,4}|\*{2,3})\s*(?:(?:\d+(?:\.\d+)*|[A-Z]\.?\d*)\s+)?(?:THEOREM|LEMMA|COROLLARY|PROPOSITION)\b",
+                    p_strip,
+                    re.IGNORECASE,
+                )
+                and re.fullmatch(r"(?:={2,4}|#{2,4})[^\n]*|(\*{2,3})[^*\n]+\1", p_strip)
+                and next_p
+                and not re.match(
+                    r"^(?:={1,4}|#{1,4}|\*{1,3}|PROOF\b|#emph\[Proof|#strong\[Proof|\*Proof|\*\*Proof)",
+                    next_p,
+                    re.IGNORECASE,
+                )
+                and not (next_p.startswith(("*", "_")) and next_p.endswith(("*", "_")))
+            ):
+                paras[idx + 1] = f"*{next_p}*"
         s = "\n\n".join(paras)
 
         for pattern, repl in spec.heading_rewrites:
@@ -1761,16 +1772,10 @@ class MonographCompiler:
             s = re.sub(r"(#qed(?:-filled)?)[ \t]*(?:\n[ \t]*)?(-[ \t]+\S)", r"\1\n\n\2", s)
             s = re.sub(r"(\n\n)(?=#emph\[Proof)", r"\1#sub-break\n", s)
         if self.composition.domain.proof_blocks:
-            def _norm_typst_proof_of(m: re.Match[str]) -> str:
-                target = m.group(1).title()
-                rest = m.group(2) if m.group(2) else ""
-                tail = f" {rest.strip()}" if rest.strip() else ""
-                return f"#emph[Proof of {target}.]{tail}"
-
             s = re.sub(r"(?:\\?\*+|#emph\[)PROOF\.\s*([^\]\*]+)(?:\\?\*+|\])", r"#emph[Proof.] \1", s)
             s = re.sub(r"(?:\\?\*+|#emph\[|#strong\[)(?:PROOF|Proof)\.(?:\\?\*+|\])", r"#emph[Proof.]", s)
             s = re.sub(r"^PROOF\.", r"#emph[Proof.]", s, flags=re.MULTILINE)
-            s = re.sub(r"(?:\\?\*+|#emph\[|#strong\[)PROOF OF\s+(.+?)(?:\.\s+([A-Z“\"$][^\]\*]*))?\.?(?:\\?\*+|\])", _norm_typst_proof_of, s, flags=re.IGNORECASE)
+            s = re.sub(r"(?:\\?\*+|#emph\[|#strong\[)PROOF OF\s+(.+?)(?:\.\s+([A-Z“\"$][^\]\*]*))?\.?(?:\\?\*+|\])", lambda m: _proof_of_head(m, "#emph[", "]"), s, flags=re.IGNORECASE)
 
         s = re.sub(r"(\n\n)(?=#strong\[)", r"\1#thm-break\n", s)
         s = re.sub(
@@ -1815,8 +1820,10 @@ class MonographCompiler:
                     glyph = "square.filled.medium" if "filled" in m_end[1] else "square.stroked"
                     qed_box = f"\n#v(-0.4em, weak: true)\n#align(right)[${glyph}$]"
             if i not in diagrams:
-                return f"\n$ {disp_math} $ {label}\n{qed_box}"
-            return f"\n$ #{diagrams[i]} $ {label}\n{qed_box}" if label else f"\n#align(center, {diagrams[i]})\n{qed_box}"
+                body = f"\n$ {disp_math} $ {label}\n"
+            else:
+                body = f"\n$ #{diagrams[i]} $ {label}\n" if label else f"\n#align(center, {diagrams[i]})\n"
+            return body + qed_box
 
         s = re.sub(r"@@DISPLAYBLOCK(\d+)@@", display, s)
         indent = self.composition.language.first_line_indent
@@ -1970,7 +1977,7 @@ class MonographCompiler:
                 line_clean = re.sub(r"\*([^\*]+)\*", r"#emph[\1]", line_clean)
                 line_clean = clean_margin_and_inline_math(line_clean)
 
-                has_page = bool(re.search(r",\s*\d+", lt) or re.search(r"\s+\d+$", lt))
+                has_page = bool(re.search(r",\s*\d+|\s+\d+$", lt))
                 clean = re.sub(r"^\$[^$]+\$\s*", "", lt).lstrip("(\"'`")
                 m_alpha = re.search(r"[a-zA-Z]", clean)
                 first_alpha = m_alpha.group(0).lower() if m_alpha else None
@@ -1978,22 +1985,20 @@ class MonographCompiler:
                 is_sub = False
                 if (
                     raw_line.startswith(("  ", "\t"))
-                    or any(lt.lower().startswith(p) for p in prepositions)
+                    or lt.lower().startswith(prepositions)
                     or (current_section and first_alpha and first_alpha != current_section)
                 ):
                     is_sub = True
                 elif header_term:
-                    if first_alpha == current_section and clean.lower() >= header_term.lower() and has_page and not any(clean.lower().startswith(p) for p in prepositions):
-                        header_term = None
-                        is_sub = False
-                    else:
-                        is_sub = True
+                    is_sub = not (
+                        first_alpha == current_section
+                        and clean.lower() >= header_term.lower()
+                        and has_page
+                        and not clean.lower().startswith(prepositions)
+                    )
 
                 if not is_sub:
-                    if not has_page:
-                        header_term = clean
-                    else:
-                        header_term = None
+                    header_term = None if has_page else clean
 
                 entries.append(f"#h(1.5em){line_clean}" if is_sub else line_clean)
 
@@ -2100,7 +2105,7 @@ class MonographCompiler:
                     typst_sections += [prebuilt, "\n#pagebreak(weak: true)\n"]
                 continue
             pages_data: list[PageParts] = []
-            clean_title = re.sub(r"^\d+\.?\s*", "", clean_margin_and_inline_math(chap.title))
+            clean_title = _bare_title(chap.title)
             ch_md_pages: list[str] = [
                 f"\n# {clean_title}\n"
                 if spec.cross_references or is_unnumbered_chapter(chap.title)
@@ -2117,12 +2122,9 @@ class MonographCompiler:
                     continue
                 p_body, top_f, bot_f = self.cleaner.clean(raw_text, pno)
                 if pno == chap.start_page:
-                    norm_chap_title = clean_title.strip().lower()
                     m_dup = re.match(r"^\s*#+\s*([^\n]+)\n*", p_body)
-                    if m_dup:
-                        first_heading_title = re.sub(r"^\d+\.?\s*", "", clean_margin_and_inline_math(m_dup.group(1))).strip().lower()
-                        if first_heading_title == norm_chap_title:
-                            p_body = p_body[m_dup.end():]
+                    if m_dup and _bare_title(m_dup.group(1)).strip().lower() == clean_title.strip().lower():
+                        p_body = p_body[m_dup.end():]
                 if spec.commutative_diagrams:
                     p_body = use_scan_diagrams(p_body, pno, fig_dir)
                 pages_data.append((pno, p_body, top_f, bot_f))
@@ -2160,14 +2162,13 @@ class MonographCompiler:
                     number=chap.number, title=title
                 )
             stitched = self.stitch_chapter(pages_data, fig_dir)
-            formatted = self.format_typst(stitched)
+            formatted = f"\n{heading}\n\n" + self.format_typst(stitched)
             should_number = spec.cross_references and (
                 bool(chap.label)
                 if has_explicit_labels
                 else ("索引" not in title and "Index" not in title and "校订后记" not in title)
             )
             if should_number:
-                formatted = f"\n{heading}\n\n" + formatted
                 formatted, chapter_resyncs = number_chapter(
                     formatted, chap.number, seen=seen_typst, circled=spec.circled_items, words=words
                 )
@@ -2179,8 +2180,6 @@ class MonographCompiler:
                     )[0],
                     chap.number,
                 )
-            else:
-                formatted = f"\n{heading}\n\n" + formatted
             if "索引" in title or "Index" in title:
                 formatted = re.sub(r"#src-page\((\d+)\)", r"#src-top(\1);", formatted)
                 formatted = (

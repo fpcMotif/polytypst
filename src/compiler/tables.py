@@ -187,15 +187,15 @@ def continued_table_split(text: str) -> tuple[str, str] | None:
     the page opens with anything else."""
     if not CONTINUED_TABLE_HEAD_RE.match(text.lstrip()):
         return None
+    stripped = text.lstrip()
     m = re.search(
         r"^(?:@@PAGEBREAK@@\s*)?(?:#+\s*)?续表[^\n]*(?:\n[ \t]*)*(?:\n[ \t]*\|[^\n]+\|[ \t]*)+"
         r"(?:\n+(?:注|资料来源|（注|\(注|（资料来源|\(资料来源)[^\n]*(?:\n(?![ \t]*\n)[^\n]+)*)*",
-        text.lstrip(),
+        stripped,
         re.MULTILINE,
     )
     if not m:
         return text, ""
-    stripped = text.lstrip()
     return stripped[: m.end()].rstrip(), stripped[m.end() :].lstrip()
 
 
@@ -249,10 +249,9 @@ def _repeated_header_count(rows1: list[list[str]], rows2: list[list[str]]) -> in
         return k
     for sub_k in (3, 2):
         if len(rows2) >= sub_k and len(rows1) > sub_k:
-            target = [[_norm_header_cell(c) for c in r] for r in rows2[:sub_k]]
             for start in range(1, len(rows1) - sub_k + 1):
                 window = [[_norm_header_cell(c) for c in r] for r in rows1[start : start + sub_k]]
-                if window == target or all(_header_rows_match(a, b) for a, b in zip(window, rows2[:sub_k])):
+                if all(_header_rows_match(a, b) for a, b in zip(window, rows2[:sub_k])):
                     return sub_k
     return 0
 

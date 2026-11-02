@@ -475,13 +475,15 @@ class CompositionConfig:
 
 {h1}
 
-#show heading.where(level: 2): it => {{
-  let body-str = repr(it.body)
-  let s = lower(body-str)
-  let is-thm = (
+#let is-thm-heading(it) = {{
+  let s = lower(repr(it.body))
+  (
 {is_thm}
   )
-  if is-thm {{
+}}
+
+#show heading.where(level: 2): it => {{
+  if is-thm-heading(it) {{
     block(above: 1.35em, below: 0.55em, sticky: true)[
       #text(10.5pt, weight: "bold", style: "normal", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
     ]
@@ -493,12 +495,7 @@ class CompositionConfig:
 }}
 
 #show heading.where(level: 3): it => {{
-  let body-str = repr(it.body)
-  let s = lower(body-str)
-  let is-thm = (
-{is_thm}
-  )
-  if is-thm {{
+  if is-thm-heading(it) {{
     block(above: 1.35em, below: 0.55em, sticky: true)[
       #text(10.5pt, weight: "bold", style: "normal", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
     ]
