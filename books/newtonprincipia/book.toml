@@ -1,6 +1,10 @@
 slug = "newtonprincipia"
 title = "Newton's Principia"
 author = "Sir Isaac Newton"
+translator = "Andrew Motte"
+publisher = "Daniel Adee"
+series = ""
+year = 1846
 domain = "physics"
 source_pdf = "newtonprincipia.pdf"
 pdf_page_count = 594

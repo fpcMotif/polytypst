@@ -1,7 +1,7 @@
 slug = 'ode_arnold'
 title = 'Ordinary Differential Equations'
 author = 'Vladimir I. Arnold'
-translator = 'Richard A. Silverman'
+translator = 'Roger Cooke'
 publisher = 'Springer-Verlag'
 year = 1992
 domain = 'math'

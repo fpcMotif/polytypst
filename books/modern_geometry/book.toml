@@ -1,6 +1,9 @@
 slug = 'modern_geometry'
 title = 'Modern Geometry—Methods and Applications. Part I'
 author = 'B. A. Dubrovin, A. T. Fomenko, S. P. Novikov'
+publisher = 'Springer-Verlag'
+series = 'Graduate Texts in Mathematics 93'
+year = 1992
 domain = 'math'
 chapters = [{ number = 1, title = 'Modern Geometry—Methods and Applications. Part I', start_page = 1, end_page = 487 }]
 require_vector_figures = true

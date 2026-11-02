@@ -1,6 +1,9 @@
 slug = "grothendieck_serre"
 title = "Grothendieck-Serre Correspondence"
 author = "Alexandre Grothendieck and Jean-Pierre Serre"
+publisher = "American Mathematical Society"
+series = ""
+year = 2004
 domain = "math"
 source_pdf = "Grothendieck-Serre Correspondence (Jean-Pierre Serre) .pdf"
 pdf_page_count = 480

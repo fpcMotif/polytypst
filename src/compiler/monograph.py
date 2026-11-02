@@ -108,7 +108,7 @@ class MonographSpec:
     subtitle: str = ""
     translator: str = ""
     editor: str = ""
-    publisher: str = "Cambridge University Press"
+    publisher: str = ""
     series: str = ""
     year: int = 2007
     publisher_key: str = "cambridge"
