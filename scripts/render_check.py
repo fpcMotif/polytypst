@@ -25,13 +25,22 @@ import pymupdf
 CAPTION = re.compile(r"^(附表|表|图)[\s ]*(\d+-\d+|[A-Z])(?:\s|$)")
 CAPTION_MAX_CHARS = 80
 SENTENCE = re.compile(r"。|^(附表|表|图)[\s ]*(?:\d+-\d+|[A-Z])\s*(显示|所示|表明|中|是|给出|列出|反映|的)")
+ENGLISH_CAPTION = re.compile(r"^(Figure|Fig\.|Table)\s*(\d+(?:[-.]\d+)?|[A-Z])(?:[.:]?\s+|[.:]?$)")
+ENGLISH_SENTENCE = re.compile(
+    r"^\S+\s+\S+\s+(shows?|lists?|gives?|is|are|was|presents?|summari[sz]es?|illustrates?|compares?|contains?|reports?|displays?|depicts?)\b"
+)
 DPI = 110
 
 
 def caption_label(text: str) -> str | None:
     """The label of a caption line, such as 表1-1. A sentence that names a table is not a caption."""
     text = text.strip()
-    if len(text) > CAPTION_MAX_CHARS or SENTENCE.search(text) or not (m := CAPTION.match(text)):
+    if len(text) > CAPTION_MAX_CHARS:
+        return None
+    if m := ENGLISH_CAPTION.match(text):
+        kind = "Table" if m[1] == "Table" else "Figure"
+        return None if ENGLISH_SENTENCE.match(text) else f"{kind}{m[2]}"
+    if SENTENCE.search(text) or not (m := CAPTION.match(text)):
         return None
     return f"{m[1]}{m[2]}"
 

@@ -16,3 +16,21 @@ def test_a_sentence_that_names_a_table_is_not_a_caption() -> None:
     assert caption_label("表 10-5 的结果显示，从资本和劳动力的整体再配置效应来看") is None
     assert caption_label("图 11-4 显示了当劳动力努力水平对超额劳动时间的弹性") is None
     assert caption_label("表1-10") == "表1-10"
+
+
+def test_an_english_caption_keeps_an_english_label() -> None:
+    assert caption_label("Table 3.5 Growth of output per worker") == "Table3.5"
+    assert caption_label("Figure 1: The phase plane") == "Figure1"
+    assert caption_label("Fig. 2.4. A torus") == "Figure2.4"
+    assert caption_label("Table 2-1") == "Table2-1"
+
+
+def test_an_english_sentence_that_names_a_figure_is_not_a_caption() -> None:
+    assert caption_label("Figure 1 shows that the orbit is closed.") is None
+    assert caption_label("Table 3.5 lists the measured values") is None
+    assert caption_label("Figures 2 and 3 compare the two methods") is None
+
+
+def test_a_chinese_label_still_needs_its_chapter_number() -> None:
+    assert caption_label("图 3 增长") is None
+    assert caption_label("表3.5 产出") is None
