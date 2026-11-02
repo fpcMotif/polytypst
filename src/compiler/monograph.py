@@ -109,7 +109,7 @@ class MonographSpec:
     translator: str = ""
     editor: str = ""
     publisher: str = "Cambridge University Press"
-    series: str = "Cambridge Studies in Advanced Mathematics"
+    series: str = ""
     year: int = 2007
     publisher_key: str = "cambridge"
     lang: str = "en"
