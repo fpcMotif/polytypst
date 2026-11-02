@@ -2552,6 +2552,7 @@ class MonographCompiler:
 
         seen_typst: set[str] = set()
         seen_latex: set[str] = set()
+        words = self.composition.language.numbering
         for chap in spec.chapters:
             if chap.typst_file:
                 prebuilt = self._prebuilt_chapter(out_dir, chap)
@@ -2628,12 +2629,14 @@ class MonographCompiler:
             if should_number:
                 formatted = f"\n{heading}\n\n" + formatted
                 formatted, chapter_resyncs = number_chapter(
-                    formatted, chap.number, seen=seen_typst, circled=spec.circled_items
+                    formatted, chap.number, seen=seen_typst, circled=spec.circled_items, words=words
                 )
                 resyncs += [r.line() for r in chapter_resyncs]
                 numbered_chapters.append((len(typst_sections), chap.number))
                 latex_chapters[len(md_sections) - 1] = (
-                    number_chapter(md_sections[-1], chap.number, LATEX, seen=seen_latex, circled=spec.circled_items)[0],
+                    number_chapter(
+                        md_sections[-1], chap.number, LATEX, seen=seen_latex, circled=spec.circled_items, words=words
+                    )[0],
                     chap.number,
                 )
             else:
@@ -2653,10 +2656,10 @@ class MonographCompiler:
         known = set().union(*(source_labels(typst_sections[i]) for i, _ in numbered_chapters))
         roman = reference_chapters(spec)
         for i, number in numbered_chapters:
-            typst_sections[i] = link_references(typst_sections[i], number, roman, known)
+            typst_sections[i] = link_references(typst_sections[i], number, roman, known, words=words)
         latex_known = set().union(*(source_labels(text) for text, _ in latex_chapters.values()))
         latex_sections = [
-            link_references(latex_chapters[i][0], latex_chapters[i][1], roman, latex_known, LATEX)
+            link_references(latex_chapters[i][0], latex_chapters[i][1], roman, latex_known, LATEX, words)
             if i in latex_chapters
             else section
             for i, section in enumerate(md_sections)
