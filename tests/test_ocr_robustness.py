@@ -526,6 +526,45 @@ def test_circled_numbers_compile_with_every_glyph_drawn(tmp_path: Path, page: st
     _ = _compile_latex(built.latex_path)
 
 
+@pytest.mark.parametrize(
+    "page",
+    [
+        "The word zqbbbb⃣ is prose.",
+        "Step 12⃣ and case é⃣ follow.",
+        "Let $x⃣ + 1$ hold, and $$\na⃣ = b\n$$",
+    ],
+)
+def test_stray_keycap_marks_leave_no_undrawn_glyph(tmp_path: Path, page: str) -> None:
+    spec = adhoc_spec(Path("Probe Book.pdf"), 1)
+    md_dir = book_state(tmp_path) / spec.markdown_dir
+    md_dir.mkdir(parents=True)
+    _ = (md_dir / "p_001.md").write_text(page, encoding="utf-8")
+    built = MonographCompiler(spec).build_all(tmp_path, frozenset({"tex"}))
+    assert built.latex_path is not None
+    _ = _compile(built.typst_path)
+    _ = _compile_latex(built.latex_path)
+    assert "⃣" not in built.latex_path.read_text(encoding="utf-8")
+
+
+def test_display_math_after_a_circled_note_compiles(tmp_path: Path) -> None:
+    pages = [
+        "Opening page.",
+        "The word zqbbbba① has a note.\n\n① The note says zqbbbbb.\n\n$$\n⑴a = b ⑴\n$$\n\n$$\n1️⃣a = b 1️⃣\n$$",
+        "The word zqbbbbc① has a note.\n\n① The note says zqbbbbd.",
+    ]
+    spec = adhoc_spec(Path("Probe Book.pdf"), len(pages))
+    md_dir = book_state(tmp_path) / spec.markdown_dir
+    md_dir.mkdir(parents=True)
+    for pno, page in enumerate(pages, start=1):
+        _ = (md_dir / f"p_{pno:03d}.md").write_text(page, encoding="utf-8")
+    built = MonographCompiler(spec).build_all(tmp_path, frozenset({"tex"}))
+    assert built.latex_path is not None
+    pdf_text = _flat(_compile(built.typst_path))
+    latex = built.latex_path.read_text(encoding="utf-8")
+    _ = _compile_latex(built.latex_path)
+    assert all(word in pdf_text and word in latex for word in ("zqbbbba", "zqbbbbb", "zqbbbbc", "zqbbbbd"))
+
+
 class BadMarkdownMachine(RuleBasedStateMachine):
     """Plays an OCR engine that writes hostile Unicode into prose, inline math, display math and `\\text`.
 

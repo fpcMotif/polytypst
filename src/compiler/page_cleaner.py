@@ -270,11 +270,13 @@ def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, lis
     kept = [(i, ln.strip()) for i, ln in enumerate(lines) if ln.strip() and not re.match(folio_pattern, ln.strip(), re.IGNORECASE)]
     for (i, lt), (_, after) in pairwise(kept):
         if FOOTNOTE_RULE_RE.match(lt) and _note_line(after, style, below_rule=True):
+            in_display = False
             for _, below in kept[kept.index((i, lt)) + 1 :]:
-                if m := _note_line(below, style, below_rule=True):
+                if not in_display and (m := _note_line(below, style, below_rule=True)):
                     notes.append(_note(m))
                 else:
                     notes[-1] = (notes[-1][0], _inline_note_math(f"{notes[-1][1]} {below}"))
+                in_display ^= below.count("$$") % 2 == 1
             return "\n".join(lines[:i]), notes
     if style == "circled":
         for idx, (i, lt) in enumerate(kept):
@@ -283,8 +285,11 @@ def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, lis
             if not in_display and m_note and not _uncalled_circled(m_note, lines[:i]) and not any(
                 re.match(r"^(?:#+\s+|\d{1,3}\.\s+\S)", below) for _, below in kept[idx + 1 :]
             ):
+                in_note_display = False
                 for _, below in kept[idx:]:
-                    if m := _note_line(below, style, below_rule=True):
+                    if in_note_display:
+                        notes[-1] = (notes[-1][0], _inline_note_math(f"{notes[-1][1]} {below}"))
+                    elif m := _note_line(below, style, below_rule=True):
                         notes.append(_note(m))
                     elif re.match(r"^(\d{1,2})\)\s+(\S.*)$", below) and re.search(
                         rf"(?:\^\{{?\s*{below.split(')', 1)[0]}\)\s*\}}?|[{SUPERSCRIPT_DIGITS}]+\))",
@@ -295,6 +300,7 @@ def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, lis
                             notes.append((f"{m_ed.group(1)})", _inline_note_math(m_ed.group(2).strip())))
                     else:
                         notes[-1] = (notes[-1][0], _inline_note_math(f"{notes[-1][1]} {below}"))
+                    in_note_display ^= below.count("$$") % 2 == 1
                 return "\n".join(lines[:i]), notes
     end = len(lines)
     for i in range(len(lines) - 1, -1, -1):

@@ -118,6 +118,25 @@ def test_a_circled_mark_opening_a_line_of_display_math_is_not_a_note():
     assert split_page_footnotes(page, "circled", KLEIN_SPEC.folio_pattern) == (page, [])
 
 
+def test_display_math_after_a_circled_note_folds_into_that_note_whole():
+    page = (
+        "The word zqbbbba① has a note.\n\n① The note says zqbbbbb.\n\n"
+        "$$\n(1)a = b (1)\n$$\n\n$$\n1a = b 1\n$$\n"
+    )
+    body, notes = split_page_footnotes(page, "circled", KLEIN_SPEC.folio_pattern)
+    assert body.strip() == "The word zqbbbba① has a note."
+    assert notes == [
+        ("①", "The note says zqbbbbb. $\\displaystyle (1)a = b (1)$ $\\displaystyle 1a = b 1$")
+    ]
+
+
+def test_display_math_in_a_note_below_a_rule_stays_in_that_note():
+    page = "The word zqbbbba① has a note.\n\n———\n\n① The note says\n\n$$\n(1)a = b\n$$\n"
+    body, notes = split_page_footnotes(page, "circled", KLEIN_SPEC.folio_pattern)
+    assert body.strip() == "The word zqbbbba① has a note."
+    assert notes == [("①", "The note says $\\displaystyle (1)a = b$")]
+
+
 def test_a_list_closing_a_page_with_circled_items_that_the_body_never_calls_stays_in_the_body():
     page = (
         "主要结论如下：\n\n"

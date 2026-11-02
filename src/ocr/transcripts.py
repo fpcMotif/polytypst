@@ -41,7 +41,8 @@ def normalize_ocr_markdown(decoded: object) -> str:
     return text.strip() + "\n" if text.strip() else ""
 
 
-_KEYCAP_RE = re.compile("([0-9#*])\ufe0f?\u20e3")
+_KEYCAP_MARK = "\u20e3"
+_KEYCAP_RE = re.compile(f"([0-9#*])\ufe0f?{_KEYCAP_MARK}")
 _CODE_POINT_ESCAPE_RE = re.compile(r"\\u([0-9a-fA-F]{4})|\\U([0-9a-fA-F]{8})")
 _NUMERIC_ENTITY_RE = re.compile(r"&#(?:[xX]([0-9a-fA-F]{1,6})|([0-9]{1,7}));")
 _SURROGATE_PAIR_RE = re.compile("([\ud800-\udbff])([\udc00-\udfff])")
@@ -125,7 +126,7 @@ def typesettable_markdown(text: str) -> str:
         lambda m: _KEYCAP_RE.sub(lambda k: "\\#" if k[1] == "#" else k[1], m[0]).translate(_FULLWIDTH_TO_ASCII),
         _decoded_escapes(text),
     )
-    text = _KEYCAP_RE.sub(lambda m: m[1] if m[1].isdigit() else "\\" + m[1], text)
+    text = _KEYCAP_RE.sub(lambda m: m[1] if m[1].isdigit() else "\\" + m[1], text).replace(_KEYCAP_MARK, "")
     text = text.translate(_EMOJI_OPERATORS)
     text = _EMOJI_SELECTED_RE.sub(lambda m: "\ufffd" if unicodedata.category(m[1]) == "So" else m[0], text)
     text = "".join(_enclosed_alphanumeric(c) for c in text)
