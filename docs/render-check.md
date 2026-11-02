@@ -6,9 +6,9 @@ You only read the books. Write only `OUT` and zoom PNG files in `DIR`.
 
 ## Your values
 
-When `scripts/render_check.py --run` starts you, the prompt gives these values:
+When `polytypst page-check render --run` starts you, the prompt gives these values:
 
-- `BOOK`: the book number
+- `BOOK`: the book key, the folder name under `books/`
 - `DIR`: the folder that holds the pairs, `DIR/LABEL_rebuilt.png` and `DIR/LABEL_scan.png`
 - `ITEMS`: the labels to check, such as `表1-1,图6-4`
 - `OUT`: your result file
@@ -17,14 +17,14 @@ The pairs already exist, so go straight to "Check each item". Run every command 
 
 ## Make the pairs
 
-`scripts/render_check.py` pairs each caption of the rebuilt PDF with the scan page that prints the same caption, and renders each side as a spread at 110 dpi: the caption page and the page after it, so that a table that runs on is in view:
+`polytypst page-check render` pairs each caption of the rebuilt PDF with the scan page that prints the same caption, and renders each side as a spread at 110 dpi: the caption page and the page after it, so that a table that runs on is in view:
 
 ```bash
-uv run python scripts/render_check.py BOOK --pdf "REBUILT.pdf" --scan "SCAN.pdf"
-uv run python scripts/render_check.py BOOK --pdf "REBUILT.pdf" --scan "SCAN.pdf" --labels 表1-1,图6-4 --out "output/render_check/BOOK"
+uv run polytypst page-check render BOOK --pdf "REBUILT.pdf"
+uv run polytypst page-check render BOOK --pdf "REBUILT.pdf" --labels 表1-1,图6-4
 ```
 
-The first command lists every caption with its two pages. The second renders the labels you name. When the item is small on the page, zoom on it with `scripts/page_png.py --clip`.
+The first command lists every caption with its two pages. The second renders the labels you name into `output/render_check/BOOK/`. `--out DIR` names another folder, and `--scan SCAN.pdf` names a scan other than the book's source scan. When the item is small on the page, zoom on it with `scripts/page_png.py --clip`.
 
 ## Check each item
 
@@ -57,7 +57,7 @@ The rebuilt item meets this bar:
 Write one JSON line for each item to `OUT`, or in your reply when the prompt names no `OUT`:
 
 ```json
-{"book": 1, "label": "表4-7", "grade": "B", "content": ["row 3, column 2: the scan prints 1.25; the rebuilt table prints 1.2"], "presentation": ["Space: the 構成比 column wraps 12.5 onto two lines"]}
+{"book": "1_宏观经济与产业结构", "label": "表4-7", "grade": "B", "content": ["row 3, column 2: the scan prints 1.25; the rebuilt table prints 1.2"], "presentation": ["Space: the 構成比 column wraps 12.5 onto two lines"]}
 ```
 
 - `grade`: `A` when content and presentation pass. `B` when content passes and presentation has a flaw that a reader notices. `C` when the content is wrong, or the item is cut off or hard to read.

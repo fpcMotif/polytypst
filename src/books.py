@@ -365,16 +365,25 @@ def _aliases(folder: Path) -> list[str]:
     return aliases
 
 
-def book_by_key(key: str) -> Book:
-    """The book with key `key`, which may spell underscores as hyphens or be an alias; raises KeyError naming the keys."""
+def book_key(name: str) -> str:
     known = books()
     folders = book_folders()
     names = {k: k for k in known}
     names |= {k.replace("_", "-"): k for k in known}
     names |= {alias: k for k in known if k in folders for alias in _aliases(folders[k])}
-    if key not in names:
-        raise KeyError(f"unknown book {key!r}; known: {', '.join(known)}")
-    return known[names[key]]
+    if name in names:
+        return names[name]
+    starting = [k for k in known if k.startswith(name)]
+    if len(starting) == 1:
+        return starting[0]
+    if starting:
+        raise KeyError(f"book {name!r} is ambiguous; it starts {', '.join(starting)}")
+    raise KeyError(f"unknown book {name!r}; known: {', '.join(known)}")
+
+
+def book_by_key(key: str) -> Book:
+    """The book with key `key`, which may spell underscores as hyphens or be an alias; raises KeyError naming the keys."""
+    return books()[book_key(key)]
 
 
 def book_for_scan(source: Path, key: str | None = None) -> Book | None:

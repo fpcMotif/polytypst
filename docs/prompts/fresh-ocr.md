@@ -11,7 +11,7 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
 - BACKEND: one literal backend string. Examples:
   - `colab:jina-ocr-v1?gpu=G4&workers=2&shards=3` for the self-hosted model on Colab GPUs.
   - `jina` for the Jina API.
-- VERIFY_MODEL: the model for `book_check.py verify`, or `none`. With `none`, you verify the claims yourself.
+- VERIFY_MODEL: the model for `polytypst page-check verify`, or `none`. With `none`, you verify the claims yourself.
 - TRIAL: `no`, or `yes` to transcribe 10 pages before the whole book. Choose `yes` only for a BACKEND, model or language that no earlier book used.
 
 ## RULES
@@ -83,17 +83,17 @@ Gate 4: both compile with exit 0, and you listed each LaTeX warning that you cou
 
 Follow `docs/page-check-review.md` from Step 1 to Step 6.
 
-- Run `uv run python scripts/page_check.py chunks --books KEY --size 10`. For each range, follow `docs/page-check.md` yourself. Each page record needs the `receipt` that `page_check.py text` prints.
-- With VERIFY_MODEL `none`, decide each queued claim yourself by following `docs/page-verify.md`. Otherwise run `uv run python scripts/book_check.py verify KEY --model VERIFY_MODEL` in the background.
+- Run `uv run polytypst page-check chunks KEY --size 10`. For each range, follow `docs/page-check.md` yourself. Each page record needs the `receipt` that `polytypst page-check text` prints.
+- With VERIFY_MODEL `none`, decide each queued claim yourself by following `docs/page-verify.md`. Otherwise run `uv run polytypst page-check verify KEY --model VERIFY_MODEL` in the background.
 - Fix each real and scan_typo verdict as Step 4 of `docs/page-check-review.md` says.
 
-Gate 5: `uv run python scripts/book_check.py status KEY` shows every page checked and 0 unverified.
+Gate 5: `uv run polytypst page-check status KEY` shows every page checked and 0 unverified.
 
 ## STEP 6. Check the PDF
 
-1. Follow Step 7 of `docs/page-check-review.md`. Run `render_check.py --run` in the background: it takes about 50 minutes for 121 pairs.
+1. Follow Step 7 of `docs/page-check-review.md`. Run `polytypst page-check render --run` in the background: it takes about 50 minutes for 121 pairs.
 2. Search the `.typ` and `.tex` sources for these faults: inline math with spaces inside, like `$ x $`; an orphaned `{A}{B}` left from `\frac`; a single letter as a display equation; brackets that do not balance within a section; bullets in the bibliography.
-3. Run: `uv run python scripts/book_check.py gate KEY`
+3. Run: `uv run polytypst page-check gate KEY`
 
 Gate 6: the last line of `gate` is `PASS`, and the source search finds 0 faults, or you list each remaining one.
 
