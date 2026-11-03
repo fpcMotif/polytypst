@@ -1,0 +1,18 @@
+slug = "algebra1"
+title = "Algebra I: Basic Notions of Algebra"
+author = "A. I. Kostrikin, I. R. Shafarevich"
+domain = "math"
+source_pdf = "Algebra I Basic Notions Of Algebra (Kostrikin A I, Shafarevich I R).pdf"
+pdf_page_count = 260
+lang = "en"
+cross_references = true
+typst_front_matter = '''
+#show figure.where(kind: image): set figure(supplement: [Fig.], numbering: source-figure-number)
+#show figure.where(kind: table): set figure(supplement: [Table])
+'''
+chapters = [
+  { number = 1, title = "Algebra I: Basic Notions of Algebra", start_page = 1, end_page = 260 },
+]
+
+[hooks]
+figures = 'draw_figures'
