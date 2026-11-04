@@ -28,6 +28,10 @@ TOP_LEVEL_MATTER_RE = re.compile(
 )
 
 
+def title_letters(title: str) -> str:
+    return "".join(ch for ch in re.sub(r"\$[^$]*\$", "", title) if ch.isalnum()).casefold()
+
+
 def _fix_inline_math_delimiters(text: str) -> str:
     """Drop spaces just inside a single-dollar math span; Pandoc and Typst reject them."""
     out: list[str] = []
@@ -638,6 +642,10 @@ class PageCleaner:
         self._chapter_starts: frozenset[int] = frozenset(
             c.start_page for c in spec.chapters
         )
+        self._unspaced_chapter_titles: dict[int, list[str]] = {}
+        for c in spec.chapters:
+            self._unspaced_chapter_titles.setdefault(c.start_page, []).append(title_letters(c.title))
+        self._chapter_line_pages: set[int] = set()
         self._chapter_figures: dict[str, ExtractedFigure] = {
             fid: f for fid, f in manifest_figures(asset_root / FIGURES_MANIFEST_NAME).items() if "-" in fid
         }
@@ -684,6 +692,13 @@ class PageCleaner:
             pno in self._chapter_starts
             and lines_so_far <= 2
             and bool(re.match(r"^(?:#+\s*)?[1-9]\d?$", lt))
+        )
+
+    def _overlaps_chapter_title(self, lt: str, pno: int) -> bool:
+        unspaced_line = title_letters(re.sub(r"^#+\s*", "", lt))
+        return bool(unspaced_line) and any(
+            unspaced_line in title or title in unspaced_line
+            for title in self._unspaced_chapter_titles.get(pno, ())
         )
 
     def _normalized_heading(self, lt: str, pno: int) -> str | None:
@@ -932,13 +947,25 @@ class PageCleaner:
 
             if spec.normalize_headings:
                 heading = self._normalized_heading(lt, pno) if spec.heading_hook is not None else None
-                if (
+                chapter_line = re.match(
+                    r"^#\s*(?:Chapter\s+\d+|\d+\s+.*|步骤\s*\d+.*|第\s*\d+\s*章.*|附录\s*[A-Za-z].*|前言|后记|参考文献)", lt, re.IGNORECASE
+                )
+                is_chapter_title_line = (
                     heading is None
                     and pno in self._chapter_starts
                     and not any(b.strip() and not b.startswith("#") for b in body_lines)
-                    and re.match(r"^#\s+(?:Chapter\s+\d+|\d+\s+.*)", lt, re.IGNORECASE)
+                    and (
+                        chapter_line
+                        or (
+                            (any(b.startswith("#") for b in body_lines) or pno in self._chapter_line_pages)
+                            and self._overlaps_chapter_title(lt, pno)
+                        )
+                    )
                     and not re.match(r"^#*\s*(?:[0-9A-Z]+\.\d+|§)", lt)
-                ):
+                )
+                if is_chapter_title_line:
+                    if chapter_line:
+                        self._chapter_line_pages.add(pno)
                     continue
                 if heading is None and spec.heading_hook is None:
                     heading = self._normalized_heading(lt, pno)

@@ -7,10 +7,14 @@ domain = 'math'
 source_pdf = 'A Comprehensive Introduction to Differential Geometry, Vol. 3, 3rd Edition (Michael Spivak.pdf'
 pdf_page_count = 324
 cross_references = true
-preface_page = 5
+# The transcripts keep some running heads, the chapter title with or without its page number.
+running_header_regexes = [
+  '^(?:#+\s*)?(?:\d{1,3}\s+)?\*?(?:Chapter \d{1,2}|Preface|The Fundamental Equations for Hypersurfaces|Elements of the Theory of Surfaces in .{1,30}|A Compendium of Surfaces|Curves on Surfaces|Complete Surfaces of Constant Curvature|The Gauss-Bonnet Theorem and Related Topics)\*?(?:\s+\d{1,3})?$',
+]
 
 chapters = [
-  { number = 0, title = 'Table of Contents', start_page = 5, end_page = 10 },
+  { number = 0, title = 'Preface', start_page = 3, end_page = 4, label = '' },
+  { number = 0, title = 'Table of Contents', start_page = 5, end_page = 7, label = '' },
   { number = 1, title = 'The Fundamental Equations for Hypersurfaces', start_page = 11, end_page = 40, label = 'Chapter 1' },
   { number = 2, title = 'Elements of the Theory of Surfaces in $\mathbf{R}^3$', start_page = 41, end_page = 144, label = 'Chapter 2' },
   { number = 3, title = 'A Compendium of Surfaces', start_page = 145, end_page = 196, label = 'Chapter 3' },
@@ -38,7 +42,7 @@ figure_dir = 'figures_color'
 
 [transcript_fixups]
 # The transcript has (l); the scan prints the equation reference (1).
-33 = [['\(l\)', '(1)']]
+33 = [['\(l\)', '(1)'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 67 = [['\(l\)', '(1)']]
 78 = [['\(l\)', '(1)']]
 94 = [['\(l\)', '(1)']]
@@ -62,15 +66,15 @@ figure_dir = 'figures_color'
 142 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
 198 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
 199 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
-200 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+200 = [['\\Pi(?![A-Za-z])', '\mathrm{II}'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 201 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
-203 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+203 = [['\\Pi(?![A-Za-z])', '\mathrm{II}'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 204 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
-205 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+205 = [['\\Pi(?![A-Za-z])', '\mathrm{II}'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 236 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
 242 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
 317 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
-131 = [['\\mathbf\{\\Pi\}', '\mathbf{II}']]
+131 = [['\\mathbf\{\\Pi\}', '\mathbf{II}'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 119 = [
   ['\\mathbf\{\\Pi\}', '\mathbf{II}'],
   ['\\Pi(?![A-Za-z])', '\mathrm{II}'],
@@ -101,10 +105,10 @@ figure_dir = 'figures_color'
 100 = [['\^\\dagger(?![A-Za-z])', '^t']]
 102 = [['\^\\dagger(?![A-Za-z])', '^t']]
 103 = [['\^\\dagger(?![A-Za-z])', '^t']]
-# The transcript has \blacksquare; the scan prints the end mark ❖, written \diamond elsewhere in this book.
-274 = [['\\blacksquare', '\diamond']]
+# The transcript has \blacksquare; the scan prints the end mark ❖.
+274 = [['\$?\\blacksquare\$?', '❖']]
 # The transcript has (1l); the scan prints (11).
-125 = [['\(1l\)', '(11)']]
+125 = [['\(1l\)', '(11)'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 # The transcript has Otsuki; the scan prints Ōtsuki.
 4 = [['T\. Otsuki', 'T. Ōtsuki']]
 # The transcript has lowercase y_p; the scan prints Y_p.
@@ -141,3 +145,63 @@ $$f(s, t) = (a \cos s, b \sin s, 0) + t(a \sin s, -b \cos s, c)$$
 315 = [['Feuchel, W\.', 'Fenchel, W.']]
 # The transcript has umbilic; the scan prints umbilics.
 322 = [['umbilic on, 155', 'umbilics on, 155']]
+# The transcript has the boxed Gauss' Equation as a quote with a $ that closes outside it; the scan prints a two-line display.
+21 = [["> Gauss' Equation: \n> \n> \\$.*?\n\\$\n", "Gauss' Equation:\n\n$$\n\\begin{aligned}\n&\\langle R(X_p, Y_p)Z_p, W_p \\rangle + \\langle s(X_p, Z_p), s(Y_p, W_p) \\rangle - \\langle s(Y_p, Z_p), s(X_p, W_p) \\rangle \\\\\n&\\quad = K_0[\\langle X_p, W_p \\rangle \\cdot \\langle Y_p, Z_p \\rangle - \\langle X_p, Z_p \\rangle \\cdot \\langle Y_p, W_p \\rangle].\n\\end{aligned}\n$$\n"]]
+# The transcript has ❋; the scan prints the end-of-proof mark ❖.
+224 = [['❋', '❖']]
+# The transcript writes the end-of-proof mark as \diamond or \diamondsuit; the scan prints ❖.
+12 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+13 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+14 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+15 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+16 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+18 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+19 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+28 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+35 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+37 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+45 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+61 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+73 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+74 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+76 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+107 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+114 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+117 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+118 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+127 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+137 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+202 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+207 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+210 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+211 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+213 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+217 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+218 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+232 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+233 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+245 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+246 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+251 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+252 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+257 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+260 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+261 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+265 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+266 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+269 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+272 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+273 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+275 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+276 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+280 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+282 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+284 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+287 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+290 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+292 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+294 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+296 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+309 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+310 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+311 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]

@@ -944,11 +944,50 @@ UNNUMBERED_CHAPTER_PREFIXES = (
     "References",
     "Solutions",
     "Historical Note",
+    "Contents",
+    "Table of Contents",
 )
 
 
 def is_unnumbered_chapter(title: str) -> bool:
     return title.startswith(UNNUMBERED_CHAPTER_PREFIXES)
+
+
+CONTENTS_TITLE_RE = re.compile(r"^\s*#+\s*(?:table\s+of\s+)?contents\s*$", re.IGNORECASE | re.MULTILINE)
+CONTENTS_ENTRY_RE = re.compile(r"^(?P<title>[^#$|>\s].*?)(?:\s*(?:\.\s*){2,}|\s+)(?P<page>\d{1,3})\s*$")
+
+
+def is_contents_title(title: str) -> bool:
+    return bool(CONTENTS_TITLE_RE.fullmatch(f"# {title}"))
+
+
+def is_contents_page(raw: str) -> bool:
+    return bool(CONTENTS_TITLE_RE.search(raw[:200]))
+
+
+def mark_contents_lines(body: str, keep_title: bool) -> str:
+    out: list[str] = []
+    pending: list[str] = []
+    for line in body.split("\n"):
+        if CONTENTS_TITLE_RE.fullmatch(line):
+            out += pending
+            pending = []
+            if keep_title:
+                out.append(line)
+        elif (m := re.match(r"^#+\s*(.+)$", line)) and (
+            not CONTENTS_ENTRY_RE.match(m[1]) or re.fullmatch(r"(?i)(?:chapter|part)\s+\d+", m[1].strip())
+        ):
+            out += [*pending, f"@@CONTENTSHEAD@@{m[1]}"]
+            pending = []
+        elif m := CONTENTS_ENTRY_RE.match(re.sub(r"^#+\s*", "", line)):
+            out.append(f"@@CONTENTS@@{' '.join([*pending, m['title']])}@@PAGE@@{m['page']}")
+            pending = []
+        elif line.strip() and not line.lstrip().startswith(("$", "|", "<", "!")):
+            pending.append(line.strip())
+        else:
+            out += [*pending, line]
+            pending = []
+    return "\n\n".join(line for line in [*out, *pending] if line.strip())
 
 
 
@@ -1183,7 +1222,8 @@ class MonographCompiler:
   linebreaks: "optimized"
 )
 
-#show math.equation: set text(font: ({", ".join(f'"{f}"' for f in (lang.math_font, *lang.font_stack[1:]))},))
+#show math.equation: set text(font: ({", ".join(f'"{f}"' for f in dict.fromkeys((lang.math_font, *lang.font_stack[1:])))},))
+#show math.equation: set block(breakable: true)
 #set math.equation(numbering: {eq_num_str})
 #set math.mat(row-gap: 0.55em, column-gap: 0.8em)
 #set math.cases(gap: 0.55em)
@@ -1265,6 +1305,22 @@ class MonographCompiler:
     }})
   }}
 }}
+#let contents-line(page, title) = block(above: 0.55em, below: 0.55em, width: 100%, {{
+  set par(justify: false, first-line-indent: 0pt, hanging-indent: 1.5em)
+  set text(hyphenate: false)
+  grid(
+    columns: (1fr, auto),
+    column-gutter: 0.3em,
+    align: (left + bottom, right + bottom),
+    [#title #box(width: 1fr, repeat[#h(0.2em).#h(0.2em)])],
+    page,
+  )
+}})
+#let contents-head(body) = block(above: 1.4em, below: 0.7em, sticky: true, {{
+  set par(justify: false, first-line-indent: 0pt)
+  set text(hyphenate: false)
+  text(weight: "bold", body)
+}})
 #show math.equation.where(block: true): it => {{
   if it.numbering == none {{
     if it.at("label", default: none) == <fitted-display> {{ return it }}
@@ -2052,6 +2108,8 @@ class MonographCompiler:
         )
         s = re.sub(r"^@@SUBTITLE@@ (.*)$", r"#chapter-subtitle[\1]", s, flags=re.MULTILINE)
         s = re.sub(r"^@@BYLINE@@ (.*)$", r"#chapter-byline[\1]", s, flags=re.MULTILINE)
+        s = re.sub(r"@@CONTENTS@@(.*?)@@PAGE@@(\d+)", r'#contents-line("\2")[\1]', s)
+        s = re.sub(r"@@CONTENTSHEAD@@(.*?)$", r"#contents-head[\1]", s, flags=re.MULTILINE)
         s = re.sub(r"^@@ABSTRACT@@(.*)$", r"#chapter-abstract(note: [\1])[", s, flags=re.MULTILINE)
         s = re.sub(r"^@@ENDABSTRACT@@$", "]", s, flags=re.MULTILINE)
         s = re.sub(r"@@CODEBLOCK(\d+)@@", lambda m: f"\n\n{code_blocks[int(m.group(1))]}\n\n", s)
@@ -2269,6 +2327,8 @@ class MonographCompiler:
                 ):
                     continue
                 p_body, top_f, bot_f = self.cleaner.clean(raw_text, pno)
+                if is_contents_page(raw_text):
+                    p_body = mark_contents_lines(p_body, keep_title=not is_contents_title(chap.title))
                 if spec.theorem_layout and pno == chap.start_page:
                     m_dup =re.match(r"^\s*#+\s*([^\n]+)\n*", p_body)
                     if m_dup and _bare_title(m_dup.group(1)).strip().lower() == clean_title.strip().lower():

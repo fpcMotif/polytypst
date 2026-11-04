@@ -200,7 +200,12 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
     "en": LanguageProfile(
         code="en",
         typst_lang="en",
-        font_stack=("New Computer Modern",),
+        font_stack=(
+            "New Computer Modern",
+            "New Computer Modern Math",
+            "STIX Two Math",
+            "Zapf Dingbats",
+        ),
         math_font="New Computer Modern Math",
         first_line_indent="1.5em",
         leading="0.78em",
@@ -476,7 +481,9 @@ class CompositionConfig:
         h4_body = "#smallcaps(it.body)" if use_sc else "#it.body"
         if not self.theorem_layout:
             italic_h3 = 'style: "italic", ' if self.language.code != "zh" else ""
-            return f"""{h1}
+            return f"""#show heading: set text(hyphenate: false)
+
+{h1}
 
 #show heading.where(level: 2): it => block(above: 1.75em, below: 0.75em, sticky: true)[
   #text(12.5pt, weight: "bold", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
