@@ -158,6 +158,35 @@ def test_running_head_shows_the_current_chapter_section(tmp_path: Path) -> None:
     assert heads[fresh_page] == f"Fresh Section {fresh_page}"
 
 
+def test_a_chapter_opening_page_has_a_folio_at_the_foot_and_no_running_head(tmp_path: Path) -> None:
+    filler = "\n\n".join(f"Filler paragraph {i} of ordinary prose for the page." for i in range(100))
+    body = f"#pagebreak()\n#pagebreak()\n#pagebreak()\n#pagebreak()\n= First Chapter\n\n{filler}\n\n#pagebreak()\n= Second Chapter\n\n{filler}\n"
+    typ = tmp_path / "f.typ"
+    typ.write_text(MonographCompiler(KODAIRA_SPEC).build_typst_preamble() + body, encoding="utf-8")
+    pdf = tmp_path / "f.pdf"
+    compile_typst(typ, pdf)
+    doc = pymupdf.open(pdf)
+    openings = [p for p in doc if "Second Chapter" in p.get_text() and "Filler paragraph 0 " in p.get_text()]
+    assert openings
+    for page in openings:
+        height = page.rect.height
+        head = " ".join(b[4] for b in page.get_text("blocks") if b[3] < 0.08 * height)
+        foot = " ".join(b[4].strip() for b in page.get_text("blocks") if b[1] > 0.9 * height)
+        assert head.strip() == ""
+        assert foot == str(page.number + 1)
+
+
+def test_a_semicolon_after_italic_or_bold_text_still_prints(tmp_path: Path) -> None:
+    compiler = MonographCompiler(KODAIRA_SPEC)
+    body = compiler.format_typst("The theory of *real* functions; the *chief divisions*; and **bold**; done.")
+    typ = tmp_path / "s.typ"
+    typ.write_text(compiler.build_typst_preamble() + "#pagebreak()\n" * 5 + body, encoding="utf-8")
+    pdf = tmp_path / "s.pdf"
+    compile_typst(typ, pdf)
+    text = " ".join(pymupdf.open(pdf)[-1].get_text().split())
+    assert "real functions; the chief divisions; and bold; done." in text
+
+
 def test_japanese_inside_math_uses_the_body_mincho(tmp_path: Path) -> None:
     fukuso = book_by_key("複素多様体論").spec
     typ = tmp_path / "j.typ"

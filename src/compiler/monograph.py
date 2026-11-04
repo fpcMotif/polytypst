@@ -1235,7 +1235,11 @@ class MonographCompiler:
       {rule_line}
     ]
   }},
-  footer: none
+  footer: context {{
+    let page-number = counter(page).get().first()
+    let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
+    if page-number > 4 and on-chapter-page {{ align(center, text(9.5pt, font: {font_expr})[#page-number]) }}
+  }}
 )
 
 #set text(
@@ -1891,6 +1895,7 @@ class MonographCompiler:
         )
         s = re.sub(r"(?<!\\)\*", r"\\*", s)
         s = re.sub(r"(#emph\[[^\]]+\])(?=\\?\[)", r"\1 ", s)
+        s = re.sub(r"(#(?:emph|strong)\[(?:\\.|[^\]\\])+\]);", r"\1\\;", s)
         s = re.sub(r"(?<!\\)_", r"\\_", s)
         s = re.sub(r"(?<!\\)\^", r"\\^", s)
         def repl_img(m: re.Match[str]) -> str:
