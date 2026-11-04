@@ -106,7 +106,7 @@ figure_dir = 'figures_color'
 102 = [['\^\\dagger(?![A-Za-z])', '^t']]
 103 = [['\^\\dagger(?![A-Za-z])', '^t']]
 # The transcript has \blacksquare; the scan prints the end mark ❖.
-274 = [['\$?\\blacksquare\$?', '❖']]
+274 = [['\$\\blacksquare\$|\\blacksquare(?![A-Za-z])', '❖']]
 # The transcript has (1l); the scan prints (11).
 125 = [['\(1l\)', '(11)'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 # The transcript has Otsuki; the scan prints Ōtsuki.

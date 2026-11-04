@@ -50,6 +50,14 @@ def test_a_back_matter_label_heading_has_no_number() -> None:
     assert "numbering: none" in heading
 
 
+def test_a_chapter_zero_heading_compiles_and_prints_its_number(tmp_path: Path) -> None:
+    preamble = '#let chapter-label = state("chapter-label", none)\n#show heading.where(level: 1): it => [#context chapter-label.get() #it.body]\n'
+    typ = tmp_path / "book.typ"
+    typ.write_text(preamble + typst_chapter_heading("Préliminaires", "Chapitre 0", "sec-0"), encoding="utf-8")
+    compile_typst(typ, tmp_path / "book.pdf")
+    assert "Chapitre 0" in pymupdf.open(tmp_path / "book.pdf")[0].get_text()
+
+
 def test_printed_figure_numbers_and_references_match_the_scan(tmp_path: Path) -> None:
     pymupdf.open().new_page(width=20, height=20).get_pixmap().save(tmp_path / "fig.png")
     body = "\n\n".join(

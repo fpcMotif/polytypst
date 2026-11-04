@@ -116,3 +116,18 @@ def test_an_outline_sets_its_entries_with_dot_leaders(tmp_path: Path) -> None:
     headings = "\n".join(f"= Section {n} on curves\n#lorem(10)\n" for n in range(1, 8))
     report = _layout(tmp_path, f"#outline(title: [Contents])\n#pagebreak()\n{headings}")
     assert _pages(report, "CONTENTS_WITHOUT_LEADERS") == []
+
+
+LONG_TITLE = "Pseudodifferential Characteristics and Incomprehensibilities"
+
+
+def test_a_heading_broken_with_a_hyphen_is_flagged(tmp_path: Path) -> None:
+    title = '#show heading: set text(hyphenate: true, size: 20pt)\n#show heading: set par(justify: true)\n#set text(lang: "en")\n'
+    report = _layout(tmp_path, f"{title}#set page(width: 120mm, margin: (top: 90pt))\n= {LONG_TITLE}\n\n{PROSE}")
+    assert set(_pages(report, "HYPHENATED_HEADING")) == {1}
+
+
+def test_a_heading_that_wraps_at_spaces_is_not_hyphenated(tmp_path: Path) -> None:
+    title = '#show heading: set text(hyphenate: false, size: 20pt)\n#show heading: set par(justify: true)\n#set text(lang: "en")\n'
+    report = _layout(tmp_path, f"{title}#set page(width: 120mm, margin: (top: 90pt))\n= {LONG_TITLE}\n\n{PROSE}")
+    assert _pages(report, "HYPHENATED_HEADING") == []

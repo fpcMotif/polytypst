@@ -10,7 +10,7 @@ Follow `docs/prompts/math-book-check.md` step by step. Your model sets your role
 | Model | Role | What you do |
 |---|---|---|
 | Gemini 4 Argon | editor | All steps. Fix transcripts and `books/<key>/book.toml`. Report each fix that needs `src/`. |
-| Gemini 3.8 Flash | runner | Steps 1, 2 and 5. Run the commands and report. Change no file. |
+| Gemini 3.8 Flash | runner | Steps 1, 2 and 6. Run the commands and report. Change no file. |
 
 - Run each command in the terminal from the repository folder. Use `uv run` for every Python command.
 - If a command runs longer than 2 minutes, start it once with its output in a log under `output/logs/`. Read the log every 15 to 30 minutes, not more often.

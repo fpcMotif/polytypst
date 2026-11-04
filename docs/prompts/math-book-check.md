@@ -35,6 +35,8 @@ A role sets the files that the agent can change:
 
    Leave out BOOK to check every built math book. The table has one row per book. Stop the step when each book in your task has a row.
 
+   The `Built` column shows the date of the rebuilt PDF. `stale` means that a file in `src/compiler/` or in the book's folder is newer than the PDF, so the counts describe old output. A runner reports a stale row. An editor or a fixer builds the book again with `uv run polytypst build BOOK --formats pdf,tex`, then runs the harness again.
+
 2. For each row, find the first FAIL line in `output/math_books.json` (`gate_fails`). Do the action for that line:
 
    | FAIL line starts with | Action |
@@ -74,10 +76,33 @@ A role sets the files that the agent can change:
    | `RUNNING_HEAD_FORMULA` | The running head is a formula. | A display that the transcript wrote as a heading |
    | `DUPLICATE_HEADING` | A heading prints twice on its page. | A title line in the transcript under the chapter heading |
    | `CONTENTS_WITHOUT_LEADERS` | A contents page shows page numbers with no dot leaders. | The contents page in the transcript |
+   | `HYPHENATED_HEADING` | A heading breaks a word with a hyphen. | A heading show rule in `src/compiler/presets.py` or the book's `typst_preamble` that turns hyphenation back on |
 
    Before you change shared code in `src/compiler/`, prove the defect against the scan with `.claude/skills/scan-evidence/SKILL.md`.
 
-5. Run the harness again for the books that you changed. Stop when each row shows PASS and the `numbering` field shows none. If a FAIL line stays, quote it in your report.
+5. A fixer reviews the look of each book. A runner and an editor skip this step.
+
+   ```bash
+   uv run python scripts/math_books.py BOOK --json output/math_books.json
+   uv run python scripts/look_sheet.py BOOK output/look
+   ```
+
+   The sheets show six sample pages: a chapter opening, the page with the most math, a table, a figure, a prose page and the index. Read each sheet and give each item PASS or FAIL, with the page that fails:
+
+   | Item | PASS when |
+   |---|---|
+   | Type profile | The `type` field has no `!`. Latin text sets 45 to 80 characters per line, and CJK text 50 to 90 half-width units. The line pitch is 1.15 to 1.5 times the body size for Latin text, and 1.4 to 1.8 for CJK text. |
+   | Hierarchy | Chapter title, section heading, theorem head and body text each have one size and one weight. No heading looks like body text, and no body text looks like a heading. |
+   | Chapter opening | The title starts at the same height as in the other chapters. The title does not hyphenate, and no scan line such as a running head or "CHAPTER 2" prints under it. |
+   | Math | Every display is centred or set to the book's indent. No prose or command name sets as math letters, such as 𝑥𝑟𝑖𝑔ℎ𝑡𝑎𝑟𝑟𝑜𝑤 or 𝐸𝑎𝑐ℎ𝑜𝑓. No formula prints as raw text, such as `int_N K`. Equation numbers align at the right margin. |
+   | Tables | The header row is the scan's header, not its first data row. Rules are thin, and columns line up. |
+   | Figures | A figure is a vector drawing, sits inside the text block, and has its caption below it. |
+   | Index | Each entry starts on its own line, and subentries indent under it. No running head of the scan prints as a heading. |
+   | Page | Text fills the page to the foot, except at the end of a chapter. Running heads and page numbers sit at the same place on every page. |
+
+   For each FAIL, find the cause with `.claude/skills/scan-evidence/SKILL.md`. Fix it in the transcript, in `books/<key>/book.toml` or in `src/compiler/`, then build the book again.
+
+6. Run the harness again for the books that you changed. Stop when each row shows PASS and the `numbering` field shows none. If a FAIL line stays, quote it in your report.
 
 ## Report
 

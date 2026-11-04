@@ -4,23 +4,28 @@ Usage: uv run python scripts/math_books.py [KEY...] [--json OUT]
 """
 
 import argparse
+import itertools
 import json
 import os
 import re
+import statistics
 import subprocess
 import sys
+import unicodedata
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
-from polytypst.books import books
+from polytypst.books import book_folders, books
 from polytypst.checker import LAYOUT_TIER, AuditSpec, DocumentQualityChecker
 from polytypst.literal_numbers import edition_literal_counts
 
-LAYOUT_RULES = ("FONT_FALLBACK", "MARGIN_OVERFLOW", "UNDERFULL_PAGE", "RUNNING_HEAD_FORMULA", "DUPLICATE_HEADING", "CONTENTS_WITHOUT_LEADERS")
+LAYOUT_RULES = ("FONT_FALLBACK", "MARGIN_OVERFLOW", "UNDERFULL_PAGE", "RUNNING_HEAD_FORMULA", "DUPLICATE_HEADING", "CONTENTS_WITHOUT_LEADERS", "HYPHENATED_HEADING")
+TYPE_TARGETS = {"latin": ((45, 80), (1.15, 1.5)), "cjk": ((50, 90), (1.4, 1.8))}
 CHECKED_RE = re.compile(r"page check: (\d+)/(\d+) pages, (\d+) issues")
 UNVERIFIED_RE = re.compile(r"(\d+) unverified")
 
@@ -48,8 +53,46 @@ def layout_counts(edition) -> dict[str, int]:
     return dict(Counter(i.rule_name for i in issues if i.rule_name in LAYOUT_RULES))
 
 
+def newest_input(key: str) -> float:
+    inputs = [*(REPO / "src" / "compiler").rglob("*.py"), *book_folders()[key].rglob("*")]
+    return max(path.stat().st_mtime for path in inputs if path.is_file())
+
+
+def type_profile(edition) -> dict:
+    checker = DocumentQualityChecker(edition.rebuilt, AuditSpec.from_monograph(edition.spec))
+    body = checker._body_size
+    widths, pitches, cjk = [], [], 0
+    for pno in range(checker.spec.front_matter_pages, len(checker.doc)):
+        frame = checker._text_block.get((pno + 1) % 2)
+        if not frame or body is None:
+            continue
+        left, right = frame
+        lines = [
+            (r, spans)
+            for r, spans in sorted(checker._body_line_spans(pno), key=lambda line: line[0].y0)
+            if abs(statistics.mean(s["size"] for s in spans) - body) < 0.3 and not any("Math" in s["font"] for s in spans)
+        ]
+        for (upper, spans), (lower, _) in itertools.pairwise(lines):
+            if upper.x0 < left + 2 and upper.x1 > right - 2:
+                text = "".join(s["text"] for s in spans).strip()
+                wide = [unicodedata.east_asian_width(c) in "WF" for c in text]
+                cjk += 2 * sum(wide) > len(text)
+                widths.append(len(text) + sum(wide))
+                if 0.9 * body < lower.y0 - upper.y0 < 2.5 * body:
+                    pitches.append((lower.y0 - upper.y0) / body)
+    if not widths or not pitches:
+        return {}
+    script = "cjk" if 2 * cjk > len(widths) else "latin"
+    cpl, pitch = round(statistics.median(widths)), round(statistics.median(pitches), 2)
+    (cpl_lo, cpl_hi), (pitch_lo, pitch_hi) = TYPE_TARGETS[script]
+    return {"script": script, "cpl": cpl, "pitch": pitch, "ok": cpl_lo <= cpl <= cpl_hi and pitch_lo <= pitch <= pitch_hi}
+
+
 def check_book(key: str, book, edition) -> dict:
     row: dict = {"book": key, "pdf": str(edition.rebuilt)}
+    built = edition.rebuilt.stat().st_mtime
+    row["built"] = datetime.fromtimestamp(built).strftime("%Y-%m-%d")
+    row["stale"] = built < newest_input(key)
     store = store_for(book.out_dir)
     row["store"] = str(store) if store else None
     if store:
@@ -66,6 +109,7 @@ def check_book(key: str, book, edition) -> dict:
             "gate_fails": [line for line in gate if line.startswith("FAIL ")],
         }
     row["layout"] = layout_counts(edition)
+    row["type"] = type_profile(edition)
     row["numbering"] = edition_literal_counts(edition.rebuilt, edition.spec)
     resyncs = book.out_dir / f"{edition.spec.slug}-numbering-resyncs.txt"
     row["resyncs"] = len(resyncs.read_text(encoding="utf-8").splitlines()) if resyncs.exists() else None
@@ -85,17 +129,19 @@ def math_books(keys: list[str]) -> list[tuple[str, object, object]]:
 
 def table(rows: list[dict]) -> str:
     out = [
-        "| Book | Checked pages | Issues | Unverified | Gate | Numbering | Resyncs | Layout hits | Next command |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| Book | Built | Checked pages | Issues | Unverified | Gate | Numbering | Resyncs | Layout hits | Type | Next command |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in rows:
         layout = ", ".join(f"{rule} {n}" for rule, n in sorted(r["layout"].items())) or "none"
         numbering = ", ".join(f"{rule} {n}" for rule, n in sorted(r["numbering"].items())) or "none"
         nxt = r["next"][0].split("#")[0].strip() if r.get("next") else ""
+        kind = r["type"]
+        type_cell = f"{kind['cpl']} cpl, {kind['pitch']}x{'' if kind['ok'] else ' !'}" if kind else "-"
         gate = "no store" if not r["store"] else "PASS" if r["gate"] == "PASS" else (r["gate_fails"] or [r["gate"]])[0][:70]
         out.append(
-            f"| {r['book']} | {r.get('checked', '-')} | {r.get('issues', '-')} | {r.get('unverified', '-')} "
-            f"| {gate} | {numbering} | {r['resyncs'] if r['resyncs'] is not None else '-'} | {layout} | {f'`{nxt}`' if nxt else '-'} |"
+            f"| {r['book']} | {r['built']}{' stale' if r['stale'] else ''} | {r.get('checked', '-')} | {r.get('issues', '-')} | {r.get('unverified', '-')} "
+            f"| {gate} | {numbering} | {r['resyncs'] if r['resyncs'] is not None else '-'} | {layout} | {type_cell} | {f'`{nxt}`' if nxt else '-'} |"
         )
     return "\n".join(out)
 

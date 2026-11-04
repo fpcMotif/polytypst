@@ -600,7 +600,7 @@ SUB_GREEK_SPLIT_RE = re.compile(
     rf"(_[0-9a-zA-Z])(?!(?:beta|zeta|theta)(?![a-zA-Z]))({GREEK_WORDS})"
 )
 BARE_BRACES_RE = re.compile(r"(?<!\\)\{([^{}]*)\}")
-NON_MATH_CHARS_RE = re.compile(r"[^\x00-\x7Fα-ωΑ-Ωℂℝℤℕℚ℘≤≥≠±∓×·→⇒↔⇐⇔⟶⟵⟷⟼⟹⟸⟺•—–§\s]")
+NON_MATH_CHARS_RE = re.compile(r"[^\x00-\x7Fα-ωΑ-Ωℂℝℤℕℚ℘≤≥≠±∓×·→⇒↔⇐⇔⟶⟵⟷⟼⟹⟸⟺↪↩•—–§\s]")
 MULTI_TOK_RE = re.compile(r"(?<![a-zA-Z0-9])[a-zA-Z0-9]{2,}(?![a-zA-Z0-9])")
 
 def _is_variable_product(m: re.Match[str]) -> bool:
@@ -905,10 +905,17 @@ OPERATOR_STRING_RE = re.compile(r'(?<![\w(])"([A-Za-z]{2,})"')
 UPRIGHT_LETTERS_RE = re.compile(r"upright\(((?:[A-Za-z] )+[A-Za-z])\)")
 ESCAPED_BAR_RE = re.compile(r"\\\|")
 ESCAPED_DELIM_RE = re.compile(r"\\([()\[\]])")
+LABELLED_ARROW_RE = re.compile(r"([⟶⟵])(?=\s*[_^])")
 LATEX_MACRO_REWRITES: tuple[tuple[Pattern[str], str], ...] = (
     (re.compile(r"\\tag\*?\{[^{}]*\}"), ""),
     (re.compile(r"\\(?:nonumber|notag|displaystyle|textstyle)(?![a-zA-Z])"), ""),
-    (re.compile(r"\\dfrac(?![a-zA-Z])"), r"\\frac"),
+    (re.compile(r"\\[dt]frac(?![a-zA-Z])"), r"\\frac"),
+    (re.compile(r"\\xrightarrow\s*\[((?:[^\[\]{}]|\{[^{}]*\})*)\]\s*\{((?:[^{}]|\{[^{}]*\})*)\}"), r"⟶_{\1}^{\2}"),
+    (re.compile(r"\\xleftarrow\s*\[((?:[^\[\]{}]|\{[^{}]*\})*)\]\s*\{((?:[^{}]|\{[^{}]*\})*)\}"), r"⟵_{\1}^{\2}"),
+    (re.compile(r"\\xrightarrow\s*\{((?:[^{}]|\{[^{}]*\})*)\}"), r"⟶^{\1}"),
+    (re.compile(r"\\xleftarrow\s*\{((?:[^{}]|\{[^{}]*\})*)\}"), r"⟵^{\1}"),
+    (re.compile(r"\\hookrightarrow(?![a-zA-Z])"), "↪"),
+    (re.compile(r"\\hookleftarrow(?![a-zA-Z])"), "↩"),
     (re.compile(r"\\varprojlim"), r"\\underset{\\longleftarrow}{\\lim}"),
     (re.compile(r"\\varinjlim"), r"\\underset{\\longrightarrow}{\\lim}"),
     (re.compile(r"\\leqq(?![a-zA-Z])"), r"\\leq"),
@@ -1403,6 +1410,7 @@ def convert_math_batch(items: list[tuple[str, bool]], theorem_layout: bool = Fal
                 except RecursionError:
                     converted = _as_math_string(key[0])
                 converted = converted.replace("plus.circle", "plus.o")
+                converted = LABELLED_ARROW_RE.sub(r"limits(\1)", converted)
                 if converted.count('"') % 2:
                     converted = converted.replace('"', "")
             _PANDOC_CACHE[key] = finish_typst_math(

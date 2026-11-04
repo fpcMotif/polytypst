@@ -129,6 +129,7 @@ _TYPST_DEFAULT_FONTS = ("New Computer Modern Math",)
 _TYPST_FONT_RE = re.compile(r'\bfont:\s*(\([^)]*\)|"[^"]*"|[A-Za-z][\w-]*)')
 _CONTENTS_TITLE_RE = re.compile(r"^(?:table\s+of\s+)?contents$", re.IGNORECASE)
 _LEADER_RE = re.compile(r"(?:\.\s*){4,}")
+_HYPHENS = ("-", "­", "‐")
 _PAGE_NUMBER_END_RE = re.compile(r"\s\d{1,3}$")
 
 
@@ -220,8 +221,18 @@ _LEAKED_MATH_WORDS = (
     "even",
     "odd",
     "otherwise",
+    "arrow",
+    "underbrace",
+    "overbrace",
+    "frac",
+    "mapsto",
+    "text",
+    "theorem",
+    "which",
+    "there",
+    "every",
 )
-_ITALIC_RUN_RE = re.compile(r"[\U0001D434-\U0001D6A5]{3,}")
+_ITALIC_RUN_RE = re.compile(r"[\U0001D434-\U0001D6A5ℎ]{3,}")
 _SPACED_WORDS = (
     (r"\bi\s+n\s+f\s+i\s+n\s+i\s+t\s+y\b", "Mangled 'infinity'"),
     (r"\bp\s+a\s+r\s+t\s+i\s+a\s+l\b", "Mangled 'partial'"),
@@ -326,6 +337,7 @@ class DocumentQualityChecker:
                 self.check_running_head_formulas,
                 self.check_duplicate_headings,
                 self.check_contents_leaders,
+                self.check_hyphenated_headings,
             ),
             STRUCTURE_TIER: (
                 self.check_chapter_structural_integrity,
@@ -1244,6 +1256,25 @@ class DocumentQualityChecker:
             repeated = [key for key, n in Counter(key for _, key in runs if key in headings).items() if n > 1]
             for key in doubled + repeated:
                 self._issue(report, "WARNING", "DUPLICATE_HEADING", pno + 1, "A heading prints twice on its page", key[:80])
+
+    def check_hyphenated_headings(self, report: CheckReport) -> None:
+        if self._body_size is None:
+            return
+        for pno in range(len(self.doc)):
+            lines = sorted(self._body_line_spans(pno), key=lambda line: line[0].y0)
+            for (top, upper), (below, lower) in pairwise(lines):
+                size = min(s["size"] for s in upper)
+                text = "".join(s["text"] for s in upper).rstrip()
+                if (
+                    size >= 1.15 * self._body_size
+                    and abs(size - min(s["size"] for s in lower)) < 0.2
+                    and text.endswith(_HYPHENS)
+                    and text[-2:-1].isalpha()
+                    and below.y0 - top.y1 < size
+                ):
+                    self._issue(
+                        report, "WARNING", "HYPHENATED_HEADING", pno + 1, "A heading breaks a word with a hyphen", text[-40:]
+                    )
 
     def check_contents_leaders(self, report: CheckReport) -> None:
         for pno in range(len(self.doc)):

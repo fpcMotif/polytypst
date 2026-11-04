@@ -959,7 +959,7 @@ UNNUMBERED_CHAPTER_PREFIXES = (
 def typst_chapter_heading(title: str, label: str, sec_label: str | None) -> str:
     word, _, number = label.rpartition(" ")
     tag = f" <{sec_label}>" if sec_label else ""
-    if number.isdigit():
+    if number.isdigit() and int(number) > 0:
         value, style = int(number), "1"
     elif number in _ROMAN_VALUES:
         value, style = _ROMAN_VALUES[number], "I"
@@ -1251,6 +1251,7 @@ class MonographCompiler:
 
 #show math.equation: set text(font: ({", ".join(f'"{f}"' for f in dict.fromkeys((lang.math_font, *lang.font_stack[1:])))},))
 #show math.equation: set block(breakable: true)
+#set table.cell(breakable: false)
 #set math.equation(numbering: {eq_num_str})
 #set math.mat(row-gap: 0.55em, column-gap: 0.8em)
 #set math.cases(gap: 0.55em)

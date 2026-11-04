@@ -6,6 +6,7 @@ from polytypst.compiler.monograph import (
     CONTINUATION_OP_RE,
     MonographCompiler,
     MonographSpec,
+    compile_typst,
 )
 from polytypst.compiler.typst_math import (
     clean_margin_and_inline_math,
@@ -285,5 +286,24 @@ def test_widehat_conversion():
     assert convert(r"\widehat{f}") == "hat(f)"
     wide = convert(r"\widehat{f * g}")
     assert "hat(" in wide or "accent(" in wide
+
+
+@pytest.mark.parametrize(
+    ("latex", "spelled"),
+    [
+        (r"X \xrightarrow{f} Y", "x r i g h t"),
+        (r"X \xrightarrow[\sim]{(p_1, p_2)} Y", "x r i g h t"),
+        (r"A \xleftarrow{g} B", "x l e f t"),
+        (r"\tfrac{1}{2}", "t f r a c"),
+        (r"X \hookrightarrow Y", "h o o k"),
+    ],
+)
+def test_arrow_and_fraction_commands_are_not_spelled_out_by_the_regex_fallback(tmp_path, latex: str, spelled: str) -> None:
+    out = convert(latex + r" \unknownocrmacro", display=True)
+    assert spelled not in out
+    assert any(mark in out for mark in ("⟶", "⟵", "↪", "/"))
+    typ = tmp_path / "a.typ"
+    typ.write_text(f"$ {out} $\n", encoding="utf-8")
+    compile_typst(typ, tmp_path / "a.pdf")
 
 
