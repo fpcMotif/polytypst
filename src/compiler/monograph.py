@@ -34,7 +34,14 @@ from .diagrams import (
 )
 from .page_cleaner import Figure, PageCleaner, has_circled_footnotes
 from .presets import CompositionConfig, domain_profile, resolve_composition
-from .source_numbers import LATEX, link_citations, link_references, number_chapter
+from .source_numbers import (
+    _ROMAN_VALUES,
+    LATEX,
+    figure_numbering,
+    link_citations,
+    link_references,
+    number_chapter,
+)
 from .source_numbers import LATEX_LAYOUT_RULES as SOURCE_NUMBER_LATEX_LAYOUT_RULES
 from .source_numbers import LATEX_RULES as SOURCE_NUMBER_LATEX_RULES
 from .source_numbers import TYPST_EQUATION_LAYOUT as SOURCE_EQUATION_LAYOUT
@@ -949,6 +956,26 @@ UNNUMBERED_CHAPTER_PREFIXES = (
 )
 
 
+def typst_chapter_heading(title: str, label: str, sec_label: str | None) -> str:
+    word, _, number = label.rpartition(" ")
+    tag = f" <{sec_label}>" if sec_label else ""
+    if number.isdigit():
+        value, style = int(number), "1"
+    elif number in _ROMAN_VALUES:
+        value, style = _ROMAN_VALUES[number], "I"
+    elif re.fullmatch(r"[A-Z]", number):
+        value, style = ord(number) - ord("A") + 1, "A"
+    else:
+        return f'#chapter-label.update("{label}")\n#heading(level: 1, numbering: none)[{title}]{tag}\n#chapter-label.update(none)'
+    shown = f"{word} " if word else ""
+    return (
+        f"#counter(heading).update(({value - 1},))\n"
+        f'#chapter-label.update([{shown}#context counter(heading).display("{style}")])\n'
+        f'#heading(level: 1, numbering: "{style}")[{title}]{tag}\n'
+        "#chapter-label.update(none)"
+    )
+
+
 def is_unnumbered_chapter(title: str) -> bool:
     return title.startswith(UNNUMBERED_CHAPTER_PREFIXES)
 
@@ -1477,6 +1504,28 @@ class MonographCompiler:
             )
         return width_pct
 
+    def _numbered_figure_parts(self, fig_id: str, clean_cap: str) -> tuple[str, str, str, str]:
+        cap_body = re.sub(
+            r"^(?:(?:Fig(?:ure)?\.?|图)\s*\d+(?:[\.\-]\d+){0,2}[a-z]?\.?\s*:?\s*)",
+            "",
+            clean_cap,
+            flags=re.IGNORECASE,
+        ).strip()
+        digits = re.sub(r"[.\_]", "-", fig_id)
+        label = "" if digits in self._figure_labels else f" <fig-{digits}>"
+        self._figure_labels.add(digits)
+        raw_num = fig_id.replace("_", "-")
+        num_tail = digits.split("-")[-1]
+        num_int = int(re.match(r"\d+", num_tail).group(0)) if re.match(r"\d+", num_tail) else 1
+        expected = self._chapter_fig_counter + 1
+        self._chapter_fig_counter = num_int
+        counter_update = (
+            f"#counter(figure.where(kind: image)).update({max(0, num_int - 1)})\n" if num_int != expected else ""
+        )
+        style = figure_numbering(raw_num, self._current_chapter, num_int)
+        numbering = f"  numbering: {style},\n" if style else ""
+        return cap_body, label, counter_update, numbering
+
     def make_figure_typst(
         self, fig_id: str, raw_caption: str, fig_dir: Path, paired: bool = False
     ) -> str:
@@ -1484,12 +1533,8 @@ class MonographCompiler:
         asset = self._resolve_figure_asset(fig_dir, fig_id)
         if asset is None:
             if self.spec.cross_references:
-                digits = re.sub(r"[.\_]", "-", fig_id)
-                cap_body = re.sub(r"^(?:(?:Fig(?:ure)?\.?|图)\s*\d+(?:[\.\-]\d+){0,2}[a-z]?\.?\s*:?\s*)", "", clean_cap, flags=re.IGNORECASE).strip()
-                raw_num = fig_id.replace("_", "-")
-                label = "" if digits in self._figure_labels else f" <fig-{digits}>"
-                self._figure_labels.add(digits)
-                return f'#align(center)[#figure(caption: [{cap_body}], numbering: _ => "{raw_num}")[]{label}]'
+                cap_body, label, counter_update, numbering = self._numbered_figure_parts(fig_id, clean_cap)
+                return f"{counter_update}#align(center)[#figure(\n  [],\n{numbering}  caption: [{cap_body}]\n){label}]"
             return f"#emph[{clean_cap}]"
         width_pct = self._figure_width_pct(asset, paired)
         self._placed_figures.add(asset.stem)
@@ -1507,24 +1552,7 @@ class MonographCompiler:
         counter_update = ""
         numbering = ""
         if self.spec.cross_references:
-            cap_body = re.sub(
-                r"^(?:(?:Fig(?:ure)?\.?|图)\s*\d+(?:[\.\-]\d+){0,2}[a-z]?\.?\s*:?\s*)",
-                "",
-                clean_cap,
-                flags=re.IGNORECASE,
-            ).strip()
-            digits = re.sub(r"[.\_]", "-", fig_id)
-            label_str = "" if digits in self._figure_labels else f" <fig-{digits}>"
-            self._figure_labels.add(digits)
-            raw_num = fig_id.replace("_", "-")
-            num_tail = digits.split("-")[-1]
-            num_int = int(re.match(r"\d+", num_tail).group(0)) if re.match(r"\d+", num_tail) else 1
-            expected = self._chapter_fig_counter + 1
-            self._chapter_fig_counter = num_int
-            if num_int != expected:
-                counter_update = f"#counter(figure.where(kind: image)).update({max(0, num_int - 1)})\n"
-            if not (self._current_chapter > 0 and raw_num == f"{self._current_chapter}-{num_int}"):
-                numbering = f'  numbering: _ => "{raw_num}",\n'
+            cap_body, label_str, counter_update, numbering = self._numbered_figure_parts(fig_id, clean_cap)
         else:
             clean_cap = re.sub(
                 r"^(Fig(?:ure)?\.?\s*\d+[\.\-]\d+[a-z]?\.?)",
@@ -2365,12 +2393,7 @@ class MonographCompiler:
                     f'#heading(level: 1, numbering: "1")[{title}] <sec-{chap.number}>'
                 )
             elif label:
-                number = label.split()[-1]
-                heading = (
-                    f'#chapter-label.update("{label}")\n'
-                    f'#heading(level: 1, numbering: _ => "{number}")[{title}]\n'
-                    "#chapter-label.update(none)"
-                )
+                heading = typst_chapter_heading(title, label, None)
             elif spec.chapter_label or is_unnumbered_chapter(title):
                 heading = f"= {title}"
             else:

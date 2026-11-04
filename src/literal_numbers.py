@@ -9,6 +9,7 @@ Whatever is still literal in the built Typst or LaTeX source is counted here by 
 - REFERENCE_WITHOUT_TARGET: a reference typed as text with no label to link to.
 - UNLINKED_CITATION: a citation typed as text instead of a link to its entry.
 - LITERAL_NUMBER_IN_MATH: a number such as `(4.3.3.1)` typed inside math, usually an equation's own tag.
+- HARDCODED_NUMBERING: a heading or figure that prints a fixed string as its number, such as `numbering: _ => "6"`.
 """
 
 import re
@@ -110,6 +111,10 @@ _MATH = {
         r"|\$\$.*?\$\$|(?<!\\)\$(?:[^$\\]|\\.)*\$"
     ),
 }
+_HARDCODED_NUMBERING = {
+    "typst": re.compile(r'numbering:\s*_\s*=>\s*"'),
+    "latex": re.compile(r"\\renewcommand\{?\\the(?:chapter|section|figure|table|equation)\}?\{[^{}]*\d[^{}]*\}"),
+}
 _MATH_NUMBER_RE = re.compile(r"\(\s*\d+(?:\s*\.\s*\d+){2,}\s*\)")
 _CHAPTER_RE = re.compile(r"-c(\d+)-")
 
@@ -133,6 +138,7 @@ def literal_numbering_counts(
         rf"{_OPEN}(?:\d+(?: bis)?|[A-Z]{{2,4}}(?: \d+)?){_CLOSE}|(?<![\w\[])SGA(?=, \d)|(?<!\w)\((?:{abbrs}), "
     )
     counts: Counter[str] = Counter()
+    counts["HARDCODED_NUMBERING"] = len(_HARDCODED_NUMBERING[kind].findall(source))
     parts = source.split(writer.chapter_start)[1:]
     if not parts:
         fallback = _FALLBACK_SPLIT[kind].split(source)[1:]

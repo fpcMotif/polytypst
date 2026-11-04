@@ -29,6 +29,19 @@ TYPST_RULES = r"""
   let n = nums.pos().first()
   if ch > 0 { str(ch) + "-" + str(n) } else { str(n) }
 }
+#let source-figure-plain(..nums) = str(nums.pos().first())
+#let source-figure-dotted(..nums) = {
+  let ch = counter(heading).get().first()
+  let n = nums.pos().first()
+  if ch > 0 { str(ch) + "." + str(n) } else { str(n) }
+}
+#let source-figure-ref-number(el) = {
+  let ch = counter(heading).at(el.location()).first()
+  let n = el.counter.at(el.location()).first()
+  if el.numbering == source-figure-plain or ch == 0 { str(n) }
+  else if el.numbering == source-figure-dotted { str(ch) + "." + str(n) }
+  else { str(ch) + "-" + str(n) }
+}
 #let source-equation-number(n) = "(" + (counter(heading).get().slice(1) + (n,)).map(str).join(".") + ")"
 #let source-digits(el) = {
   let nums = counter(heading).at(el.location()).slice(1)
@@ -83,10 +96,8 @@ TYPST_RULES = r"""
     let n = counter(math.equation).at(el.location()).first()
     return link(el.location())[(#n)]
   }
-  if el.func() == figure and el.numbering == source-figure-number {
-    let ch = counter(heading).at(el.location()).first()
-    let n = el.counter.at(el.location()).first()
-    let num = if ch > 0 { str(ch) + "-" + str(n) } else { str(n) }
+  if el.func() == figure and el.numbering in (source-figure-number, source-figure-plain, source-figure-dotted) {
+    let num = source-figure-ref-number(el)
     let sup = if it.supplement == auto { el.supplement } else { it.supplement }
     return link(el.location())[#{ if sup != none [#sup#sym.space.nobreak] }#num]
   }
@@ -116,7 +127,7 @@ TYPST_EQUATION_LAYOUT = r"""
 """
 
 LATEX_RULES = (
-    r"\newcounter{sourcesection}\newcounter{sourcesubsection}[sourcesection]"
+    r"\newcounter{sourcechapter}\newcounter{sourcesection}\newcounter{sourcesubsection}[sourcesection]"
     r"\newcounter{sourceparagraph}[sourcesubsection]\newcounter{sourcearticle}\newcounter{sourceroman}\newcounter{sourcecircled}"
     r"\renewcommand\thesourcesubsection{\arabic{sourcesection}.\arabic{sourcesubsection}}"
     r"\renewcommand\thesourceparagraph{\thesourcesubsection.\arabic{sourceparagraph}}"
@@ -427,6 +438,25 @@ class Resync:
         return f"chapter {self.chapter}: {self.kind} {self.scan} would have been numbered {self.computed}"
 
 
+def figure_numbering(raw_num: str, chapter: int, n: int) -> str:
+    if chapter > 0 and raw_num == f"{chapter}-{n}":
+        return ""
+    if raw_num == str(n):
+        return "source-figure-plain"
+    if chapter > 0 and raw_num == f"{chapter}.{n}":
+        return "source-figure-dotted"
+    return f'_ => "{raw_num}"'
+
+
+def latex_figure_number(raw_num: str, chapter: int, n: int) -> str:
+    if raw_num == str(n):
+        return r"\arabic{figure}"
+    for sep in "-.":
+        if chapter > 0 and raw_num == f"{chapter}{sep}{n}":
+            return rf"\arabic{{sourcechapter}}{sep}\arabic{{figure}}"
+    return raw_num
+
+
 def _sec_target(number: str) -> str:
     return "sec-" + number.replace(".", "-")
 
@@ -655,8 +685,8 @@ def number_chapter(
             if num_int != expected
             else ""
         )
-        auto_nums = {f"{state.chapter}-{num_int}", str(num_int)} if state.chapter > 0 else {str(num_int)}
-        numbering = f'  numbering: _ => "{raw_num}",\n' if raw_num not in auto_nums else ""
+        style = figure_numbering(raw_num, state.chapter, num_int)
+        numbering = f"  numbering: {style},\n" if style else ""
         return (
             f"{counter_update}#figure(\n{m.group('img')}"
             f"{numbering}"
@@ -676,10 +706,10 @@ def number_chapter(
         num_int = int(re.match(r"\d+", num_tail).group(0)) if re.match(r"\d+", num_tail) else 1
         png = re.sub(r"\.svg$", ".png", m.group("path"))
         return (
-            f"\\setcounter{{figure}}{{{max(0, num_int - 1)}}}"
+            f"\\setcounter{{sourcechapter}}{{{state.chapter}}}\\setcounter{{figure}}{{{max(0, num_int - 1)}}}"
             f"\\begin{{figure}}[htbp]\\centering"
             f"\\includegraphics[width=\\linewidth,height=0.75\\textheight,keepaspectratio]{{{png}}}"
-            f"\\renewcommand{{\\thefigure}}{{{raw_num}}}"
+            f"\\renewcommand{{\\thefigure}}{{{latex_figure_number(raw_num, state.chapter, num_int)}}}"
             f"\\captionsetup{{labelformat=simple,labelsep=space,name={{{m.group('sup')}}}}}"
             f"\\caption{{{cap}}}\\label{{{label}}}\\end{{figure}}"
         )

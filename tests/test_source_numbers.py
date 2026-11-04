@@ -10,6 +10,7 @@ from polytypst.compiler.monograph import MonographCompiler
 from polytypst.compiler.presets import NumberingWords
 from polytypst.compiler.source_numbers import (
     LATEX,
+    LATEX_RULES,
     TYPST,
     TYPST_RULES,
     labels,
@@ -364,8 +365,11 @@ def test_a_latex_figure_caption_escapes_percent_ampersand_and_hash():
 
 @pytest.mark.slow
 def test_a_latex_figure_caption_prints_its_source_number(tmp_path):
-    out, _ = number_chapter("![图 8-8 4 变量 VAR 模型](figures/fig_8-8.png)\n\n见图 8-8。", 1, LATEX)
-    linked = link_references(out, 1, {}, labels(out), LATEX)
+    figure = "![图 8-8 4 变量 VAR 模型](figures/fig_8-8.png)\n\n见图 8-8。"
+    elsewhere, _ = number_chapter(figure, 1, LATEX)
+    assert literal_numbering_counts(elsewhere, LATEX).get("HARDCODED_NUMBERING") == 1
+    out, _ = number_chapter(figure, 8, LATEX)
+    linked = link_references(out, 8, {}, labels(out), LATEX)
     assert literal_numbering_counts(linked, LATEX) == {}
     pymupdf.open().new_page().get_pixmap().save(tmp_path / "fig_8-8.png")
     body = linked.replace("figures/fig_8-8.png", "fig_8-8.png")
@@ -373,7 +377,7 @@ def test_a_latex_figure_caption_prints_its_source_number(tmp_path):
     _ = source.write_text(
         "\\documentclass{article}\\usepackage{graphicx}\\usepackage{caption}"
         "\\captionsetup[figure]{labelformat=empty}\\usepackage{fontspec}\\setmainfont{Songti SC}"
-        f"\\begin{{document}}{body}\\end{{document}}",
+        f"{LATEX_RULES}\\begin{{document}}{body}\\end{{document}}",
         encoding="utf-8",
     )
     for _pass in range(2):
