@@ -1,0 +1,22 @@
+#import "@preview/fletcher:0.5.8" as fletcher
+#fletcher.diagram(
+  spacing: (1.4em, 4em),
+  label-size: 0.85em,
+  fletcher.node((0, 1), $(T M)|U$),
+  fletcher.node((1, 1), $T U$),
+  fletcher.node((2, 0), $T(x(U))$),
+  fletcher.node((3, 0), $(T RR^n)|x(U)$),
+  fletcher.node((4, 0), $epsilon^n (RR^n)|x(U)$),
+  fletcher.node((2, 2), $T(y(U))$),
+  fletcher.node((3, 2), $(T RR^n)|y(U)$),
+  fletcher.node((4, 2), $epsilon^n (RR^n)|y(U)$),
+  fletcher.edge((1, 1), (0, 1), "->", $tilde.eq$),
+  fletcher.edge((1, 1), (2, 0), "->", $x_*$, label-side: left),
+  fletcher.edge((1, 1), (2, 2), "->", $y_*$, label-side: right),
+  fletcher.edge((2, 0), (3, 0), "->", $tilde.eq$),
+  fletcher.edge((3, 0), (4, 0), "->", $t^n|x(U)$),
+  fletcher.edge((2, 2), (3, 2), "->", $tilde.eq$),
+  fletcher.edge((3, 2), (4, 2), "->", $t^n|y(U)$),
+  fletcher.edge((2, 0), (2, 2), "->", $(y compose x^(-1))_*$, label-side: left),
+  fletcher.edge((4, 0), (4, 2), "->", $"old" (y compose x^(-1))_*$, label-side: right),
+)

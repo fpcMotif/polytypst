@@ -35,3 +35,109 @@ summary = 'illustrated monograph with 3b1b colour figures'
 slug = 'spivak_vol3_illustrated'
 subtitle = 'Illustrated Edition with 3Blue1Brown Colour Geometric Figures'
 figure_dir = 'figures_color'
+
+[transcript_fixups]
+# The transcript has (l); the scan prints the equation reference (1).
+33 = [['\(l\)', '(1)']]
+67 = [['\(l\)', '(1)']]
+78 = [['\(l\)', '(1)']]
+94 = [['\(l\)', '(1)']]
+109 = [['\(l\)', '(1)']]
+120 = [['\(l\)', '(1)']]
+133 = [['\(l\)', '(1)']]
+190 = [['\(l\)', '(1)']]
+238 = [['\(l\)', '(1)']]
+264 = [['\(l\)', '(1)']]
+# The transcript has \Pi; the scan prints II, the second fundamental form.
+24 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+26 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+43 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+59 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+71 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+80 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+83 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+97 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+115 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+134 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+142 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+198 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+199 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+200 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+201 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+203 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+204 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+205 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+236 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+242 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+317 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+131 = [['\\mathbf\{\\Pi\}', '\mathbf{II}']]
+119 = [
+  ['\\mathbf\{\\Pi\}', '\mathbf{II}'],
+  ['\\Pi(?![A-Za-z])', '\mathrm{II}'],
+  # The transcript has $i$; the scan prints the word "is".
+  ['Our formula \$i\$ rather', 'Our formula *is* rather'],
+]
+23 = [
+  ['\(l\)', '(1)'],
+  ['\\Pi(?![A-Za-z])', '\mathrm{II}'],
+  # The transcript has j^σ; the scan prints y^σ.
+  ['j\^\{\\sigma\}\{\}_\{:j\}', 'y^{\sigma}{}_{:j}'],
+]
+93 = [
+  ['\(l\)', '(1)'],
+  ['\\Pi(?![A-Za-z])', '\mathrm{II}'],
+]
+128 = [
+  ['\(l\)', '(1)'],
+  # The transcript has \mathbb{I}; the scan prints II.
+  ['\\mathbb\{I\}', '\mathrm{II}'],
+]
+91 = [
+  ['\(l\)', '(1)'],
+  # The transcript has A^\dagger; the scan prints the transpose A^t.
+  ['\^\\dagger(?![A-Za-z])', '^t'],
+]
+# The transcript has A^\dagger; the scan prints the transpose A^t.
+100 = [['\^\\dagger(?![A-Za-z])', '^t']]
+102 = [['\^\\dagger(?![A-Za-z])', '^t']]
+103 = [['\^\\dagger(?![A-Za-z])', '^t']]
+# The transcript has \blacksquare; the scan prints the end mark ❖, written \diamond elsewhere in this book.
+274 = [['\\blacksquare', '\diamond']]
+# The transcript has (1l); the scan prints (11).
+125 = [['\(1l\)', '(11)']]
+# The transcript has Otsuki; the scan prints Ōtsuki.
+4 = [['T\. Otsuki', 'T. Ōtsuki']]
+# The transcript has lowercase y_p; the scan prints Y_p.
+36 = [['''R'\(X_p, y_p\)''', '''R'(X_p, Y_p)''']]
+# The transcript has y^σ; the scan prints the normal field v^σ.
+25 = [['y\^\{\\rho\}_\{:j\} y\^\{\\sigma\} = -', 'y^{\rho}_{:j} v^{\sigma} = -']]
+# The transcript has a stray subscript on the second form; the scan prints ⟨II(p), II(p)⟩.
+126 = [['\\mathfrak\{U\}_\(p\)', '\mathfrak{U}(p)']]
+# The transcript has an extra period; the scan prints "s.] Now".
+141 = [['\$\.\]\. Now', '$.] Now']]
+# The transcript drops both rulings; the scan prints them after "parameterized as" and after "or".
+163 = [
+  [
+    'parameterized as\n\nor\n\n',
+    '''parameterized as
+
+$$f(s, t) = (a \cos s, b \sin s, 0) + t(-a \sin s, b \cos s, c)$$
+
+or
+
+$$f(s, t) = (a \cos s, b \sin s, 0) + t(a \sin s, -b \cos s, c)$$
+
+''',
+  ],
+]
+# The transcript closes the root before cosh² t and sinh² t; the scan puts them under the root.
+175 = [
+  ['\\sqrt\{1 - 4a\^2\} \\cosh\^2 t', '\sqrt{1 - 4a^2 \cosh^2 t}'],
+  ['\\sqrt\{1 - 4a\^2\} \\sinh\^2 t', '\sqrt{1 - 4a^2 \sinh^2 t}'],
+]
+# The transcript has homomorphic; the scan prints homeomorphic.
+286 = [['is homomorphic to', 'is homeomorphic to']]
+# The transcript has Feuchel; the scan prints Fenchel.
+315 = [['Feuchel, W\.', 'Fenchel, W.']]
+# The transcript has umbilic; the scan prints umbilics.
+322 = [['umbilic on, 155', 'umbilics on, 155']]

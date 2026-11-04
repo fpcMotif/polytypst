@@ -12,6 +12,9 @@ from polytypst.compiler.monograph import (
     latex_safe_markdown,
 )
 from polytypst.compiler.page_cleaner import normalize_run_in
+from polytypst.compiler.source_numbers import (
+    TYPST_EQUATION_LAYOUT as SOURCE_EQUATION_LAYOUT,
+)
 
 
 def test_theorem_note_before_the_closing_bold_leaves_no_stray_asterisks():
@@ -94,6 +97,21 @@ def test_display_too_wide_with_no_top_level_break_stays_inside_the_margins(tmp_p
     )
     typ = tmp_path / "w.typ"
     typ.write_text(MonographCompiler(KODAIRA_SPEC).build_typst_preamble() + body, encoding="utf-8")
+    pdf = tmp_path / "w.pdf"
+    compile_typst(typ, pdf)
+    report = DocumentQualityChecker(pdf).run_all_checks(frozenset({LAYOUT_TIER}))
+    assert "MARGIN_OVERFLOW" not in report.rules()
+
+
+@pytest.mark.parametrize("source_layout", [False, True])
+def test_unnumbered_display_too_wide_is_fitted_inside_the_margins(tmp_path: Path, source_layout: bool) -> None:
+    terms = " + ".join(f"integral K_{k} (t, x - x') u({k}, x') dif x'" for k in range(9))
+    preamble = MonographCompiler(KODAIRA_SPEC).build_typst_preamble()
+    if source_layout:
+        preamble += SOURCE_EQUATION_LAYOUT
+    body = f"\n#set math.equation(numbering: none)\nSome prose before.\n\n$ Lambda = {{ ({terms}) }} $\n\nEnd.\n"
+    typ = tmp_path / "w.typ"
+    typ.write_text(preamble + body, encoding="utf-8")
     pdf = tmp_path / "w.pdf"
     compile_typst(typ, pdf)
     report = DocumentQualityChecker(pdf).run_all_checks(frozenset({LAYOUT_TIER}))

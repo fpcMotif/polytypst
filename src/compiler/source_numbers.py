@@ -98,7 +98,10 @@ TYPST_RULES = r"""
 
 TYPST_EQUATION_LAYOUT = r"""
 #show math.equation.where(block: true): it => {
-  if it.numbering == none { return it }
+  if it.numbering == none {
+    if it.at("label", default: none) == <fitted-display> { return it }
+    return layout(size => align(center, fit-display(it.body, size.width)))
+  }
   layout(size => {
     let number = counter(math.equation).display(it.numbering)
     grid(

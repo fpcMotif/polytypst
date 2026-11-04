@@ -1245,7 +1245,7 @@ class MonographCompiler:
   rows.filter(r => r.any(k => k.func() != [ ].func())).map(r => r.join())
 }}
 #let fit-display(body, avail) = {{
-  let eq = math.equation(body, block: true, numbering: none)
+  let eq = [#math.equation(body, block: true, numbering: none)<fitted-display>]
   let w = measure(eq).width
   let rows = display-rows(body)
   if w > avail and avail / w < 0.8 and rows.len() > 1 {{
@@ -1267,7 +1267,8 @@ class MonographCompiler:
 }}
 #show math.equation.where(block: true): it => {{
   if it.numbering == none {{
-    return it
+    if it.at("label", default: none) == <fitted-display> {{ return it }}
+    return layout(size => align(center, fit-display(it.body, size.width)))
   }}
   layout(size => {{
     if not it.has("label") {{
