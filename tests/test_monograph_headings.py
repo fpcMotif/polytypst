@@ -142,7 +142,7 @@ def test_rows_of_a_too_wide_aligned_display_are_fitted_one_by_one(tmp_path: Path
 
 
 def test_running_head_shows_the_current_chapter_section(tmp_path: Path) -> None:
-    filler = "\n\n".join(f"Filler paragraph {i} of ordinary prose for the page." for i in range(60))
+    filler = "\n\n".join(f"Filler paragraph {i} of ordinary prose for the page." for i in range(100))
     body = (
         "#pagebreak()\n#pagebreak()\n#pagebreak()\n#pagebreak()\n"
         f"= First Chapter\n\n== Old Section\n\n{filler}\n\n#pagebreak()\n"

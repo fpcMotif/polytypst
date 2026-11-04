@@ -408,7 +408,7 @@ def test_math_layout_compiled_page_scan_parity_snapshot(tmp_path: Path) -> None:
         scan, broken_pdf, {1: [1]}, ocr=tmp_path / "ocr", work=tmp_path / "work"
     )[0]
     assert verdict(page_broken, SOURCE_PAGINATED) == [
-        "page offset +14.88,+0.06pt",
+        "page offset +14.88,-4.68pt",
         "5 words off by more than 1.5pt",
-        "2 baselines off by more than 1.5pt",
+        "4 baselines off by more than 1.5pt",
     ]

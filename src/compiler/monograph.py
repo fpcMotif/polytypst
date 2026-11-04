@@ -185,6 +185,10 @@ class MonographSpec:
     def __post_init__(self) -> None:
         domain_profile(self.domain)
 
+    @property
+    def fletcher_diagrams(self) -> bool:
+        return self.commutative_diagrams or self.domain == "math"
+
 
 @dataclass(frozen=True)
 class MonographOutputs:
@@ -2016,7 +2020,7 @@ class MonographCompiler:
                 [body for body, _ in display_blocks],
                 lambda cells: convert_math_batch([(c, False) for c in cells], spec.theorem_layout),
             )
-            if spec.commutative_diagrams
+            if spec.fletcher_diagrams
             else {}
         )
         def display(m: re.Match[str]) -> str:
@@ -2314,7 +2318,7 @@ class MonographCompiler:
             else "",
             (SOURCE_NUMBER_LAYOUT_RULES if spec.theorem_layout else SOURCE_NUMBER_RULES) if spec.cross_references else "",
             SOURCE_EQUATION_LAYOUT if spec.cross_references and (not spec.typst_preamble or "fit-display" in spec.typst_preamble) else "",
-            FLETCHER_IMPORT if spec.commutative_diagrams else "",
+            FLETCHER_IMPORT if spec.fletcher_diagrams else "",
         ]
         typst_sections: list[str] = [*typst_preamble, self.build_typst_title_page()]
         numbered_chapters: list[tuple[int, int]] = []

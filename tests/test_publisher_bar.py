@@ -37,6 +37,25 @@ def test_a_table_row_stays_on_one_page_and_the_header_repeats(tmp_path: Path) ->
     assert all("Key" in p.get_text() for p in table_pages)
 
 
+@pytest.mark.parametrize("key", ["kodaira", "fga"])
+def test_latin_body_text_sets_ten_on_twelve_with_no_extra_space_between_paragraphs(tmp_path: Path, key: str) -> None:
+    compiler = MonographCompiler(book_by_key(key).spec)
+    size = compiler.composition.publisher.body_size_pt
+    paragraph = " ".join(["The quick brown fox jumps over the lazy dog."] * 12)
+    typ = tmp_path / "t.typ"
+    typ.write_text(compiler.build_typst_preamble() + f"{paragraph}\n\n{paragraph}\n", encoding="utf-8")
+    compile_typst(typ, tmp_path / "t.pdf")
+    baselines = sorted(
+        {round(line["spans"][0]["origin"][1], 1)
+         for block in pymupdf.open(tmp_path / "t.pdf")[0].get_text("dict")["blocks"]
+         for line in block.get("lines", [])
+         if abs(line["spans"][0]["size"] - size) < 0.1}
+    )
+    pitches = [b - a for a, b in pairwise(baselines)]
+    assert len(pitches) >= 6
+    assert all(1.17 <= pitch / size <= 1.23 for pitch in pitches), [round(p / size, 3) for p in pitches]
+
+
 def _leaked_words(tmp_path: Path, math: str) -> list[int]:
     typ = tmp_path / "m.typ"
     typ.write_text(f"Some prose before the formula.\n\n$ {math} $\n", encoding="utf-8")

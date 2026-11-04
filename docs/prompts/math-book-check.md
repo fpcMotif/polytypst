@@ -78,6 +78,14 @@ A role sets the files that the agent can change:
    | `CONTENTS_WITHOUT_LEADERS` | A contents page shows page numbers with no dot leaders. | The contents page in the transcript |
    | `HYPHENATED_HEADING` | A heading breaks a word with a hyphen. | A heading show rule in `src/compiler/presets.py` or the book's `typst_preamble` that turns hyphenation back on |
 
+   The `Figures` column counts the figures in the book's `.typ` source by kind. A `!` follows the count when a raster figure or an array diagram remains. The `figures` field holds the same counts:
+
+   | Count | Meaning | Where the cause usually is |
+   |---|---|---|
+   | `DIAGRAM_AS_ARRAY` (`arrays`) | A commutative diagram or an exact sequence prints as aligned rows or a matrix, not as a fletcher drawing. | A transcript `array` whose objects and arrows are not one per `&` cell, such as `0 \to A \to B` above `\downarrow \quad \downarrow`. Rewrite the `array` with one object or one arrow in each cell. |
+   | `RASTER_FIGURE` (`raster`) | A figure prints as a crop of the scan. | A figure with no redraw. Redraw it as `figures/fig_PPP_NNN.typ` with fletcher or CeTZ, or as an SVG. A runner and an editor report it. |
+   | `VECTOR_FIGURE` (`vector`) | A figure prints as an SVG, a PDF, a Typst drawing or a fletcher diagram. | Nothing to fix. Compare each one with the scan in step 5. |
+
    Before you change shared code in `src/compiler/`, prove the defect against the scan with `.claude/skills/scan-evidence/SKILL.md`.
 
 5. A fixer reviews the look of each book. A runner and an editor skip this step.

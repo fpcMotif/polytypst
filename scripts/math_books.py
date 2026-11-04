@@ -22,6 +22,7 @@ sys.path.insert(0, str(REPO / "src"))
 
 from polytypst.books import book_folders, books
 from polytypst.checker import LAYOUT_TIER, AuditSpec, DocumentQualityChecker
+from polytypst.figure_counts import figure_counts
 from polytypst.literal_numbers import edition_literal_counts
 
 LAYOUT_RULES = ("FONT_FALLBACK", "MARGIN_OVERFLOW", "UNDERFULL_PAGE", "RUNNING_HEAD_FORMULA", "DUPLICATE_HEADING", "CONTENTS_WITHOUT_LEADERS", "HYPHENATED_HEADING")
@@ -110,6 +111,8 @@ def check_book(key: str, book, edition) -> dict:
         }
     row["layout"] = layout_counts(edition)
     row["type"] = type_profile(edition)
+    typ = edition.rebuilt.with_suffix(".typ")
+    row["figures"] = dict(figure_counts(typ.read_text(encoding="utf-8"))) if typ.exists() else None
     row["numbering"] = edition_literal_counts(edition.rebuilt, edition.spec)
     resyncs = book.out_dir / f"{edition.spec.slug}-numbering-resyncs.txt"
     row["resyncs"] = len(resyncs.read_text(encoding="utf-8").splitlines()) if resyncs.exists() else None
@@ -129,8 +132,8 @@ def math_books(keys: list[str]) -> list[tuple[str, object, object]]:
 
 def table(rows: list[dict]) -> str:
     out = [
-        "| Book | Built | Checked pages | Issues | Unverified | Gate | Numbering | Resyncs | Layout hits | Type | Next command |",
-        "|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Book | Built | Checked pages | Issues | Unverified | Gate | Numbering | Resyncs | Layout hits | Type | Figures | Next command |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in rows:
         layout = ", ".join(f"{rule} {n}" for rule, n in sorted(r["layout"].items())) or "none"
@@ -138,10 +141,17 @@ def table(rows: list[dict]) -> str:
         nxt = r["next"][0].split("#")[0].strip() if r.get("next") else ""
         kind = r["type"]
         type_cell = f"{kind['cpl']} cpl, {kind['pitch']}x{'' if kind['ok'] else ' !'}" if kind else "-"
+        figs = r["figures"]
+        figures_cell = (
+            f"{figs['VECTOR_FIGURE']} vector, {figs['RASTER_FIGURE']} raster, {figs['DIAGRAM_AS_ARRAY']} arrays"
+            + (" !" if figs["RASTER_FIGURE"] or figs["DIAGRAM_AS_ARRAY"] else "")
+            if figs
+            else "-"
+        )
         gate = "no store" if not r["store"] else "PASS" if r["gate"] == "PASS" else (r["gate_fails"] or [r["gate"]])[0][:70]
         out.append(
             f"| {r['book']} | {r['built']}{' stale' if r['stale'] else ''} | {r.get('checked', '-')} | {r.get('issues', '-')} | {r.get('unverified', '-')} "
-            f"| {gate} | {numbering} | {r['resyncs'] if r['resyncs'] is not None else '-'} | {layout} | {type_cell} | {f'`{nxt}`' if nxt else '-'} |"
+            f"| {gate} | {numbering} | {r['resyncs'] if r['resyncs'] is not None else '-'} | {layout} | {type_cell} | {figures_cell} | {f'`{nxt}`' if nxt else '-'} |"
         )
     return "\n".join(out)
 
