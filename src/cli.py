@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from .books_cli import parse_pages as page_set
+from .compiler.page_cleaner import FOOTNOTE_LINE_RES
 from .compiler.presets import DOMAIN_PROFILES
 from .ocr.backend import DEFAULT_BACKEND, KINDS, Backend, backend_argument
 from .ocr.transcripts import ROUNDS
@@ -106,6 +107,12 @@ def main() -> None:
         help="Subject domain profile of a new book (default: math)",
     )
     parser.add_argument(
+        "--footnote-style",
+        type=str,
+        choices=list(FOOTNOTE_LINE_RES),
+        help="How a new book marks its footnotes, as in circled for ① notes (default: none)",
+    )
+    parser.add_argument(
         "--formats",
         type=str,
         help="Comma-separated formats to build (e.g. typst,latex,pdf)",
@@ -145,12 +152,19 @@ def main() -> None:
         if book is None:
             composition = {
                 k: v
-                for k, v in (("publisher_key", args.publisher), ("lang", args.lang), ("domain", args.domain))
+                for k, v in (
+                    ("publisher_key", args.publisher),
+                    ("lang", args.lang),
+                    ("domain", args.domain),
+                    ("footnote_style", args.footnote_style),
+                )
                 if v is not None
             }
             book = Book.adhoc(args.source, args.output, **composition)
-        elif args.publisher or args.lang or args.domain:
-            parser.error(f"{book.spec.slug} is a known book; --publisher, --lang and --domain apply to a new book")
+        elif args.publisher or args.lang or args.domain or args.footnote_style:
+            parser.error(
+                f"{book.spec.slug} is a known book; --publisher, --lang, --domain and --footnote-style apply to a new book"
+            )
         elif args.output is not None and args.output.resolve() != book.out_dir.resolve():
             parser.error(f"{book.spec.slug} is a known book and writes to {book.out_dir}")
         print(f"Book: {book.spec.title} -> {book.out_dir}")

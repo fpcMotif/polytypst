@@ -7,6 +7,8 @@ series = '俄罗斯数学教材选译'
 year = 2008
 lang = 'zh'
 domain = 'math'
+footnote_style = 'circled'
+footnote_numbering = 'circled'
 preface_page = 7
 chapters = [
   { number = 1, title = '第1章 群论的构造', start_page = 16, end_page = 50, label = '第1章' },

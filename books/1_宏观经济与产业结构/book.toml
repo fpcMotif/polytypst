@@ -6,6 +6,8 @@ series = '泡沫/通缩时期的日本经济与经济政策 1'
 year = 2022
 lang = 'zh'
 domain = 'economics'
+footnote_style = 'circled'
+footnote_numbering = 'circled'
 merge_continued_tables = true
 chapter_openings = true
 # Scan pages 1-3 are the cover, title page and a blank, and 32-35 are the scan's contents; the edition makes its own.

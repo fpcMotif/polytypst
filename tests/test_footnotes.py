@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 import pymupdf
@@ -410,8 +411,12 @@ def test_latex_header_follows_footmisc():
     assert latex_footnote_header(running_footnotes(HECKE_SPEC)) == r"\counterwithout{footnote}{chapter}"
 
 
-def rendered_book(tmp_path: Path, *pages: str, lang: str = "zh") -> tuple[MonographCompiler, RenderedMonograph]:
+def rendered_book(
+    tmp_path: Path, *pages: str, lang: str = "zh", circled: bool = False
+) -> tuple[MonographCompiler, RenderedMonograph]:
     spec = adhoc_spec(Path("Probe.pdf"), len(pages), lang=lang)
+    if circled:
+        spec = replace(spec, footnote_style="circled", footnote_numbering="circled")
     md_dir = book_state(tmp_path) / spec.markdown_dir
     md_dir.mkdir(parents=True)
     for pno, page in enumerate(pages, start=1):
@@ -424,8 +429,8 @@ def test_hand_numbered_circled_notes_become_auto_numbered_footnotes(tmp_path):
     compiler, rendered = rendered_book(
         tmp_path,
         "潜在 GDP 可以从数据中估算①，结果却大不相同②。\n\n① Romer (2006)，p. 178.\n② 根据日本经济企划厅（1999）制定。",
+        circled=True,
     )
-    assert compiler.spec.footnote_style == "circled"
     assert rendered.markdown.count("^[") == 2
     assert rendered.typst.count("#footnote[") == 2
     assert "估算①" not in rendered.typst and "② 根据" not in rendered.typst
@@ -433,10 +438,19 @@ def test_hand_numbered_circled_notes_become_auto_numbered_footnotes(tmp_path):
     assert r"\textcircled" in latex_footnote_header(compiler.spec)
 
 
+def test_circled_notes_in_a_book_that_declares_no_footnote_style_stop_the_build(tmp_path):
+    with pytest.raises(ValueError, match=r'footnote_style = "circled".*\b1\b'):
+        _ = rendered_book(
+            tmp_path,
+            "潜在 GDP 可以从数据中估算①，结果却大不相同②。\n\n① Romer (2006)，p. 178.\n② 根据日本经济企划厅（1999）制定。",
+        )
+
+
 def test_chinese_note_marks_are_drawn_in_the_text_and_the_note_area(tmp_path):
     _, rendered = rendered_book(
         tmp_path,
         "潜在 GDP 可以从数据中估算①，结果却大不相同②。\n\n① Romer (2006)，p. 178.\n② 根据日本经济企划厅（1999）制定。",
+        circled=True,
     )
     typ = tmp_path / "zh.typ"
     _ = typ.write_text(rendered.typst, encoding="utf-8")
@@ -466,6 +480,7 @@ def test_a_note_on_a_heading_prints_its_mark_on_the_heading_line(tmp_path):
     _, rendered = rendered_book(
         tmp_path,
         "## 4 本文的研究分析①\n\n基于以上现有研究，本节进行实证检验。\n\n① 关于本节实证分析，在此致谢。",
+        circled=True,
     )
     typ = tmp_path / "heading.typ"
     _ = typ.write_text(rendered.typst, encoding="utf-8")
