@@ -111,7 +111,7 @@ def _build(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         return 0
     baseline = json.loads(BASELINE.read_text(encoding="utf-8")) if BASELINE.exists() else {}
     recorded = baseline.get(args.book, {}).get(name, {})
-    rose = _rose(Counter(edition_literal_counts(edition.rebuilt, edition.spec)), recorded)
+    rose = _rose(Counter(edition_literal_counts(edition.rebuilt, edition.built_spec)), recorded)
     for line in rose:
         print(f"numbering: {line}; run: polytypst audit {args.book} --edition {name}")
     return 1 if rose else 0
@@ -252,11 +252,33 @@ def _share(text: str) -> float:
     return value
 
 
-def _layout_counts(key: str, name: str, edition: Edition) -> Counter[str]:
+def audit_edition(
+    book: Book, name: str, edition: Edition, show_rules: frozenset[str] = frozenset()
+) -> Counter[str]:
+    built = edition.built_spec
+    spec = AuditSpec.from_monograph(built) if built else AuditSpec()
+    spec = replace(spec, scan_line_breaks=edition.scan_line_breaks)
+    counts: Counter[str] = Counter()
+    for fmt in sorted(edition.formats | {"pdf"}):
+        if fmt in DOCUMENT_FORMATS and format_output(edition, fmt).exists():
+            for issue in DocumentQualityChecker(format_output(edition, fmt), spec).run_all_checks().issues:
+                counts[f"{DOCUMENT_FORMATS[fmt]}{issue.rule_name}"] += 1
+                if issue.rule_name in show_rules:
+                    print(f"{fmt} p{issue.page_num} {issue.rule_name}: {issue.context_snippet[:70]!r}")
+    if built:
+        counts.update(edition_literal_counts(edition.rebuilt, built))
+        if leaks := figure_text_leaks(book):
+            counts[FIGURE_TEXT_LEAK] = len(leaks)
+    if edition.parity is not None and edition.parity.tolerance is FACSIMILE:
+        counts.update(_layout_counts(book, name, edition))
+    return counts
+
+
+def _layout_counts(book: Book, name: str, edition: Edition) -> Counter[str]:
     try:
-        source = source_pdf(book_by_key(key).spec, None)
+        source = source_pdf(book.spec, None)
     except SourceScanError as error:
-        print(f"{key} {name}: layout not checked: {error}")
+        print(f"{edition.rebuilt.name} {name}: layout not checked: {error}")
         return Counter()
     page_map = edition.parity.page_map() if edition.parity else {}
     sample = {p: v for p, v in page_map.items() if p % LAYOUT_SAMPLE_EVERY == 0}
@@ -293,19 +315,7 @@ def _audit(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
             print(f"{key} {name}: FAIL, no {formats} output; run: polytypst build {key} --edition {name} --formats {formats}")
             ok = False
             continue
-        spec = AuditSpec.from_monograph(edition.spec) if edition.spec else AuditSpec()
-        spec = replace(spec, scan_line_breaks=edition.scan_line_breaks)
-        counts: Counter[str] = Counter()
-        for fmt in sorted(edition.formats | {"pdf"}):
-            if fmt in DOCUMENT_FORMATS:
-                issues = DocumentQualityChecker(format_output(edition, fmt), spec).run_all_checks().issues
-                counts.update(f"{DOCUMENT_FORMATS[fmt]}{i.rule_name}" for i in issues)
-        if edition.spec:
-            counts.update(edition_literal_counts(edition.rebuilt, edition.spec))
-            if leaks := figure_text_leaks(book_by_key(key)):
-                counts[FIGURE_TEXT_LEAK] = len(leaks)
-        if edition.parity is not None and edition.parity.tolerance is FACSIMILE:
-            counts.update(_layout_counts(key, name, edition))
+        counts = audit_edition(book_by_key(key), name, edition)
         recorded = baseline.get(key, {}).get(name, {})
         rose = _rose(counts, recorded)
         if args.update:
