@@ -98,10 +98,10 @@ class Book:
     @classmethod
     def adhoc(
         cls, source: Path, out_dir: Path | None = None, publisher_key: str = "cambridge", lang: str = "en",
-        domain: str = "math",
+        domain: str = "math", footnote_style: str = "",
     ) -> Book:
         """A one-chapter book for a source scan that no `books/<key>/` describes, in `output/<slug>` by default."""
-        spec = adhoc_spec(Path(source), SourceScan(source).page_count, publisher_key, lang, domain)
+        spec = adhoc_spec(Path(source), SourceScan(source).page_count, publisher_key, lang, domain, footnote_style)
         out_dir = out_dir or OUTPUT / spec.slug
         return cls(spec, out_dir, {"monograph": monograph_edition(spec, out_dir, "one chapter, generic rules")})
 

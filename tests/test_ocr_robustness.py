@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import unicodedata
+from dataclasses import replace
 from pathlib import Path
 
 import pymupdf
@@ -552,7 +553,7 @@ def test_display_math_after_a_circled_note_compiles(tmp_path: Path) -> None:
         "The word zqbbbba① has a note.\n\n① The note says zqbbbbb.\n\n$$\n⑴a = b ⑴\n$$\n\n$$\n1️⃣a = b 1️⃣\n$$",
         "The word zqbbbbc① has a note.\n\n① The note says zqbbbbd.",
     ]
-    spec = adhoc_spec(Path("Probe Book.pdf"), len(pages))
+    spec = replace(adhoc_spec(Path("Probe Book.pdf"), len(pages)), footnote_style="circled", footnote_numbering="circled")
     md_dir = book_state(tmp_path) / spec.markdown_dir
     md_dir.mkdir(parents=True)
     for pno, page in enumerate(pages, start=1):
@@ -576,6 +577,7 @@ class BadMarkdownMachine(RuleBasedStateMachine):
         self.pages: list[list[str]] = []
         self.sentinels: list[str] = []
         self.inserted: set[str] = set()
+        self.circled_notes = False
 
     @initialize()
     def open_book(self) -> None:
@@ -621,6 +623,7 @@ class BadMarkdownMachine(RuleBasedStateMachine):
     def page_with_a_circled_note(self, call: str, body: str, n: int, in_math: bool) -> None:
         mark = chr(0x245F + n)
         called = f"$^{{{mark}}}$" if in_math else mark
+        self.circled_notes = True
         self.pages.append([f"The word {self._sentinel(call)}{called} has a note.", f"{mark} The note says {self._sentinel(body)}."])
 
     @rule(fw=st.lists(st.sampled_from(FULLWIDTH_MATH), min_size=1, max_size=6).map("".join))
@@ -630,6 +633,8 @@ class BadMarkdownMachine(RuleBasedStateMachine):
     def teardown(self) -> None:
         with tempfile.TemporaryDirectory() as out_dir:
             spec = adhoc_spec(Path("Probe Book.pdf"), len(self.pages))
+            if self.circled_notes:
+                spec = replace(spec, footnote_style="circled", footnote_numbering="circled")
             md_dir = book_state(Path(out_dir)) / spec.markdown_dir
             md_dir.mkdir(parents=True)
             for pno, page in enumerate(self.pages, start=1):
