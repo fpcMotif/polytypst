@@ -33,6 +33,7 @@ from .diagrams import (
     use_scan_diagrams,
 )
 from .page_cleaner import Figure, PageCleaner, has_circled_footnotes
+from .page_design import PageDesign, page_design
 from .presets import CompositionConfig, domain_profile, resolve_composition
 from .source_numbers import (
     _ROMAN_VALUES,
@@ -1162,6 +1163,7 @@ class MonographCompiler:
             domain=spec.domain,
             theorem_layout=spec.theorem_layout,
         )
+        self.design: PageDesign = page_design(self.composition)
         self._out_dir: Path = Path()
         self.cleaner: PageCleaner = PageCleaner.for_spec(spec)
         self._figure_labels: set[str] = set()
@@ -1174,23 +1176,15 @@ class MonographCompiler:
     def build_typst_preamble(self) -> str:
         if self.spec.typst_preamble:
             return self.spec.typst_preamble
-        pub = self.composition.publisher
         lang = self.composition.language
         dom = self.composition.domain
         font_expr = self.composition.typst_font_tuple()
-        hyph_str = "true" if lang.hyphenate else "false"
         eq_num_str = (
             "none"
             if dom.equation_numbering == "none"
             else f'"{dom.equation_numbering}"'
         )
-        rule_line = (
-            f"#v(-0.35em)\n      #line(length: 100%, stroke: {pub.header_rule_pt}pt + luma(120))"
-            if pub.header_rule_pt > 0
-            else ""
-        )
         heading_rules = self.composition.typst_heading_rules()
-        header_style = "normal" if self.composition.language.code in ("zh", "ja") else "italic"
         caption_separator = "#h(1em)" if self.composition.language.code in ("zh", "ja") else ": "
         qed_filled = (
             "#let qed-filled = { h(0.6em); box(width: 1fr, align(right)[$square.filled.medium$]) }\n"
@@ -1203,60 +1197,7 @@ class MonographCompiler:
   date: auto
 )
 
-#set page(
-  width: {pub.width_pt}pt,
-  height: {pub.height_pt}pt,
-  margin: (inside: {pub.margin_inside_pt}pt, outside: {pub.margin_outside_pt}pt, top: {pub.margin_top_pt}pt, bottom: {pub.margin_bottom_pt}pt),
-  header: context {{
-    let strip-fn(it) = if type(it) == content and it.has("children") {{ it.children.filter(c => c.func() not in (footnote, (context none).func())).join() }} else if type(it) == content and it.func() == footnote {{ [] }} else {{ it }}
-    let page-number = counter(page).get().first()
-    let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
-    if page-number > 4 and not on-chapter-page [
-      #if calc.odd(page-number) [
-        #let chaps = query(heading.where(level: 1).before(here()))
-        #let in-chapter = if chaps == () {{ heading.where(level: 2) }} else {{ heading.where(level: 2).after(chaps.last().location()) }}
-        #let secs = query(in-chapter).filter(h => h.location().page() <= here().page())
-        #let on-page = secs.filter(h => h.location().page() == here().page())
-        #let title = strip-fn(if on-page != () {{ on-page.first().body }} else if secs != () {{ secs.last().body }} else if chaps != () {{ chaps.last().body }} else {{ "{escape_quoted(self.spec.title)}" }})
-        #grid(
-          columns: (1fr, auto),
-          align(left)[#text(8.5pt, font: {font_expr}, style: "{header_style}")[#title]],
-          align(right)[#text(9.5pt, font: {font_expr})[#page-number]]
-        )
-      ] else [
-        #let chaps = query(heading.where(level: 1).before(here()))
-        #let title = strip-fn(if chaps != () {{ chaps.last().body }} else {{ "{escape_quoted(self.spec.title)}" }})
-        #grid(
-          columns: (auto, 1fr),
-          align(left)[#text(9.5pt, font: {font_expr})[#page-number]],
-          align(right)[#text(8.5pt, font: {font_expr}, style: "{header_style}")[#title]]
-        )
-      ]
-      {rule_line}
-    ]
-  }},
-  footer: context {{
-    let page-number = counter(page).get().first()
-    let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
-    if page-number > 4 and on-chapter-page {{ align(center, text(9.5pt, font: {font_expr})[#page-number]) }}
-  }}
-)
-
-#set text(
-  font: {font_expr},
-  size: {pub.body_size_pt:g}pt,
-  lang: "{lang.typst_lang}",
-  hyphenate: {hyph_str}
-)
-
-#set par(
-  leading: {lang.leading},
-  spacing: {lang.par_spacing},
-  justify: true,
-  first-line-indent: {lang.first_line_indent},
-  linebreaks: "optimized"
-)
-
+{self.design.typst(escape_quoted(self.spec.title))}
 #show math.equation: set text(font: ({", ".join(f'"{f}"' for f in dict.fromkeys((lang.math_font, *lang.font_stack[1:])))},))
 #show math.equation: set block(breakable: true)
 #set table.cell(breakable: false)
@@ -1267,8 +1208,6 @@ class MonographCompiler:
   show math.frac: set text(size: 0.85em)
   it
 }}
-#show math.equation.where(block: true): set block(above: 1.3em, below: 1.3em)
-#show math.equation.where(block: true): set par(leading: 0.88em)
 #let thm-break = block(above: 1.65em, below: 0pt, sticky: true)[]
 #let sub-break = block(above: 1.35em, below: 0pt, sticky: true)[]
 #let item-break = block(above: 1.0em, below: 0pt)[]
