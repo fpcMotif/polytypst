@@ -15,6 +15,8 @@ import pymupdf
 
 from .compiler.monograph import MonographSpec
 from .compiler.page_cleaner import CIRCLED_DIGITS
+from .compiler.page_design import PageDesign, page_design
+from .compiler.presets import resolve_composition
 
 Severity = Literal["ERROR", "WARNING"]
 TEXT_TIER = 1
@@ -87,6 +89,7 @@ class AuditSpec:
     footnote_marks: tuple[str, ...] = ()
     footnote_reset: str = "page"
     scan_line_breaks: bool = False
+    design: PageDesign | None = None
 
     def footnote_label(self, n: int) -> str:
         if n <= len(self.footnote_marks):
@@ -115,6 +118,9 @@ class AuditSpec:
             footnote_numbering=spec.footnote_numbering if spec.footnote_style else "",
             footnote_marks=spec.footnote_marks,
             footnote_reset=spec.footnote_reset,
+            design=None
+            if spec.typst_preamble
+            else page_design(resolve_composition(spec.publisher_key, spec.lang, domain=spec.domain)),
         )
 
 
@@ -338,6 +344,7 @@ class DocumentQualityChecker:
                 self.check_duplicate_headings,
                 self.check_contents_leaders,
                 self.check_hyphenated_headings,
+                self.check_page_design,
             ),
             STRUCTURE_TIER: (
                 self.check_chapter_structural_integrity,
@@ -1275,6 +1282,14 @@ class DocumentQualityChecker:
                     self._issue(
                         report, "WARNING", "HYPHENATED_HEADING", pno + 1, "A heading breaks a word with a hyphen", text[-40:]
                     )
+
+    def check_page_design(self, report: CheckReport) -> None:
+        """The pages against the book's `PageDesign`: trim, text block, line pitch, hyphen runs and word spaces."""
+        if self.spec.design is None:
+            return
+        skip = frozenset(range(1, self.spec.front_matter_pages + 1)) | self.spec.figure_pages
+        for f in self.spec.design.audit(self.doc, skip):
+            report.issues.append(QualityIssue(f.severity, f.rule, f.page, f.message, f.snippet))
 
     def check_contents_leaders(self, report: CheckReport) -> None:
         for pno in range(len(self.doc)):

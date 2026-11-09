@@ -6,7 +6,7 @@ import pytest
 
 from polytypst.books import book_by_key
 from polytypst.compiler.monograph import MonographCompiler, compile_typst
-from polytypst.compiler.page_design import Length, PageDesign, RunningHeads
+from polytypst.compiler.page_design import Finding, Length, PageDesign, RunningHeads
 
 DESIGN = PageDesign(
     width_pt=400,
@@ -35,13 +35,22 @@ DESIGN = PageDesign(
 )
 
 
-def _build(tmp_path: Path, design: PageDesign) -> pymupdf.Document:
-    paragraph = " ".join(["The quick brown fox jumps over the lazy dog."] * 14)
-    body = "= Opening\n\n" + "\n\n".join([paragraph] * 12) + "\n"
+PARAGRAPH = " ".join(["The quick brown fox jumps over the lazy dog."] * 14)
+
+
+def _build(tmp_path: Path, design: PageDesign, body: str = "") -> pymupdf.Document:
+    body = body or "= Opening\n\n" + "\n\n".join([PARAGRAPH] * 12) + "\n"
     typ = tmp_path / "d.typ"
     typ.write_text(design.typst("Probe") + body, encoding="utf-8")
     compile_typst(typ, tmp_path / "d.pdf")
     return pymupdf.open(tmp_path / "d.pdf")
+
+
+def _rules(findings: list[Finding]) -> dict[str, list[int]]:
+    out: dict[str, list[int]] = {}
+    for f in findings:
+        out.setdefault(f.rule, []).append(f.page)
+    return out
 
 
 def _body_words(page: pymupdf.Page, design: PageDesign) -> list[tuple[float, ...]]:
@@ -103,3 +112,64 @@ def test_a_book_preamble_carries_its_design(key: str) -> None:
     assert f"width: {design.width_pt:g}pt" in preamble
     assert f"size: {design.body_size_pt:g}pt" in preamble
     assert f"leading: {design.leading}" in preamble
+
+
+def test_pages_set_from_a_design_pass_its_audit(tmp_path: Path) -> None:
+    assert DESIGN.audit(_build(tmp_path, DESIGN)) == []
+
+
+def test_the_audit_finds_a_page_of_another_size(tmp_path: Path) -> None:
+    doc = _build(tmp_path, DESIGN)
+    assert set(_rules(replace(DESIGN, width_pt=420).audit(doc))["PAGE_SIZE"]) == set(
+        range(1, len(doc) + 1)
+    )
+
+
+def test_the_audit_finds_a_text_block_off_its_margins(tmp_path: Path) -> None:
+    doc = _build(tmp_path, DESIGN)
+    rules = _rules(
+        replace(DESIGN, margin_inside_pt=50, margin_outside_pt=80).audit(doc)
+    )
+    assert set(rules["TEXT_BLOCK_OFFSET"]) == set(range(1, len(doc) + 1))
+    rules = _rules(replace(DESIGN, margin_outside_pt=80).audit(doc))
+    assert rules.get("TEXT_BLOCK_OFFSET", []) == [2, 4][: len(doc) // 2]
+    assert set(rules["TEXT_BLOCK_WIDTH"]) == set(range(1, len(doc) + 1, 2))
+
+
+def test_the_audit_finds_a_pitch_outside_the_bar_and_a_page_set_on_another_pitch(
+    tmp_path: Path,
+) -> None:
+    loose = replace(DESIGN, leading=Length(1.2, "em"))
+    assert _rules(loose.audit(_build(tmp_path, loose)))["LINE_PITCH"] == [1]
+    body = (
+        "\n\n".join([PARAGRAPH] * 4)
+        + "\n#pagebreak()\n#set par(leading: 0.75em)\n"
+        + PARAGRAPH * 2
+        + "\n"
+    )
+    assert _rules(DESIGN.audit(_build(tmp_path, DESIGN, body))) == {
+        "UNEVEN_LINE_PITCH": [3]
+    }
+
+
+def _hyphenated_lines(n: int) -> str:
+    line = (
+        "#set par(justify: false)\n"
+        + "a short line ends in a hyphen inter-#linebreak()\n" * n
+    )
+    return line + "and the paragraph ends.\n"
+
+
+@pytest.mark.parametrize(("lines", "found"), [(3, {}), (4, {"HYPHEN_RUN": [1]})])
+def test_the_audit_allows_three_hyphens_in_a_row_and_no_more(
+    tmp_path: Path, lines: int, found: dict
+) -> None:
+    assert (
+        _rules(DESIGN.audit(_build(tmp_path, DESIGN, _hyphenated_lines(lines))))
+        == found
+    )
+
+
+def test_the_audit_finds_word_spaces_wider_than_half_an_em(tmp_path: Path) -> None:
+    body = "#set text(spacing: 250%)\n" + PARAGRAPH + "\n"
+    assert _rules(DESIGN.audit(_build(tmp_path, DESIGN, body))) == {"LOOSE_LINE": [1]}

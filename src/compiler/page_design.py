@@ -1,10 +1,15 @@
 """The page design of a rebuilt book: trim, margins, body type, running heads and display skips.
 
-One `PageDesign` holds each value once. `typst()` writes the page, text and paragraph rules from it.
+One `PageDesign` holds each value once. `typst()` writes the page, text and paragraph rules from it,
+and `audit()` measures a compiled PDF against the same values.
 """
 
 import re
+import statistics
 from dataclasses import dataclass
+from itertools import pairwise
+
+import pymupdf
 
 from .presets import CompositionConfig
 
@@ -58,6 +63,7 @@ class PageDesign:
     display_below: Length
     display_leading: Length
     running_heads: RunningHeads
+    max_hyphen_run: int = 3
 
     def __post_init__(self) -> None:
         if self.text_width_pt <= 0 or self.text_height_pt <= 0:
@@ -74,6 +80,26 @@ class PageDesign:
     @property
     def text_height_pt(self) -> float:
         return self.height_pt - self.margin_top_pt - self.margin_bottom_pt
+
+    @property
+    def pitch_range(self) -> tuple[float, float]:
+        """The line pitch, as a multiple of the body size, that the publisher bar allows."""
+        return (1.4, 1.8) if self.lang in ("zh", "ja") else (1.15, 1.5)
+
+    def audit(
+        self, doc: pymupdf.Document, skip_pages: frozenset[int] = frozenset()
+    ) -> list[Finding]:
+        """What on the pages of `doc` departs from this design; `skip_pages` are 1-based page numbers."""
+        pages = [
+            _Page.read(self, page) for page in doc if page.number + 1 not in skip_pages
+        ]
+        return [
+            *_page_size(self, pages),
+            *_text_block_edges(self, pages),
+            *_line_pitch(self, pages),
+            *_hyphen_runs(self, pages),
+            *_loose_lines(self, pages),
+        ]
 
     def typst(self, title: str) -> str:
         """The `page`, `text`, `par` and display rules; `title` heads pages before the first chapter."""
@@ -175,3 +201,197 @@ def page_design(composition: CompositionConfig) -> PageDesign:
             first_page=5,
         ),
     )
+
+
+@dataclass(frozen=True)
+class Finding:
+    severity: str
+    rule: str
+    page: int
+    message: str
+    snippet: str = ""
+
+
+@dataclass(frozen=True)
+class _Line:
+    block: int
+    x0: float
+    x1: float
+    baseline: float
+    text: str
+    words: tuple[tuple[float, float], ...]
+
+
+@dataclass(frozen=True)
+class _Page:
+    number: int
+    width: float
+    height: float
+    lines: tuple[_Line, ...]
+
+    @classmethod
+    def read(cls, design: PageDesign, page: pymupdf.Page) -> _Page:
+        """The body lines of `page`: text at the body size, inside the text block's height, with no math font."""
+        top, foot = design.margin_top_pt, page.rect.height - design.margin_bottom_pt
+        words = page.get_text("words")
+        lines = []
+        for b, block in enumerate(page.get_text("dict")["blocks"]):
+            for line in block.get("lines", []):
+                spans = [s for s in line["spans"] if s["text"].strip()]
+                if not spans or any(
+                    "Math" in s["font"] or abs(s["size"] - design.body_size_pt) > 0.35
+                    for s in spans
+                ):
+                    continue
+                x0, y0, x1, y1 = line["bbox"]
+                if not top <= spans[0]["origin"][1] <= foot:
+                    continue
+                text = "".join(s["text"] for s in spans).strip()
+                inked = tuple(
+                    sorted(
+                        (w[0], w[2])
+                        for w in words
+                        if y0 <= (w[1] + w[3]) / 2 <= y1 and x0 - 1 <= w[0] <= x1
+                    )
+                )
+                if inked:
+                    x0, x1 = inked[0][0], inked[-1][1]
+                lines.append(_Line(b, x0, x1, spans[0]["origin"][1], text, inked))
+        return cls(page.number + 1, page.rect.width, page.rect.height, tuple(lines))
+
+
+def _page_size(design: PageDesign, pages: list[_Page]) -> list[Finding]:
+    trims = {
+        (round(design.width_pt), round(design.height_pt)),
+        (round(design.height_pt), round(design.width_pt)),
+    }
+    return [
+        Finding(
+            "ERROR",
+            "PAGE_SIZE",
+            p.number,
+            f"Page is {p.width:.0f} by {p.height:.0f} pt, the design is {design.width_pt:g} by {design.height_pt:g} pt",
+        )
+        for p in pages
+        if (round(p.width), round(p.height)) not in trims
+    ]
+
+
+def _text_block_edges(design: PageDesign, pages: list[_Page]) -> list[Finding]:
+    out = []
+    for p in pages:
+        wide = [ln for ln in p.lines if ln.x1 - ln.x0 > 0.8 * design.text_width_pt]
+        if len(wide) < 5:
+            continue
+        left = statistics.quantiles([ln.x0 for ln in wide], n=10, method="inclusive")[0]
+        expected = design.margin_inside_pt if p.number % 2 else design.margin_outside_pt
+        if abs(left - expected) > 2:
+            out.append(
+                Finding(
+                    "WARNING",
+                    "TEXT_BLOCK_OFFSET",
+                    p.number,
+                    f"Text starts at {left:.1f} pt, the design puts the {'inside' if p.number % 2 else 'outside'} margin at {expected:g} pt",
+                )
+            )
+            continue
+        ends = [ln.x1 for ln in wide if ln.text[-1:].isalnum()]
+        if len(ends) < 2:
+            continue
+        right = statistics.quantiles(ends, n=10, method="inclusive")[-1]
+        if abs(right - expected - design.text_width_pt) > 2:
+            out.append(
+                Finding(
+                    "WARNING",
+                    "TEXT_BLOCK_WIDTH",
+                    p.number,
+                    f"Justified lines end at {right:.1f} pt, the design ends them at {expected + design.text_width_pt:g} pt",
+                )
+            )
+    return out
+
+
+def _pitches(page: _Page, size: float) -> list[float]:
+    return [
+        round(b.baseline - a.baseline, 1)
+        for a, b in pairwise(page.lines)
+        if 0 < b.baseline - a.baseline < 2.5 * size and a.x0 < b.x1 and b.x0 < a.x1
+    ]
+
+
+def _line_pitch(design: PageDesign, pages: list[_Page]) -> list[Finding]:
+    size = design.body_size_pt
+    per_page = {p.number: _pitches(p, size) for p in pages}
+    every = [d for ds in per_page.values() for d in ds]
+    if len(every) < 20:
+        return []
+    book = statistics.median(every)
+    low, high = design.pitch_range
+    out = []
+    if not low <= book / size <= high:
+        first = next(n for n, ds in per_page.items() if ds)
+        out.append(
+            Finding(
+                "ERROR",
+                "LINE_PITCH",
+                first,
+                f"Body lines are {book:.1f} pt apart, {book / size:.2f} times the {size:g} pt body; the bar allows {low:g} to {high:g}",
+            )
+        )
+    for number, ds in per_page.items():
+        if len(ds) >= 8 and abs(statistics.median(ds) - book) > 0.25:
+            out.append(
+                Finding(
+                    "WARNING",
+                    "UNEVEN_LINE_PITCH",
+                    number,
+                    f"Body lines are {statistics.median(ds):.1f} pt apart here and {book:.1f} pt in the book",
+                )
+            )
+    return out
+
+
+def _hyphen_runs(design: PageDesign, pages: list[_Page]) -> list[Finding]:
+    out = []
+    for p in pages:
+        run: list[_Line] = []
+        for line in p.lines:
+            hyphenated = line.text[-1:] in ("-", "‐", "­") and line.text[-2:-1].isalpha()
+            same_paragraph = not run or run[-1].block == line.block
+            run = ([*run, line] if same_paragraph else [line]) if hyphenated else []
+            if len(run) == design.max_hyphen_run + 1:
+                out.append(
+                    Finding(
+                        "WARNING",
+                        "HYPHEN_RUN",
+                        p.number,
+                        f"{len(run)} lines in a row end in a hyphen; the design allows {design.max_hyphen_run}",
+                        run[0].text[-40:],
+                    )
+                )
+    return out
+
+
+def _loose_lines(design: PageDesign, pages: list[_Page]) -> list[Finding]:
+    """Justified lines whose median word space passes M/2. The last line of a block is ragged, so it is skipped."""
+    out = []
+    em = design.body_size_pt
+    for p in pages:
+        loose = []
+        for a, b in pairwise(p.lines):
+            if a.block != b.block or len(a.words) < 4:
+                continue
+            gaps = [(right[0] - left[1]) / em for left, right in pairwise(a.words)]
+            if statistics.median(gaps) > 0.5:
+                loose.append(a)
+        if loose:
+            out.append(
+                Finding(
+                    "WARNING",
+                    "LOOSE_LINE",
+                    p.number,
+                    f"{len(loose)} justified line(s) set their word spaces wider than 0.5 em",
+                    loose[0].text[:60],
+                )
+            )
+    return out
