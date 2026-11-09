@@ -47,10 +47,12 @@ web/env.d.ts
 !src/**/*.typst
 !books/**/*.typ
 !books/**/*.typst
+!.agents/skills/**/*.typ
 *.tex
 *.aux
 !src/**/*.tex
 !books/**/*.tex
+!.agents/skills/**/*.tex
 
 # Large book data and local experiments
 shitouji/

@@ -1,0 +1,118 @@
+% Book frame for LaTeX (XeTeX through tectonic). Compile:
+%   tectonic -X compile book.tex
+% The values match book.typ's math profile: 10/13 on a 155 x 235 mm trim.
+% XeTeX gives microtype protrusion only. Font expansion needs pdfTeX or LuaTeX.
+\documentclass[10pt,twoside,openright]{memoir}
+
+\usepackage{amsmath,amsthm}
+\usepackage{unicode-math}
+% Load fonts by file name from the TeX bundle. macOS ships STIX Two Text as a
+% variable font, and XeTeX finds no bold in it.
+\setmainfont{STIXTwoText}[Extension=.otf, UprightFont=*-Regular, BoldFont=*-Bold,
+  ItalicFont=*-Italic, BoldItalicFont=*-BoldItalic, Numbers=Lining]
+\setmathfont{STIXTwoMath-Regular.otf}
+\usepackage[protrusion=true]{microtype}
+\usepackage{booktabs}
+\usepackage[english]{babel}
+
+% Frame: 30 pc measure, a whole number of 13 pt lines, margins 2:3 inside to outside.
+\setstocksize{235mm}{155mm}
+\settrimmedsize{235mm}{155mm}{*}
+\linespread{1.0833}% memoir's 10 pt class sets 12 pt; 12 x 1.0833 = 13 pt
+\settypeblocksize{39\onelineskip}{25.5pc}{*}
+\setlrmargins{*}{*}{1.5}
+\setulmargins{*}{*}{1.5}
+\setheadfoot{\baselineskip}{2\baselineskip}
+\setheaderspaces{*}{\baselineskip}{*}
+\setmarginnotes{1em}{4em}{\baselineskip}
+\checkandfixthelayout[lines]
+\flushbottom
+
+% Colour: Knuth-Plass limits, no widows or orphans, at most two hyphens in a row.
+\tolerance=200
+\emergencystretch=1.5em
+\widowpenalty=10000
+\clubpenalty=10000
+\doublehyphendemerits=10000
+\finalhyphendemerits=5000
+\brokenpenalty=10000
+
+% Displays: plain TeX glue scaled to 13 pt leading.
+\AtBeginDocument{%
+  \setlength{\abovedisplayskip}{13pt plus 3pt minus 9pt}%
+  \setlength{\belowdisplayskip}{13pt plus 3pt minus 9pt}%
+  \setlength{\abovedisplayshortskip}{0pt plus 3pt}%
+  \setlength{\belowdisplayshortskip}{7pt plus 3pt minus 4pt}%
+}
+\numberwithin{equation}{chapter}
+
+% Chapter opening: recto, six-line sink, no running head, folio at the foot.
+\makechapterstyle{sink}{%
+  \renewcommand{\chapterheadstart}{\vspace*{0pt}}
+  \renewcommand{\chapnamefont}{\normalsize\scshape\addfontfeatures{LetterSpace=8}}
+  \renewcommand{\chapnumfont}{\chapnamefont}
+  \renewcommand{\printchaptername}{\chapnamefont\MakeLowercase{\chaptername}}
+  \renewcommand{\afterchapternum}{\par\nobreak}
+  \renewcommand{\chaptitlefont}{\normalfont\LARGE}
+  \renewcommand{\printchaptertitle}[1]{\chaptitlefont ##1}
+  \renewcommand{\afterchaptertitle}{\par\nobreak\vspace{3\baselineskip}}
+}
+\chapterstyle{sink}
+\aliaspagestyle{chapter}{plain}
+
+% Running heads: verso chapter, recto section, letterspaced small caps, folio outside.
+\makepagestyle{book}
+\makeevenhead{book}{\thepage}{\small\scshape\addfontfeatures{LetterSpace=6}\leftmark}{}
+\makeoddhead{book}{}{\small\scshape\addfontfeatures{LetterSpace=6}\rightmark}{\thepage}
+\makepsmarks{book}{%
+  \createmark{chapter}{left}{nonumber}{}{}
+  \createmark{section}{right}{nonumber}{}{}
+}
+\pagestyle{book}
+
+\setsecheadstyle{\normalsize\bfseries}
+\setbeforesecskip{-\baselineskip}
+\setaftersecskip{1sp}
+\setsubsecheadstyle{\normalsize\itshape}
+\setbeforesubsecskip{-\baselineskip}
+\setaftersubsecskip{1sp}
+
+% Theorems: plain italic, definitions and remarks upright, an open square for QED.
+\newtheorem{theorem}{Theorem}[chapter]
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% Reprint marker: the source page number in the outer margin (CMOS 1.4).
+\newcommand{\origpage}[1]{\marginpar{\footnotesize\addfontfeatures{Numbers=Lining}[#1]}}
+
+\begin{document}
+\chapter{Measures and Their Spaces}
+\section{Outer measure}
+For a set $E\subset\mathbb{R}$ we write $m^*(E)$ for its outer measure,\origpage{142}
+and the fraction $(a+b)/(c+d)$ stays on one line in running text.
+Lebesgue's construction starts from intervals, whose length is the difference of their end points.
+\begin{equation}
+  m^*(E) = \inf\Bigl\{\sum_{k=1}^\infty \ell(I_k) : E\subset\bigcup_{k=1}^\infty I_k\Bigr\}
+\end{equation}
+\begin{theorem}[Carathéodory]
+The family of $m^*$-measurable sets is a $\sigma$-algebra, and $m^*$ restricted to it is a measure.
+\end{theorem}
+\begin{proof}
+Take $A$ and $B$ measurable. The sum splits over $A$ and its complement.
+\end{proof}
+\begin{table}[ht]
+  \centering
+  \caption{Outer measure of three sets}
+  \begin{tabular}{lrr}
+    \toprule
+    Set & $m^*$ & Null \\
+    \midrule
+    Cantor set & $0$ & yes \\
+    $\mathbb{Q}\cap[0,1]$ & $0$ & yes \\
+    $[0,1]$ & $1$ & no \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+\end{document}
