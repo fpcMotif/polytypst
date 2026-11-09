@@ -101,6 +101,15 @@ class PageDesign:
             *_loose_lines(self, pages),
         ]
 
+    def chapter_folio_footer(self) -> str:
+        """The page footer: the folio, centred, on each page that opens a chapter."""
+        folio = f"text({self.running_heads.folio_size_pt:g}pt, font: {self.font})[#page-number]"
+        return f"""context {{
+    let page-number = counter(page).get().first()
+    let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
+    if on-chapter-page {{ align(center, {folio}) }}
+  }}"""
+
     def typst(self, title: str) -> str:
         """The `page`, `text`, `par` and display rules; `title` heads pages before the first chapter."""
         heads = self.running_heads
@@ -144,11 +153,7 @@ class PageDesign:
       {rule_line}
     ]
   }},
-  footer: context {{
-    let page-number = counter(page).get().first()
-    let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
-    if page-number > {heads.first_page - 1} and on-chapter-page {{ align(center, {folio[1:]}) }}
-  }}
+  footer: {self.chapter_folio_footer()}
 )
 
 #set text(

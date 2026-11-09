@@ -5,6 +5,7 @@ import pymupdf
 import pytest
 
 from polytypst.checker import LAYOUT_TIER, DocumentQualityChecker
+from polytypst.compiler import chapter_assembly
 from polytypst.compiler.chapter_assembly import is_unnumbered_chapter
 from polytypst.compiler.monograph import (
     MonographCompiler,
@@ -174,6 +175,49 @@ def test_a_chapter_opening_page_has_a_folio_at_the_foot_and_no_running_head(tmp_
         foot = " ".join(b[4].strip() for b in page.get_text("blocks") if b[1] > 0.9 * height)
         assert head.strip() == ""
         assert foot == str(page.number + 1)
+
+
+@pytest.mark.parametrize(
+    ("key", "number"),
+    [("riemann", 1), ("riemann", 2), ("riemann", 4), ("grothendieck", 3), ("grothendieck", 4)],
+)
+def test_a_chapter_whose_scan_prints_no_number_gets_none(key: str, number: int) -> None:
+    spec = book_by_key(key).spec
+    chap = next(c for c in spec.chapters if c.number == number)
+    label = chap.label if chap.label is not None else spec.chapter_label.format(number=number)
+    heading = chapter_assembly.chapter_heading(spec, number, chap.title, label)
+    assert 'numbering: "1"' not in heading, heading
+    assert not heading.startswith(f"= {number} "), heading
+
+
+def _chapter_opening_feet(tmp_path: Path, preamble: str, pages_before: int) -> list[tuple[str, int]]:
+    filler = "\n\n".join(f"Filler paragraph {i} of ordinary prose for the page." for i in range(100))
+    body = "#pagebreak()\n" * pages_before + f"= First Chapter\n\n{filler}\n\n#pagebreak()\n= Second Chapter\n\n{filler}\n"
+    typ = tmp_path / "o.typ"
+    typ.write_text(preamble + body, encoding="utf-8")
+    pdf = tmp_path / "o.pdf"
+    compile_typst(typ, pdf)
+    feet = []
+    for page in pymupdf.open(pdf):
+        text = page.get_text()
+        if "Chapter" in text and "Filler paragraph 0 " in text:
+            foot = " ".join(b[4].strip() for b in page.get_text("blocks") if b[1] > 0.9 * page.rect.height)
+            feet.append((foot, page.number + 1))
+    return feet
+
+
+def test_a_chapter_opening_on_page_three_has_a_folio_at_the_foot(tmp_path: Path) -> None:
+    feet = _chapter_opening_feet(tmp_path, MonographCompiler(KODAIRA_SPEC).build_typst_preamble(), pages_before=2)
+    assert len(feet) == 2
+    assert all(foot == str(number) for foot, number in feet), feet
+
+
+def test_a_book_with_its_own_preamble_still_has_a_folio_on_chapter_opening_pages(tmp_path: Path) -> None:
+    ahlfors = book_by_key("ahlfors").spec
+    assert ahlfors.typst_preamble
+    feet = _chapter_opening_feet(tmp_path, MonographCompiler(ahlfors).build_typst_preamble(), pages_before=4)
+    assert len(feet) == 2
+    assert all(foot == str(number) for foot, number in feet), feet
 
 
 def test_a_semicolon_after_italic_or_bold_text_still_prints(tmp_path: Path) -> None:

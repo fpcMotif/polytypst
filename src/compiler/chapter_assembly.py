@@ -78,7 +78,7 @@ def assemble_chapters(
         clean_title = _bare_title(chap.title) if spec.theorem_layout else chap.title
         md_heading = (
             f"\n# {clean_title}\n"
-            if spec.cross_references or is_unnumbered_chapter(chap.title, spec.unnumbered_titles)
+            if spec.cross_references or is_unnumbered_chapter(chap.title, spec.unnumbered_titles) or OWN_LABEL_RE.match(chap.title)
             else f"\n# Chapter {chap.number}: {chap.title}\n"
         )
         for pno in range(chap.start_page, chap.end_page + 1):
@@ -105,22 +105,7 @@ def assemble_chapters(
         md_sections.append(unmark_markdown(f"{md_heading}\n\n" + (mark_chapter_opening(md_body) if opens else md_body).strip()))
         title = clean_margin_and_inline_math(chap.title)
         label = chap.label if chap.label is not None else spec.chapter_label.format(number=chap.number)
-        if (
-            spec.cross_references
-            and chap.number > 0
-            and not is_unnumbered_chapter(title, spec.unnumbered_titles)
-            and (label == str(chap.number) or (not label and spec.chapter_openings))
-        ):
-            heading = (
-                f"#counter(heading).update(({chap.number - 1},))\n"
-                f'#heading(level: 1, numbering: "1")[{title}] <sec-{chap.number}>'
-            )
-        elif label:
-            heading = typst_chapter_heading(title, label, None)
-        elif spec.chapter_label or is_unnumbered_chapter(title, spec.unnumbered_titles):
-            heading = f"= {title}"
-        else:
-            heading = "= " + spec.chapter_heading.format(number=chap.number, title=title)
+        heading = chapter_heading(spec, chap.number, title, label)
         stitched = compiler.stitch_chapter(pages_data, fig_dir)
         formatted = compiler.format_typst(mark_chapter_opening(stitched) if opens else stitched)
         if spec.theorem_layout:
@@ -274,13 +259,39 @@ UNNUMBERED_CHAPTER_PREFIXES = (
     "Author's Preface",
     "Translator's Preface",
     "Appendix",
+    "Appendice",
     "Bibliography",
+    "Bibliographie",
+    "Glossary",
     "References",
     "Solutions",
     "Historical Note",
     "Contents",
     "Table of Contents",
 )
+
+
+OWN_LABEL_RE = re.compile(r"^(?:Part|PART|Chapter|CHAPTER|Book|BOOK)\s+(?:[IVXLC]+|\d+)\b")
+
+
+def chapter_heading(spec: MonographSpec, number: int, title: str, label: str) -> str:
+    """The Typst heading that opens chapter `number`; a title that names its own part or chapter gets no second number."""
+    if (
+        spec.cross_references
+        and number > 0
+        and not is_unnumbered_chapter(title, spec.unnumbered_titles)
+        and (label == str(number) or (not label and spec.chapter_openings))
+    ):
+        numbering = "none" if OWN_LABEL_RE.match(title) else '"1"'
+        return (
+            f"#counter(heading).update(({number - 1},))\n"
+            f"#heading(level: 1, numbering: {numbering})[{title}] <sec-{number}>"
+        )
+    if label:
+        return typst_chapter_heading(title, label, None)
+    if spec.chapter_label or is_unnumbered_chapter(title, spec.unnumbered_titles) or OWN_LABEL_RE.match(title):
+        return f"= {title}"
+    return "= " + spec.chapter_heading.format(number=number, title=title)
 
 
 def typst_chapter_heading(title: str, label: str, sec_label: str | None) -> str:

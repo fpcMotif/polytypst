@@ -920,7 +920,9 @@ class MonographCompiler:
 
     def build_typst_preamble(self) -> str:
         if self.spec.typst_preamble:
-            return self.spec.typst_preamble
+            if re.search(r"footer:(?!\s*none\b)", self.spec.typst_preamble):
+                return self.spec.typst_preamble
+            return f"{self.spec.typst_preamble}\n#set page(footer: {self.design.chapter_folio_footer()})\n"
         lang = self.composition.language
         dom = self.composition.domain
         font_expr = self.composition.typst_font_tuple()
