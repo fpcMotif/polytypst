@@ -6,6 +6,7 @@ series = ''
 year = 1962
 publisher_key = 'springer'
 lang = 'fr'
+statement_style = 'upright'
 domain = 'math'
 chapters = [
   { number = 0, title = 'Commentaires', start_page = 3, end_page = 13, label = 'Complément' },

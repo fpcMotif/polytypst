@@ -6,6 +6,7 @@ series = 'Lecture Notes in Mathematics 569'
 year = 1977
 publisher_key = 'springer'
 lang = 'fr'
+statement_style = 'upright'
 domain = 'math'
 chapters = [
   { number = 0, title = 'Introduction', start_page = 3, end_page = 4, label = 'Introduction' },

@@ -1,5 +1,6 @@
 slug = 'fga_explained_barbara_fantechi_lothar_gottsche'
 title = "Fundamental Algebraic Geometry: Grothendieck's FGA Explained"
+statement_style = 'upright'
 author = 'Barbara Fantechi, Lothar Göttsche, Luc Illusie, Steven L. Kleiman, Nitin Nitsure, and Angelo Vistoli'
 publisher = 'American Mathematical Society'
 series = 'Mathematical Surveys and Monographs, Volume 123'

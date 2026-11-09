@@ -1,5 +1,6 @@
 slug = 'klein_development_19th_century'
 title = 'Development of Mathematics in the 19th Century'
+statement_style = 'upright'
 author = 'Felix Klein'
 translator = 'M. Ackerman'
 editor = 'Robert Hermann'

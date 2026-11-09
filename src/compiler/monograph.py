@@ -148,6 +148,7 @@ class MonographSpec:
     drop_line_regexes: tuple[str, ...] = ()
     normalize_headings: bool = True
     theorem_heads_upper: bool = False
+    statement_style: str = ""
     theorem_layout: bool = False
     merge_continued_tables: bool = False
     chapter_openings: bool = False

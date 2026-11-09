@@ -9,6 +9,7 @@ from ..vision.figure_extractor import (
     ExtractedFigure,
     manifest_figures,
 )
+from .statements import style_statements
 
 if TYPE_CHECKING:
     from .monograph import MonographSpec
@@ -407,18 +408,6 @@ THEOREM_KINDS = (
     "Axiom",
     "Fact",
 )
-ITALIC_THEOREM_KINDS = frozenset(
-    {
-        "theorem",
-        "lemma",
-        "corollary",
-        "proposition",
-        "conjecture",
-        "axiom",
-        "claim",
-        "fact",
-    }
-)
 THEOREM_HEAD_RE = re.compile(
     rf"^(?P<open>\*\*)?(?P<kind>{'|'.join(THEOREM_KINDS)})\s+"
     r"(?P<num>[0-9A-Z]+(?:\.\d+)*[a-z]?)(?P<dot>\.)?(?P<close>\*\*)?"
@@ -578,9 +567,6 @@ def normalize_run_in(lt: str, from_heading: bool = False, upper: bool = False) -
         kind = m["kind"].upper() if upper else m["kind"].capitalize()
         note = f" {m['note']}" if m["note"] else ""
         r = (m["rest"] or "").strip()
-        if r and m["kind"].lower() in ITALIC_THEOREM_KINDS and "*" not in r:
-            m_item = re.match(r"^(\([0-9ivx]+\))\s+(.+)$", r)
-            r = f"{m_item.group(1)} *{m_item.group(2)}*" if m_item else f"*{r}*"
         rest = f" {r}" if r else ""
         return f"**{kind} {m['num']}.**{note}{rest}"
     m = PROOF_HEAD_RE.match(lt)
@@ -1013,6 +999,7 @@ class PageCleaner:
                 txt = m.group(0).replace("~", "～")
                 return re.sub(r"(?<=[，。；：\s（\[])\((\d{1,2})\)(?=[\s\u4e00-\u9fff，。；：])", r"（\1）", txt)
             s = re.sub(r"\$\$[\s\S]*?\$\$|(?<!\\)\$(?:[^$\n\\]|\\.)+\$|[^$]+", _replace_cjk_prose, s)
+        s = style_statements(s, spec.statement_style or ("upright" if spec.lang in ("zh", "ja") else "italic"))
         for pattern, repl in spec.page_fixups.get(pno, ()):
             rep_arg = (
                 repl if re.search(r"\\[1-9]|\\g<", repl) else (lambda _, r=repl: r)

@@ -1,6 +1,7 @@
 slug = "spivak_vol1"
 name = 'spivak-geometry1'
 title = "A Comprehensive Introduction to Differential Geometry, Vol. 1, 3rd Edition"
+statement_style = 'upright'
 author = "Michael Spivak"
 domain = "math"
 source_pdf = "A Comprehensive Introduction to Differential Geometry, Vol.1, 3rd Edition (Michael Spivak).pdf"
