@@ -90,7 +90,12 @@ def style_statements(text: str, style: str) -> str:
         ):
             continue
         place = _place(item["n"]) if item else None
-        if place and (expected[0] in ("", place[0])) and place[1] == expected[1]:
+        if (
+            item
+            and place
+            and (expected[0] in ("", place[0]))
+            and place[1] == expected[1]
+        ):
             lines[i] = f"{item['label']} {_wrap(item['rest'], mark)}"
             expected = (place[0], place[1] + 1)
             continue
