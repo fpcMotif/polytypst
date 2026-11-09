@@ -42,6 +42,7 @@ pre_math_rewrites = [
 ]
 pdf_name_markers = ['development of mathematics', 'felix klein', 'klein']
 pdf_page_count = 634
+source_pdf = 'Development of Mathematics in the 19th Century (Felix Klein (Author) etc.).pdf'
 
 [sections]
 "0.1" = [10, 'Introduction']

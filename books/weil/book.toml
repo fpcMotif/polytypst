@@ -1,0 +1,12 @@
+slug = "weil"
+title = "Basic Number Theory"
+author = "André Weil"
+domain = "math"
+publisher = "Springer-Verlag"
+publisher_key = "springer"
+source_pdf = "Weil - Basic number theory (Springer).pdf"
+pdf_page_count = 338
+cross_references = true
+chapters = [
+  { number = 1, title = "Basic Number Theory", start_page = 1, end_page = 338 },
+]

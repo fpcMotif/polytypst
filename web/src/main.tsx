@@ -26,12 +26,8 @@ for (const href of [
   document.head.append(link);
 }
 
-interface ViteEnvShape {
-  VITE_CONVEX_URL?: string;
-}
-
-const metaEnv = (import.meta as unknown as { env?: ViteEnvShape }).env;
-const convexUrl = metaEnv?.VITE_CONVEX_URL || "https://valiant-octopus-717.convex.cloud";
+const convexUrl = import.meta.env.VITE_CONVEX_URL;
+if (!convexUrl) throw new Error("VITE_CONVEX_URL is not set; see web/.env.schema");
 
 const convex = new ConvexReactClient(convexUrl);
 const rootElement = document.getElementById("root");

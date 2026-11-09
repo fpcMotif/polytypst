@@ -43,6 +43,12 @@ def write_pdf(path: Path, pages: list[str], x: float = 40) -> Path:
     return path
 
 
+def test_scan_pages_from_1000_on_are_read(tmp_path: Path) -> None:
+    ocr = write_ocr(tmp_path)
+    (ocr / "p1000.json").write_text((ocr / "p002.json").read_text(encoding="utf-8"), encoding="utf-8")
+    assert 1000 in scan_grams(ocr)
+
+
 def test_the_running_head_band_of_a_scan_page_is_not_content(tmp_path: Path) -> None:
     grams = scan_grams(write_ocr(tmp_path))
     assert not any("Running" in g or "Head" in g for g in grams[1])

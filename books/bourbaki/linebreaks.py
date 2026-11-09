@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
-from polytypst.compiler.typst_math import REPO_FONTS_DIR as FONTS
 from polytypst.parity.source import SourcePage, read_source_page, source_ocr_dir
+from polytypst.paths import FONTS
 
 BODY_TOP, BODY_BOTTOM = 60.0, 58.0
 WINDOW = 60

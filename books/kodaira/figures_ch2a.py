@@ -352,7 +352,7 @@ def fig_2_5() -> str:
             math_label(88.0, 152.0, "U", sup="(+)"),
             math_label(244.0, 82.0, "U", sup="(−)"),
             math_label(154.0, 126.0, "θ"),
-            math_label(203.0, 148.0, "γ", tail="(t₀)"),
+            math_label(203.0, 148.0, "γ(t", sub="0", tail=")"),
             math_label(134.0, 208.0, "λ", color="#047857"),
         ]
     )
@@ -1004,11 +1004,11 @@ def fig_2_16() -> str:
     )
     labels = "\n".join(
         [
-            math_label(172.0, 166.0, "Γ", sub="1", tail="(K₁)"),
-            math_label(172.0, 250.0, "Γ", sub="2", tail="(K₂)"),
-            math_label(88.0, 140.0, "Γ", sub="3", tail="(K₃)"),
-            math_label(202.0, 84.0, "Γ", sub="4", tail="(K₄)"),
-            math_label(256.0, 188.0, "Γ", sub="5", tail="(K₅)"),
+            math_label(172.0, 166.0, "Γ", sub="1", tail='(K<tspan font-size="10.5px" dy="3.2">1</tspan><tspan dy="-3.2">)</tspan>'),
+            math_label(172.0, 250.0, "Γ", sub="2", tail='(K<tspan font-size="10.5px" dy="3.2">2</tspan><tspan dy="-3.2">)</tspan>'),
+            math_label(88.0, 140.0, "Γ", sub="3", tail='(K<tspan font-size="10.5px" dy="3.2">3</tspan><tspan dy="-3.2">)</tspan>'),
+            math_label(202.0, 84.0, "Γ", sub="4", tail='(K<tspan font-size="10.5px" dy="3.2">4</tspan><tspan dy="-3.2">)</tspan>'),
+            math_label(256.0, 188.0, "Γ", sub="5", tail='(K<tspan font-size="10.5px" dy="3.2">5</tspan><tspan dy="-3.2">)</tspan>'),
             math_label(152.0, 222.0, "0", italic=False),
             math_label(248.0, 212.0, "1", italic=False),
             math_label(144.0, 122.0, "i"),

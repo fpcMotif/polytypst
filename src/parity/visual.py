@@ -218,6 +218,8 @@ def compare_runs(new: list[PageVisual], old: list[PageVisual]) -> dict[str, list
     """Source pages whose differing ink fell (`improved`) or rose (`regressed`) by more than `REGRESSION_SHARE`."""
     before = {p.source_page: p.score for p in old}
     changes: dict[str, list[int]] = {"improved": [], "regressed": []}
+    kept = {p.source_page for p in new}
+    changes["regressed"] += sorted(page for page in before if page not in kept)
     for p in new:
         if p.source_page in before:
             delta = p.score - before[p.source_page]

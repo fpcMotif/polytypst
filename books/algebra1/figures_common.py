@@ -45,8 +45,27 @@ def marker_defs() -> str:
 """
 
 
+_SUB_MAP = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
+_SUP_MAP = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻", "0123456789-")
+
+
+def _clean_svg_scripts(s: str) -> str:
+    import re
+    s = re.sub(
+        r"[₀₁₂₃₄₅₆₇₈₉]+",
+        lambda m: f'<tspan baseline-shift="sub" font-size="75%">{m.group(0).translate(_SUB_MAP)}</tspan>',
+        s,
+    )
+    return re.sub(
+        r"[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+",
+        lambda m: f'<tspan baseline-shift="super" font-size="75%">{m.group(0).translate(_SUP_MAP)}</tspan>',
+        s,
+    )
+
+
 def svg_wrap(w: int, h: int, content: str) -> str:
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}">
+    content = _clean_svg_scripts(content)
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h + 16}" width="{w}" height="{h + 16}">
   <defs>
 {marker_defs()}  </defs>
   <rect width="100%" height="100%" fill="#ffffff" />
@@ -106,18 +125,24 @@ def arrow(
 def resolve_scan_pdf() -> str:
     import os
     from pathlib import Path
+    sources = os.environ.get("POLYTYPST_SOURCES") or str(Path.home() / "Downloads")
+    fallback = str(Path(sources) / "Algebra I Basic Notions Of Algebra (Kostrikin A I, Shafarevich I R).pdf")
     try:
-        from polytypst.books import book_by_key
+        from polytypst.books import BookLoadError, book_by_key
+        from polytypst.ocr.scan import SourceScanError
         from polytypst.parity.source import source_pdf
+    except ImportError:
+        return fallback
+    try:
         return str(source_pdf(book_by_key("algebra1").spec))
-    except Exception:
-        sources = os.environ.get("POLYTYPST_SOURCES", "/Users/martinfan/Downloads")
-        return str(Path(sources) / "Algebra I Basic Notions Of Algebra (Kostrikin A I, Shafarevich I R).pdf")
+    except (KeyError, BookLoadError, SourceScanError):
+        return fallback
 
 
 def scan_crop_svg(pdf_path: str, page_num: int, clip_fraction: tuple[float, float, float, float], dpi: int = 250) -> str:
     """Extract a clean high-resolution crop from the scan PDF and wrap in SVG."""
     import base64
+
     import pymupdf
 
     doc = pymupdf.open(pdf_path)

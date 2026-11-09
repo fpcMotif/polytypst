@@ -272,7 +272,25 @@ def chart_tail(
     return box
 
 
-def _stack(upper: Image.Image, lower: Image.Image) -> Image.Image:
+def crop_band(
+    page_img: Image.Image, band: tuple[float, float, float, float]
+) -> Image.Image | None:
+    """The ink inside a (left, top, right, bottom) band of a grayscale page, padded by `PAD` of the page height,
+    or None when the band holds no ink."""
+    gray = np.asarray(page_img)
+    h, w = gray.shape
+    l, t, r, b = band
+    box = _ink_box(gray, int((t + PAD) * h), int((b - PAD) * h), int(l * w), int(r * w))
+    if box is None:
+        return None
+    pad = int(PAD * h)
+    return page_img.crop(
+        (max(0, box[0] - pad), max(0, box[1] - pad), min(w, box[2] + pad), min(h, box[3] + pad))
+    )
+
+
+def stack_sheets(upper: Image.Image, lower: Image.Image) -> Image.Image:
+    """`upper` above `lower` on one white sheet, each centred across the wider of the two."""
     sheet = Image.new(
         "L", (max(upper.width, lower.width), upper.height + lower.height), 255
     )
@@ -393,7 +411,7 @@ def crop_page_charts(
         if sideways:
             crop = crop.rotate(-90 if row.left > 0.5 else 90, expand=True)
         elif lead is not None and band[1] <= CHART_AT_TOP:
-            crop = _stack(lead, crop)
+            crop = stack_sheets(lead, crop)
         lead = None
         name = f"fig_{fid}.png"
         crop.save(out_dir / name, format="PNG")

@@ -18,6 +18,7 @@ combined_*.md
 p_*.md
 output/
 web/node_modules/
+/node_modules/
 web/dist/
 web/.env.local
 web/.wrangler/
@@ -55,11 +56,12 @@ web/env.d.ts
 !.agents/skills/**/*.tex
 
 # Large book data and local experiments
-shitouji/
+/shitouji/
 shitouji*.typ
 shitouji*.tex
 shitouji*.pdf
 *.egg-info/
 
-# Large fonts: fetch with scripts/fetch_fonts.sh
-fonts/NotoSerifSC-*.otf
+# Output and assets live outside the repository ($POLYTYPST_OUTPUT, $POLYTYPST_ASSETS); fetch fonts with scripts/fetch_fonts.sh
+scratch/
+fonts/

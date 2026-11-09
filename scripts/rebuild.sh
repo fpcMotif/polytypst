@@ -6,7 +6,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 key=$1
 limit=${REBUILD_TIMEOUT:-900}
-logs=output/logs
+logs=${POLYTYPST_OUTPUT:-../polytypst-output}/logs
 mkdir -p "$logs"
 timeout -k 30 "$limit" mise exec -- uv run polytypst build "$key" --formats pdf,tex >"$logs/$key.build.log" 2>&1
 build=$?

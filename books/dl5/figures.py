@@ -10,15 +10,14 @@ Generates vibrant, publication-quality 3Blue1Brown pedagogical figures:
 """
 
 from pathlib import Path
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pymupdf
 
-# Configure matplotlib publication styling
-plt.rcParams["font.sans-serif"] = [
-    "Songti SC", "PingFang SC", "Heiti SC", "Noto Sans CJK SC", "DejaVu Sans"
-]
-plt.rcParams["axes.unicode_minus"] = False
+from .figures_ch0_3 import CH0_3_PLOTS, CH0_3_SVGS
+from .figures_ch4_6 import CH4_6_PLOTS, CH4_6_SVGS
+from .figures_ch7_10 import CH7_10_PLOTS, CH7_10_SVGS
 
 
 def _svg_wrap(width: int, height: int, content: str) -> str:
@@ -848,8 +847,36 @@ SVG_FIGURES = {
     "6-10": fig_6_10,
 }
 
+def draw_fig_4_1(out_path: Path) -> None:
+    x = np.linspace(140.0, 190.0, 500)
+    female = 0.5 * (1.0 / (np.sqrt(2 * np.pi) * 5.29)) * np.exp(-0.5 * ((x - 157.8) / 5.29) ** 2)
+    male = 0.5 * (1.0 / (np.sqrt(2 * np.pi) * 5.83)) * np.exp(-0.5 * ((x - 170.7) / 5.83) ** 2)
+    total = female + male
+
+    fig, ax = plt.subplots(figsize=(6.8, 4.2), dpi=300)
+    fig.patch.set_facecolor("#ffffff")
+    ax.set_facecolor("#f8fafc")
+    ax.fill_between(x, total, color="#3b82f6", alpha=0.22)
+    ax.plot(x, total, color="#2563eb", linewidth=2.4, label="17 岁男女性身高混合分布")
+    ax.plot(x, female, color="#f43f5e", linestyle="--", linewidth=1.6, alpha=0.85, label="女性 (均值 157.8 cm)")
+    ax.plot(x, male, color="#06b6d4", linestyle="--", linewidth=1.6, alpha=0.85, label="男性 (均值 170.7 cm)")
+    ax.set_xlim(140, 190)
+    ax.set_ylim(0, 0.048)
+    ax.set_xlabel("身高 (cm)", fontsize=12, color="#1e293b")
+    ax.set_ylabel("概率密度", fontsize=12, color="#1e293b")
+    ax.tick_params(colors="#475569", labelsize=10.5)
+    for s in ax.spines.values():
+        s.set_color("#cbd5e1")
+        s.set_linewidth(1.1)
+    ax.legend(frameon=True, facecolor="#ffffff", edgecolor="#e2e8f0", fontsize=10, loc="upper right")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=300)
+    plt.close(fig)
+
+
 # Dictionary of mathematical / data plots
 PLOT_FIGURES = {
+    "4-1": draw_fig_4_1,
     "6-3": draw_fig_6_3,
     "6-2": draw_fig_6_2,
     "6-4": draw_fig_6_4,
@@ -870,8 +897,11 @@ def draw_figures(out_dir: Path) -> list[Path]:
     fig_dir.mkdir(parents=True, exist_ok=True)
     rendered: list[Path] = []
 
+    all_svgs = {**SVG_FIGURES, **CH0_3_SVGS, **CH4_6_SVGS, **CH7_10_SVGS}
+    all_plots = {**PLOT_FIGURES, **CH0_3_PLOTS, **CH4_6_PLOTS, **CH7_10_PLOTS}
+
     # 1. Generate SVGs and rasterize to 300 DPI PNG
-    for fig_id, generator in SVG_FIGURES.items():
+    for fig_id, generator in all_svgs.items():
         svg_code = generator()
         svg_path = fig_dir / f"fig_{fig_id}.svg"
         svg_path.write_text(svg_code, encoding="utf-8")
@@ -883,10 +913,45 @@ def draw_figures(out_dir: Path) -> list[Path]:
         rendered.append(png_path)
 
     # 2. Generate mathematical / optimization plots at 300 DPI
-    for fig_id, drawer in PLOT_FIGURES.items():
+    for fig_id, drawer in all_plots.items():
         png_path = fig_dir / f"fig_{fig_id}.png"
         drawer(png_path)
         rendered.append(png_path)
+
+    import json
+    manifest_path = out_dir / "figures_manifest.json"
+    if manifest_path.exists():
+        items = json.loads(manifest_path.read_text(encoding="utf-8"))
+        seen = {item.get("figure_id") for item in items}
+        extras = [
+            ("4-1", "图 4-1 17 岁男性和 17 岁女性的身高分布（数据来自 2016 年日本学校健康统计调查文献 1，图形基于该数据绘制）", "figures/fig_4-1.png", 94, None),
+            ("7-6", "图 7-6 为每个数据 $x^{(n)}$ 准备参数 $\\psi^{(n)}$", "figures/fig_7-6.png", 171, "figures/fig_7-6.svg"),
+        ]
+        changed = False
+        for fid, cap, rel_png, spno, rel_svg in extras:
+            if fid not in seen:
+                items.append({
+                    "figure_id": fid,
+                    "caption": cap,
+                    "image_rel_path": rel_png,
+                    "source_page": spno,
+                    "box": [0.1, 0.3, 0.9, 0.6],
+                    "width_px": 880,
+                    "height_px": 420,
+                    "chapter": None,
+                    "title": "",
+                    "alt": "",
+                    "description": "",
+                    "note": "",
+                    "source": "",
+                    "scan_crop_path": "",
+                    "svg_path": rel_svg,
+                    "reproduced_by": "",
+                })
+                changed = True
+        if changed:
+            items.sort(key=lambda x: (x.get("source_page") or 0, x.get("figure_id") or ""))
+            manifest_path.write_text(json.dumps(items, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     print(f"Generated {len(rendered)} colorful 3Blue1Brown figures into {fig_dir}")
     return rendered

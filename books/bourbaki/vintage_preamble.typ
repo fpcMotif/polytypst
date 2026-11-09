@@ -54,7 +54,7 @@
     let chaps = query(heading.where(level: 1).before(here()))
     if chaps == () { return }
     let chap = chaps.last()
-    let roman = if chap.numbering != none { (chap.numbering)(1) } else { "" }
+    let roman = if chap.numbering != none { numbering(chap.numbering, ..counter(heading).at(chap.location())) } else { "" }
     set text(7.6pt, weight: 700, tracking: 0.04em)
     if calc.odd(folio()) {
       let in-chapter = h => h.location().page() >= chap.location().page() and h.location().page() <= pg
@@ -165,9 +165,10 @@
 }
 
 #show heading: set par(justify: false, first-line-indent: 0pt)
+#show heading: set text(hyphenate: false)
 #show heading.where(level: 1): it => {
   pagebreak(weak: true)
-  if it.numbering != none and (it.numbering)(1) == "I" { counter(page).update(1) }
+  if it.numbering != none and counter(heading).get().first() == 1 { counter(page).update(1) }
   v(-10pt)
   context {
     let label = chapter-label.get()

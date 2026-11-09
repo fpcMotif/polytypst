@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from ..book_state import book_state
+from ..book_state import transcripts
 from ..compiler.diagrams import page_diagrams, scan_diagram_id
 from ..ocr.transcripts import TranscriptStore
 
@@ -104,7 +104,7 @@ def install_scan_diagrams(snippets: Path, out_dir: Path) -> list[Path]:
 
 def scan_diagram_boxes(out_dir: Path) -> dict[str, tuple[Path, Box]]:
     """Each transcript array diagram's id `PPP_NNN`, with its page render and its box on that render."""
-    store = TranscriptStore(book_state(out_dir) / "markdown_pages")
+    store = TranscriptStore(transcripts(out_dir))
     found: dict[str, tuple[Path, Box]] = {}
     for render in sorted((out_dir / "page_renders").glob("p_*.png")):
         page = int(render.stem.removeprefix("p_"))

@@ -1,8 +1,8 @@
+from polytypst.compiler.chapter_assembly import mark_contents_lines
 from polytypst.compiler.monograph import (
     ChapterSpec,
     MonographCompiler,
     MonographSpec,
-    mark_contents_lines,
 )
 
 

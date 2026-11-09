@@ -27,8 +27,12 @@ footnote_style = 'symbol'
 footnote_marks = ['*', '†', '‡', '**', '***']
 pdf_name_markers = ['on riemann', 'riemanns theory']
 pdf_page_count = 100
-source_pdf = 'On Riemanns theory of algebraic functions and their integrals a supplement to the usual treatises (Klein, Felix, 1849-1925) .pdf'
+source_pdf = 'On Riemanns theory of algebraic functions and their integrals a supplement to the usual treatises (Klein, Felix, 1849-1925.pdf'
 cross_references = true
+typst_front_matter = '''
+@ENGINE_TITLE_PAGE@
+#show figure.where(kind: image): set figure(supplement: [Fig.], numbering: source-figure-number)
+'''
 latex_preamble = '''
 \usepackage{fancyhdr}
 \pagestyle{fancy}
@@ -66,16 +70,7 @@ latex_preamble = '''
 [figures]
 caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Fig(?:ure)?\.?\s*(?P<number>\d+[a-z]?)\.?(?:\*\*)?\s*(?P<tail>.*)$'
 caption_format = 'Figure {number}'
+pair_figures = false
 
 [editions.monograph]
 summary = 'monograph'
-
-[page_fixups]
-13 = [
-  # The transcript has Part 1, ... Part 11; the scan prints Part I, ... Part II.
-  ['Part 1, Winter-semester 1880—81, Part 11', 'Part I, Winter-semester 1880—81, Part II'],
-]
-65 = [
-  # The transcript has missing Fig. 38; the scan prints Fig. 38.
-  ['(?s)(divisions of Fig\. 37 are reproduced\..*?specially noticed\.)(\n\nIt would perhaps)', '\1\n\nFig. 38.\2'],
-]

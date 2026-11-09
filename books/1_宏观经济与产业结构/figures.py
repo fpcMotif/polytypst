@@ -8,15 +8,14 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from polytypst.book_state import book_state
+from polytypst.book_state import transcripts
 from polytypst.facsimile_figures import FigureArt
 from polytypst.ocr.lines import LineStore, source_ocr_dir
 from polytypst.ocr.pages import PageImage
 from polytypst.vision.cjk_charts import (
-    PAD,
-    _ink_box,
-    _stack,
+    crop_band,
     extract_cjk_charts,
+    stack_sheets,
     transcript_figure_ids,
 )
 from polytypst.vision.figure_extractor import (
@@ -71,7 +70,7 @@ def _clean_monochrome_raster(raw_path: Path, dst_path: Path) -> None:
 
 def extract_clean_raw_figures(out_dir: Path) -> list[dict[str, object]]:
     renders_dir = out_dir / "page_renders"
-    md_dir = book_state(out_dir) / "markdown_pages"
+    md_dir = transcripts(out_dir)
     raw_dir = out_dir / "figures_raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
     store = LineStore(source_ocr_dir(out_dir))
@@ -94,23 +93,16 @@ def extract_clean_raw_figures(out_dir: Path) -> list[dict[str, object]]:
             if not img_path.exists():
                 break
             with Image.open(img_path) as im:
-                page_img = im.convert("L")
-            gray = np.asarray(page_img)
-            h, w = gray.shape
-            l, t, r, b = band
-            box = _ink_box(gray, int((t + PAD) * h), int((b - PAD) * h), int(l * w), int(r * w))
-            if box is None:
+                crop = crop_band(im.convert("L"), band)
+            if crop is None:
                 break
-            pad = int(PAD * h)
-            box = (max(0, box[0] - pad), max(0, box[1] - pad), min(w, box[2] + pad), min(h, box[3] + pad))
-            crop = page_img.crop(box)
             if fid in BAND_TURNS:
                 crop = crop.rotate(BAND_TURNS[fid], expand=True)
             crops.append(crop)
         else:
             sheet = crops[0]
             for lower in crops[1:]:
-                sheet = _stack(sheet, lower)
+                sheet = stack_sheets(sheet, lower)
             sheet.save(raw_dir / f"fig_{fid}.png", format="PNG")
 
     records: list[dict[str, object]] = []
@@ -175,9 +167,6 @@ def figure_page_art(out_dir: Path) -> dict[int, list[FigureArt]]:
 
 
 def crop_macro_figures(out_dir: Path) -> list[ExtractedFigure]:
-    from scripts.book2_figures.engine import enrich_book_figures_manifest
-    from scripts.build_book1_figures import load_all_generators
-
     mono_dir = out_dir / "figures"
     mono_dir.mkdir(parents=True, exist_ok=True)
 
@@ -203,5 +192,4 @@ def crop_macro_figures(out_dir: Path) -> list[ExtractedFigure]:
             )
         )
     write_figures_manifest(out_dir / FIGURES_MANIFEST_NAME, figures)
-    enrich_book_figures_manifest("1_宏观经济与产业结构", load_all_generators())
     return figures

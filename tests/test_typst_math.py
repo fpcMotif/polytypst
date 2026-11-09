@@ -1,3 +1,4 @@
+import re
 from dataclasses import replace
 
 import pytest
@@ -13,7 +14,14 @@ from polytypst.compiler.typst_math import (
     convert_environments,
     convert_math_batch,
     normalize_typst_differentials,
+    parse_braced,
+    sanitize_math_code,
 )
+
+
+@pytest.mark.parametrize(("text", "group"), [("{ab}c", ("ab", 4)), ("{ab", ("ab", 3)), ("{a{b}", ("a{b}", 5))])
+def test_a_braced_group_keeps_every_character_when_the_text_ends_before_it_closes(text, group):
+    assert parse_braced(text, 0) == group
 
 
 def convert(code: str, display: bool = False) -> str:
@@ -49,6 +57,78 @@ def test_every_book_gets_the_circle_and_operator_name_rewrites():
     expected = MonographCompiler(explicit).format_typst(text)
     assert "⊕" in expected or "2295" in expected
     assert MonographCompiler(bare).format_typst(text) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "typst"),
+    [
+        ("Let $x$ cost $5 today.", "Let $x$ cost 5 today."),
+        ("Spend $5 on $x$ today.", "Spend 5 on $x$ today."),
+        ("Take $2$ pens for $5 each.", "Take $2$ pens for 5 each."),
+        ("Let $a +\nb$ hold, and $5 is the price.", "Let $a + b$ hold, and 5 is the price."),
+    ],
+)
+def test_an_unpaired_dollar_leaves_the_paired_math_as_math(text, typst):
+    out = MonographCompiler(MonographSpec(domain="math", slug="t", title="T", author="A")).format_typst(text)
+    assert " ".join(out.split()) == typst
+
+
+@pytest.mark.parametrize(
+    ("text", "ref"), [("As Figure 3.2 shows.", "@fig-3-2"), ("See Fig. 1.2.1 here.", "@fig-1-2-1"), ("Figure 4b.", "@fig-4b")]
+)
+def test_a_figure_reference_names_the_label_the_figure_carries(text, ref):
+    spec = MonographSpec(domain="math", slug="t", title="T", author="A", cross_references=True)
+    out = MonographCompiler(spec).format_typst(text)
+    assert re.search(rf"{ref}(?![\w.-]*\d)", out), out
+
+
+def test_a_line_that_starts_with_plus_or_slash_prints_that_character(tmp_path):
+    spec = MonographSpec(domain="math", slug="t", title="T", author="A")
+    typ = tmp_path / "lines.typ"
+    _ = typ.write_text(MonographCompiler(spec).format_typst("+ legend marker\n\n/usr/bin is a path."), encoding="utf-8")
+    compile_typst(typ, tmp_path / "lines.pdf")
+    import pymupdf
+
+    text = " ".join(pymupdf.open(tmp_path / "lines.pdf")[0].get_text().split())
+    assert text == "+ legend marker /usr/bin is a path."
+    assert "\\+" not in MonographCompiler(spec).format_typst("$$\na = b\n+ c\n$$\n\nLet $a\n+ b$ hold.")
+
+
+def test_a_body_that_ends_in_a_backslash_does_not_turn_the_other_bodies_into_strings():
+    out = convert_math_batch(
+        [("x \\", False), (r"\sum\limits_{n=1}^\infty a_n", False), (r"f \circ g", False), (r"x^\top y", False)]
+    )
+    assert [body.startswith('"') for body in out] == [False, False, False, False], out
+
+
+def test_a_row_end_with_a_spacing_argument_breaks_the_row_without_printing_the_space():
+    out = convert(r"a = b \\[2pt] c = d", True)
+    assert "p t" not in out and "2pt" not in out
+    assert "".join(out.split()) == r"a=b\c=d"
+
+
+def test_two_parallel_signs_around_an_arrow_stay_parallel_signs():
+    out = convert(r"l_1 \| l_2 \Rightarrow m_1 \| m_2")
+    assert "norm" not in out
+    assert convert(r"\|x - y\| \le \|x\| + \|y\|") == "norm(x - y) lt.eq norm(x) + norm(y)"
+
+
+@pytest.mark.parametrize(
+    ("code", "typst"),
+    [
+        (r"f \circ g", "f compose g"),
+        (r"90^\circ", "90^degree"),
+        (r"x^\top y", "x^top y"),
+        (r"\sum\limits_{n=1} a_n", "sum_(n=1) a_n"),
+        (r"\lvert x \rvert", "| x |"),
+    ],
+)
+def test_the_fallback_converter_keeps_the_meaning_of_common_macros(code, typst):
+    assert "".join(sanitize_math_code(code).split()) == "".join(typst.split())
+
+
+def test_the_division_sign_prints_as_a_sign():
+    assert convert(r"a \div b") == "a ÷ b"
 
 
 def test_square_operator_keeps_full_size():
@@ -99,7 +179,7 @@ def test_run_typst_resolves_binary_once_without_triple_retry(monkeypatch, tmp_pa
 
     from polytypst.compiler import typst_math
     from polytypst.compiler.monograph import compile_typst
-    from polytypst.compiler.typst_math import REPO_FONTS_DIR
+    from polytypst.paths import FONTS
 
     calls = []
 
@@ -119,7 +199,7 @@ def test_run_typst_resolves_binary_once_without_triple_retry(monkeypatch, tmp_pa
             "typst",
             "compile",
             "--font-path",
-            str(REPO_FONTS_DIR),
+            str(FONTS),
             "--root",
             "/",
             str(tmp_path / "a.typ"),

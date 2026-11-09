@@ -7,6 +7,7 @@ from dataclasses import asdict
 from itertools import product
 from pathlib import Path
 
+from ..paths import OUTPUT
 from .colab import COLAB_GPUS, account_usage, fit_problem, probe_gpu, write_probes
 from .colab_cluster import benchmark
 from .ocr_models import DEFAULT_OCR_MODEL, OCR_MODELS
@@ -143,7 +144,7 @@ def main() -> None:
         "gpus", nargs="*", choices=sorted(COLAB_GPUS), default=sorted(COLAB_GPUS)
     )
     _ = probe.add_argument(
-        "--out", type=Path, default=Path("output/colab_gpu_probes.json")
+        "--out", type=Path, default=OUTPUT / "colab_gpu_probes.json"
     )
     bench = sub.add_parser(
         "bench", help="Transcribe sample pages on every GPU x model pair"
@@ -158,7 +159,7 @@ def main() -> None:
         "--model", nargs="+", choices=sorted(OCR_MODELS), default=[DEFAULT_OCR_MODEL]
     )
     _ = bench.add_argument("--count", type=int, default=12)
-    _ = bench.add_argument("--out", type=Path, default=Path("output/colab_bench"))
+    _ = bench.add_argument("--out", type=Path, default=OUTPUT / "colab_bench")
     args = parser.parse_args()
     if args.command == "gpus":
         show_gpus()

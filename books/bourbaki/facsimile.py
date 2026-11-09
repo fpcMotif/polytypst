@@ -1,7 +1,7 @@
 """Word-placed facsimile of the 1970 Bourbaki scan, set in Baskervville."""
 
-from polytypst.compiler.typst_math import REPO_FONTS_DIR as FONTS
 from polytypst.facsimile import FacsimileStyle
+from polytypst.paths import FONTS
 
 from . import DIAGRAM_DIR, DIAGRAM_TEXT, install_bourbaki_diagrams
 

@@ -3,13 +3,12 @@ from itertools import pairwise
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from ..tex_markdown import normalize_html_tables, repair_page_math
+from ..tex_markdown import DOUBLED_MACRO_RE, normalize_html_tables, repair_page_math
 from ..vision.figure_extractor import (
     FIGURES_MANIFEST_NAME,
     ExtractedFigure,
     manifest_figures,
 )
-from .presets import resolve_composition
 
 if TYPE_CHECKING:
     from .monograph import MonographSpec
@@ -17,7 +16,6 @@ if TYPE_CHECKING:
 Figure = tuple[str, str]
 
 _OPEN_EQNUM_SPACE_RE = re.compile(r"\((\d{1,3})\.[ \t]+(\d{1,3})\)")
-_DOUBLE_BACKSLASH_MACRO_RE = re.compile(r"\\\\(?=[A-Za-z])")
 _MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)\s]+)\)")
 
 _DOUBLE_SUBSCRIPT_RE = re.compile(r"(\^\\[A-Za-z]+)_")
@@ -276,10 +274,10 @@ def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, lis
     lines = md.splitlines()
     notes: list[tuple[str, str]] = []
     kept = [(i, ln.strip()) for i, ln in enumerate(lines) if ln.strip() and not re.match(folio_pattern, ln.strip(), re.IGNORECASE)]
-    for (i, lt), (_, after) in pairwise(kept):
+    for idx, ((i, lt), (_, after)) in enumerate(pairwise(kept)):
         if FOOTNOTE_RULE_RE.match(lt) and _note_line(after, style, below_rule=True):
             in_display = False
-            for _, below in kept[kept.index((i, lt)) + 1 :]:
+            for _, below in kept[idx + 1 :]:
                 if not in_display and (m := _note_line(below, style, below_rule=True)):
                     notes.append(_note(m))
                 else:
@@ -299,13 +297,11 @@ def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, lis
                         notes[-1] = (notes[-1][0], _inline_note_math(f"{notes[-1][1]} {below}"))
                     elif m := _note_line(below, style, below_rule=True):
                         notes.append(_note(m))
-                    elif re.match(r"^(\d{1,2})\)\s+(\S.*)$", below) and re.search(
+                    elif (m_ed := re.match(r"^(\d{1,2})\)\s+(\S.*)$", below)) and re.search(
                         rf"(?:\^\{{?\s*{below.split(')', 1)[0]}\)\s*\}}?|[{SUPERSCRIPT_DIGITS}]+\))",
                         "\n".join(lines[:i]),
                     ):
-                        m_ed = re.match(r"^(\d{1,2})\)\s+(\S.*)$", below)
-                        if m_ed:
-                            notes.append((f"{m_ed.group(1)})", _inline_note_math(m_ed.group(2).strip())))
+                        notes.append((f"{m_ed.group(1)})", _inline_note_math(m_ed.group(2).strip())))
                     else:
                         notes[-1] = (notes[-1][0], _inline_note_math(f"{notes[-1][1]} {below}"))
                     in_note_display ^= below.count("$$") % 2 == 1
@@ -453,11 +449,6 @@ RUN_IN_VERBS = frozenset(
         "the",
     ]
 )
-CHAPTER_OPENING_RE = re.compile(
-    r"^(?:#+\s*.+|(?:CHAPTER|APPENDIX)\s+[0-9A-Z]+|[—–-]+\s*.+?\s*[—–-]+)$",
-    re.IGNORECASE,
-)
-
 SCANNER_WATERMARK_RE = re.compile(r"ClibPDF\s*-\s*www\.[\w.]+\.(?:com|net)[;,]?[ \t]*")
 DISPLAY_TO_BLANK_LINE_RE = re.compile(r"\$\$(.*?)(?:\$\$|(?=\n[ \t]*\n)|\Z)", re.DOTALL)
 DISPLAY_TAG_RE = re.compile(r"(?:\\tag\{[^{}]*\}|\(\d+(?:\.\d+)*[a-z]?\))\s*$")
@@ -652,9 +643,7 @@ class PageCleaner:
 
     @classmethod
     def for_spec(cls, spec: MonographSpec, asset_root: Path = Path()) -> PageCleaner:
-        composition = resolve_composition(
-            publisher=spec.publisher_key, lang=spec.lang, domain=spec.domain, theorem_layout=spec.theorem_layout
-        )
+        composition = spec.composition(theorem_layout=spec.theorem_layout)
         return cls(spec, composition.theorem_heads, asset_root)
 
     def _chapter_of(self, pno: int) -> int:
@@ -861,8 +850,16 @@ class PageCleaner:
                     self.figure_notes[fid] = "\n\n".join(filter(None, [self.figure_notes.get(fid), *trailing]))
             last_caption = None
 
+        in_code_block = False
         for line in md_text.splitlines():
             lt = line.strip()
+            if lt.startswith("```"):
+                in_code_block = not in_code_block
+                body_lines.append(line)
+                continue
+            if in_code_block:
+                body_lines.append(line)
+                continue
             if not lt:
                 body_lines.append("")
                 continue
@@ -1001,7 +998,7 @@ class PageCleaner:
         claim_sources_after_caption()
         s = "\n".join(body_lines).strip()
         s = re.sub(r"\\\s+(begin|end)\b", r"\\\1", s)
-        s = _DOUBLE_BACKSLASH_MACRO_RE.sub(r"\\", s)
+        s = DOUBLED_MACRO_RE.sub(r"\\", s)
         s = _OPEN_EQNUM_SPACE_RE.sub(r"(\1.\2)", s)
         s = self._drop_missing_images(s)
         s = _fix_inline_math_delimiters(s)

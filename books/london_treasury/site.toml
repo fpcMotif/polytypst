@@ -1,0 +1,12 @@
+[[page]]
+slug = "london-treasury"
+title = "伦敦分行资金与交易业务阅读册"
+subtitle = "从业者经验导读与轮岗问题（含 53 篇英文原始文献与监管规则全文）"
+author = "伦敦分行资金与交易业务编写组"
+language = "zh-CN"
+domain = "Treasury, ALM, Foreign Exchange, Fixed Income & Precious Metals"
+rendering = "editorial-business"
+badge = "Editorial Bilingual Reader + 53 Extracted Primary Sources (r.jina.ai)"
+description = "面向银行伦敦分行交易与资金条线（外币货币市场、现券、外汇远期与掉期、贵金属、资产负债管理 ALM）的赴任导读与轮岗核实手册。收录原书全部 53 条外部链接的英文原文：35 篇从业者材料、4 部现行市场准则与监管规则、3 档播客、11 项核验资料。"
+chapters = "business-md"
+editions = ["monograph"]

@@ -37,7 +37,8 @@ def probe(monkeypatch, tmp_path):
         python_loop()
         np.linalg.svd(np.random.default_rng(0).random((300, 300)))
         subprocess.run(["sleep", "0.3"], check=True, capture_output=True)
-        typ = tmp_path / "x.typ"
+        typ = tmp_path / "build" / "x.typ"
+        typ.parent.mkdir(exist_ok=True)
         typ.write_text(SOURCE, encoding="utf-8")
         compile_typst(typ, tmp_path / "x.pdf")
 
@@ -78,8 +79,8 @@ def test_profile_times_the_generated_typst_in_three_labeled_cases(probe, capsys)
     out = capsys.readouterr().out
     assert typst_cases(out)[:3] == ["cold", "edited", "repeat"]
     assert "best case" in out
-    assert not (probe / ".profile_x.typ").exists()
-    assert (probe / "x.typ").read_text(encoding="utf-8") == SOURCE
+    assert not (probe / "build" / ".profile_x.typ").exists()
+    assert (probe / "build" / "x.typ").read_text(encoding="utf-8") == SOURCE
 
 
 def test_profile_json_has_the_rows_of_the_text_and_they_add_up_to_the_wall_time(probe, capsys):

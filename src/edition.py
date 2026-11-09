@@ -7,13 +7,14 @@ from pathlib import Path
 
 import pymupdf
 
-from .book_state import book_state
+from .book_state import book_state, transcripts
 from .compiler.monograph import (
     MONOGRAPH_FORMATS,
     MonographCompiler,
     MonographOutputs,
     MonographSpec,
     adhoc_spec,
+    build_source,
     running_footnotes,
 )
 from .facsimile import FacsimileStyle, build_facsimile
@@ -23,9 +24,9 @@ from .ocr.transcripts import ROUNDS, TranscriptStore
 from .parity.diagrams import DiagramText
 from .parity.report import FACSIMILE, Tolerance
 from .parity.source import source_ocr_dir, source_pdf
+from .paths import OUTPUT
 from .vision.figure_extractor import extract_book_figures
 
-OUTPUT = Path("output")
 RENDER_DPI = 200
 PAGE_FIT = "page_fit.json"
 
@@ -59,6 +60,7 @@ class Parity:
     diagrams: Path | None = None
     diagram_text: DiagramText | None = None
     visual: VisualLimits | None = None
+    one_to_one: bool = False
 
 
 @dataclass(frozen=True)
@@ -77,6 +79,10 @@ class Edition:
     build_pages: Callable[[Path | None, set[int]], None] | None = None
     facsimile: FacsimileStyle | None = None
 
+    def source(self, ext: str) -> Path:
+        """The `ext` file, such as `typ`, `tex` or `md`, that the build wrote into `build/` beside the PDF."""
+        return build_source(self.rebuilt, ext)
+
 
 @dataclass(frozen=True)
 class Book:
@@ -93,7 +99,7 @@ class Book:
 
     @property
     def transcripts(self) -> Path:
-        return book_state(self.out_dir) / self.spec.markdown_dir
+        return transcripts(self.out_dir)
 
     @classmethod
     def adhoc(
@@ -168,25 +174,26 @@ def report_build(outputs: MonographOutputs) -> None:
 
 def monograph_edition(
     spec: MonographSpec, out_dir: Path, summary: str = "", prepare: Callable[[Path | None], None] | None = None,
-    parity: Parity | None = None,
+    parity: Parity | None = None, file: str = "",
 ) -> Edition:
-    """An edition built by compiling the book's OCR pages with `MonographCompiler`."""
+    """An edition built by compiling the book's OCR pages with `MonographCompiler` into `<out_dir>/<file>.pdf`."""
+    rebuilt = out_dir / f"{file or spec.slug}.pdf"
 
     def build(source: Path | None, formats: frozenset[str], footnotes: str) -> None:
         if prepare is not None:
             prepare(source)
         built = running_footnotes(spec) if footnotes == "running" else spec
-        report_build(MonographCompiler(built).build_all(out_dir, formats))
+        report_build(MonographCompiler(built).build_all(out_dir, formats, rebuilt))
 
-    return Edition(out_dir / f"{spec.slug}.pdf", build, summary, parity, spec, MONOGRAPH_FORMATS)
+    return Edition(rebuilt, build, summary, parity, spec, MONOGRAPH_FORMATS)
 
 
 def facsimile_edition(
     spec: MonographSpec, out_dir: Path, style: FacsimileStyle,
     summary: str = "every OCR word placed on its scan ink box",
-    visual: VisualLimits | None = None,
+    visual: VisualLimits | None = None, file: str = "",
 ) -> Edition:
-    rebuilt = out_dir / f"{style.slug}.pdf"
+    rebuilt = out_dir / f"{file or style.slug}.pdf"
 
     def page_map() -> dict[int, list[int]]:
         if not rebuilt.exists():
@@ -195,7 +202,7 @@ def facsimile_edition(
         return {p: [p] for p in range(1, pages + 1)}
 
     def build_pages(source: Path | None, pages: set[int] | None) -> None:
-        pdf = build_facsimile(source_pdf(spec, source), out_dir, spec.ocr_languages, style, pages)
+        pdf = build_facsimile(source_pdf(spec, source), out_dir, spec.ocr_languages, style, pages, rebuilt)
         print(f"{pdf}: {int(pymupdf.open(pdf).page_count)} pages")
 
     def build(source: Path | None, _formats: frozenset[str], _footnotes: str) -> None:
@@ -203,7 +210,7 @@ def facsimile_edition(
 
     return Edition(
         rebuilt, build, summary,
-        Parity(page_map, FACSIMILE, style.diagram_dir, style.diagram_text, visual),
+        Parity(page_map, FACSIMILE, style.diagram_dir, style.diagram_text, visual, one_to_one=True),
         scan_line_breaks=True,
         build_pages=build_pages if style.strict_lines and not style.flow else None,
         facsimile=style,

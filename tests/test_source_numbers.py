@@ -469,3 +469,12 @@ def test_references_to_theorems_chapters_and_equations_are_linked():
     assert "inequality \\hyperlink{eq-c1-3}{(3)}" in tex_linked
     assert "\\hyperlink{sec-1-3}{1.3}(1)" in tex_linked
 
+
+def test_section_zero_prints_zero_without_a_negative_counter():
+    numbered, _ = number_chapter("== 0. Compléments\n\n== 1. Suite\n", 1)
+
+    assert "-1" not in numbered
+    assert '#heading(level: 2, numbering: (..n) => "0")[Compléments]' in numbered
+    assert "== Suite" in numbered
+    assert "update((..c) => (c.pos().at(0, default: 0), 0))" in numbered
+

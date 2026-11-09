@@ -58,6 +58,21 @@ def test_sweep_records_the_notes_the_cleaner_cuts_from_each_page(
     }
 
 
+def test_sweep_cleans_a_known_book_with_the_fixups_of_its_book_toml(
+    tmp_path: Path, book_state_root: Path
+):
+    key = "3_国际经济环境的变化与日本经济"
+    pages = book_state_root / key / "markdown_pages"
+    pages.mkdir(parents=True)
+    (pages / "p_208.md").write_text(
+        "这被认为是丧失日系客户所致①②。\n\n① 撤退的壁垒。\n\n② 即使是在全面缩小国际业务时。\n",
+        encoding="utf-8",
+    )
+    assert evidence.sweep([tmp_path / key]) == {
+        key: {"208": [["①", "撤退的壁垒。"], ["⑳", "即使是在全面缩小国际业务时。"]]}
+    }
+
+
 def test_report_embeds_each_evidence_png_and_escapes_the_text(tmp_path: Path):
     shot = tmp_path / "output" / "review_evidence" / "z.png"
     shot.parent.mkdir(parents=True)

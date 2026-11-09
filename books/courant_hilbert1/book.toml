@@ -1,0 +1,91 @@
+slug = "courant_hilbert1"
+title = "Methods of Mathematical Physics, Vol. 1"
+author = "R. Courant, D. Hilbert"
+domain = "math"
+source_pdf = "Methods of Mathematical Physics [Vol 1](classic) (R. Courant, D. Hilbert) .pdf"
+pdf_page_count = 598
+cross_references = true
+latex_preamble = '''
+\makeatletter
+\AtBeginDocument{%
+  \pdfstringdefDisableCommands{%
+    \def\Delta{Delta}%
+    \def\Omega{Omega}%
+    \def\nabla{nabla}%
+    \def\lambda{lambda}%
+    \def\alpha{alpha}%
+    \def\beta{beta}%
+    \def\gamma{gamma}%
+    \def\mu{mu}%
+    \def\nu{nu}%
+    \def\pi{pi}%
+    \def\sigma{sigma}%
+    \def\tau{tau}%
+    \def\phi{phi}%
+    \def\psi{psi}%
+    \def\omega{omega}%
+    \def\rho{rho}%
+    \def\theta{theta}%
+    \def\epsilon{epsilon}%
+    \def\eta{eta}%
+    \def\xi{xi}%
+    \def\zeta{zeta}%
+    \def\infty{infty}%
+    \def\mathbb#1{#1}%
+    \def\mathcal#1{#1}%
+    \def\mathrm#1{#1}%
+  }%
+}
+\makeatother
+'''
+typst_preamble = '''
+@ENGINE_PREAMBLE@
+#show figure.where(kind: image): set figure(supplement: [Figure])
+#show figure.where(kind: table): set figure(supplement: [Table])
+'''
+typst_front_matter = '''
+@ENGINE_TITLE_PAGE@
+#show figure.where(kind: image): set figure(supplement: [Figure])
+#show figure.where(kind: table): set figure(supplement: [Table])
+'''
+chapters = [
+  { number = 1, title = "Methods of Mathematical Physics, Vol. 1", start_page = 1, end_page = 598 },
+]
+drop_line_regexes = [
+  '^Start of Citation\[PU\]',
+]
+pre_math_rewrites = [
+  ['Start of Citation\[PU\][^\n]*', ''],
+  ['The \$h\$-th positive', 'The #box[$h$-th] positive'],
+]
+
+[transcript_fixups]
+2 = [['Start of Citation\[PU\][^\n]*\n?', '']]
+3 = [['Start of Citation\[PU\][^\n]*\n?', '']]
+4 = [['Start of Citation\[PU\][^\n]*\n?', '']]
+10 = [['Start of Citation\[PU\][^\n]*\n?', '']]
+12 = [['Start of Citation\[PU\][^\n]*\n?', '']]
+343 = [[' for \(40\)\. Corre-', ' for (40).']]
+344 = [['^sponding to any', 'Corresponding to any']]
+356 = [
+  ['''\(\\sqrt\{2\}/J_0\(k_\{0,m\}r\)/J_0'\(k_\{0,m\}\)''', '''(\sqrt{2}/J_0(k_{0,m}r)/J_0'(k_{0,m}))'''],
+]
+440 = [
+  ['\*\*THEOREM ([89])\*\*:', '**THEOREM \1:**'],
+]
+573 = [['Start of Citation\[PU\][^\n]*\n?', '']]
+589 = [['Start of Citation\[PU\][^\n]*\n?', '']]
+598 = [['Start of Citation\[PU\][^\n]*\n?', '']]
+
+[page_fixups]
+85 = [
+  ['Let \$\(r_1, G_2,', 'Let $G_1, G_2,'],
+]
+506 = [
+  ['\\frac\{d\^[ki]\}\{d\(z\^2\)\^k\}', '\frac{\mathrm{d}^k}{\mathrm{d}(z^2)^k}'],
+]
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Fig(?:ure)?\.?\s*(?:(?P<chapter>\d+)[\.\-])?(?P<number>\d+[a-z]?)\.?(?:\*\*)?(?:\s+(?P<tail>.*))?\s*$'
+caption_format = 'Figure {number}'
+pair_figures = false

@@ -664,6 +664,9 @@ def _svg_to_png(svg_path: Path, png_path: Path) -> None:
 
 if __name__ == "__main__":
     import sys
-    out_m = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("output/spivak_vol3/figures")
-    out_c = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("output/spivak_vol3/figures_color")
+
+    from polytypst.paths import OUTPUT
+
+    out_m = Path(sys.argv[1]) if len(sys.argv) > 1 else OUTPUT / "spivak_vol3" / "figures"
+    out_c = Path(sys.argv[2]) if len(sys.argv) > 2 else OUTPUT / "spivak_vol3" / "figures_color"
     generate_all_spivak_figures(out_m, out_c)

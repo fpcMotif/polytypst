@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from polytypst.compiler.monograph import ChapterSpec, MonographCompiler, MonographSpec
+from polytypst.paths import OUTPUT
 from polytypst.tex_markdown import normalize_html_tables
 
 
@@ -186,7 +187,7 @@ def test_index_chapter_formats_in_two_columns():
     assert "#columns(2" not in formatted1
 
     # In render, chapters with "索引" in title are wrapped in #columns(2, ...)
-    rendered = compiler.render(Path("output/test_scratch"))
+    rendered = compiler.render(OUTPUT / "test_scratch")
     assert "= 人名索引" in rendered.typst
     assert "#columns(2, gutter: 1.8em)" in rendered.typst
 

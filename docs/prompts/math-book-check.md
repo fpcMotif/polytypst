@@ -45,11 +45,17 @@ A role sets the files that the agent can change:
    | `lint` | `uv run polytypst page-check lint BOOK` |
    | `verdicts: ... unverified` | `uv run polytypst page-check triage BOOK`, then `page-check verify BOOK` in the background |
    | `figures` | `uv run polytypst page-check render BOOK --pdf PDF --run`, with PDF from the row |
-   | `audit: ... rose: RULE` | step 3 or step 4 for each rule after `rose:` |
+   | `audit: ... rose: RULE` | `uv run polytypst audit BOOK --hits`, then step 3 or step 4 for each rule after `rose:` |
+
+   The row's `next` field lists the commands that the checks print. Run them as written.
 
    If the row shows "no store", the book has no transcript store on this machine. Report the row and go to the next book.
 
-3. Fix or report each rule in the row's `numbering` field. Each count is a number that the book prints as typed text instead of from a counter, a label or `@ref`:
+3. Fix or report each rule in the row's `numbering` field. Each count is a number that the book prints as typed text, not from a counter, a label or `@ref`.
+
+   The `numbering_hits` field shows the first 5 hits of each rule. To list every hit, run `uv run polytypst audit BOOK --hits RULE`. Each line gives the generated `.typ` or `.tex` file, the line number and the typed text. To find the transcript page, search for the words of the hit, without markup, with `rg` in `$POLYTYPST_BOOKS/<key>/markdown_pages/`.
+
+   An editor fixes each hit in the transcript or in `books/<key>/book.toml`. If the cause is in `src/`, an editor reports the hit line and the scan page.
 
    | Rule | Meaning | Where the cause usually is |
    |---|---|---|
@@ -66,7 +72,7 @@ A role sets the files that the agent can change:
 
    Only a fixer gives a `scan_typo` verdict, after a second look at the scan.
 
-4. Fix or report each layout rule in the row's `layout` field. The rules come from `src/checker.py` and run on the rebuilt PDF:
+4. Fix or report each layout rule in the row's `layout` field. The rules run on the rebuilt PDF. `uv run polytypst audit BOOK --hits RULE` gives the PDF page and the message of each hit:
 
    | Rule | Meaning | Where the cause usually is |
    |---|---|---|
@@ -114,4 +120,4 @@ A role sets the files that the agent can change:
 
 ## Report
 
-Give one row per book. Show the harness row before and after, the commands that you ran, each open FAIL line, and the verdict for each resync.
+Give one row per book. Show the harness row before and after, the commands that you ran, each open FAIL line, and the verdict for each resync. For each fix that needs `src/`, give the hit line from `--hits` and the scan page.

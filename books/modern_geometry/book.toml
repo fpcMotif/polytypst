@@ -1,4 +1,5 @@
 slug = 'modern_geometry'
+name = 'dubrovin1992-geometry1'
 title = 'Modern Geometry—Methods and Applications. Part I'
 author = 'B. A. Dubrovin, A. T. Fomenko, S. P. Novikov'
 publisher = 'Springer-Verlag'
@@ -43,7 +44,7 @@ font_stack = '("Times New Roman", "STIX Two Math")'
 size = 9.5
 weight = 400
 diagram_dir = '@BOOK@/diagrams'
-transcripts = 'markdown_pages'
+transcripts = true
 
 [editions.facsimile.facsimile.diagram_text]
 font = 'Times New Roman'

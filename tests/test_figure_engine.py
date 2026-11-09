@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from scripts.book2_figures.engine import (
+from polytypst.charts.engine import (
     PT_PER_PX,
     SCAN_LINE_PT,
     SCAN_PAGE_ASPECT,
@@ -247,7 +247,7 @@ def test_render_figure_svg_omits_source_and_note_citations_from_svg_and_lint_cat
 
 
 def test_annotations_and_scatter_labels_render_outside_panel_clip_path():
-    from scripts.book2_figures.engine import Annotation
+    from polytypst.charts.engine import Annotation
 
     panel = replace(
         year_panel(),

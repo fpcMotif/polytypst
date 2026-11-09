@@ -45,6 +45,7 @@ known-first-party = ["polytypst"]
 [tool.ruff.lint.per-file-ignores]
 "scripts/*" = ["BLE001"]
 "books/*" = ["N999"]
+"books/*/tools/*" = ["N999", "BLE001"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "fitz".msg = "The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead."
@@ -65,12 +66,11 @@ dev = [
 package-dir = { "polytypst" = "src" }
 packages = [
     "polytypst",
+    "polytypst.charts",
     "polytypst.compiler",
-    "polytypst.kerodon",
     "polytypst.ocr",
     "polytypst.page_check",
     "polytypst.parity",
-    "polytypst.taocp",
     "polytypst.vision",
 ]
 

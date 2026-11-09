@@ -67,11 +67,11 @@ def design_rules() -> list[Rule]:
 
 
 def literal_rules() -> list[Rule]:
-    counts = _function(_tree("literal_numbers.py"), "literal_numbering_counts")
+    hits = _function(_tree("literal_numbers.py"), "literal_numbering_hits")
     names = {}
-    for node in ast.walk(counts):
-        if isinstance(node, ast.Subscript) and getattr(node.value, "id", "") == "counts":
-            for s in _strings(node.slice):
+    for node in ast.walk(hits):
+        if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "add" and node.args:
+            for s in _strings(node.args[0]):
                 names.setdefault(s.value, s.lineno)
     return [
         Rule("source", f"{prefix}_{name}", "count", "build,audit", "src/literal_numbers.py", line)

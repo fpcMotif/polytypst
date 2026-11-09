@@ -105,7 +105,7 @@ class Results:
         return read_jsonl(self.verdicts_path)
 
     def verdict_keys(self) -> set[IssueKey]:
-        return {issue_key(v) for v in self.verdicts()}
+        return {issue_key(v) for v in self.verdicts() if v.get("verdict") in VERDICTS}
 
     def add_verdicts(self, verdicts: list[Verdict]) -> None:
         append_jsonl(self.verdicts_path, verdicts)

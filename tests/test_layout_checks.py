@@ -8,16 +8,17 @@ from polytypst.checker import (
     CheckReport,
     DocumentQualityChecker,
 )
-from polytypst.compiler.monograph import compile_typst
+from polytypst.compiler.monograph import build_source, compile_typst
 
 PROSE = "Ordinary prose fills the page at the body size. " * 20
 FULL_PAGE = "#rect(width: 100%, height: 100%)\n#pagebreak()\n"
 
 
 def _layout(tmp_path: Path, source: str, spec: AuditSpec | None = None) -> CheckReport:
-    typ = tmp_path / "book.typ"
-    typ.write_text(source, encoding="utf-8")
     pdf = tmp_path / "book.pdf"
+    typ = build_source(pdf, "typ")
+    typ.parent.mkdir()
+    typ.write_text(source, encoding="utf-8")
     compile_typst(typ, pdf)
     return DocumentQualityChecker(pdf, spec or AuditSpec(front_matter_pages=0)).run_all_checks(frozenset({LAYOUT_TIER}))
 
@@ -51,7 +52,8 @@ def test_text_inside_an_embedded_figure_is_not_a_typst_fallback(tmp_path: Path) 
     page = doc.new_page()
     _ = page.insert_text((72, 200), "A label that a LaTeX figure set in its own font", fontsize=11)
     doc.save(tmp_path / "book.pdf")
-    (tmp_path / "book.typ").write_text('#set text(font: "New Computer Modern")\n', encoding="utf-8")
+    (tmp_path / "build").mkdir()
+    build_source(tmp_path / "book.pdf", "typ").write_text('#set text(font: "New Computer Modern")\n', encoding="utf-8")
     report = DocumentQualityChecker(tmp_path / "book.pdf", AuditSpec(front_matter_pages=0)).run_all_checks(frozenset({LAYOUT_TIER}))
     assert _pages(report, "FONT_FALLBACK") == []
 
@@ -59,6 +61,16 @@ def test_text_inside_an_embedded_figure_is_not_a_typst_fallback(tmp_path: Path) 
 def test_a_rule_wider_than_the_text_block_overflows_inside_the_page(tmp_path: Path) -> None:
     report = _layout(tmp_path, f"{PROSE}\n\n#rect(width: 107%, height: 8pt, fill: black)\n\n{PROSE}")
     assert _pages(report, "MARGIN_OVERFLOW") == [1]
+
+
+def test_page_overflow_measures_how_far_ink_passes_the_text_block(tmp_path: Path) -> None:
+    typ = tmp_path / "book.typ"
+    typ.write_text(f"{PROSE}\n\n#rect(width: 107%, height: 8pt, fill: black)\n\n{PROSE}\n#pagebreak()\n{PROSE}", encoding="utf-8")
+    compile_typst(typ, tmp_path / "book.pdf")
+    checker = DocumentQualityChecker(tmp_path / "book.pdf", AuditSpec(front_matter_pages=0))
+    (wide, what), (prose, _) = checker.page_overflow(0), checker.page_overflow(1)
+    assert wide > 3 and what == "drawing"
+    assert prose <= 3
 
 
 def test_ragged_prose_stays_inside_the_text_block(tmp_path: Path) -> None:

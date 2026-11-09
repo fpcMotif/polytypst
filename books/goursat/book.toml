@@ -13,6 +13,7 @@ legacy_state = 'goursat_colab'
 folio_pattern = '^\d{1,4}$'
 normalize_headings = false
 equation_numbering = 'none'
+cross_references = true
 repair_math = true
 chapters = [
   { number = 0, title = "Author's Preface", start_page = 4, end_page = 5 },

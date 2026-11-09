@@ -7,6 +7,6 @@ for key in "${canaries[@]}"; do
   scripts/rebuild.sh "$key" || failed+=("$key")
 done
 if ((${#failed[@]})); then
-  echo "canaries failed: ${failed[*]}; logs in output/logs" >&2
+  echo "canaries failed: ${failed[*]}; logs in ${POLYTYPST_OUTPUT:-../polytypst-output}/logs" >&2
   exit 1
 fi

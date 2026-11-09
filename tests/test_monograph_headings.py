@@ -5,10 +5,10 @@ import pymupdf
 import pytest
 
 from polytypst.checker import LAYOUT_TIER, DocumentQualityChecker
+from polytypst.compiler.chapter_assembly import is_unnumbered_chapter
 from polytypst.compiler.monograph import (
     MonographCompiler,
     compile_typst,
-    is_unnumbered_chapter,
     latex_safe_markdown,
 )
 from polytypst.compiler.page_cleaner import normalize_run_in

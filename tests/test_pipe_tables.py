@@ -108,6 +108,15 @@ def test_a_number_table_too_wide_for_the_text_prints_at_7pt_or_more_with_no_over
     assert sizes and min(sizes) >= 7
 
 
+def test_a_table_label_that_ends_in_a_backslash_compiles(tmp_path):
+    out = layout_tables("Ends with a backslash \\\n\n@@TABLEBLOCK0@@\n", [TABLE])
+    if not shutil.which("typst"):
+        pytest.skip("typst is not installed")
+    (tmp_path / "t.typ").write_text(out, encoding="utf-8")
+    subprocess.run(["typst", "compile", str(tmp_path / "t.typ"), str(tmp_path / "t.pdf")], check=True)
+    assert "Ends with a backslash" in pymupdf.open(tmp_path / "t.pdf")[0].get_text()
+
+
 def test_the_notes_under_a_table_and_the_numbered_note_its_header_calls_set_as_one_note_block():
     table = row("被解释变量", "换算时薪（日元）⁽¹⁾") + row("---", "---") + row("日工", "-266.2")
     out = layout_tables("@@TABLEBLOCK0@@\n\n注：BASE：男性。\n\n（1）制作程序如下。\n\n（2）正文的列举。\n", [table])
@@ -606,6 +615,24 @@ def test_multi_item_table_notes_and_following_source_stay_inside_table_note_bloc
     assert "分别表示10%" in note_section
     assert "国民经济计算" in note_section
     assert note_section.rstrip().endswith("]")
+
+
+def test_a_continued_table_keeps_a_data_row_whose_digits_resemble_the_row_above():
+    head = "| 行业 | 1990 | 1995 | 2000 |\n| --- | --- | --- | --- |\n"
+    text = (
+        f"{head}| 钢铁 | 1.2 | 3.4 | 5.6 |\n\n续表\n\n"
+        f"{head}| 汽车 | 11.2 | 3.45 | 25.6 |\n| 化工 | 7.0 | 8.0 | 9.0 |\n"
+    )
+    merged = merge_continued_tables(text)
+    assert all(row in merged for row in ("钢铁", "汽车", "化工")), merged
+
+
+def test_a_paragraph_that_starts_with_zhuyi_after_a_table_stays_body_text():
+    text = f"{CAPTION}\n\n@@TABLEBLOCK0@@\n\n注意到表中的数据随时间上升。\n\n下一段。\n"
+    out = layout_tables(text, [NUMBER_TABLE], three_line=True)
+    table_end = out.index("注意到")
+    assert out[:table_end].rstrip().endswith("]")
+    assert out.index("注意到") < out.index("下一段")
 
 
 def test_two_cjk_char_header_in_three_column_prose_table_gets_enough_width_not_to_wrap():

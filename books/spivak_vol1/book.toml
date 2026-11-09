@@ -1,4 +1,5 @@
 slug = "spivak_vol1"
+name = 'spivak-geometry1'
 title = "A Comprehensive Introduction to Differential Geometry, Vol. 1, 3rd Edition"
 author = "Michael Spivak"
 domain = "math"
@@ -14,6 +15,37 @@ running_header_regexes = [
 # The scan starts each chapter and the appendix on a new page; the transcript gives them as "CHAPTER 8" headings.
 typst_preamble = '''
 @ENGINE_PREAMBLE@
+#let back-titles = ([Notation Index], [INDEX], [Index], [CORRECTIONS FOR VOLUME I])
+#let head-fonts = ("New Computer Modern", "New Computer Modern Math", "STIX Two Math", "Zapf Dingbats")
+#set page(header: context {
+  let page-number = counter(page).get().first()
+  let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
+  if page-number > 4 and not on-chapter-page [
+    #let chaps = query(heading.where(level: 1).before(here()))
+    #let book-title = "A Comprehensive Introduction to Differential Geometry, Vol. 1, 3rd Edition"
+    #if calc.odd(page-number) [
+      #let in-chapter = if chaps == () { heading.where(level: 2) } else { heading.where(level: 2).after(chaps.last().location()) }
+      #let secs = query(in-chapter).filter(h => h.location().page() <= here().page())
+      #let on-page = secs.filter(h => h.location().page() == here().page())
+      #let back = query(heading.where(level: 3).before(here())).filter(h => h.body in back-titles)
+      #let title = if on-page != () { on-page.first().body } else if back != () and (secs == () or back.last().location().page() >= secs.last().location().page()) { back.last().body } else if secs != () { secs.last().body } else if chaps != () { chaps.last().body } else { book-title }
+      #grid(
+        columns: (1fr, auto),
+        align(left)[#text(8.5pt, font: head-fonts, style: "italic")[#title]],
+        align(right)[#text(9.5pt, font: head-fonts)[#page-number]]
+      )
+    ] else [
+      #let title = if chaps != () { chaps.last().body } else { book-title }
+      #grid(
+        columns: (auto, 1fr),
+        align(left)[#text(9.5pt, font: head-fonts)[#page-number]],
+        align(right)[#text(8.5pt, font: head-fonts, style: "italic")[#title]]
+      )
+    ]
+    #v(-0.35em)
+    #line(length: 100%, stroke: 0.35pt + luma(120))
+  ]
+})
 #show heading.where(level: 2): it => {
   let t = it.body.at("text", default: "")
   if t.starts-with("CHAPTER ") or t.starts-with("APPENDIX ") { pagebreak(weak: true) }
@@ -31,6 +63,7 @@ chapters = [
 figures = 'install_diagrams'
 
 [transcript_fixups]
+17 = [['Conse-\s+quently', 'Consequently']]
 # The transcript has (l); the scan prints the equation reference (1).
 31 = [['\(l\)', '(1)']]
 54 = [
@@ -55,6 +88,7 @@ figures = 'install_diagrams'
 ]
 106 = [
   ['\(l\)', '(1)'],
+  ['([①-④])', '$\text{\1}$'],
   # Transcript has a broken array; scan prints a zig-zag of triangles.
   ["\\$\\$\\n\\\\begin\\{array\\}\\{ccc\\}\\n\\(TM\\)\\|U & \\\\xrightarrow\\{\\\\sim\\} & TU.*?\\\\end\\{array\\}\\n\\$\\$", "$$\\scandiagram{106_001}$$"],
   # Scan prints a square with up arrows.
@@ -134,8 +168,37 @@ figures = 'install_diagrams'
   ['non-nictrizable', 'non-metrizable'],
   ['Non-merizable', 'Non-metrizable'],
 ]
+492 = [
+  ['(?m)^# NOTATION INDEX\n\n', "## Notation Index\n\n"],
+  ['(?m)^#{1,2} ((?:CHAPTER \d+|APPENDIX [A-Z]))\n\n<table>\n', "<table>\n<tr><th>\\1</th></tr>\n"],
+  ['(?m)^</?thead>\n', ''],
+  ['<(/?)th>', '<\1td>'],
+  [' class="[^"]*"', ''],
+]
+493 = [
+  ['\A478\n\n# Notation Index\n\n<table>\n', "<table>\n<tr><td></td></tr>\n"],
+  ['(?m)^#{1,2} ((?:CHAPTER \d+|APPENDIX [A-Z]))\n\n<table>\n', "<table>\n<tr><th>\\1</th></tr>\n"],
+  ['(?m)^</?thead>\n', ''],
+  ['<(/?)th>', '<\1td>'],
+  [' class="[^"]*"', ''],
+]
+494 = [
+  ['## CHAPTER 9\n\n<table>\n', "<table>\n<tr><th>CHAPTER 9</th><th></th><th>CHAPTER 10</th><th></th></tr>\n"],
+  ['(?m)^</?thead>\n', ''],
+  ['<(/?)th>', '<\1td>'],
+  [' class="[^"]*"', ''],
+  ['<tr>\s*<td>Notation Index</td>\s*<td></td>\s*<td></td>\s*</tr>', '<tr><td></td></tr>'],
+]
+495 = [
+  ['(?m)^# Notation Index\n\n<table>\n', "<table>\n<tr><td></td></tr>\n"],
+  ['(?m)^#{1,2} ((?:CHAPTER \d+|APPENDIX [A-Z]))\n\n<table>\n', "<table>\n<tr><th>\\1</th></tr>\n"],
+  ['(?m)^</?thead>\n', ''],
+  ['<(/?)th>', '<\1td>'],
+  [' class="[^"]*"', ''],
+]
 # The transcript has Stone-Cech; the scan prints Stone-Čech.
-504 = [['Stone-Cech', 'Stone-Čech']]
+137 =[['Stone-Cech', 'Stone-Čech']]
+504 = [['Stone-Cech', 'Stone-Čech'], ['(?m)^## (?!Index\b)', '']]
 # The transcript garbles the diagrams; the scan prints them as drawn in diagrams/fig_090_001.typ and fig_090_002.typ.
 90 = [
   ['\$\$\n\\begin\{array\}\{ccc\}\nT\\mathbb\{R\}\^n.*?\\end\{array\}\n\$\$', '$$\scandiagram{090_001}$$'],
@@ -174,6 +237,7 @@ figures = 'install_diagrams'
   ["\\$\\$\\n\\\\begin\\{array\\}\\{cccc\\}\\n\\(T\\\\mathbb\\{R\\}\\)\\^n\\|A.*?\\\\end\\{array\\}\\n\\$\\$", "$$\\scandiagram{107_002}$$"],
 ]
 108 = [
+  ['([①-⑤])', '$\text{\1}$'],
   # Transcript dropped diagram (2); scan prints boxes 1-5 with curved arrows.
   ["\\(2\\)\\n\\nBoxes", "(2)\n\n$$\\scandiagram{108_001}$$\n\nBoxes"],
   # Transcript dropped this triangle-over-square diagram.
@@ -247,7 +311,7 @@ figures = 'install_diagrams'
   ["\\$\\$\\s*\\\\begin\\{array\\}\\{ccc\\}\\s*H\\^\\{k-1\\}\\(U \\\\cap V\\).*?\\\\end\\{array\\}\\s*\\$\\$", "$$\\scandiagram{470_001}$$"],
 ]
 # The transcript has g_{lr}, which Typst reads as its lr function and prints in mono; the scan prints g with subscripts l r.
-341 = [['g_\{lr\}', 'g_{l r}']]
+341 = [['g_\{lr\}', 'g_{l r}'], ['\\ frac\{d\\gamma\^r\}\{dt\}', '\\frac{d\\gamma^r}{dt}'], ['\\frac\{dg\^j\}\{dt\}', '\\frac{d\\gamma^j}{dt}']]
 342 = [['g_\{lr\}', 'g_{l r}']]
 343 = [['g_\{lr\}', 'g_{l r}'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 347 = [['g_\{lr\}', 'g_{l r}']]
@@ -294,7 +358,7 @@ figures = 'install_diagrams'
 224 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 227 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 231 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
-232 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+232 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖'], ['d d\(x\^\{i_k\}', '\\mathrm{d} d(x^{i_k}']]
 239 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 240 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 262 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
@@ -302,6 +366,7 @@ figures = 'install_diagrams'
 271 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 273 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 277 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+286 = [['\*\*Step 3\.\*\*', '*Step 3.*']]
 287 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 288 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 291 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
@@ -324,11 +389,12 @@ figures = 'install_diagrams'
 394 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 397 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 398 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+400 = [['\\begin\{aligned\}\nG_e &\\xrightarrow\{\\psi_\*\} H_e \\\\\n\\exp \\downarrow & \\quad \\downarrow \\exp \\\\\nG &\\xrightarrow\{\\psi\} H\n\\end\{aligned\}', '\begin{array}{ccc}\nG_e & \xrightarrow{\psi_*} & H_e \\\\\n\exp \downarrow & & \downarrow \exp \\\\\nG & \xrightarrow{\psi} & H\n\end{array}']]
 401 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 402 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 411 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 413 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
-414 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+414 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖'], ['\*\*Case 2\.\*\*', '*Case 2.*'], ['\*\*Case 3\.\*\*', '*Case 3.*'], ['\*\*ELEGANT PROOF\.\*\*', '*ELEGANT PROOF.*']]
 415 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 417 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 439 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
@@ -349,3 +415,6 @@ figures = 'install_diagrams'
 477 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 479 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 480 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+498 = [['(?m)^## (?!Index\b)', '']]
+500 = [['(?m)^## (?!Index\b)', '']]
+502 = [['(?m)^## (?!Index\b)', '']]

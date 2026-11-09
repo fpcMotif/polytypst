@@ -7,7 +7,7 @@ from pathlib import Path
 from . import RESULTS, PageCheck, cell_text, ranges, table_diff
 from .check import MODEL as CHECK_MODEL
 from .check import run
-from .lint import built_typ, lint
+from .lint import lint
 from .render import MODEL as RENDER_MODEL
 from .render import RenderCheck
 from .sheet import cases_from_jsonl, cases_from_verdicts, scan_sheet, sheets
@@ -78,7 +78,7 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--pdf", required=True, type=Path, help="the rebuilt PDF")
     p.add_argument("--scan", type=Path, help="the scan PDF, by default the book's source scan")
     p.add_argument("--labels", default="", help="comma-separated labels to render, such as 表1-1,图2-3")
-    p.add_argument("--out", type=Path, help="the folder for the PNG files, by default output/render_check/KEY")
+    p.add_argument("--out", type=Path, help="the folder for the PNG files, by default $POLYTYPST_OUTPUT/render_check/KEY")
     p.add_argument("--run", action="store_true", help="render every pair and start the agents")
     p.add_argument("--size", type=int, default=6, help="labels per agent")
     p.add_argument("--jobs", type=int, default=8, help="agents at once")
@@ -94,7 +94,7 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--dpi", type=int, default=300)
     p = sub.add_parser("gate", help="PASS only when the receipts, lint, verdicts, figures and audit all pass")
     p.add_argument("book", help=BOOK_HELP)
-    p.add_argument("--pdf", type=Path, help="the rebuilt PDF, by default beside the built .typ")
+    p.add_argument("--pdf", type=Path, help="the rebuilt PDF, by default the first edition's")
     p.add_argument("--manifest", type=Path, help="the figure manifest, by default figures_manifest.json in the book's output folder")
     return parser
 
@@ -195,9 +195,7 @@ def main(argv: list[str]) -> int:
         return _sheet(args)
     check = PageCheck.named(args.book, getattr(args, "scan", None))
     if args.command == "gate":
-        typ = built_typ(check)
-        pdf = args.pdf or (typ.with_suffix(".pdf") if typ else None)
-        lines = gate(check, pdf, args.manifest or check.book.out_dir / "figures_manifest.json")
+        lines = gate(check, args.pdf, args.manifest)
         _print(lines)
         return 0 if lines[-1] == "PASS" else 1
     if args.command == "lint":

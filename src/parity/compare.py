@@ -11,7 +11,16 @@ from ..process_pool import process_pool
 from .diagrams import DiagramText, diagram_box, diagram_ink
 from .ink_cache import InkCache
 from .source import SCAN_DPI, read_source_page
-from .words import PT_PER_PX, InkWord, page_ink, rebuilt_words, scan_words, token
+from .words import (
+    PT_PER_PX,
+    InkWord,
+    line_measure,
+    page_ink,
+    rebuilt_words,
+    scan_words,
+    token,
+    without_edge_lines,
+)
 
 LINE_MERGE_PT = 2.5
 OVERFLOW_PT = 2.0
@@ -75,10 +84,17 @@ class PageParity:
 def right_overflow_lines(source: np.ndarray, rebuilt: np.ndarray, page_dx: float = 0.0) -> int:
     """Lines of rebuilt ink that reach more than `OVERFLOW_PT` past the right edge of the scan's text block,
     once the whole page is moved back by its offset `page_dx` (pt)."""
-    cols = np.flatnonzero(source.sum(axis=0) > OVERFLOW_COLUMN_INK_PX)
-    if cols.size == 0:
+    text = without_edge_lines(source)
+    text_rows = np.flatnonzero(text.any(axis=1))
+    if text_rows.size == 0:
         return 0
-    past = rebuilt[:, max(0, cols[-1] + round((OVERFLOW_PT + page_dx) / PT_PER_PX)) :]
+    lines = np.split(text_rows, np.flatnonzero(np.diff(text_rows) > OVERFLOW_ROW_GAP_PX) + 1)
+    extents = [np.flatnonzero(text[line[0] : line[-1] + 1].any(axis=0)) for line in lines]
+    starts, ends = [int(cols[0]) for cols in extents], [int(cols[-1]) for cols in extents]
+    left, _ = line_measure(starts, ends)
+    middle = (left + max(ends)) / 2
+    right = max(end for start, end in zip(starts, ends, strict=True) if start < middle)
+    past = rebuilt[:, max(0, right + round((OVERFLOW_PT + page_dx) / PT_PER_PX)) :]
     rows = np.flatnonzero(past.any(axis=1))
     bands = np.split(rows, np.flatnonzero(np.diff(rows) > OVERFLOW_ROW_GAP_PX) + 1) if rows.size else []
     return sum(int(past[band[0] : band[-1] + 1].sum(axis=0).max() > OVERFLOW_COLUMN_INK_PX) for band in bands)

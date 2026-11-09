@@ -7,6 +7,7 @@ publisher = 'Cambridge University Press'
 series = 'Cambridge Studies in Advanced Mathematics'
 year = 2007
 domain = 'math'
+source_pdf = 'Complex Analysis ( etc.).pdf'
 preface_page = 10
 chapters = [
   { number = 1, title = 'Holomorphic functions', start_page = 12, end_page = 70 },

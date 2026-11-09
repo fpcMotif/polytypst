@@ -1,4 +1,5 @@
 slug = "spivak_vol3"
+name = 'spivak1999-geometry3'
 title = "A Comprehensive Introduction to Differential Geometry, Vol. 3, 3rd Edition"
 author = "Michael Spivak"
 publisher = 'Publish or Perish, Inc.'
@@ -9,7 +10,7 @@ pdf_page_count = 324
 cross_references = true
 # The transcripts keep some running heads, the chapter title with or without its page number.
 running_header_regexes = [
-  '^(?:#+\s*)?(?:\d{1,3}\s+)?\*?(?:Chapter \d{1,2}|Preface|The Fundamental Equations for Hypersurfaces|Elements of the Theory of Surfaces in .{1,30}|A Compendium of Surfaces|Curves on Surfaces|Complete Surfaces of Constant Curvature|The Gauss-Bonnet Theorem and Related Topics)\*?(?:\s+\d{1,3})?$',
+  '^(?:#+\s*)?(?:\d{1,3}\s+)?\*?(?:Chapter \d{1,2}|Preface|The Fundamental Equations for Hypersurfaces|Elements of the Theory of Surfaces in .{1,30}|A Compendium of Surfaces|Curves on Surfaces|Complete Surfaces of Constant Curvature|The Gauss-Bonnet Theorem and Related Topics|(?i:Mini-Bibliography for Volume III|Notation Index|Index))\*?(?:\s+\d{1,3})?$',
 ]
 
 chapters = [
@@ -205,3 +206,53 @@ $$f(s, t) = (a \cos s, b \sin s, 0) + t(a \sin s, -b \cos s, c)$$
 309 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 310 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
 311 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+
+[page_fixups]
+"14" = [['## 5\. THEOREM\n\n', '5. **THEOREM.** ']]
+"20" = [['reserve that name for II\. The tensor II', 'reserve that name for $\mathrm{II}$. The tensor $\mathrm{II}$']]
+"34" = [['## 17\. PROPOSITION\.\n\n', '17. **PROPOSITION.** ']]
+"66" = [['## 3\. FUNDAMENTAL THEOREM OF SURFACE THEORY \(BONNET; 1867\)\n\n', '3. **FUNDAMENTAL THEOREM OF SURFACE THEORY (BONNET; 1867).** ']]
+"113" = [['## 13\. PROPOSITION\n\n', '13. **PROPOSITION.** ']]
+"142" = [['## 21\. FUNDAMENTAL THEOREM OF SPECIAL AFFINE SURFACE THEORY \(RADON; 1918\)\.', '21. **FUNDAMENTAL THEOREM OF SPECIAL AFFINE SURFACE THEORY (RADON; 1918).**']]
+"152" = [
+  ['## 3\. Generalized Cone', '### 3. Generalized Cone'],
+  ['## 4\. Tangent Developable', '### 4. Tangent Developable'],
+]
+"158" = [['1\. \*Möbius Strip\*', '### 1. Möbius Strip']]
+"160" = [['## 2\. \(Right\) Helicoid', '### 2. (Right) Helicoid']]
+"162" = [['2\. \*Elliptic Hyperboloid \(of one sheet\)\*', '### 2. Elliptic Hyperboloid (of one sheet)']]
+"164" = [
+  ['## 3\. Elliptic Hyperboloid \(of two sheets\)', '### 3. Elliptic Hyperboloid (of two sheets)'],
+  ['## 4\. Elliptic Paraboloid', '### 4. Elliptic Paraboloid'],
+]
+"165" = [['## 5\. Hyperbolic Paraboloid', '### 5. Hyperbolic Paraboloid']]
+"169" = [['1\. \*Torus\*', '### 1. Torus']]
+"170" = [['## 2\. Catenoid', '### 2. Catenoid']]
+"171" = [['## 3\. Rotation Surfaces of Constant Curvature', '### 3. Rotation Surfaces of Constant Curvature']]
+"172" = [
+  ['## Case 1\. \$K = 0\$', '#### Case 1. $K = 0$'],
+  ['## Case 2\. \$K > 0\$', '#### Case 2. $K > 0$'],
+]
+"173" = [['## Case 3\. \$K < 0\$', '#### Case 3. $K < 0$']]
+"176" = [['## 4\. A Classical Counterexample', '### 4. A Classical Counterexample']]
+"181" = [["## 1\\. Scherk's Minimal Surface", "### 1. Scherk's Minimal Surface"]]
+"184" = [["## 2\\. Enneper's Minimal Surface", "### 2. Enneper's Minimal Surface"]]
+"203" = [['## 3\. PROPOSITION\.', '3. **PROPOSITION.**']]
+"218" = [['## 11\. THEOREM \(DARBOUX\)\n\n', '11. **THEOREM (DARBOUX).** ']]
+"224" = [['## 16\. THEOREM \(CLAIRAUT\)\n\n', '16. **THEOREM (CLAIRAUT).** ']]
+"229" = [
+  [
+    '''\\downarrow f_\\Delta \\circ i & & \\downarrow \\pi \\\\
+& \\mathbb\{P\}\^1 & \\\\
+& \\downarrow \\alpha & \\\\
+& S\^1 & \\\\''',
+    '''& \searrow f_\Delta \circ i & \downarrow \pi \\
+& & \mathbb{P}^1 \\
+& & \downarrow \alpha \\
+& & S^1''',
+  ],
+]
+"260" = [['&= \\delta_\{i2\} \\alpha_1 X_1 \(\\alpha_2 - \\delta_\{i1\} \\alpha_2 X_2 \(\\alpha_1\)', '&= \delta_{i2} \alpha_1 X_1 (\alpha_2) - \delta_{i1} \alpha_2 X_2 (\alpha_1)']]
+"265" = [["## 13\\. LEMMA \\(HAZZIDAKIS' FORMULA\\)\n\n", "13. **LEMMA (HAZZIDAKIS' FORMULA).** "]]
+"267" = [['## 12\. THEOREM\.\n\n', '12. **THEOREM.** ']]
+"299" = [['## 18\. COROLLARY \(FENCHEL\)\n\n', '18. **COROLLARY (FENCHEL).** ']]

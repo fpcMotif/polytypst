@@ -21,7 +21,7 @@ The Markdown with TeX math that OCR makes from one source scan page. The compile
 _Avoid_: OCR page, markdown page, md
 
 **Transcript store**:
-The folder of a book's transcripts, one `p_NNN.md` file per page, plus `transcripts.json`. That file records which backend and prompt made each transcript. The store sends only the missing pages to a backend. It lives in `$POLYTYPST_BOOKS/<key>/`, outside the repository. A `markdown_pages/` folder under `output/<key>/` is an old copy that the build does not read.
+The folder of a book's transcripts, one `p_NNN.md` file per page, plus `transcripts.json`. That file records which backend and prompt made each transcript. The store sends only the missing pages to a backend. It lives in `$POLYTYPST_BOOKS/<key>/markdown_pages/`, outside the repository, or in one `polytypst-store-*` folder beside `$POLYTYPST_BOOKS` when that folder lacks the book. A `markdown_pages/` folder under `output/<key>/` is an old copy that the build does not read.
 _Avoid_: markdown cache, markdown_pages, OCR cache
 
 **Backend**:
@@ -51,3 +51,11 @@ _Avoid_: table continuation, split table
 **Landscape page**:
 A rebuilt PDF page set sideways. It holds a run of text-heavy tables, or the column panels of a multi-column scan page set side by side in one grid.
 _Avoid_: flipped page, rotated page
+
+**Chapter assembly**:
+The step that turns one chapter's transcripts into chapter text for every output format. It skips short pages, cleans each page, joins text that runs across a page break, places figures and marks the chapter opening. It decides once whether and how the chapter is numbered, then numbers and links it through the Typst and LaTeX writers. A figure adapter writes figures in each format's dialect.
+_Avoid_: stitching, chapter pipeline
+
+**Edition audit**:
+Every rule's hits for one edition of a book, plus the type profile of its body text. The rules run on each built PDF and EPUB, on the generated Typst and LaTeX, on the transcripts inside figure crops, and on the facsimile layout. Each hit names its stage, as `polytypst rules` prints it. `polytypst audit` compares the counts with `quality/baseline.json`, and `polytypst build` compares only the source counts.
+_Avoid_: quality check, lint report

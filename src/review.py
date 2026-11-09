@@ -91,7 +91,7 @@ def _grams(text: str) -> set[str]:
 def scan_grams(ocr_dir: Path) -> dict[int, set[str]]:
     """The text 4-grams of each scan page's OCR lines, without the running head and folio bands."""
     store = LineStore(ocr_dir)
-    numbers = sorted(int(p.stem[1:]) for p in ocr_dir.glob("p[0-9][0-9][0-9].json"))
+    numbers = sorted(int(p.stem[1:]) for p in ocr_dir.glob("p[0-9][0-9][0-9]*.json") if p.stem[1:].isdigit())
     low, high = CONTENT_BAND
     return {
         n: _grams(
@@ -101,13 +101,28 @@ def scan_grams(ocr_dir: Path) -> dict[int, set[str]]:
     }
 
 
-def text_map(scan: dict[int, set[str]], pdf: Path) -> list[PageMatch]:
-    """For each scan page with text: the rebuilt page that holds most of its 4-grams, and the share of
-    its 4-grams found anywhere in the rebuilt PDF's text layer (text off the page is not counted)."""
+def transcript_grams(pages: Path) -> dict[int, set[str]]:
+    """The text 4-grams of each transcript page `p_NNN.md`, keyed by its scan page NNN."""
+    return {
+        int(p.stem[2:]): _grams(p.read_text(encoding="utf-8"))
+        for p in pages.glob("p_[0-9]*.md")
+        if p.stem[2:].isdigit()
+    }
+
+
+def gram_pages(pdf: Path) -> dict[str, set[int]]:
+    """Each text 4-gram of a PDF's text layer and the 1-based pages that hold it."""
     where: dict[str, set[int]] = {}
     for i, page in enumerate(pymupdf.open(pdf)):
         for g in _grams(page.get_text()):
             where.setdefault(g, set()).add(i + 1)
+    return where
+
+
+def text_map(scan: dict[int, set[str]], pdf: Path) -> list[PageMatch]:
+    """For each scan page with text: the rebuilt page that holds most of its 4-grams, and the share of
+    its 4-grams found anywhere in the rebuilt PDF's text layer (text off the page is not counted)."""
+    where = gram_pages(pdf)
     out = []
     for number, grams in sorted(scan.items()):
         if not grams:
@@ -336,6 +351,16 @@ def lowest_pages(pages_csv: Path, pdf_name: str, n: int = 10) -> str:
 STATUSES = ("open", "fixed", "wontfix")
 
 
+def finding_problems(row: dict) -> list[str]:
+    """What keeps one parsed JSONL row from being a Finding: missing fields, an unknown severity or status."""
+    problems = [f"missing field {f.name!r}" for f in fields(Finding) if f.name not in row]
+    if row.get("severity") not in SEVERITIES:
+        problems.append(f"severity {row.get('severity')!r} is not one of {', '.join(SEVERITIES)}")
+    if row.get("status", "open") not in STATUSES:
+        problems.append(f"status {row['status']!r} is not one of {', '.join(STATUSES)}")
+    return problems
+
+
 def read_findings(path: Path) -> list[Finding]:
     """The findings of a JSONL file; raises ValueError listing every bad line as `line N: problem`."""
     names = [f.name for f in fields(Finding)]
@@ -351,15 +376,7 @@ def read_findings(path: Path) -> list[Finding]:
             errors.append(f"line {n}: not valid JSON ({error.msg})")
             continue
         row.setdefault("status", "open")
-        problems = [f"missing field {k!r}" for k in names if k not in row]
-        if row.get("severity") not in SEVERITIES:
-            problems.append(
-                f"severity {row.get('severity')!r} is not one of {', '.join(SEVERITIES)}"
-            )
-        if row["status"] not in STATUSES:
-            problems.append(
-                f"status {row['status']!r} is not one of {', '.join(STATUSES)}"
-            )
+        problems = finding_problems(row)
         if row.get("id") in seen:
             problems.append(f"id {row['id']!r} is used on an earlier line")
         seen.add(row.get("id"))

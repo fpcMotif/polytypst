@@ -5,6 +5,7 @@ from pathlib import Path
 import pymupdf
 
 from ..evidence import pixmap_png
+from ..paths import OUTPUT
 from ..process_pool import process_pool
 from . import PageCheck
 from .agents import Job, Runner, omp, run_agents
@@ -19,7 +20,7 @@ ENGLISH_SENTENCE = re.compile(
 DPI = 110
 RUNBOOK = "docs/render-check.md"
 MODEL = "gemini-3.8-flash"
-RENDER_CHECK = Path("output/render_check")
+RENDER_CHECK = OUTPUT / "render_check"
 
 
 def caption_label(text: str) -> str | None:

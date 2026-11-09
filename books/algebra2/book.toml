@@ -1,4 +1,5 @@
 slug = 'algebra2'
+name = 'kostrikin2006-linear'
 title = '代数学引论 (第2卷) 线性代数'
 author = 'A. И. 柯斯特利金'
 translator = '牛凤文'
@@ -45,7 +46,7 @@ latex_preamble = '''
 '''
 pdf_name_markers = ['代数学引论', '第二卷', '线性代数', '柯斯特利金']
 pdf_page_count = 341
-source_pdf = '代数学引论（第二卷） 线性代数（第3版） (A.И.柯斯特利金) .pdf'
+source_pdf = '代数学引论（第二卷） 线性代数（第3版） (A.И.柯斯特利金）.pdf'
 ocr_prompt = '''
 将此文档页面转录为精确、高保真的 Markdown 格式（符合 LaTeX 语法标准）。
 规则：
@@ -84,8 +85,8 @@ font_file = '/System/Library/Fonts/Supplemental/Songti.ttc'
 font_stack = '("Songti SC", "STSong", "STIX Two Math")'
 size = 60.0
 weight = 400
-diagram_dir = 'output/algebra2/figures'
-transcripts = 'markdown_pages'
+diagram_dir = '@OUTPUT@/algebra2/figures'
+transcripts = true
 scan_pages = [1, 2]
 
 [editions.facsimile.facsimile.diagram_text]

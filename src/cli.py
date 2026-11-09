@@ -23,6 +23,7 @@ book commands (see `polytypst COMMAND --help`):
   polytypst profile BOOK --step S         time a step by owner (Python, native libraries) and Typst cold/edited/repeat
   polytypst evidence zoom|sweep|diff|report   box a span on the scan, sweep the cleaner, render findings as HTML
   polytypst page-check COMMAND BOOK ...   check transcripts page by page against the scan; triage and verify issues
+  polytypst charts KEY [IDS] [--check]    redraw a book's charts from books/KEY/charts; --check lists stale SVGs
 """
 
 
@@ -35,6 +36,10 @@ def main() -> None:
         from .evidence import main as evidence_main
 
         sys.exit(evidence_main(sys.argv[2:]))
+    if sys.argv[1:2] == ["charts"]:
+        from .charts.redraw import main as charts_main
+
+        sys.exit(charts_main(sys.argv[2:]))
     if sys.argv[1:2] == ["page-check"]:
         from .page_check.cli import main as page_check_main
 
@@ -60,7 +65,7 @@ def main() -> None:
         "-o",
         "--output",
         type=Path,
-        help="Output folder of a new book (default: output/<slug>); a known book writes to its own folder",
+        help="Output folder of a new book (default: $POLYTYPST_OUTPUT/<slug>); a known book writes to its own folder",
     )
     parser.add_argument(
         "--backend",
@@ -124,7 +129,7 @@ def main() -> None:
         from .web_exporter import export_all_web_data
 
         root_dir = Path(__file__).resolve().parents[1]
-        web_pub = Path(__file__).resolve().parents[1] / "web" / "public"
+        web_pub = root_dir / "web" / "public"
         export_all_web_data(root_dir, web_pub)
         print(f"Exported web catalog and assets to {web_pub}")
         if not args.source:
@@ -134,6 +139,7 @@ def main() -> None:
         print(f"Error: File {args.source} does not exist.")
         sys.exit(1)
 
+    from .book_state import BookStateError
     from .books import book_for_scan
     from .edition import Book
     from .ocr.pages import OCRBackendError
@@ -142,6 +148,9 @@ def main() -> None:
 
     try:
         book = book_for_scan(args.source, args.book)
+    except KeyError as exc:
+        parser.error(exc.args[0])
+    try:
         if book is None:
             composition = {
                 k: v
@@ -154,13 +163,14 @@ def main() -> None:
         elif args.output is not None and args.output.resolve() != book.out_dir.resolve():
             parser.error(f"{book.spec.slug} is a known book and writes to {book.out_dir}")
         print(f"Book: {book.spec.title} -> {book.out_dir}")
+        _ = book.transcripts
         _ = book.transcribe(args.source, args.backend, args.pages, args.retranscribe, args.rounds)
         if not args.no_verify and sys.platform == "darwin":
             from .ocr.verifier import verify_transcripts
 
             verify_transcripts(book.out_dir / "page_renders", book.transcripts, book.spec.ocr_languages)
-    except KeyError as exc:
-        parser.error(exc.args[0])
+    except BookStateError as exc:
+        sys.exit(str(exc))
     except OCRBackendError as exc:
         sys.exit(f"OCR backend {args.backend} failed: {exc}")
     except SourceScanError as exc:
@@ -169,13 +179,11 @@ def main() -> None:
         sys.exit(f"{exc}. The build did not run.")
     edition = next(iter(book.editions.values()))
     formats = edition.formats
-    if args.formats:
-        requested = frozenset(
-            "tex" if f in ("tex", "latex") else f
-            for f in args.formats.split(",")
-            if f.strip() and f != "typst"
-        )
-        formats = requested & edition.formats or formats
+    if args.formats is not None:
+        named = {"tex" if f in ("tex", "latex") else f for f in (p.strip() for p in args.formats.split(",")) if f}
+        formats = frozenset(named - {"typst"})
+        if unknown := formats - edition.formats:
+            parser.error(f"{book.spec.slug} cannot make {', '.join(sorted(unknown))}; formats: typst, {', '.join(sorted(edition.formats))}")
     _ = book.build(source=args.source, formats=formats)
 
 

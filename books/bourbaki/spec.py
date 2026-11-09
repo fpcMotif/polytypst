@@ -10,6 +10,7 @@ from polytypst.compiler.monograph import (
     MonographSpec,
     running_header_regexes,
 )
+from polytypst.compiler.presets import PublisherPreset
 
 from .linebreaks import last_line_fills, scan_line_breaks
 
@@ -41,7 +42,8 @@ CHAPTERS = [
     ChapterSpec(6, "Valuations", 405, 504, label="Chapter VI"),
     ChapterSpec(7, "Divisors", 505, 608, label="Chapter VII"),
     ChapterSpec(8, "Historical Note (Chapters I to VII)", 609, 636),
-    ChapterSpec(9, "Index of Notation and Terminology", 637, 660),
+    ChapterSpec(9, "Index of Notation and Terminology", 637, 649),
+    ChapterSpec(10, "Table of Invariances", 650, 660),
 ]
 
 SECTION_TITLES: dict[int, tuple[str, ...]] = {
@@ -138,7 +140,7 @@ BOURBAKI_SPEC = MonographSpec(
     domain="math",
     pdf_page_count=660,
     pdf_name_markers=("bourbaki", "commutative algebra"),
-    source_pdf="Elements of Mathematics Commutative Algebra Chapters 1-7 (Nicolas Bourbaki) .pdf",
+    source_pdf="Elements of Mathematics Commutative Algebra Chapters 1-7 (Nicolas Bourbaki）.pdf",
     preface_page=11,
     ocr_prompt=BOURBAKI_OCR_PROMPT,
     ocr_languages=("en-US", "fr-FR"),
@@ -161,10 +163,27 @@ BOURBAKI_SPEC = MonographSpec(
 
 VINTAGE_PREAMBLE = (Path(__file__).parent / "vintage_preamble.typ").read_text(encoding="utf-8")
 
+SPRINGER_1970 = PublisherPreset(
+    key="bourbaki_1970",
+    imprint_name="Springer-Verlag",
+    default_series="Elements of Mathematics",
+    cities_line="Berlin · Heidelberg · New York · London · Paris · Tokyo",
+    width_pt=388,
+    height_pt=609,
+    margin_inside_pt=32,
+    margin_outside_pt=32,
+    margin_top_pt=74,
+    margin_bottom_pt=66,
+    body_size_pt=9.6,
+    heading_style="bourbaki",
+    header_rule_pt=0.0,
+    pandoc_geometry="paperwidth=5.39in,paperheight=8.46in,margin=0.45in",
+)
+
 BOURBAKI_1970_SPEC = replace(
     BOURBAKI_SPEC,
     slug="bourbaki_1970_vintage",
-    publisher_key="bourbaki_1970",
+    publisher_preset=SPRINGER_1970,
     lang="en_baskerville",
     chapter_heading="{title}",
     typst_preamble=VINTAGE_PREAMBLE,

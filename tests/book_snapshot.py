@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from polytypst.edition import Book
+from polytypst.paths import FONTS, OUTPUT
 
 ROOT = Path(__file__).resolve().parents[1]
 LONG = 160
@@ -29,10 +30,12 @@ def _callable(fn: Callable[..., object], expand: bool) -> object:
 
 def _plain(value: Any, expand: bool = False) -> object:
     if isinstance(value, str):
-        return short(value.replace(str(ROOT), "<root>"))
+        return short(value.replace(str(OUTPUT), "output").replace(str(FONTS), "<root>/fonts").replace(str(ROOT), "<root>"))
     if value is None or isinstance(value, bool | int | float):
         return value
     if isinstance(value, Path):
+        if value.is_relative_to(OUTPUT):
+            return str("output" / value.relative_to(OUTPUT))
         path = value.resolve() if value.is_absolute() else value
         return str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else str(value)
     if isinstance(value, re.Pattern):

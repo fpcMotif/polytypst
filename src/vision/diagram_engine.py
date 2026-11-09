@@ -15,7 +15,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from ..book_state import book_state
+from ..book_state import transcripts
 
 LAYERS = ("grid", "region", "curve", "label")
 INK = "#0f172a"
@@ -535,7 +535,7 @@ class FigureBook:
         if manifest_path.exists():
             for item in json.loads(manifest_path.read_text(encoding="utf-8")):
                 expected.add(str(item["figure_id"]))
-        md_dir = book_state(out_dir) / "markdown_pages"
+        md_dir = transcripts(out_dir)
         if md_dir.exists():
             pat = re.compile(
                 caption_pattern or FigureLayout.caption_pattern, re.IGNORECASE

@@ -1,10 +1,11 @@
 import difflib
 import json
 import re
-from pathlib import Path
 
-api_dir = Path("output/bench/api")
-self_dir = Path("output/bench/self_hosted")
+from polytypst.paths import OUTPUT
+
+api_dir = OUTPUT / "bench" / "api"
+self_dir = OUTPUT / "bench" / "self_hosted"
 
 bench_pages = [10, 24, 38, 55, 75, 95, 115, 135, 155, 175]
 

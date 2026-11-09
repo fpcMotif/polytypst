@@ -111,18 +111,13 @@ export function App() {
 
   const activeChapter: ChapterData | null = useMemo(() => {
     if (!convexChapter || !convexChapter.blocksJson) return null;
-    try {
-      const parsedBlocks = JSON.parse(convexChapter.blocksJson) as ContentBlock[];
-      return {
-        slug: convexChapter.slug,
-        number: convexChapter.number,
-        title: convexChapter.title,
-        tag: convexChapter.tag,
-        blocks: parsedBlocks,
-      };
-    } catch {
-      return null;
-    }
+    return {
+      slug: convexChapter.slug,
+      number: convexChapter.number,
+      title: convexChapter.title,
+      tag: convexChapter.tag,
+      blocks: JSON.parse(convexChapter.blocksJson) as ContentBlock[],
+    };
   }, [convexChapter]);
 
   const filteredBlocks = useMemo(() => {

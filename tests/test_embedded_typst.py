@@ -7,7 +7,8 @@ import pytest
 
 from polytypst.books import module
 from polytypst.compiler import typst_math
-from polytypst.compiler.typst_math import REPO_FONTS_DIR, compile_typst
+from polytypst.compiler.typst_math import compile_typst
+from polytypst.paths import FONTS
 
 query_marks = module("bourbaki", "marks").query_marks
 
@@ -31,7 +32,7 @@ def no_cli_fallback(monkeypatch):
 
 
 def cli(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["typst", args[0], "--font-path", str(REPO_FONTS_DIR), *args[1:]], check=True, capture_output=True, text=True)
+    return subprocess.run(["typst", args[0], "--font-path", str(FONTS), *args[1:]], check=True, capture_output=True, text=True)
 
 
 def gray(path, page=0) -> np.ndarray:

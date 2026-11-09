@@ -29,7 +29,7 @@ BOURBAKI_1970_SPEC = module("bourbaki", "spec").BOURBAKI_1970_SPEC
 CHAPTERS = module("bourbaki", "spec").CHAPTERS
 
 ORIGINAL = source_pdf(BOURBAKI_1970_SPEC)
-TYP = OUT_DIR / f"{BOURBAKI_1970_SPEC.slug}.typ"
+TYP = module("bourbaki", "book").VINTAGE_TYP
 FIT = book_state(OUT_DIR) / PAGE_FIT
 TARGETS = OUT_DIR / "page_targets.json"
 

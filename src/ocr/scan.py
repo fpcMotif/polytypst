@@ -16,6 +16,7 @@ from .pages import PageImage
 SCAN_IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp"})
 RENDERS_MANIFEST = "renders.json"
 _NATIVE_MIN_WIDTH = 1000
+NATIVE_MIN_PAGE_SHARE = 0.95
 _EXIF_ORIENTATION = 0x0112
 _RENDER_SUFFIXES = (".png", ".jpg")
 
@@ -190,7 +191,10 @@ class SourceScan:
     def _native_image(self, page: pymupdf.Page) -> tuple[bytes, str] | None:
         """The page's only embedded image when it is a large PNG, or an RGB or grey JPEG, as stored."""
         images = page.get_images()
-        if len(images) != 1:
+        if len(images) != 1 or page.rotation:
+            return None
+        rects = page.get_image_rects(images[0][0])
+        if len(rects) != 1 or abs(rects[0]) < NATIVE_MIN_PAGE_SHARE * abs(page.rect):
             return None
         image = self._doc.extract_image(images[0][0])
         if not image or int(image.get("width", 0)) < _NATIVE_MIN_WIDTH:

@@ -14,7 +14,7 @@ _VECTOR_RE = re.compile(r'image\("[^"\n]*?\.(?:svg|pdf)"|include "[^"\n]*?\.typ"
 def figure_counts(typst: str) -> Counter[str]:
     """DIAGRAM_AS_ARRAY: math with rows, a vertical arrow and a horizontal arrow, which fletcher should draw.
     RASTER_FIGURE and VECTOR_FIGURE: placed images and drawings by kind."""
-    counts: Counter[str] = Counter()
+    counts: Counter[str] = Counter(DIAGRAM_AS_ARRAY=0)
     for m in _MATH_RE.finditer(typst):
         math = m.group()
         if "fletcher." in math:

@@ -476,3 +476,16 @@ def test_a_note_on_a_heading_prints_its_mark_on_the_heading_line(tmp_path):
     assert lines[heading].endswith("本文的研究分析①")
     assert lines[heading + 1].startswith("基于以上")
     assert all("致谢" not in title for _, title, _ in doc.get_toc())
+
+
+def test_the_markdown_edition_carries_no_page_break_or_contents_markers(tmp_path):
+    _, rendered = rendered_book(
+        tmp_path,
+        "# Contents\n\nAnalysis of flat surfaces . . . . 235\n\n## INDEX . . . . 309\n",
+        "The first part ends here.\n\n@@PAGEBREAK@@\n\nThe second part starts here.",
+        lang="en",
+    )
+    assert "@@" not in rendered.markdown
+    assert "Analysis of flat surfaces 235" in rendered.markdown
+    assert "INDEX 309" in rendered.markdown
+    assert "The first part ends here.\n\nThe second part starts here." in rendered.markdown

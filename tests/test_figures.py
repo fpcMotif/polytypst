@@ -46,6 +46,14 @@ def test_aligned_equations_and_plain_matrices_are_not_diagrams() -> None:
     assert figure_counts(typst)["DIAGRAM_AS_ARRAY"] == 0
 
 
+def test_a_book_with_no_figures_reports_every_kind_as_zero() -> None:
+    assert dict(figure_counts("Text with $x + y$ only.")) == {
+        "DIAGRAM_AS_ARRAY": 0,
+        "RASTER_FIGURE": 0,
+        "VECTOR_FIGURE": 0,
+    }
+
+
 def test_figures_are_counted_as_raster_or_vector() -> None:
     typst = (
         '#image("figures/fig_1.png", width: 50%)\n'

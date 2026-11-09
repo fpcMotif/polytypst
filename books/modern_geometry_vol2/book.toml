@@ -1,4 +1,5 @@
 slug = 'modern_geometry_vol2'
+name = 'dubrovin1985-geometry2'
 title = 'Modern Geometry—Methods and Applications. Part II. The Geometry and Topology of Manifolds'
 author = 'B. A. Dubrovin, A. T. Fomenko, S. P. Novikov'
 translator = 'Robert G. Burns'
@@ -26,8 +27,11 @@ typst_preamble = '''
 #show heading.where(level: 1): set par(leading: 0.38em)
 '''
 typst_front_matter = '''
+#set text(hyphenate: false)
 @ENGINE_TITLE_PAGE@
-#set heading(numbering: none)
+#set text(hyphenate: auto)
+#show figure.where(kind: image): set figure(supplement: [Fig.], numbering: source-figure-number)
+#show figure.caption: it => context if repr(it.body).len() > 200 [#it.supplement #it.counter.display(it.numbering)#it.separator #v(1.2em) #it.body] else { it }
 '''
 latex_preamble = '''
 
@@ -44,6 +48,12 @@ source_pdf = 'GTM104-Modern Geometry — Methods and Applications Part II.The Ge
 caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Fig(?:ure)?\.?\s*(?:(?P<chapter>\d+)[\.\-])?(?P<number>\d+[a-z]?)\.?(?:\*\*)?(?:\s+(?P<tail>.*))?\s*$'
 caption_format = 'Figure {number}'
 supplement_none = false
+
+[page_fixups]
+112 = [['\$q\$-dimensional', '$q$‑dimensional']]
+166 = [['## 18\.1\.6\. Theorem \(On the Covering Homotopy\)\.', '(18.1.6) **Theorem (On the Covering Homotopy).**']]
+173 = [['\*\*18\.4\.2\. Definition\.\*\*', '(18.4.2) **Definition.**']]
+270 = [['co-ordinate', 'co‑ordinate']]
 
 [hooks]
 figures = 'draw_figures'
@@ -73,7 +83,7 @@ font_stack = '("Times New Roman", "STIX Two Math")'
 size = 9.5
 weight = 400
 diagram_dir = '@BOOK@/diagrams'
-transcripts = 'markdown_pages'
+transcripts = true
 
 [editions.facsimile.facsimile.diagram_text]
 font = 'Times New Roman'

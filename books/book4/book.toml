@@ -1,0 +1,16 @@
+slug = "book4"
+name = 'saitoh-nlp'
+title = "深度学习进阶：自然语言处理"
+author = "斋藤康毅"
+domain = "math"
+lang = "zh"
+source_pdf = "深度学习进阶：自然语言处理 (斋藤康毅).pdf"
+pdf_page_count = 427
+cross_references = true
+latex_preamble = '''
+\let\bm\symbfit
+\setCJKmainfont[Path=@FONTS@/,BoldFont=NotoSerifSC-Bold.otf]{NotoSerifSC-Regular.otf}
+'''
+chapters = [
+  { number = 1, title = "深度学习进阶：自然语言处理", start_page = 1, end_page = 427 },
+]

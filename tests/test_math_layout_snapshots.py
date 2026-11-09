@@ -202,15 +202,15 @@ GOURSAT_TYPST_SNAPSHOT = (
     "quad integral_0^x frac(dif^2 y, dif t^2) dif t + dif alpha = dif ( u v ) $ <eq-1-1-29>\n\n"
     "For the branch\n\n"
     '$ cases(delim: "{", u = x^2 & , v = y^2 & ) $ \n\n'
-    "as shown in (Fig. 14).\n\n"
+    "as shown in (@fig-14).\n\n"
     "#place(auto, float: true, clearance: 1.2em)[\n"
     "#set align(start)\n"
     "#align(center)[\n"
     "  #figure(\n"
     '  image("figures/fig_1.svg", width: 58%),\n'
-    "  caption: [Figure 1],\n"
-    "  supplement: none\n"
-    ")\n"
+    "  numbering: source-figure-plain,\n"
+    "  caption: []\n"
+    ") <fig-1>\n"
     "]\n"
     "]"
 )

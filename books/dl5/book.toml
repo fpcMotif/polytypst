@@ -1,4 +1,5 @@
 slug = "dl5"
+name = 'saitoh2025-generative'
 title = "深度学习入门 5 生成模型"
 author = "［日］斋藤康毅"
 translator = "郑明智"
@@ -15,19 +16,64 @@ chapter_openings = false
 typst_front_matter = '''
 @ENGINE_TITLE_PAGE@
 
-#show raw.where(block: true): it => block(
-  fill: rgb("#f8fafc"),
-  inset: (x: 14pt, y: 10pt),
-  radius: (top-right: 5pt, bottom-right: 5pt, top-left: 0pt, bottom-left: 0pt),
-  stroke: (left: 3pt + rgb("#2563eb"), rest: 0.6pt + rgb("#e2e8f0")),
-  width: 100%,
-  clip: true,
-  [
-    #set text(font: ("Fira Code", "Menlo", "Courier New", "Songti SC"), size: 8.5pt)
-    #set par(leading: 0.55em)
-    #it
-  ]
-)
+#set text(font: ("Songti SC", "PingFang SC", "Heiti SC"), size: 10pt, lang: "zh")
+#set par(justify: true, leading: 0.76em, first-line-indent: 2em)
+#set figure.caption(separator: [ ])
+#show figure.where(kind: image): set figure(placement: auto)
+#show heading: set text(font: ("PingFang SC", "Heiti SC", "Songti SC"), weight: "bold")
+#show heading.where(level: 1): it => {
+  counter(math.equation).update(0)
+  counter(figure.where(kind: image)).update(0)
+  counter(figure.where(kind: table)).update(0)
+  block(
+    above: 2.2em, below: 1.5em,
+    text(size: 19pt, fill: rgb("#0f172a"))[#it.body]
+  )
+}
+#show heading.where(level: 2): it => {
+  block(
+    above: 1.6em, below: 1.0em,
+    text(size: 14pt, fill: rgb("#1e293b"))[#it.body]
+  )
+}
+#show heading.where(level: 3): it => {
+  block(
+    above: 1.3em, below: 0.8em,
+    text(size: 12pt, fill: rgb("#334155"))[#it.body]
+  )
+}
+
+#show raw.where(block: true): it => {
+  if it.lang == "text" or it.lang == none {
+    block(
+      breakable: true,
+      fill: rgb("#f8fafc"),
+      inset: (x: 12pt, y: 8pt),
+      radius: 4pt,
+      stroke: 0.5pt + rgb("#cbd5e1"),
+      width: 100%,
+      [
+        #set text(font: ("Fira Code", "Menlo", "Courier New"), size: 8pt, fill: rgb("#334155"))
+        #set par(leading: 0.5em, first-line-indent: 0pt)
+        #it
+      ]
+    )
+  } else {
+    block(
+      breakable: true,
+      fill: rgb("#f8fafc"),
+      inset: (x: 14pt, y: 10pt),
+      radius: (top-right: 5pt, bottom-right: 5pt, top-left: 0pt, bottom-left: 0pt),
+      stroke: (left: 3pt + rgb("#2563eb"), rest: 0.6pt + rgb("#e2e8f0")),
+      width: 100%,
+      [
+        #set text(font: ("Fira Code", "Menlo", "Courier New", "Songti SC"), size: 8.5pt)
+        #set par(leading: 0.55em, first-line-indent: 0pt)
+        #it
+      ]
+    )
+  }
+}
 
 #show raw.where(block: false): box.with(
   fill: rgb("#f1f5f9"),
@@ -35,6 +81,38 @@ typst_front_matter = '''
   outset: (y: 2.5pt),
   radius: 3pt
 )
+'''
+
+latex_preamble = '''
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+
+\setCJKmonofont[Path=@FONTS@/,BoldFont=NotoSerifSC-Bold.otf]{NotoSerifSC-Regular.otf}
+\setmonofont{Menlo}[Scale=0.85]
+\renewenvironment{Shaded}{%
+  \begin{tcolorbox}[
+    enhanced,
+    breakable,
+    colback=black!2!white,
+    colframe=blue!65!black,
+    arc=3pt,
+    boxrule=0.5pt,
+    leftrule=3.5pt,
+    left=8pt,
+    right=8pt,
+    top=5pt,
+    bottom=5pt,
+    boxsep=0pt
+  ]%
+}{%
+  \end{tcolorbox}%
+}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},fontsize=\small}
+
+\linespread{1.22}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.35em plus 0.1em minus 0.1em}
+\setcounter{secnumdepth}{2}
 '''
 
 chapters = [
@@ -57,13 +135,33 @@ chapters = [
   { number = 0, title = "参考文献", start_page = 302, end_page = 304 },
 ]
 
+[page_fixups]
+71 = [
+  ['\$\$\s*\\begin\{array\}\{c\}.*?\\end\{array\}\s*\$\$\s*', ''],
+]
+117 = [
+  [
+    '\$\$\\log p_\{\\theta\}\(x\)\$\$\s*\$\$=\\log p_\{\\theta\}\(x\)\\sum_\{z\}q\(z\)\$\$\s*\$\$\\left\(\\text\{乘以\}\\sum_\{z\}q\(z\)=1\\right\)\$\$\s*\$\$=\\sum_\{z\}q\(z\)\\log p_\{\\theta\}\(x\)\$\$\s*\$\$\\left\(\\text\{将\}\\log p_\{\\theta\}\(x\)\\text\{放入\}\\Sigma\\text\{中\}\\right\)\$\$\s*\$\$=\\sum_\{z\}q\(z\)\\left\(\\log\\frac\{p_\{\\theta\}\(x,z\)\}\{q\(z\)\}\+\\log\\frac\{q\(z\)\}\{p_\{\\theta\}\(z\|x\)\}\\right\)\$\$\s*\$\$\\left\(\\text\{代入式\}5\.4\\right\)\$\$\s*\$\$=\\sum_\{z\}q\(z\)\\log\\frac\{p_\{\\theta\}\(x,z\)\}\{q\(z\)\}\+\\underbrace\{\\sum_\{z\}q\(z\)\\log\\frac\{q\(z\)\}\{p_\{\\theta\}\(z\|x\)\}\}_\{\\text\{KL散度\}\}\$\$\s*\$\$=\\sum_\{z\}q\(z\)\\log\\frac\{p_\{\\theta\}\(x,z\)\}\{q\(z\)\}\+D_\{\\text\{KL\}\}\\left\(q\(z\)\\\|p_\{\\theta\}\(z\|x\)\\right\)\$\$',
+    '''$$
+\begin{aligned}
+\log p_{\theta}(x) &= \log p_{\theta}(x)\sum_{z}q(z) \quad \left(\text{乘以}\sum_{z}q(z)=1\right) \\
+&= \sum_{z}q(z)\log p_{\theta}(x) \quad \left(\text{将}\log p_{\theta}(x)\text{放入}\Sigma\text{中}\right) \\
+&= \sum_{z}q(z)\left(\log\frac{p_{\theta}(x,z)}{q(z)}+\log\frac{q(z)}{p_{\theta}(z|x)}\right) \quad \left(\text{代入式}5.4\right) \\
+&= \sum_{z}q(z)\log\frac{p_{\theta}(x,z)}{q(z)}+\underbrace{\sum_{z}q(z)\log\frac{q(z)}{p_{\theta}(z|x)}}_{\text{KL散度}} \\
+&= \sum_{z}q(z)\log\frac{p_{\theta}(x,z)}{q(z)}+D_{\text{KL}}\left(q(z)\|p_{\theta}(z|x)\right)
+\end{aligned}
+$$''',
+  ],
+]
+
 [figures]
 caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<chapter>\d+|[A-Za-z])[\.\-](?P<number>\d+[A-Za-z]?)\.?(?:\s*[：:]?\s*(?P<title>.+?))?(?:\*\*)?\s*$'
 caption_format = '图 {chapter}-{number}'
-svg_single_pct = 100
-png_single_divisor = 2880
-png_single_range = [85, 100]
-png_max_height_ratio = 1.3
+pair_figures = false
+svg_single_pct = 75
+png_single_divisor = 1600
+png_single_range = [45, 78]
+png_max_height_ratio = 0.42
 
 [hooks]
 figures = "draw_figures"

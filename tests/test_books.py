@@ -9,7 +9,8 @@ from polytypst.books import (
     find_known_book,
 )
 from polytypst.books_cli import parse_pages
-from polytypst.compiler.monograph import MonographCompiler, is_unnumbered_chapter
+from polytypst.compiler.chapter_assembly import is_unnumbered_chapter
+from polytypst.compiler.monograph import MonographCompiler
 from polytypst.edition import OUTPUT
 
 ROOT = Path(__file__).parents[1]
@@ -50,14 +51,17 @@ def test_specs_come_from_the_editions():
 def test_london_treasury_deliverables():
     import json
 
-    out_dir = ROOT / "output" / "london_treasury"
+    out_dir = OUTPUT / "london_treasury"
     links_path = out_dir / "extracted_links.json"
     assert links_path.exists()
     links = json.loads(links_path.read_text(encoding="utf-8"))
     assert len(links) == 53
     assert all(len(item["clean_text"]) > 200 for item in links)
-    for ext in ("pdf", "typ", "tex", "epub", "md"):
-        assert (out_dir / f"book.{ext}").exists()
+    edition = books()["london_treasury"].editions["monograph"]
+    for ext in ("pdf", "epub"):
+        assert edition.rebuilt.with_suffix(f".{ext}").exists()
+    for ext in ("typ", "tex", "md"):
+        assert edition.source(ext).exists()
 
 
 def test_parse_pages():
@@ -168,5 +172,15 @@ def test_goursat_drops_the_scan_speck_read_as_a_dot_before_an_equation():
     body = compiler.cleaner.clean(raw, 435).body
     assert "\\cdot" not in body
     assert "f(x, y, a) = 0, \\quad" in body
+
+
+def test_a_title_is_unnumbered_for_the_book_whose_toml_lists_it_and_for_no_other():
+    institute = "（日本）内阁府经济社会综合研究所"
+    spec = books()["3_国际经济环境的变化与日本经济"].spec
+
+    assert spec.unnumbered_titles == (institute,)
+    assert is_unnumbered_chapter(institute, spec.unnumbered_titles)
+    assert not is_unnumbered_chapter(institute)
+    assert is_unnumbered_chapter("中文版前言")
 
 

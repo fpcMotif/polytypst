@@ -2,8 +2,9 @@ from typing import Any
 
 import httpx
 
-from .http_transcriber import EncodedImage, HttpRequest, HttpTranscriber
+from .http_transcriber import EncodedImage, HttpRequest, HttpTranscriber, PageFailed
 
+INCOMPLETE_FINISH_REASONS = ("MAX_TOKENS", "SAFETY", "RECITATION")
 GEMINI_ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
@@ -43,6 +44,7 @@ class GeminiTranscriber(HttpTranscriber):
         )
 
     def text(self, body: Any) -> str:
-        return "".join(
-            part.get("text", "") for part in body["candidates"][0]["content"]["parts"]
-        )
+        candidate = body["candidates"][0]
+        if candidate.get("finishReason") in INCOMPLETE_FINISH_REASONS:
+            raise PageFailed(f"no whole transcript: finishReason {candidate['finishReason']}")
+        return "".join(part.get("text", "") for part in candidate["content"]["parts"])

@@ -1,4 +1,4 @@
-from polytypst.compiler.monograph import mark_chapter_opening
+from polytypst.compiler.chapter_assembly import mark_chapter_opening
 
 
 def test_the_byline_and_the_abstract_before_section_1_are_marked():

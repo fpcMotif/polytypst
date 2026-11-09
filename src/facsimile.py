@@ -22,8 +22,9 @@ import pymupdf
 from fontTools.ttLib import TTFont, TTLibError
 from PIL import Image, ImageFont
 
-from .book_state import book_state
+from .book_state import transcripts as transcript_store
 from .compiler.diagrams import page_diagrams
+from .compiler.monograph import BUILD_DIR
 from .compiler.typst_math import compile_typst, convert_math_batch
 from .facsimile_figures import (
     FigureArt,
@@ -132,7 +133,7 @@ class FacsimileStyle:
     install_diagrams: Callable[[Path], object] = no_diagrams
     diagram_boxes: Callable[[], dict[str, tuple[int, int, int, int]]] | None = None
     figure_boxes: Callable[[], dict[int, list[tuple[float, float, float, float]]]] | None = None
-    transcripts: str | None = None
+    transcripts: bool = False
     flow: bool = False
     scan_pages: frozenset[int] = frozenset()
     strict_lines: bool = False
@@ -1499,7 +1500,7 @@ class Diagram:
 
 
 def locate_diagrams(
-    doc: pymupdf.Document, work: Path, style: FacsimileStyle
+    scan_ink: InkCache, work: Path, style: FacsimileStyle
 ) -> dict[int, list[Diagram]]:
     """Scan position of every fletcher diagram, keyed by 1-based page: the ink inside the style's known
     box for the diagram, else the best match of the snippet's ink on the page."""
@@ -1509,7 +1510,7 @@ def locate_diagrams(
         fig = src.stem.removeprefix("fig_")
         page = int(fig.split("_")[0])
         tmpl, inset = diagram_ink(src, work, SCAN_DPI, style.diagram_text)
-        ink = page_ink(doc[page - 1])
+        ink = scan_ink(page)
         if fig in known:
             l, t, r, b = known[fig]
             ys, xs = np.where(ink[t:b, l:r])
@@ -1613,9 +1614,11 @@ def _strict_job(
 
 
 def build_facsimile(
-    source: Path, out_dir: Path, languages: Sequence[str], style: FacsimileStyle, pages: set[int] | None = None
+    source: Path, out_dir: Path, languages: Sequence[str], style: FacsimileStyle, pages: set[int] | None = None,
+    pdf: Path | None = None,
 ) -> Path:
-    """Write and compile the facsimile edition of the `source` scan; returns the PDF path.
+    """Write and compile the facsimile edition of the `source` scan to `pdf`, by default `<out_dir>/<style slug>.pdf`;
+    returns the PDF path. Its Typst source goes to `build/` under `out_dir`.
 
     Strict pages are set in parallel, and each one's Typst and mismatches are kept in `facsimile/pages/`.
     With `pages`, only those strict pages are set again and every other one reuses its kept result."""
@@ -1630,9 +1633,9 @@ def build_facsimile(
     ensure_source_ocr(source, cache, languages)
     scan_ink = InkCache(source, work / "ink", page_ink)
     scan_faint = InkCache(source, work / "ink", faint_ink)
-    diagrams = locate_diagrams(doc, work, style)
+    diagrams = locate_diagrams(scan_ink, work, style)
     measure = Measure(style)
-    store = TranscriptStore(book_state(out_dir) / style.transcripts) if style.transcripts else None
+    store = TranscriptStore(transcript_store(out_dir)) if style.transcripts else None
     texts = {p: store.text(p) for p in range(1, doc.page_count + 1)} if store else {}
     figure_boxes = style.figure_boxes() if style.figure_boxes else {}
     for p, boxes in figure_boxes.items():
@@ -1808,9 +1811,10 @@ def build_facsimile(
             f"{len(starts)} page counter starts",
             flush=True,
         )
-    typ = out_dir / f"{style.slug}.typ"
+    pdf = pdf or out_dir / f"{style.slug}.pdf"
+    typ = out_dir / BUILD_DIR / f"{pdf.stem}.typ"
+    typ.parent.mkdir(exist_ok=True)
     typ.write_text(preamble(style) + "\n".join(pages) + "\n", encoding="utf-8")
-    pdf = out_dir / f"{style.slug}.pdf"
     compile_facsimile(typ, pdf)
     return pdf
 

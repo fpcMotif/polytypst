@@ -18,35 +18,23 @@ import argparse
 import json
 import sys
 from collections import Counter
-from dataclasses import replace
 from pathlib import Path
 
 from polytypst.books import book_by_key
-from polytypst.books_cli import DOCUMENT_FORMATS, format_output
-from polytypst.checker import AuditSpec, DocumentQualityChecker
-from polytypst.literal_numbers import edition_literal_counts
+from polytypst.edition_audit import EditionNotBuilt, audit_edition
 
 
-def audit(edition, issue_rules: set[str]) -> Counter[str]:
-    spec = AuditSpec.from_monograph(edition.spec) if edition.spec else AuditSpec()
-    spec = replace(spec, scan_line_breaks=edition.scan_line_breaks)
-    counts: Counter[str] = Counter()
-    for fmt in sorted(edition.formats | {"pdf"}):
-        if fmt not in DOCUMENT_FORMATS:
-            continue
-        path = format_output(edition, fmt)
-        if not path.exists():
-            if fmt == "pdf":
-                sys.exit(f"missing {fmt}: {path}")
-            print(f"missing {fmt}: {path}")
-            continue
-        for issue in DocumentQualityChecker(path, spec).run_all_checks().issues:
-            counts[f"{DOCUMENT_FORMATS[fmt]}{issue.rule_name}"] += 1
-            if issue.rule_name in issue_rules:
-                print(f"{fmt} p{issue.page_num} {issue.rule_name}: {issue.context_snippet[:70]!r}")
-    if edition.spec:
-        counts.update(edition_literal_counts(edition.rebuilt, edition.spec))
-    return counts
+def audit(book, name: str, issue_rules: set[str]) -> Counter[str]:
+    try:
+        found = audit_edition(book, name)
+    except EditionNotBuilt as error:
+        sys.exit(str(error))
+    for rule, reason in found.skipped.items():
+        print(f"{rule} not checked: {reason}")
+    for rule in sorted(issue_rules):
+        for hit in found.hits.get(rule, []):
+            print(f"{rule} {hit.line[:160]}")
+    return found.counts
 
 
 def main() -> None:
@@ -76,7 +64,7 @@ def main() -> None:
         book.build(name, None, frozenset(f for f in args.formats.split(",") if f))
         return
 
-    counts = audit(book.editions[name], {r for r in args.issues.split(",") if r})
+    counts = audit(book, name, {r for r in args.issues.split(",") if r})
     print(json.dumps(dict(sorted(counts.items())), indent=1, ensure_ascii=False))
     print(f"{args.key} {name}: {counts.total()} issues")
     if args.against:

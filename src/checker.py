@@ -13,10 +13,9 @@ from typing import Literal
 
 import pymupdf
 
-from .compiler.monograph import MonographSpec
+from .compiler.monograph import MonographSpec, build_source
 from .compiler.page_cleaner import CIRCLED_DIGITS
 from .compiler.page_design import PageDesign, page_design
-from .compiler.presets import resolve_composition
 
 Severity = Literal["ERROR", "WARNING"]
 TEXT_TIER = 1
@@ -120,7 +119,7 @@ class AuditSpec:
             footnote_reset=spec.footnote_reset,
             design=None
             if spec.typst_preamble
-            else page_design(resolve_composition(spec.publisher_key, spec.lang, domain=spec.domain)),
+            else page_design(spec.composition()),
         )
 
 
@@ -615,16 +614,22 @@ class DocumentQualityChecker:
                     " | ".join(matches[:2]),
                 )
 
+    def page_overflow(self, pno: int) -> tuple[float, str]:
+        """How far, in pt, ink on 0-based page `pno` passes the text block sideways, and the text, "image" or "drawing" that does."""
+        page = self.doc[pno]
+        left, right = self._text_block.get((pno + 1) % 2) or (0.0, 0.96 * page.rect.width - _OVERFLOW_PT)
+        top, foot = _HEAD_BAND * page.rect.height, _FOOT_BAND * page.rect.height
+        items = [(r, "".join(s["text"] for s in spans)) for r, spans in _line_spans(self._page_dicts[pno])]
+        items += [(pymupdf.Rect(info["bbox"]), "image") for info in page.get_image_info()]
+        items += [(d["rect"], "drawing") for d in page.get_drawings() if d["rect"].width > 0.5 or d["rect"].height > 0.5]
+        past = [(max(r.x1 - right, left - r.x0), text) for r, text in items if r.y1 > top and r.y0 < foot]
+        return max(past, default=(0.0, ""))
+
     def check_equation_margin_overflow(self, report: CheckReport) -> None:
         """Rule 9: Equations and text must not exceed page margin boundary."""
-        for pno, page in enumerate(self.doc):
-            left, right = self._text_block.get((pno + 1) % 2) or (0.0, 0.96 * page.rect.width - _OVERFLOW_PT)
-            top, foot = _HEAD_BAND * page.rect.height, _FOOT_BAND * page.rect.height
-            items = [(r, "".join(s["text"] for s in spans)) for r, spans in _line_spans(self._page_dicts[pno])]
-            items += [(pymupdf.Rect(info["bbox"]), "image") for info in page.get_image_info()]
-            items += [(d["rect"], "drawing") for d in page.get_drawings() if d["rect"].width > 0.5 or d["rect"].height > 0.5]
-            past = [(max(r.x1 - right, left - r.x0), text) for r, text in items if r.y1 > top and r.y0 < foot]
-            by, text = max(past, default=(0.0, ""))
+        for pno in range(len(self.doc)):
+            left, right = self._text_block.get((pno + 1) % 2) or (0.0, 0.96 * self.doc[pno].rect.width - _OVERFLOW_PT)
+            by, text = self.page_overflow(pno)
             if by > _OVERFLOW_PT:
                 self._issue(
                     report,
@@ -762,8 +767,8 @@ class DocumentQualityChecker:
                     t = l.text.strip()
                     if cap_re.search(t):
                         issues.append(f"Leaked figure caption in crop: {t!r}")
-            except (OSError, RuntimeError, ValueError):
-                pass
+            except (OSError, RuntimeError, ValueError) as exc:
+                issues.append(f"Image unreadable ({exc})")
             if issues:
                 self._issue(
                     report,
@@ -1160,7 +1165,7 @@ class DocumentQualityChecker:
 
     @cached_property
     def _declared_fonts(self) -> tuple[re.Pattern[str], ...]:
-        typ = self.pdf_path.with_suffix(".typ")
+        typ = build_source(self.pdf_path, "typ")
         families = typst_font_families(typ.read_text(encoding="utf-8")) if typ.exists() else []
         return tuple(_family_pattern(f) for f in dict.fromkeys((*families, *_TYPST_DEFAULT_FONTS))) if families else ()
 
@@ -1306,6 +1311,36 @@ class DocumentQualityChecker:
                     f"{numbered} contents entries end in a page number with no dot leader",
                 )
 
+    def type_profile(self) -> tuple[str, int, float] | None:
+        """The body text's script, its median characters per full line (a wide CJK character counts two),
+        and its median line pitch over the body size; None when no full body lines were found."""
+        body = self._body_size
+        widths: list[int] = []
+        pitches: list[float] = []
+        cjk = 0
+        for pno in range(self.spec.front_matter_pages, len(self.doc)):
+            frame = self._text_block.get((pno + 1) % 2)
+            if not frame or body is None:
+                continue
+            left, right = frame
+            lines = [
+                (r, spans)
+                for r, spans in sorted(self._body_line_spans(pno), key=lambda line: line[0].y0)
+                if abs(statistics.mean(s["size"] for s in spans) - body) < 0.3 and not any("Math" in s["font"] for s in spans)
+            ]
+            for (upper, spans), (lower, _) in pairwise(lines):
+                if upper.x0 < left + 2 and upper.x1 > right - 2:
+                    text = "".join(s["text"] for s in spans).strip()
+                    wide = [unicodedata.east_asian_width(c) in "WF" for c in text]
+                    cjk += 2 * sum(wide) > len(text)
+                    widths.append(len(text) + sum(wide))
+                    if 0.9 * body < lower.y0 - upper.y0 < 2.5 * body:
+                        pitches.append((lower.y0 - upper.y0) / body)
+        if not widths or not pitches or body is None:
+            return None
+        script = "cjk" if 2 * cjk > len(widths) else "latin"
+        return script, round(statistics.median(widths)), round(statistics.median(pitches), 2)
+
 
 def audit_pdf(
     pdf_path: Path,
@@ -1316,22 +1351,9 @@ def audit_pdf(
         from .books import find_known_book
 
         spec = find_known_book(pdf_path)
-    monograph = spec if isinstance(spec, MonographSpec) else None
     if isinstance(spec, MonographSpec):
         spec = AuditSpec.from_monograph(spec)
     report = DocumentQualityChecker(pdf_path, spec).run_all_checks(tiers)
-    if monograph is not None and monograph.cross_references and STRUCTURE_TIER in tiers:
-        from .literal_numbers import edition_literal_counts
-        for rule, count in edition_literal_counts(pdf_path, monograph).items():
-            report.issues.append(
-                QualityIssue(
-                    "ERROR",
-                    rule,
-                    1,
-                    f"{count} literal or unlinked numbering instance(s) in generated source",
-                    tier=STRUCTURE_TIER,
-                )
-            )
     report.print_summary()
     return report
 

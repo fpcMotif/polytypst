@@ -5,9 +5,11 @@ from pathlib import Path
 import pymupdf
 import pytest
 
+from polytypst.paths import OUTPUT
+
 ROOT_DIR = Path(__file__).resolve().parents[2]
-SERRE_DIR = ROOT_DIR / "output" / "serre_arithmetique"
-ROBERTS_DIR = ROOT_DIR / "output" / "modern_firm"
+SERRE_DIR = OUTPUT / "serre_arithmetique"
+ROBERTS_DIR = OUTPUT / "modern_firm"
 
 
 def test_serre_all_target_artifacts_exist_and_nonempty() -> None:
@@ -565,7 +567,7 @@ def test_serre_every_formula_reaches_pandoc_as_math() -> None:
     assert "[(62)]" in typ_text and "[(65)]" in typ_text, "Equations (62)-(65) missing right-aligned tags in Typst grid"
 
 
-KERODON_DIR = ROOT_DIR / "output" / "kerodon"
+KERODON_DIR = OUTPUT / "kerodon"
 
 
 def test_kerodon_all_deliverables_exist_and_nonempty() -> None:
@@ -606,7 +608,7 @@ def test_web_exporter_domain_specific_rendering_modes(tmp_path: Path) -> None:
 
     catalog = export_all_web_data(ROOT_DIR, tmp_path)
     books = {b["slug"]: b for b in catalog["books"]}
-    assert set(books.keys()) == {"modern-firm", "serre-arithmetique", "kerodon-ch1"}
+    assert {"modern-firm", "serre-arithmetique", "kerodon-ch1"} <= set(books.keys())
 
     roberts = books["modern-firm"]
     assert roberts["renderingMode"] == "editorial-business"

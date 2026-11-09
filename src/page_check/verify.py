@@ -1,18 +1,19 @@
 import hashlib
 import re
-import subprocess
 import unicodedata
 from collections import Counter
 from collections.abc import Iterable, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 import pymupdf
 
+from ..edition_audit import EditionNotBuilt, audit_edition, read_baseline, rises
 from ..vision.figure_extractor import load_figures_manifest
 from . import PageCheck, norm, ranges
 from .agents import Job, Runner, omp, run_agents
-from .lint import RUNNING_HEAD
+from .lint import RUNNING_HEAD, built_typ
 from .render import caption_label, rebuilt_pages, scan_pages
 from .results import (
     VERDICTS,
@@ -143,18 +144,28 @@ def unverified_issues(check: PageCheck) -> set[IssueKey]:
 
 
 def audit(check: PageCheck) -> tuple[int, str]:
-    """The exit code and the last output line of `polytypst audit` for the book."""
-    done = subprocess.run(["polytypst", "audit", check.key], capture_output=True, text=True, check=False)
-    lines = (done.stdout + done.stderr).strip().splitlines()
-    return done.returncode, lines[-1] if lines else ""
+    """1 and the reason when the book's default edition is not built or a rule count rose above the baseline, else 0."""
+    name = next(iter(check.book.editions))
+    try:
+        found = audit_edition(check.book, name)
+    except EditionNotBuilt as error:
+        return 1, f"{check.key} {name}: FAIL, {error}"
+    rose, _ = rises(found.counts, read_baseline().get(check.key, {}).get(name, {}))
+    if rose:
+        return 1, f"{check.key} {name}: FAIL, rose: {'; '.join(rose)}"
+    return 0, f"{check.key} {name}: ok, {found.counts.total()} issues"
 
 
 def figure_labels(captions: Iterable[str]) -> set[str]:
     return {label for caption in captions if (label := caption_label(caption)) and label.startswith(("图", "Figure"))}
 
 
-def gate(check: PageCheck, pdf: Path | None, manifest: Path) -> list[str]:
-    """One line per check, each PASS, WARN or FAIL, then PASS only when no check fails."""
+def gate(check: PageCheck, pdf: Path | None = None, manifest: Path | None = None) -> list[str]:
+    """One line per check, each PASS, WARN or FAIL, then PASS only when no check fails.
+    `pdf` defaults to the book's first edition PDF, and `manifest` to its figures manifest."""
+    if pdf is None and built_typ(check):
+        pdf = next(iter(check.book.editions.values())).rebuilt
+    manifest = manifest or check.book.out_dir / "figures_manifest.json"
     lines = []
 
     def passes(ok: bool, text: str) -> None:
@@ -167,6 +178,7 @@ def gate(check: PageCheck, pdf: Path | None, manifest: Path) -> list[str]:
         f"page check: {len(t.checked & t.pages)}/{len(t.pages)} pages with a valid receipt"
         + (f", missing {ranges(missing)}" if missing else ""),
     )
+    passes(not t.bad_lines, f"result files: {len(t.bad_lines)} unreadable lines" + "".join(f"\n  {b}" for b in t.bad_lines[:5]))
     issues = len(check.results.page_issues())
     if not issues and len(t.pages) > 100:
         lines.append(f"WARN page check: 0 issues from {len(t.pages)} pages; open five pages beside their scans and compare them")
@@ -197,24 +209,26 @@ def gate(check: PageCheck, pdf: Path | None, manifest: Path) -> list[str]:
     return [*lines, f"FAIL: {failed} of {checks} checks" if failed else "PASS"]
 
 
-def status(check: PageCheck) -> list[str]:
+@dataclass(frozen=True)
+class Progress:
+    """How far a book's page check has got: pages with a receipt, issues found, issues without a verdict,
+    and the next commands to run."""
+
+    checked: int
+    pages: int
+    issues: int
+    unverified: int
+    next: list[str]
+
+
+def progress(check: PageCheck) -> Progress:
     results = check.results
     t = check.tally()
     lint_hits = results.lint_hits()
     claims = [*results.page_issues(), *(h for h in lint_hits if h["page"])]
-    verdicts = results.verdicts()
     unverified = unverified_issues(check)
     queued = {issue_key(q) for q in results.queue()}
-    by = Counter(v["verdict"] for v in verdicts)
-    judged = sum(n for k, n in by.items() if k != "sum")
-    lines = [
-        f"book {check.key}",
-        f"  page check: {len(t.checked & t.pages)}/{len(t.pages)} pages, {len(claims) - len(lint_hits)} issues",
-        f"  lint: {dict(Counter(h.get('rule') for h in lint_hits)) if results.linted() else 'not run'}",
-        f"  verdicts: {dict(by)}, {sum(v.get('by') == 'auto' for v in verdicts)} auto, {len(unverified)} unverified"
-        + (f", false-positive rate {by['false_positive'] / judged:.0%}" if judged else ""),
-        f"  false negatives: {len(results.false_negatives())}",
-    ]
+    by = Counter(v["verdict"] for v in results.verdicts())
     steps = []
     if missing := sorted(t.pages - t.checked):
         steps.append(f"polytypst page-check run {check.key}   # unchecked {ranges(missing)}")
@@ -226,4 +240,22 @@ def status(check: PageCheck) -> list[str]:
         steps.append(f"polytypst page-check verify {check.key}")
     if by["real"] or by["scan_typo"]:
         steps.append("fix the real and scan_typo verdicts: docs/page-check-review.md, Step 4")
-    return [*lines, *(f"  next: {s}" for s in steps)]
+    return Progress(len(t.checked & t.pages), len(t.pages), len(claims) - len(lint_hits), len(unverified), steps)
+
+
+def status(check: PageCheck) -> list[str]:
+    p = progress(check)
+    results = check.results
+    lint_hits = results.lint_hits()
+    verdicts = results.verdicts()
+    by = Counter(v["verdict"] for v in verdicts)
+    judged = sum(n for k, n in by.items() if k != "sum")
+    lines = [
+        f"book {check.key}",
+        f"  page check: {p.checked}/{p.pages} pages, {p.issues} issues",
+        f"  lint: {dict(Counter(h.get('rule') for h in lint_hits)) if results.linted() else 'not run'}",
+        f"  verdicts: {dict(by)}, {sum(v.get('by') == 'auto' for v in verdicts)} auto, {p.unverified} unverified"
+        + (f", false-positive rate {by['false_positive'] / judged:.0%}" if judged else ""),
+        f"  false negatives: {len(results.false_negatives())}",
+    ]
+    return [*lines, *(f"  next: {s}" for s in p.next)]

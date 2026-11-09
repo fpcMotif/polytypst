@@ -2,7 +2,9 @@ from typing import Any
 
 import httpx
 
-from .http_transcriber import EncodedImage, HttpRequest, HttpTranscriber
+from .http_transcriber import EncodedImage, HttpRequest, HttpTranscriber, PageFailed
+
+INCOMPLETE_FINISH_REASONS = ("length", "content_filter")
 
 
 class OpenAICompatTranscriber(HttpTranscriber):
@@ -44,4 +46,8 @@ class OpenAICompatTranscriber(HttpTranscriber):
         return HttpRequest(self.url, body, self.headers)
 
     def text(self, body: Any) -> str:
-        return str(body["choices"][0]["message"]["content"])
+        choice = body["choices"][0]
+        content = choice["message"]["content"]
+        if not isinstance(content, str) or choice.get("finish_reason") in INCOMPLETE_FINISH_REASONS:
+            raise PageFailed(f"no whole transcript: finish_reason {choice.get('finish_reason')!r}")
+        return content

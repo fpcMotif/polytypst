@@ -19,7 +19,8 @@ from polytypst.compiler.monograph import (
     MonographCompiler,
     adhoc_spec,
 )
-from polytypst.compiler.typst_math import REPO_FONTS_DIR, convert_math_batch
+from polytypst.compiler.typst_math import convert_math_batch
+from polytypst.paths import FONTS, OUTPUT
 
 pytestmark = pytest.mark.slow
 
@@ -104,7 +105,7 @@ HOSTILE_PDF_NAMES = [
     "ünïcödé 数学.pdf",
 ]
 OCR_CORPUS_DIR = Path(
-    os.environ.get("OCR_CORPUS_DIR", Path(__file__).resolve().parents[1] / "output")
+    os.environ.get("OCR_CORPUS_DIR", OUTPUT)
 )
 CORPUS_PAGES = sorted(OCR_CORPUS_DIR.glob("*/markdown_pages/p_*.md"))
 
@@ -130,7 +131,7 @@ def _compile(typ: Path) -> str:
             *_typst_command(),
             "compile",
             "--font-path",
-            str(REPO_FONTS_DIR),
+            str(FONTS),
             str(typ),
             str(pdf),
         ],
@@ -161,6 +162,11 @@ def _flat(text: str) -> str:
     """Join hyphenated line breaks, drop whitespace, and straighten typeset quotes, so words compare."""
     text = text.translate(str.maketrans("“”‘’", "\"\"''"))
     return re.sub(r"\s+", "", re.sub(r"[-\xad]\s*\n", "", text))
+
+
+def _kept(sentence: str, pdf_text: str) -> bool:
+    """Every word of `sentence` is in the flat PDF text in order; a page's footnotes may sit between them."""
+    return re.search(".*?".join(re.escape(_flat(word)) for word in sentence.split()), pdf_text, re.DOTALL) is not None
 
 
 @pytest.mark.parametrize("ocr_text", OCR_STATES.values(), ids=OCR_STATES.keys())
@@ -263,8 +269,8 @@ def test_damaged_real_ocr_pages_compile_and_keep_their_neighbour_pages(
     for op, at in ops:
         text = _mutate(text, op, at)
     pdf_text = _flat(_build_spec_less_book(tmp_path, [OPENING, text, CLOSING]))
-    assert _flat(OPENING) in pdf_text
-    assert _flat(CLOSING) in pdf_text
+    assert _kept(OPENING, pdf_text)
+    assert _kept(CLOSING, pdf_text)
 
 
 CUT_PAGEBREAK_PAGE = OCR_CORPUS_DIR / "2 通缩经济与货币政策" / "markdown_pages" / "p_272.md"
@@ -275,7 +281,7 @@ def test_a_page_cut_inside_its_pagebreak_marker_compiles(tmp_path: Path) -> None
     text = _mutate(CUT_PAGEBREAK_PAGE.read_text(encoding="utf-8"), "cut_page", 3556)
     assert text.endswith("@@P")
     pdf_text = _flat(_build_spec_less_book(tmp_path, [OPENING, text, CLOSING]))
-    assert _flat(CLOSING) in pdf_text
+    assert _kept(CLOSING, pdf_text)
 
 
 class OCREngineMachine(RuleBasedStateMachine):

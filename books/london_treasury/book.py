@@ -17,7 +17,7 @@ BOOK = Book(
     OUT_DIR,
     {
         "monograph": Edition(
-            rebuilt=OUT_DIR / f"{LONDON_TREASURY_SPEC.slug}.pdf",
+            rebuilt=OUT_DIR / f"{LONDON_TREASURY_SPEC.name}.pdf",
             build=_build,
             summary="bilingual guide + 53 extracted primary texts",
             spec=LONDON_TREASURY_SPEC,

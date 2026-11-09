@@ -1,8 +1,20 @@
 from dataclasses import replace
+from pathlib import Path
 
 from polytypst.books import book_by_key
+from polytypst.compiler.monograph import build_source
 from polytypst.compiler.source_numbers import LATEX, TYPST
-from polytypst.literal_numbers import edition_literal_counts, literal_numbering_counts
+from polytypst.literal_numbers import (
+    edition_literal_counts,
+    literal_numbering_counts,
+    literal_numbering_hits,
+)
+
+
+def _built(pdf: Path, ext: str) -> Path:
+    path = build_source(pdf, ext)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
 
 ALGEBRA3_SPEC = book_by_key("algebra3").spec
 
@@ -30,6 +42,14 @@ def test_typst_counts_every_number_and_citation_typed_as_text():
         "UNLINKED_CITATION": 3,
         "LITERAL_NUMBER_IN_MATH": 2,
     }
+
+
+def test_each_hit_names_its_rule_line_and_typed_text():
+    hits = literal_numbering_hits(TYPST_BOOK, TYPST, ABBREVIATIONS, {"0": 0, "I": 1})
+    lines = TYPST_BOOK.splitlines()
+    assert sorted(h.text for h in hits if h.rule == "LITERAL_ITEM_HEAD") == ["Exemples (1.5.5)", "Remarque (1.6.6)"]
+    assert all(h.text in lines[h.line - 1] for h in hits)
+    assert len(hits) == sum(literal_numbering_counts(TYPST_BOOK, TYPST, ABBREVIATIONS, {"0": 0, "I": 1}).values())
 
 
 LATEX_BOOK = (
@@ -140,14 +160,14 @@ def test_a_p_value_in_a_table_cell_is_not_a_reference():
 
 def test_every_book_is_held_to_native_numbering(tmp_path):
     rebuilt = tmp_path / "book.pdf"
-    rebuilt.with_suffix(".typ").write_text(TYPST.chapter_start + "#strong[定理 7] 设 $P$ 是域.\n", encoding="utf-8")
+    _built(rebuilt, "typ").write_text(TYPST.chapter_start + "#strong[定理 7] 设 $P$ 是域.\n", encoding="utf-8")
     spec = replace(ALGEBRA3_SPEC, cross_references=False)
     assert edition_literal_counts(rebuilt, spec) == {"TYPST_LITERAL_ITEM_HEAD": 1}
 
 
 def test_only_italic_d_in_a_real_differential_is_counted(tmp_path):
     rebuilt = tmp_path / "book.pdf"
-    rebuilt.with_suffix(".typ").write_text(
+    _built(rebuilt, "typ").write_text(
         TYPST.chapter_start
         + "Soit $integral_gamma f(z) d z$ et $integral f dif x$ avec la distance $d(x, y)$, "
         + "$frac(d y, d x)$, $d A = F cos t$ et $mat(a, b; c, d)$.\n",

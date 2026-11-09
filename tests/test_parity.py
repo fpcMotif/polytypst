@@ -175,8 +175,9 @@ def test_find_diagram_returns_the_page_position_of_a_diagram_set_in_an_indented_
 
 def test_a_source_paginated_page_that_overflows_or_loses_a_line_fails() -> None:
     page = PageParity(Path("s.pdf"), Path("r.pdf"), 40, (52, 53), 0.0, 0.0, 0.9, 38, 37, 0)
-    assert verdict(page, SOURCE_PAGINATED) == ["lines 38 vs 37", "overflows onto 1 more page(s)"]
-    assert verdict(page, FACSIMILE) == []
+    unmeasured = "no scan words measured on 38 scan lines"
+    assert verdict(page, SOURCE_PAGINATED) == [unmeasured, "lines 38 vs 37", "overflows onto 1 more page(s)"]
+    assert verdict(page, FACSIMILE) == [unmeasured]
 
 
 def test_the_report_marks_failing_pages_and_returns_false(source: Path, tmp_path: Path) -> None:
@@ -187,3 +188,28 @@ def test_the_report_marks_failing_pages_and_returns_false(source: Path, tmp_path
     assert json.loads((out / "summary.json").read_text())["failed"] == 1
     assert (out / "img" / "p001_overlay.png").exists()
     assert "fail" in (out / "report.csv").read_text()
+
+
+def test_a_run_that_compared_no_page_fails(tmp_path: Path) -> None:
+    assert write_report([], tmp_path / "report", FACSIMILE) is False
+
+
+def test_a_page_whose_scan_lines_gave_no_words_is_not_a_pass() -> None:
+    page = PageParity(Path("s.pdf"), Path("r.pdf"), 7, (7,), 0.0, 0.0, 0.1, 12, 40, 0)
+    assert verdict(page, FACSIMILE) == ["no scan words measured on 12 scan lines"]
+
+
+def test_a_border_column_beside_the_scan_text_does_not_hide_rebuilt_overflow() -> None:
+    scan = np.zeros((400, 1000), bool)
+    for y in range(50, 350, 25):
+        scan[y : y + 10, 100:500] = True
+    rebuilt = scan.copy()
+    for y in range(50, 350, 25):
+        rebuilt[y : y + 10, 100:620] = True
+    bordered = scan.copy()
+    bordered[:, 990] = True
+    folio = scan.copy()
+    folio[20:30, 700:720] = True
+    assert right_overflow_lines(scan, rebuilt) == 12
+    assert right_overflow_lines(bordered, rebuilt) == 12
+    assert right_overflow_lines(folio, rebuilt) == 12

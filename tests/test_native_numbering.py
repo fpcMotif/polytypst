@@ -4,7 +4,8 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from polytypst.compiler.monograph import compile_typst, typst_chapter_heading
+from polytypst.compiler.chapter_assembly import typst_chapter_heading
+from polytypst.compiler.monograph import compile_typst
 from polytypst.compiler.source_numbers import (
     TYPST,
     TYPST_RULES,

@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pymupdf
 
+from polytypst.paths import OUTPUT
+
 from .figures_1_15 import (
     gen_fig_1,
     gen_fig_2,
@@ -161,4 +163,4 @@ def generate_all_algebra1_figures(out_dir: Path) -> None:
 
 
 if __name__ == "__main__":
-    generate_all_algebra1_figures(Path("output/algebra1/figures"))
+    generate_all_algebra1_figures(OUTPUT / "algebra1" / "figures")

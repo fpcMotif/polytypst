@@ -64,7 +64,7 @@ def notes(book, store: TranscriptStore) -> None:
 
 
 def repeats(book, _store: TranscriptStore) -> None:
-    typ = book.out_dir / f"{book.spec.slug}.typ"
+    typ = next(iter(book.editions.values())).source("typ")
     paras = [p.strip() for p in re.split(r"\n\s*\n", typ.read_text(encoding="utf-8")) if p.strip()]
     for i, para in enumerate(paras):
         if len(para) < 6 or para.startswith(("#", "]", ")", "[")):
