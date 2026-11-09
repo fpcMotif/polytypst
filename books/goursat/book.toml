@@ -66,6 +66,12 @@ heading_rewrites = [
 ]
 
 [page_fixups]
+# Scan typo: the scan prints ∫ A dx with no denominator for m = 1; meant ∫ A dx/(x - a).
+219 = [['''\\int: A \\, dx =''', '\int \frac{A \, dx}{x - a} =']]
+# Scan typo: the scan prints sin^{m-2} cos^2 x dx; meant sin^{m-2} x cos^2 x dx.
+251 = [['''\\sin\^\{m-2\} \\cos\^2 x''', '\sin^{m-2} x \cos^2 x']]
+# The transcript has cos x sin^{m-1} y; the scan prints cos x sin^{m-1} x.
+252 = [['''\\cos x \\sin\^\{m-1\} y''', '\cos x \sin^{m-1} x']]
 435 = [['''\\cdot (f\(x, y, a\) = 0, \\quad \\frac)''', '\1']]
 503 = [['''\*\*11\\\*\*\*\.''', '**11*.**']]
 
