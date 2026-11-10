@@ -58,6 +58,7 @@ def test_a_declared_format_without_output_is_not_built(tmp_path: Path) -> None:
     assert error.value.formats == ["epub", "tex"]
 
 
+@pytest.mark.slow
 def test_type_profile_measures_full_body_lines(tmp_path: Path) -> None:
     write_pages(tmp_path / "x.pdf", 8, [LINE] * 12, pitch=15, size=12)
     profile = audit_edition(book(tmp_path), "monograph").type_profile
@@ -67,6 +68,7 @@ def test_type_profile_measures_full_body_lines(tmp_path: Path) -> None:
     assert profile.ok
 
 
+@pytest.mark.slow
 def test_type_profile_flags_loose_line_pitch(tmp_path: Path) -> None:
     write_pages(tmp_path / "x.pdf", 8, [LINE] * 12, pitch=24, size=12)
     profile = audit_edition(book(tmp_path), "monograph").type_profile

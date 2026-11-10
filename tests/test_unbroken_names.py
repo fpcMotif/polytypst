@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pymupdf
+import pytest
 
 from polytypst.checker import _NAME_HYPHEN_RE
 from polytypst.compiler.monograph import TYPST_UNBROKEN_NAMES, compile_typst
@@ -20,6 +21,7 @@ def line_ends(tmp_path: Path, rules: str) -> list[str]:
     return [line.rstrip() for page in pymupdf.open(pdf) for line in page.get_text().splitlines()]
 
 
+@pytest.mark.slow
 def test_hyphenated_names_never_break_at_a_line_end(tmp_path: Path) -> None:
     assert any(_NAME_HYPHEN_RE.search(line) for line in line_ends(tmp_path, ""))
     assert not [line for line in line_ends(tmp_path, TYPST_UNBROKEN_NAMES) if _NAME_HYPHEN_RE.search(line)]

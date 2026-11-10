@@ -203,6 +203,7 @@ pages = st.tuples(
 )
 
 
+@pytest.mark.slow
 @settings(max_examples=150, deadline=None)
 @given(pages, pages, st.integers(0, 6), st.integers(0, 6), st.booleans())
 def test_page_visual_equals_the_numpy_reference(scan, built, dy, dx, strided):
@@ -213,6 +214,7 @@ def test_page_visual_equals_the_numpy_reference(scan, built, dy, dx, strided):
     assert visual.page_visual(s, b, 1, 1) == reference_page_visual(s, b)
 
 
+@pytest.mark.slow
 @settings(max_examples=150, deadline=None)
 @given(
     st.integers(0, 2**32 - 1),

@@ -16,6 +16,7 @@ def test_chart_code_lives_in_its_book_folder():
     assert len(chart_books()) == 6
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("key", chart_books())
 def test_each_chart_book_draws_the_same_svg_twice(key: str):
     found = generators(key)

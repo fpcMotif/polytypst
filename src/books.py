@@ -355,6 +355,13 @@ class _Books(Mapping[str, Book]):
     def __init__(self) -> None:
         self._folders = book_folders()
         self._loaded: dict[str, Book] = {}
+        self._names: dict[str, str] | None = None
+
+    def names(self) -> dict[str, str]:
+        """`_name_table` of these books, read once."""
+        if self._names is None:
+            self._names = _name_table(self, self._folders)
+        return self._names
 
     def __getitem__(self, key: str) -> Book:
         if key not in self._loaded:
@@ -373,7 +380,7 @@ class _Books(Mapping[str, Book]):
 
 
 @cache
-def books() -> Mapping[str, Book]:
+def books() -> _Books:
     """Every book by key. The key is its folder name under books/."""
     return _Books()
 
@@ -409,12 +416,17 @@ def _aliases(folder: Path) -> list[str]:
     return aliases
 
 
-def book_key(name: str) -> str:
-    known = books()
-    folders = book_folders()
+def _name_table(known: Mapping[str, Book], folders: Mapping[str, Path]) -> dict[str, str]:
+    """Every name that finds a book: its key, the key with hyphens, and its aliases."""
     names = {k: k for k in known}
     names |= {k.replace("_", "-"): k for k in known}
     names |= {alias: k for k in known if k in folders for alias in _aliases(folders[k])}
+    return names
+
+
+def book_key(name: str) -> str:
+    known = books()
+    names = known.names() if isinstance(known, _Books) else _name_table(known, book_folders())
     if name in names:
         return names[name]
     starting = [k for k in known if k.startswith(name)]

@@ -9,23 +9,45 @@ gives the findings real ids and appends them to the shared findings file in one 
 import fcntl
 import json
 import re
+import shlex
+import shutil
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 import pymupdf
 
-from .checker import AuditSpec, DocumentQualityChecker
-from .review import finding_problems, gram_pages, transcript_grams
+from .checker import LAYOUT_TIER, TEXT_TIER, AuditSpec, DocumentQualityChecker
+from .compare_sheet import Panel, write_sheet
+from .review import SEVERITIES, Finding, finding_problems, gram_pages, transcript_grams
 
 PAGES_FILE = "look_pages.jsonl"
 GROUPS_FILE = "look_groups.json"
 MERGED_FILE = "merged.json"
+CAUSES = ("transcript", "build", "unknown")
+GRAVE = ("P0", "P1")
+BOXES = {
+    "full": (0.0, 0.0, 1.0, 1.0),
+    "top": (0.0, 0.0, 1.0, 0.4),
+    "middle": (0.0, 0.3, 1.0, 0.7),
+    "bottom": (0.0, 0.6, 1.0, 1.0),
+}
+FINDING_FIELDS = {
+    "id": '`"TBD"`; merge gives the real id',
+    "book": "the book key, `{book}`",
+    "severity": f"one of {', '.join(SEVERITIES)}: P0 content wrong or lost, P1 visibly broken layout, P2 typographic bad practice, P3 nit",
+    "format": "`typst`, `latex`, `both`, `vintage` or `transcript`: where the defect shows",
+    "where": "the rebuilt page as `pN`, then the scan page, then `p_NNN.md:line` when you opened the transcript",
+    "what": "one sentence that says what is wrong",
+    "evidence": "a measure, a quote of at most 15 words, or a crop sheet path",
+    "status": '`"open"`',
+}
 
 
 @dataclass(frozen=True)
 class PageEntry:
-    """One rebuilt page: its scan pages, its PNGs relative to the review folder, and the checker's overflow."""
+    """One rebuilt page: its scan pages, its PNGs relative to the review folder, the checker's overflow,
+    and the names of the checker's other text and layout rules that hit the page."""
 
     page: int
     scan_pages: list[int]
@@ -33,6 +55,19 @@ class PageEntry:
     scan_pngs: list[str]
     overflow_pt: float
     overflow_what: str
+    checker: list[str] = field(default_factory=list)
+    pair_png: str = ""
+
+
+@dataclass(frozen=True)
+class SpotItem:
+    """One item of a spot check: a grave finding or a page the audit passed, with its sheet."""
+
+    item: str
+    page: int | None
+    scan_pages: list[int]
+    text: str
+    pngs: list[str]
 
 
 @dataclass(frozen=True)
@@ -85,6 +120,16 @@ def group_ranges(page_count: int, size: int) -> list[tuple[int, int]]:
     ]
 
 
+def sample_ranges(page_count: int, size: int) -> list[tuple[int, int]]:
+    """The first, middle and last group of `group_ranges`: front matter, body, and back matter with the index."""
+    ranges = group_ranges(page_count, size)
+    return (
+        ranges
+        if len(ranges) <= 3
+        else [ranges[0], ranges[len(ranges) // 2], ranges[-1]]
+    )
+
+
 def finding_id(book: str, number: int) -> str:
     return f"B{book}-{number:02d}"
 
@@ -111,14 +156,27 @@ def _jsonl(path: Path) -> list[dict]:
     ]
 
 
-def unaudited_pages(review: Path, page_count: int) -> list[int]:
-    """Pages 1 to `page_count` that no `group_*.audit.jsonl` line covers."""
+def unaudited_pages(review: Path) -> list[int]:
+    """Pages of the review's groups that no `group_*.audit.jsonl` line covers."""
     seen = {
         row["page"]
         for audit in review.glob("group_*.audit.jsonl")
         for row in _jsonl(audit)
     }
-    return [p for p in range(1, page_count + 1) if p not in seen]
+    return [
+        p
+        for first, last in read_groups(review)
+        for p in range(first, last + 1)
+        if p not in seen
+    ]
+
+
+def _lists_causes(review: Path) -> bool:
+    """Whether the review's findings must take `cause` from CAUSES. A review prepared before that list keeps free text."""
+    path = review / GROUPS_FILE
+    return path.exists() and isinstance(
+        json.loads(path.read_text(encoding="utf-8")), dict
+    )
 
 
 def group_problems(review: Path, group: int, first: int, last: int) -> list[str]:
@@ -130,6 +188,7 @@ def group_problems(review: Path, group: int, first: int, last: int) -> list[str]
     problems = [f"{p.name} is missing" for p in (findings, audit) if not p.exists()]
     if problems:
         return problems
+    listed = _lists_causes(review)
     for path in (findings, audit):
         for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if not line.strip():
@@ -139,7 +198,14 @@ def group_problems(review: Path, group: int, first: int, last: int) -> list[str]
             except json.JSONDecodeError as error:
                 problems.append(f"{path.name} line {n}: not valid JSON ({error.msg})")
                 continue
-            if path == findings and (bad := finding_problems(row)):
+            if path != findings:
+                continue
+            bad = finding_problems(row)
+            if listed and row.get("cause") not in CAUSES:
+                bad.append(
+                    f"cause {row.get('cause')!r} is not one of {', '.join(CAUSES)}"
+                )
+            if bad:
                 problems.append(f"{path.name} line {n}: " + "; ".join(bad))
     if not problems:
         seen = {row.get("page") for row in _jsonl(audit)}
@@ -190,32 +256,71 @@ def append_findings(review: Path, book: str, findings: Path) -> GroupResult:
     return GroupResult(len(rows), ids[0] if ids else None, ids[-1] if ids else None)
 
 
+def _render(
+    doc: pymupdf.Document, page: int, out: Path, dpi: int, source: Path
+) -> None:
+    """Write 1-based `page` of `doc` to `out`, unless `out` is already newer than the PDF at `source`."""
+    if not out.exists() or out.stat().st_mtime < source.stat().st_mtime:
+        doc[page - 1].get_pixmap(dpi=dpi).save(out)
+
+
+def pair_name(page: int) -> str:
+    """The pair sheet of rebuilt `page`, relative to the review folder."""
+    return f"png/pair_{page:03d}.png"
+
+
+def _write_pair(out: Path, rebuilt: Path, scan: Path, page: int, scans: list[int], dpi: int) -> None:
+    """Write the pair sheet of `page`, its `scans` beside it, unless `out` is newer than both PDFs."""
+    if not out.exists() or out.stat().st_mtime < max(rebuilt.stat().st_mtime, scan.stat().st_mtime):
+        write_sheet(
+            [[Panel(f"scan p{s}", scan, s) for s in scans] + [Panel(f"rebuilt p{page}", rebuilt, page)]],
+            out,
+            dpi,
+        )
+
+
+def pair_sheets(
+    review: Path, rebuilt: Path, scan: Path, pages: list[PageEntry], first: int, last: int, dpi: int
+) -> None:
+    """Write the missing or stale pair sheets of pages `first` to `last`, as a review that an older `prepare` made lacks them."""
+    for e in pages:
+        if first <= e.page <= last:
+            _write_pair(review / (e.pair_png or pair_name(e.page)), rebuilt, scan, e.page, e.scan_pages, dpi)
+
+
 def prepare(
     rebuilt: Path,
     scan: Path,
     scan_map: dict[int, list[int]],
     review: Path,
-    size: int,
+    ranges: list[tuple[int, int]],
     dpi: int,
+    audit: AuditSpec | None = None,
 ) -> list[PageEntry]:
-    """Render page pairs to `review/png/`, measure overflow, and write `pages.jsonl` and `groups.json`. Existing PNGs are kept."""
+    """Render the page pairs of `ranges` to `review/png/`, run the checker with `audit`, and write the pages and groups files.
+
+    A PNG older than its PDF is rendered again, so a review after a rebuild shows the new pages."""
     png = review / "png"
     png.mkdir(parents=True, exist_ok=True)
     doc, scan_doc = pymupdf.open(rebuilt), pymupdf.open(scan)
-    checker = DocumentQualityChecker(rebuilt, AuditSpec(front_matter_pages=0))
+    checker = DocumentQualityChecker(rebuilt, audit or AuditSpec(front_matter_pages=0))
+    hits: dict[int, set[str]] = {}
+    for issue in checker.run_all_checks(frozenset({TEXT_TIER, LAYOUT_TIER})).issues:
+        if issue.rule_name != "MARGIN_OVERFLOW":
+            hits.setdefault(issue.page_num, set()).add(issue.rule_name)
     pairs = rebuilt_to_scan(scan_map)
     entries = []
-    for page in range(1, len(doc) + 1):
+    for page in (p for first, last in ranges for p in range(first, last + 1)):
         scans = pairs.get(page, [])
         rebuilt_png = png / f"r_{page:03d}.png"
-        if not rebuilt_png.exists():
-            doc[page - 1].get_pixmap(dpi=dpi).save(rebuilt_png)
+        _render(doc, page, rebuilt_png, dpi, rebuilt)
         scan_pngs = []
         for s in scans:
             out = png / f"s_{s:03d}.png"
-            if not out.exists():
-                scan_doc[s - 1].get_pixmap(dpi=dpi).save(out)
+            _render(scan_doc, s, out, dpi, scan)
             scan_pngs.append(str(out.relative_to(review)))
+        pair_png = review / pair_name(page)
+        _write_pair(pair_png, rebuilt, scan, page, scans, dpi)
         by, what = checker.page_overflow(page - 1)
         entries.append(
             PageEntry(
@@ -225,23 +330,290 @@ def prepare(
                 scan_pngs,
                 round(max(by, 0.0), 1),
                 what[:80],
+                sorted(hits.get(page, ())),
+                str(pair_png.relative_to(review)),
             )
         )
     (review / PAGES_FILE).write_text(
         "".join(json.dumps(asdict(e), ensure_ascii=False) + "\n" for e in entries),
         encoding="utf-8",
     )
-    (review / GROUPS_FILE).write_text(
-        json.dumps(group_ranges(len(doc), size)), encoding="utf-8"
-    )
+    write_groups(review, ranges)
     return entries
+
+
+def spot_check(
+    review: Path, rebuilt: Path, scan: Path, dpi: float | None = None
+) -> list[SpotItem]:
+    """Up to 3 grave findings, one per group file, and 2 pages the audit passed, each as one sheet under `review/crops/`:
+    its scan pages beside its rebuilt page, at `dpi` or as large as the sheet allows.
+
+    A finding's page is the first `pN` of its `where`. A finding with no such page of the review gets no sheet."""
+    scans = {e.page: e.scan_pages for e in read_pages(review)}
+
+    def pngs(page: int | None, scan_pages: list[int]) -> list[str]:
+        if page is None:
+            return []
+        out = write_sheet(
+            [
+                [Panel(f"scan p{s}", scan, s) for s in scan_pages]
+                + [Panel(f"rebuilt p{page}", rebuilt, page)]
+            ],
+            review / "crops" / f"spot_p{page:03d}.png",
+            dpi,
+        )
+        return [str(out.relative_to(review))]
+
+    items = []
+    for path in group_files(review):
+        grave = [
+            (n, row)
+            for n, row in enumerate(_jsonl(path), 1)
+            if row.get("severity") in GRAVE
+        ]
+        if not grave or len(items) == 3:
+            continue
+        n, row = grave[0]
+        found = re.search(r"\bp(\d+)", row["where"])
+        page = int(found[1]) if found and int(found[1]) in scans else None
+        text = f"{row['where']}: {row['what']}"
+        items.append(
+            SpotItem(
+                f"{path.name} line {n}",
+                page,
+                scans.get(page, []),
+                text,
+                pngs(page, scans.get(page, [])),
+            )
+        )
+    passed = [
+        row
+        for audit in sorted(review.glob("group_*.audit.jsonl"))
+        for row in _jsonl(audit)
+        if row.get("result") == "PASS" and row.get("page") in scans
+    ]
+    items += [
+        SpotItem(
+            "PASS",
+            row["page"],
+            scans[row["page"]],
+            "",
+            pngs(row["page"], scans[row["page"]]),
+        )
+        for row in passed[:2]
+    ]
+    return items
+
+
+def parse_box(text: str) -> tuple[float, float, float, float]:
+    """A crop box: a name of BOXES, or L,T,R,B as shares of the page between 0 and 1."""
+    if text in BOXES:
+        return BOXES[text]
+    try:
+        left, top, right, bottom = (float(v) for v in text.split(","))
+    except ValueError:
+        raise ValueError(
+            f"box {text!r} is not one of {', '.join(BOXES)} or four numbers L,T,R,B"
+        ) from None
+    if not (0 <= left < right <= 1 and 0 <= top < bottom <= 1):
+        raise ValueError(
+            f"box {text!r}: L,T,R,B are shares of the page between 0 and 1, such as 0,0.4,1,0.8, not points or pixels"
+        )
+    return left, top, right, bottom
+
+
+def crop(review: Path, rebuilt: Path, scan: Path, regions: list[str]) -> Path:
+    """One sheet under `review/crops/` with a row per region `PAGE:BOX[:SCANBOX]`: the scan pages' box, then the rebuilt page's.
+
+    Each row zooms as far as its box allows within the sheet width, so a narrow box reads small marks."""
+    scans = {e.page: e.scan_pages for e in read_pages(review)}
+    rows = []
+    for region in regions:
+        page, _, boxes = region.partition(":")
+        if not page.isdigit() or not boxes:
+            raise ValueError(f"region {region!r} is not PAGE:BOX or PAGE:BOX:SCANBOX, such as 41:middle or 41:0,0.2,0.5,0.4:bottom")
+        box, _, scan_box = boxes.partition(":")
+        if int(page) not in scans:
+            raise ValueError(f"page {page} is not in this review; its pages are {min(scans)} to {max(scans)}")
+        rows.append(
+            [Panel(f"scan p{s} {scan_box or box}", scan, s, parse_box(scan_box or box)) for s in scans[int(page)]]
+            + [Panel(f"rebuilt p{page} {box}", rebuilt, int(page), parse_box(box))]
+        )
+    name = "_".join(re.sub(r"[^\w.-]+", "-", r) for r in regions)[:120]
+    return write_sheet(rows, review / "crops" / f"sheet_{name}.png")
+
+
+def stock(review: Path, repo: Path, book: str, transcripts: Path | None, sample: bool) -> None:
+    """Make `review` all a checking agent needs: its own `lr` command, and the transcript pages of its scan pages.
+
+    `review/lr VERB ARGS` runs scripts/look_review.py VERB for `book` (and `--sample`) from any folder, with
+    the repo's mise environment, so the agent needs no path, tool or file inside `repo`. A book without
+    `transcripts` gets an empty `review/transcript/`."""
+    copies = review / "transcript"
+    copies.mkdir(parents=True, exist_ok=True)
+    for scan_page in sorted({s for e in read_pages(review) for s in e.scan_pages}):
+        source = transcripts / f"p_{scan_page:03d}.md" if transcripts else None
+        if source and source.exists():
+            shutil.copy2(source, copies / source.name)
+    q = shlex.quote
+    lr = review / "lr"
+    lr.write_text(
+        "#!/bin/sh\n"
+        'verb="$1"; shift\n'
+        f"exec {_runner(repo)} "
+        f'{q(str(repo / "scripts" / "look_review.py"))} "$verb" {q(book)} "$@"'
+        + (" --sample" if sample else "")
+        + "\n",
+        encoding="utf-8",
+    )
+    lr.chmod(0o755)
+
+
+def _runner(repo: Path) -> str:
+    """The shell words that run a Python file of `repo` with its uv project and mise environment, from any folder."""
+    q = shlex.quote(str(repo))
+    return f"mise exec -C {q} -- uv run -q --project {q} python"
+
+
+def open_workspace(root: Path, repo: Path, skill: Path) -> None:
+    """Make `root` (the folder of all look reviews) a workspace for the orchestrator, outside `repo`.
+
+    `root/lr VERB BOOK ...` runs scripts/look_review.py, and `root/lr build BOOK` runs one_book.py's PDF build.
+    The skill folder is copied to `root/.agent/skills/`, so an agent opened on `root` loads it.
+    `close_workspace` removes both again."""
+    run, scripts = _runner(repo), repo / "scripts"
+    q = shlex.quote
+    lr = root / "lr"
+    root.mkdir(parents=True, exist_ok=True)
+    lr.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = build ]; then\n'
+        '  shift; book="$1"; shift\n'
+        f'  exec {run} {q(str(scripts / "one_book.py"))} "$book" build --formats pdf "$@"\n'
+        "fi\n"
+        f'exec {run} {q(str(scripts / "look_review.py"))} "$@"\n',
+        encoding="utf-8",
+    )
+    lr.chmod(0o755)
+    copy = root / ".agent" / "skills" / skill.name
+    shutil.rmtree(copy, ignore_errors=True)
+    shutil.copytree(skill, copy)
+
+
+def close_workspace(root: Path) -> None:
+    """Remove what `open_workspace` added to `root`: its `lr` and the skill copies. The reviews stay."""
+    (root / "lr").unlink(missing_ok=True)
+    shutil.rmtree(root / ".agent", ignore_errors=True)
+
+
+def command(review: Path | str, verb: str, *args: object) -> str:
+    """The exact shell line of one look_review.py verb, as a checking agent runs it through `review/lr`."""
+    return " ".join([f"{review}/lr", verb, *map(str, args)])
+
+
+def finding_schema(book: str) -> list[str]:
+    """The brief's lines on each field of a finding, one per field of `Finding`; a new field without help raises KeyError."""
+    lines = [
+        f"  - `{f.name}`: {FINDING_FIELDS[f.name].format(book=book)}"
+        for f in fields(Finding)
+    ]
+    lines.append(
+        f"  - `cause`: one of {', '.join(CAUSES)}: `transcript` when `p_NNN.md` holds the wrong or missing text, "
+        "`build` when the transcript is right, `unknown` when you did not open it. `build` is the whole answer: "
+        "a later step finds where the build goes wrong."
+    )
+    example = {
+        "id": "TBD",
+        "book": book,
+        "severity": "P0",
+        "format": "typst",
+        "where": "p41, scan p45, p_045.md:12",
+        "what": "The display after (3.2) is lost.",
+        "evidence": "crops/sheet_41-middle.png",
+        "status": "open",
+        "cause": "build",
+    }
+    return lines + ["  - Example line:", "", f"    {json.dumps(example, ensure_ascii=False)}"]
+
+
+def pass_rules(markdown: str) -> list[str]:
+    """The rows of the first `| Item | PASS when |` table in `markdown`, cut to those two columns.
+
+    The bar docs also hold reference values, sources, and commands for the fixer, which a checking agent does not need."""
+    rows: list[str] = []
+    for line in (raw.strip() for raw in markdown.splitlines()):
+        if not rows and line.startswith("| Item | PASS when"):
+            rows.append(line)
+        elif rows and line.startswith("|"):
+            if not line.startswith("|---"):
+                cells = re.split(r"(?<!\\)\|", line)
+                rows.append(f"| {cells[1].strip()} | {cells[2].strip()} |")
+        elif rows:
+            break
+    return rows[1:]
+
+
+def brief(
+    template: str,
+    review: Path | str,
+    book: str,
+    group: int,
+    first: int,
+    last: int,
+    pages: list[PageEntry],
+    facts: list[str],
+    bar: list[str],
+) -> str:
+    """The checking agent's whole prompt for one group: `template` filled in with `bar` (rows of `pass_rules`), then "Facts for this review"."""
+    page_lines = "\n".join(
+        f"- p{e.page}: `{e.pair_png or pair_name(e.page)}`, scan pages {e.scan_pages or 'none'}; "
+        f"overflow_pt {e.overflow_pt}"
+        + (f" ({e.overflow_what})" if e.overflow_pt > 3 else "")
+        + (f"; checker: {', '.join(e.checker)}" if e.checker else "")
+        for e in pages
+        if first <= e.page <= last
+    )
+    body = template.split("\n\n", 2)[2].format(
+        book=book,
+        group=group,
+        first=first,
+        last=last,
+        review=review,
+        pages=page_lines,
+        bar="\n".join(["| Item | PASS when |", "|---|---|", *bar]),
+        crop=command(review, "crop", "PAGE:BOX", "[PAGE:BOX ...]"),
+    )
+    tail = [
+        "## Facts for this review",
+        "",
+        *facts,
+        "- Each line of the findings file has these fields:",
+        *finding_schema(book),
+        "",
+        f"- The check command of this review is `{command(review, 'check', group)}`.",
+    ]
+    return body + "\n" + "\n".join(tail)
+
+
+def missing_inputs(review: Path, pages: list[PageEntry], first: int, last: int) -> list[str]:
+    """The files under `review` that the brief of pages `first` to `last` names but `review` lacks, relative to it.
+
+    A page entry without a pair sheet comes from an older `prepare`, so its missing sheet is the one prepare writes now."""
+    named = ["lr", "transcript/"] + [e.pair_png or pair_name(e.page) for e in pages if first <= e.page <= last]
+    return [name for name in named if not (review / name).exists()]
 
 
 def read_pages(review: Path) -> list[PageEntry]:
     return [PageEntry(**row) for row in _jsonl(review / PAGES_FILE)]
 
 
+def write_groups(review: Path, ranges: list[tuple[int, int]]) -> None:
+    (review / GROUPS_FILE).write_text(json.dumps({"groups": ranges}), encoding="utf-8")
+
+
 def read_groups(review: Path) -> list[tuple[int, int]]:
+    """The page ranges of the review's groups, also from a file written before groups carried the cause list."""
+    stored = json.loads((review / GROUPS_FILE).read_text(encoding="utf-8"))
     return [
-        tuple(g) for g in json.loads((review / GROUPS_FILE).read_text(encoding="utf-8"))
+        tuple(g) for g in (stored["groups"] if isinstance(stored, dict) else stored)
     ]

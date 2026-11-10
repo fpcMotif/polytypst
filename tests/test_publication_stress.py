@@ -48,6 +48,7 @@ def test_serre_typst_zero_escaped_latex_or_raw_macros() -> None:
         assert not matches, f"Found raw LaTeX macro {pat} leaked into Typst: {matches[:5]}"
 
 
+@pytest.mark.slow
 def test_serre_pdf_zero_raw_latex_or_ocr_corruption() -> None:
     doc = pymupdf.open(SERRE_DIR / "serre_cours_darithmetique.pdf")
     assert len(doc) >= 108, f"Serre PDF too short: {len(doc)} pages"
@@ -313,6 +314,7 @@ def test_roberts_all_9_vector_figures_grounded_and_clean() -> None:
         assert f"<fig-{fig_id}>" in typ_text, f"Missing label <fig-{fig_id}> in book.typ"
 
 
+@pytest.mark.slow
 def test_roberts_zero_ocr_typos_and_clean_cjk_typography() -> None:
     doc = pymupdf.open(ROBERTS_DIR / "book.pdf")
     full_pdf_text = "\n".join(page.get_text() for page in doc)
@@ -542,6 +544,7 @@ def _pandoc_ast_problems(blocks: list, problems: list[str]) -> None:
             _pandoc_ast_problems(content, problems)
 
 
+@pytest.mark.slow
 def test_serre_every_formula_reaches_pandoc_as_math() -> None:
     import json
     import subprocess
@@ -587,6 +590,7 @@ def test_kerodon_all_deliverables_exist_and_nonempty() -> None:
         )
 
 
+@pytest.mark.slow
 def test_kerodon_pdf_zero_raw_latex_leaks_and_complete_sections() -> None:
     doc = pymupdf.open(KERODON_DIR / "chapter1.pdf")
     assert 60 <= len(doc) <= 95, f"Unexpected Kerodon PDF page count: {len(doc)}"
@@ -604,11 +608,12 @@ def test_kerodon_pdf_zero_raw_latex_leaks_and_complete_sections() -> None:
 
 @pytest.mark.slow
 def test_web_exporter_domain_specific_rendering_modes(tmp_path: Path) -> None:
-    from polytypst.web_exporter import export_all_web_data
+    from polytypst.web_exporter import export_page, site_folders, site_pages
 
-    catalog = export_all_web_data(ROOT_DIR, tmp_path)
-    books = {b["slug"]: b for b in catalog["books"]}
-    assert {"modern-firm", "serre-arithmetique", "kerodon-ch1"} <= set(books.keys())
+    slugs = {"modern-firm", "serre-arithmetique", "kerodon-ch1"}
+    pages = [p for p in site_pages(site_folders()) if p.slug in slugs]
+    books = {p.slug: export_page(p, ROOT_DIR, tmp_path / "assets") for p in pages}
+    assert all(books.get(slug) for slug in slugs)
 
     roberts = books["modern-firm"]
     assert roberts["renderingMode"] == "editorial-business"

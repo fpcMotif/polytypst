@@ -86,6 +86,7 @@ def run(source: Path, rebuilt: Path, diagrams: Path | None = None) -> PageParity
     return compare(scan, rebuilt, {1: [1]}, ocr=source.parent / "ocr", diagrams=diagrams, diagram_text=text, work=source.parent / "work")[0]
 
 
+@pytest.mark.slow
 def test_an_identical_page_matches_every_word_in_place_and_passes(source: Path, tmp_path: Path) -> None:
     rebuilt = tmp_path / "rebuilt.pdf"
     write_page(rebuilt)
@@ -95,6 +96,7 @@ def test_an_identical_page_matches_every_word_in_place_and_passes(source: Path, 
     assert verdict(page, FACSIMILE) == []
 
 
+@pytest.mark.slow
 def test_a_shifted_page_reports_the_shift_in_absolute_points(source: Path, tmp_path: Path) -> None:
     rebuilt = tmp_path / "rebuilt.pdf"
     write_page(rebuilt, dx=2.5, dy=1.0)
@@ -104,6 +106,7 @@ def test_a_shifted_page_reports_the_shift_in_absolute_points(source: Path, tmp_p
     assert any(r.startswith("page offset") for r in verdict(page, FACSIMILE))
 
 
+@pytest.mark.slow
 def test_one_moved_word_is_reported_and_fails_the_facsimile_tolerance(source: Path, tmp_path: Path) -> None:
     rebuilt = tmp_path / "rebuilt.pdf"
     write_page(rebuilt, word_shift={"injective": 2.0})
@@ -115,6 +118,7 @@ def test_one_moved_word_is_reported_and_fails_the_facsimile_tolerance(source: Pa
     assert "1 words off by more than 0.5pt" in verdict(page, FACSIMILE)
 
 
+@pytest.mark.slow
 def test_a_word_past_the_scan_text_edge_counts_as_one_overflowing_line(source: Path, tmp_path: Path) -> None:
     rebuilt = tmp_path / "rebuilt.pdf"
     write_page(rebuilt, word_shift={"injective": 60.0})
@@ -124,6 +128,7 @@ def test_a_word_past_the_scan_text_edge_counts_as_one_overflowing_line(source: P
     assert verdict(page, SOURCE_PAGINATED)[-1] == "1 lines cross the scan's right text edge"
 
 
+@pytest.mark.slow
 def test_a_whole_page_shifted_right_is_a_page_offset_not_an_overflow(source: Path, tmp_path: Path) -> None:
     rebuilt = tmp_path / "rebuilt.pdf"
     write_page(rebuilt, dx=6.0)
@@ -142,6 +147,7 @@ def test_overflow_counts_rebuilt_ink_by_the_same_column_rule_as_the_scan_edge() 
     assert right_overflow_lines(scan, stroke) == 1
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(typst_command() is None, reason="needs typst to render the diagram snippet")
 def test_a_diagram_moved_sideways_reports_its_offset_and_scale(source: Path, tmp_path: Path) -> None:
     write_page(source, rect_dx=0.0)
@@ -180,6 +186,7 @@ def test_a_source_paginated_page_that_overflows_or_loses_a_line_fails() -> None:
     assert verdict(page, FACSIMILE) == [unmeasured]
 
 
+@pytest.mark.slow
 def test_the_report_marks_failing_pages_and_returns_false(source: Path, tmp_path: Path) -> None:
     rebuilt = tmp_path / "rebuilt.pdf"
     write_page(rebuilt, dx=2.5)

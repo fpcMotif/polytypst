@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pymupdf
+import pytest
 
 from polytypst.books import book_by_key
 from polytypst.compiler.monograph import compile_typst
@@ -11,6 +12,7 @@ TYPST_PREAMBLE = book_by_key("ahlfors").spec.typst_preamble
 PROSE = " ".join(["The radius of convergence is determined by the coefficients."] * 6)
 
 
+@pytest.mark.slow
 def test_contents_page_settings_do_not_reach_the_body(tmp_path: Path) -> None:
     typ = tmp_path / "a.typ"
     typ.write_text(f"{TYPST_PREAMBLE}\n{TOC_BLOCK}\n{PROSE}\n\n{PROSE}\n", encoding="utf-8")

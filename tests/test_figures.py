@@ -1,3 +1,5 @@
+import pytest
+
 from polytypst.books import book_by_key
 from polytypst.compiler.diagrams import parse_array_diagram
 from polytypst.compiler.monograph import MonographCompiler
@@ -22,6 +24,7 @@ def test_a_row_of_several_vertical_arrows_in_one_cell_is_not_read_as_one_arrow()
     assert parse_array_diagram(OCR_ROWS) is None
 
 
+@pytest.mark.slow
 def test_a_math_book_draws_an_array_diagram_with_fletcher() -> None:
     spec = book_by_key("kashiwara").spec
     assert spec.domain == "math" and not spec.commutative_diagrams

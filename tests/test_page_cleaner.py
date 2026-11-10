@@ -332,6 +332,7 @@ def test_a_sub_numbered_figure_caption_loses_its_whole_number(tmp_path):
     assert "caption: [女性]" in missing
 
 
+@pytest.mark.slow
 def test_a_cross_referenced_figure_caption_prints_its_chapter_number(tmp_path):
     import subprocess
 

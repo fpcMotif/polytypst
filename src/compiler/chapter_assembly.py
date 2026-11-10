@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from . import marks
 from .diagrams import use_scan_diagrams
 from .page_cleaner import Figure
 from .source_numbers import (
@@ -102,7 +103,7 @@ def assemble_chapters(
 
         opens = spec.chapter_openings and chap.number > 0
         md_body = compiler.stitch_chapter(pages_data, fig_dir, markdown_figures(compiler))
-        md_sections.append(unmark_markdown(f"{md_heading}\n\n" + (mark_chapter_opening(md_body) if opens else md_body).strip()))
+        md_sections.append(marks.to_markdown(f"{md_heading}\n\n" + (mark_chapter_opening(md_body) if opens else md_body).strip()))
         title = clean_margin_and_inline_math(chap.title)
         label = chap.label if chap.label is not None else spec.chapter_label.format(number=chap.number)
         heading = chapter_heading(spec, chap.number, title, label)
@@ -213,9 +214,9 @@ def mark_chapter_opening(s: str) -> str:
     for block in blocks:
         if byline is None:
             if (subtitle := re.sub(r"^#+\s*", "", block)).startswith("——"):
-                lead.append(f"@@SUBTITLE@@ {subtitle}")
+                lead.append(marks.subtitle(subtitle))
             elif len(lead) < 2 and (m := CHAPTER_BYLINE_RE.match(block)):
-                byline = f"@@BYLINE@@ {m['names']}{m['note'] or ''}"
+                byline = marks.byline(f"{m['names']}{m['note'] or ''}")
             else:
                 lead.append(block)
         elif not abstract_ends:
@@ -230,7 +231,7 @@ def mark_chapter_opening(s: str) -> str:
         return s
     parts = [*lead, byline]
     if abstract_ends and abstract:
-        parts += [f"@@ABSTRACT@@{label_note}", *abstract, "@@ENDABSTRACT@@"]
+        parts += marks.abstract(label_note, abstract)
     else:
         parts += abstract
     return "\n\n".join(parts) + "\n\n" + s[first_section.start() :]
@@ -343,10 +344,10 @@ def mark_contents_lines(body: str, keep_title: bool) -> str:
         elif (m := re.match(r"^#+\s*(.+)$", line)) and (
             not CONTENTS_ENTRY_RE.match(m[1]) or re.fullmatch(r"(?i)(?:chapter|part)\s+\d+", m[1].strip())
         ):
-            out += [*pending, f"@@CONTENTSHEAD@@{m[1]}"]
+            out += [*pending, marks.contents_head(m[1])]
             pending = []
         elif m := CONTENTS_ENTRY_RE.match(re.sub(r"^#+\s*", "", line)):
-            out.append(f"@@CONTENTS@@{' '.join([*pending, m['title']])}@@PAGE@@{m['page']}")
+            out.append(marks.contents_line(" ".join([*pending, m["title"]]), m["page"]))
             pending = []
         elif line.strip() and not line.lstrip().startswith(("$", "|", "<", "!")):
             pending.append(line.strip())
@@ -354,15 +355,3 @@ def mark_contents_lines(body: str, keep_title: bool) -> str:
             out += [*pending, line]
             pending = []
     return "\n\n".join(line for line in [*out, *pending] if line.strip())
-
-
-def unmark_markdown(body: str) -> str:
-    """Turn the Typst-only markers into plain Markdown: drop landscape and page-break markers, keep the opening's text."""
-    body = re.sub(r"[ \t]*\n*@@PAGEBREAK@@\n*[ \t]*", "\n\n", body)
-    body = re.sub(r"@@CONTENTS@@(.*?)@@PAGE@@(\d+)", r"\1 \2", body)
-    body = re.sub(r"@@CONTENTSHEAD@@", "", body)
-    body = re.sub(r"\n*@@FLIPPED\d+@@\n*", "\n\n", body)
-    body = re.sub(r"(?m)^@@SUBTITLE@@ (.+)$", r"*\1*", body)
-    body = re.sub(r"(?m)^@@BYLINE@@ ", "", body)
-    body = re.sub(r"(?m)^@@ABSTRACT@@", "", body)
-    return re.sub(r"\n*@@ENDABSTRACT@@\n*", "\n\n", body)

@@ -284,6 +284,37 @@ def test_a_page_cut_inside_its_pagebreak_marker_compiles(tmp_path: Path) -> None
     assert _kept(CLOSING, pdf_text)
 
 
+def test_prose_after_an_unclosed_display_survives_a_later_display(tmp_path: Path) -> None:
+    page = "\n\n".join(
+        [
+            OPENING,
+            OCR_STATES["unclosed_display_math"],
+            "The word zqbbbbb is plain prose.",
+            OCR_STATES["align_env"],
+        ]
+    )
+    pdf_text = _flat(_build_spec_less_book(tmp_path, [page]))
+    assert "zqbbbbb" in pdf_text
+    assert "restofthepage" in pdf_text
+
+
+def test_an_at_sign_before_a_hyphen_or_underscore_prints_as_text(tmp_path: Path) -> None:
+    page = f"{OPENING}\n\nWrite @- here.\n\nMail a@_b today."
+    pdf_text = _flat(_build_spec_less_book(tmp_path, [page]))
+    assert "Write@-here" in pdf_text
+    assert "a@_b" in pdf_text
+
+
+def test_a_display_split_by_a_blank_line_stays_one_display() -> None:
+    spec = adhoc_spec(Path("Probe Book.pdf"), 1)
+    typst = MonographCompiler(spec).format_typst(
+        "Then\n\n$$\n\\delta(x) = \\frac{1}{(x_1 + i 0)(x_3\n\n+ i 0)}\n$$\n\nholds."
+    )
+    assert typst.count("$ ") >= 1
+    assert "holds." in typst
+    assert not re.search(r"\$\s*\$", typst)
+
+
 class OCREngineMachine(RuleBasedStateMachine):
     """Plays an OCR engine that writes pages mixing sentinel prose, catalog states, and noise.
 

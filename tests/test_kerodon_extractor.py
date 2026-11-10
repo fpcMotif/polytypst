@@ -2,6 +2,7 @@ import subprocess
 from pathlib import Path
 
 import pymupdf
+import pytest
 
 from polytypst.books import module
 
@@ -32,6 +33,7 @@ def test_a_title_with_parentheses_inside_its_math_stays_whole(tmp_path: Path) ->
     assert env.title == TITLE
 
 
+@pytest.mark.slow
 def test_a_math_title_compiles_as_math_not_as_its_source(tmp_path: Path) -> None:
     titled = KerodonEnvironment("00GZ", "remark", "1.2.2.5", TITLE, "", "Let $X$ be a space.")
     untitled = KerodonEnvironment("00H1", "remark", "1.2.2.6", "", "", "Every space is a space.")

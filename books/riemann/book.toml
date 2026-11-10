@@ -72,5 +72,8 @@ caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Fig(?:ure)?\.?\s*(?P<number>
 caption_format = 'Figure {number}'
 pair_figures = false
 
+[hooks]
+figures = 'draw_figures'
+
 [editions.monograph]
 summary = 'monograph'

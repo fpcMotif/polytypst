@@ -28,8 +28,8 @@ polytypst-colab = "polytypst.ocr.colab_cli:main"
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = "-n auto --dist worksteal"
-markers = ["slow: compiles Typst many times; skip with -m 'not slow'"]
+addopts = "-n 6 --dist worksteal -m 'not slow'"
+markers = ["slow: takes 0.1 s or more; a bare pytest skips it, and -m '' runs every test"]
 filterwarnings = [
   "error",
   "ignore:builtin type .* has no __module__ attribute:DeprecationWarning",

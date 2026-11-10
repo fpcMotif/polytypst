@@ -129,6 +129,8 @@ def _letters(text: str) -> str:
 
 _HEAD_BAND = 0.08
 _FOOT_BAND = 0.93
+_FOLIO = re.compile(r"(?<![\w.])(?:\d{1,4}|[ivxlc]+)(?![\w.])")
+_GLUED_FOLIO = re.compile(r"[A-Za-z)\]]\d{1,4}$|^\d{1,4}[A-Za-z(\[]")
 _OVERFLOW_PT = 3.0
 _TYPST_DEFAULT_FONTS = ("New Computer Modern Math",)
 _TYPST_FONT_RE = re.compile(r'\bfont:\s*(\([^)]*\)|"[^"]*"|[A-Za-z][\w-]*)')
@@ -340,6 +342,8 @@ class DocumentQualityChecker:
                 self.check_font_fallback,
                 self.check_underfull_pages,
                 self.check_running_head_formulas,
+                self.check_crowded_running_heads,
+                self.check_chapter_opening_folios,
                 self.check_duplicate_headings,
                 self.check_contents_leaders,
                 self.check_hyphenated_headings,
@@ -1250,6 +1254,50 @@ class DocumentQualityChecker:
                     pno + 1,
                     "The running head is a formula, so a display was set as a heading",
                     "".join(s["text"] for s in head)[:80],
+                )
+
+    def _band_lines(self, pno: int) -> tuple[list[tuple[pymupdf.Rect, str]], list[tuple[pymupdf.Rect, str]]]:
+        """The text lines of 0-based page `pno` in its head band and in its foot band."""
+        height = self.doc[pno].rect.height
+        lines = [(r, "".join(s["text"] for s in spans).strip()) for r, spans in _line_spans(self._page_dicts[pno])]
+        return (
+            [line for line in lines if line[0].y1 <= _HEAD_BAND * height],
+            [line for line in lines if line[0].y0 >= _FOOT_BAND * height],
+        )
+
+    def _has_folio(self, pno: int) -> bool:
+        head, foot = self._band_lines(pno)
+        return any(_FOLIO.search(text) for _, text in head + foot)
+
+    def check_chapter_opening_folios(self, report: CheckReport) -> None:
+        pages = range(self.spec.front_matter_pages, len(self.doc))
+        if 2 * sum(self._has_folio(pno) for pno in pages) < len(pages):
+            return
+        for pno in pages:
+            if self._opens_chapter(pno) and not self._has_folio(pno):
+                self._issue(report, "WARNING", "CHAPTER_OPENING_NO_FOLIO", pno + 1, "A page that opens a chapter prints no folio")
+
+    def check_crowded_running_heads(self, report: CheckReport) -> None:
+        for pno in range(len(self.doc)):
+            head, _ = self._band_lines(pno)
+            folios = [r for r, text in head if text.isdigit()]
+            titles = [(r, text) for r, text in head if not text.isdigit()]
+            glued = [text for _, text in titles if _GLUED_FOLIO.search(text)]
+            near = [
+                text
+                for r, text in titles
+                for f in folios
+                if min(r.y1, f.y1) > max(r.y0, f.y0) and max(r.x0, f.x0) - min(r.x1, f.x1) < f.height / 2
+            ]
+            wrapped = [titles[0][1]] if titles and max(r.y0 for r, _ in titles) >= min(r.y1 for r, _ in titles) else []
+            if crowded := glued or near or wrapped:
+                self._issue(
+                    report,
+                    "WARNING",
+                    "RUNNING_HEAD_CROWDED",
+                    pno + 1,
+                    "The running head wraps or runs into its folio",
+                    crowded[0][:80],
                 )
 
     def check_duplicate_headings(self, report: CheckReport) -> None:

@@ -90,6 +90,7 @@ def bracketed_t_values_table() -> str:
     return table
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("table", [wide_regression_table(), bracketed_t_values_table()], ids=["coef-se", "t-values"])
 def test_a_number_table_too_wide_for_the_text_prints_at_7pt_or_more_with_no_overprint(tmp_path, table):
     out = layout_tables(f"{CAPTION}\n\n@@TABLEBLOCK0@@\n\n注：数据。\n", [table])
@@ -108,6 +109,7 @@ def test_a_number_table_too_wide_for_the_text_prints_at_7pt_or_more_with_no_over
     assert sizes and min(sizes) >= 7
 
 
+@pytest.mark.slow
 def test_a_table_label_that_ends_in_a_backslash_compiles(tmp_path):
     out = layout_tables("Ends with a backslash \\\n\n@@TABLEBLOCK0@@\n", [TABLE])
     if not shutil.which("typst"):
@@ -125,6 +127,7 @@ def test_the_notes_under_a_table_and_the_numbered_note_its_header_calls_set_as_o
     assert out.count("注：BASE") == 1 and out.rstrip().endswith("\n\n（2）正文的列举。")
 
 
+@pytest.mark.slow
 def test_the_note_of_a_table_turned_onto_landscape_pages_prints_on_its_last_landscape_page(tmp_path):
     labels = ("供电供气供热及水务行业", "专业性、技术性职业", "农林渔业工作者", "批发零售、餐饮店", "公务")
     table = "".join(wide_regression_table().splitlines(keepends=True)[:4])
@@ -137,6 +140,7 @@ def test_the_note_of_a_table_turned_onto_landscape_pages_prints_on_its_last_land
     assert note_page.rect.width > note_page.rect.height and "后文" not in note_page.get_text()
 
 
+@pytest.mark.slow
 def test_a_number_table_too_wide_and_too_long_to_turn_whole_breaks_across_landscape_pages_with_no_overprint(tmp_path):
     labels = ("供电供气供热及水务行业", "专业性、技术性职业", "农林渔业工作者", "批发零售、餐饮店", "公务")
     table = "".join(wide_regression_table().splitlines(keepends=True)[:4])
@@ -150,6 +154,7 @@ def test_a_number_table_too_wide_and_too_long_to_turn_whole_breaks_across_landsc
     assert all(w[2] <= p.rect.width - MARGIN_PT + 0.5 and w[3] <= p.rect.height - MARGIN_PT + 0.5 for p in doc for w in p.get_text("words"))
 
 
+@pytest.mark.slow
 def test_a_wrapped_label_keeps_its_last_two_characters_together(tmp_path):
     if not shutil.which("typst"):
         pytest.skip("typst is not installed")
@@ -167,6 +172,7 @@ def test_a_wrapped_label_keeps_its_last_two_characters_together(tmp_path):
     assert not [line for line in lines if re.fullmatch(r"[一-鿿]", line)]
 
 
+@pytest.mark.slow
 def test_a_table_wider_than_the_text_prints_no_number_over_its_neighbour_and_stays_inside_the_margins(tmp_path):
     years = ("Pooled", "1982", "1987", "1992", "1997", "2002")
     table = row("被解释变量<br>估计方法", "劳动时间等级中位数（15～60）<br>OLS", *[""] * 11) + row(*["---"] * 13)
@@ -181,6 +187,7 @@ def test_a_table_wider_than_the_text_prints_no_number_over_its_neighbour_and_sta
     assert max(w[2] for w in words) <= PAGE_WIDTH_PT - MARGIN_PT + 0.5
 
 
+@pytest.mark.slow
 def test_a_long_table_breaks_across_pages_and_no_row_runs_past_the_bottom_margin(tmp_path):
     if not shutil.which("typst"):
         pytest.skip("typst is not installed")
@@ -195,6 +202,7 @@ def test_a_long_table_breaks_across_pages_and_no_row_runs_past_the_bottom_margin
     assert sum("Y1979" in p.get_text() for p in doc) == 1
 
 
+@pytest.mark.slow
 def test_a_long_spanning_header_does_not_squeeze_the_number_columns_under_it(tmp_path):
     groups = ("1958年至X年：无常数项", "1958年至X年：有常数项", "1958年至X年：常数项+时间趋势")
     table = row(*(cell for g in groups for cell in (g, "", "", ""))) + row(*["---"] * 12)
@@ -240,6 +248,7 @@ WIDE_TABLE = WIDE_HEADER + "|" + " :---: |" * 13 + "\n" + WIDE_UNITS + WIDE_ROW 
 PAGE = '#set page(width: 442pt, height: 663pt, margin: 56pt)\n#set text(font: ("Songti SC", "STSong"), size: 10.5pt)\n'
 
 
+@pytest.mark.slow
 def test_a_number_table_too_wide_for_the_page_turns_sideways_with_its_caption(tmp_path: Path) -> None:
     body = layout_tables(f"正文。\n\n{CAPTION}\n\n@@TABLEBLOCK0@@\n\n" + "后文。" * 300 + "\n", [WIDE_TABLE])
     typ = tmp_path / "t.typ"
@@ -377,6 +386,7 @@ def test_a_numeric_column_lines_up_on_the_decimal_point():
     assert "[−3   ]" in out
 
 
+@pytest.mark.slow
 def test_a_wrapped_list_label_breaks_only_after_a_list_comma(tmp_path):
     labels = ("未婚、非户主、单身家庭", "已婚、户主、普通家庭（BASE）", "批发零售、餐饮店")
     table = row("Sample", *(str(y) for y in range(1982, 2008, 5)), "Pooled") + row(*["---"] * 7)

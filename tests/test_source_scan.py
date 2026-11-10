@@ -92,6 +92,7 @@ def test_portrait_pdf_is_its_own_page_map(tmp_path: Path) -> None:
     assert (scan.page_count, scan.split, scan.pdf) == (4, False, path)
 
 
+@pytest.mark.slow
 def test_large_embedded_png_passes_through_and_grey_renders_fresh(
     tmp_path: Path,
 ) -> None:

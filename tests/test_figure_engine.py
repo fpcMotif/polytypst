@@ -167,6 +167,7 @@ def test_scan_style_draws_no_grid_behind_a_scatter():
     assert not grid_lines(svg(points, "scan"))
 
 
+@pytest.mark.slow
 def test_chart_style_b_is_the_scan_style_set_in_the_body_fonts_and_style_a_is_mono():
     def generator(mode: str) -> str:
         return svg(year_panel(), mode)
@@ -178,6 +179,7 @@ def test_chart_style_b_is_the_scan_style_set_in_the_body_fonts_and_style_a_is_mo
     assert chart_svg(generator, "a") == finish_chart(svg(year_panel(), "mono"))
 
 
+@pytest.mark.slow
 def test_a_printed_chart_is_set_in_one_type_family_and_trimmed_to_its_ink():
     raw = svg(year_panel(), "mono")
     done = finish_chart(raw)

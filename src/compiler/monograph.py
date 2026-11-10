@@ -22,6 +22,7 @@ from ..book_state import book_state
 from ..ocr.lines import DEFAULT_OCR_LANGUAGES
 from ..ocr.transcripts import TranscriptStore
 from ..vision.figure_extractor import FIGURES_MANIFEST_NAME, load_figures_manifest
+from . import marks
 from .chapter_assembly import FigureWriter, assemble_chapters
 from .diagram_cache import with_cached_diagrams
 from .diagrams import (
@@ -433,6 +434,35 @@ PROSE_IN_MATH_RE = re.compile(
 )
 
 
+_DISPLAY_PAIR_RE = re.compile(r"\$\$(.*?)\$\$", re.DOTALL)
+_BLANK_LINE_RE = re.compile(r"\n[ \t]*\n")
+_TEXT_COMMAND_RE = re.compile(r"\\(?:text|mathrm|operatorname|textrm|mbox)\s*\{[^{}]*\}")
+_PROSE_LINE_RE = re.compile(r"^#{1,6}\s|(?:(?<![\\\w])[A-Za-z]{2,}[ ,;:.]+){4}", re.MULTILINE)
+
+
+def close_runaway_displays(s: str) -> str:
+    """End a `$$` display at its first blank line when a later paragraph of it is prose or a heading.
+
+    TeX allows no blank line in display math, so such a pair is an unclosed `$$` that reached the
+    opening `$$` of a later display. A display that a page join split, with only math after the blank
+    line, stays whole."""
+    out, pos = [], 0
+    while m := _DISPLAY_PAIR_RE.search(s, pos):
+        body = m.group(1)
+        blank = _BLANK_LINE_RE.search(body)
+        rest = _BLANK_LINE_RE.split(body)[1:]
+        if not blank or not any(_PROSE_LINE_RE.search(_TEXT_COMMAND_RE.sub("", p)) for p in rest):
+            out.append(s[pos : m.end()])
+            pos = m.end()
+            continue
+        head = body[: blank.start()]
+        out.append(s[pos : m.start()])
+        if head.strip():
+            out.append(f"$${head}\n$$")
+        pos = m.start() + 2 + blank.start()
+    return "".join(out) + s[pos:]
+
+
 def ends_complete_paragraph(text: str) -> bool:
     t = text.rstrip()
     if not t:
@@ -458,17 +488,17 @@ def starts_new_block(text: str) -> bool:
 
 def _mark_page_ends(page: str, pno: int) -> str:
     """Put position markers inline on a source page's first and last text lines."""
-    top, end = f"@@SRCTOP{pno}@@", f"@@SRCEND{pno}@@"
+    top, end = marks.page_top(pno), marks.page_end(pno)
     block_starts = ("#", "$", "!", "|", "\\[")
     body = page.strip()
-    if body.startswith("@@NOINDENT@@"):
-        body = "@@NOINDENT@@" + top + body.removeprefix("@@NOINDENT@@")
+    if body.startswith(marks.NO_INDENT):
+        body = marks.NO_INDENT + top + body.removeprefix(marks.NO_INDENT)
     elif body.startswith(block_starts) or body.startswith("@@"):
         body = f"{top}\n\n{body}"
     else:
         body = top + body
-    if body.endswith(" @@JUSTIFYEND@@"):
-        return body.removesuffix(" @@JUSTIFYEND@@") + f"{end} @@JUSTIFYEND@@"
+    if body.endswith(f" {marks.JUSTIFY_END}"):
+        return body.removesuffix(f" {marks.JUSTIFY_END}") + f"{end} {marks.JUSTIFY_END}"
     last_line = body.splitlines()[-1].lstrip()
     if last_line.startswith(block_starts):
         return f"{body}\n\n{end}"
@@ -577,7 +607,7 @@ def join_cross_page_text(prev: str, curr_first: str) -> str:
 
 
 
-FOOTNOTE_RE = re.compile(r"@@FNSTART@@(.*?)@@FNEND@@", re.DOTALL)
+FOOTNOTE_RE = marks.FOOTNOTE_RE
 _HEADING_FN_RE = re.compile(r"^(#+[^\n@]*?)@@FNSTART@@(.*?)@@FNEND@@([^\n]*)$", re.MULTILINE)
 _HEADING_LATEX_FN_RE = re.compile(r"^(#+[^\n]*?)\s*\\footnote\{([^{}\n]*(?:\{[^{}\n]*\}[^{}\n]*)*)\}([^\n]*)$", re.MULTILINE)
 _LATEX_TEXT_SPECIAL_RE = re.compile(r"(?<!\\)([_&%#])")
@@ -611,10 +641,6 @@ def _hoist_heading_footnotes(s: str, fn_formatter: Callable[[str], str]) -> str:
 
 
 
-
-
-def keep_notes_with_calls(block: str) -> str:
-    return block
 
 
 FIGURE_WITH_NOTE = re.compile(rf"#align\(center\)\[\n.*?\n\](?:\s*{FIG_NOTE}.*?{END_FIG_NOTE})?", re.DOTALL)
@@ -1330,7 +1356,7 @@ class MonographCompiler:
             columns = self.spec.landscape_columns.get(pno, 1) if pno in self.spec.landscape_pages else 0
             if columns != page_columns:
                 page_columns = columns
-                acc += f"\n\n@@FLIPPED{columns}@@\n\n"
+                acc += f"\n\n{marks.landscape(columns)}\n\n"
                 continues_prev = False
 
             if not acc:
@@ -1379,7 +1405,7 @@ class MonographCompiler:
         if pending_figs:
             acc += figures(pending_figs, fig_dir)
         if page_columns:
-            acc += "\n\n@@FLIPPED0@@\n\n"
+            acc += f"\n\n{marks.landscape(0)}\n\n"
         return merge_continued_tables(acc) if self.spec.merge_continued_tables else acc
 
 
@@ -1456,6 +1482,7 @@ class MonographCompiler:
             return f"\n\n@@DISPLAYBLOCK{len(display_blocks) - 1}@@\n\n"
 
         s = re.sub(r"\\\[\s*(.*?)\s*\\\]", r"$$\n\1\n$$", s, flags=re.DOTALL)
+        s = close_runaway_displays(s)
         s = re.sub(
             r"\$\$\s*(.*?)\s*\$\$\s*(<eq-[^>]+>)?", save_display, s, flags=re.DOTALL
         )
@@ -1539,7 +1566,7 @@ class MonographCompiler:
         s = re.sub(r"^([ \t]*)/(?!/)", r"\1\/", s, flags=re.MULTILINE)
         s = re.sub(r"^([ \t]*)\+(?=[ \t])", r"\1\\+", s, flags=re.MULTILINE)
         s = s.replace("//", r"\/\/").replace("*/", "* /")
-        s = re.sub(r"(@@[A-Za-z_]+\d*@@)|(?<!\\)@(?=[\w@])", lambda m: m.group(1) or r"\@", s)
+        s = re.sub(r"(@@[A-Za-z_]+\d*@@)|(?<!\\)@(?=[\w@-])", lambda m: m.group(1) or r"\@", s)
         if spec.lang in ("zh", "ja"):
             s = s.replace("~", "～")
         else:
@@ -1765,7 +1792,6 @@ class MonographCompiler:
         if not spec.paginate_like_source:
             s = float_figures(s)
         s = re.sub(rf"{FIG_NOTE}\s*", "#fig-note[", s).replace(f"\n\n{END_FIG_NOTE}", "]").replace(f"\n{END_FIG_NOTE}", "]").replace(END_FIG_NOTE, "]")
-        s = "\n\n".join(map(keep_notes_with_calls, s.split("\n\n")))
         s = re.sub(r"@@FNEND@@(?=\()", r"@@FNEND@@\\", s)
         s = re.sub(
             r"@@FNEND@@\.(?=[^\s\d])",
@@ -1797,43 +1823,7 @@ class MonographCompiler:
             for tbl in table_blocks
         ]
         s = FOOTNOTE_RE.sub(r"#footnote[\1]", layout_tables(s, tables, spec.three_line_tables, spec.merge_continued_tables))
-        if spec.paginate_like_source:
-            s = re.sub(
-                r"(?:#h\([^)]*\);)?@@SRCPAGE(\d+)@@",
-                r"#src-page(\1)\n#set text(size: fit-size(\1))\n"
-                r"#set par(leading: fit-leading(\1, 0), spacing: fit-leading(\1, 0))",
-                s,
-            )
-            s = re.sub(r"@@SRCTOP(\d+)@@", r"#src-top(\1);", s)
-            s = re.sub(r"@@SRCEND(\d+)@@", r"#src-end(\1);", s)
-            s = s.replace("@@JUSTIFYEND@@", "#linebreak(justify: true)")
-            s = s.replace("@@BR@@", "#linebreak(justify: true);")
-            s = s.replace("@@HY@@", "-#linebreak(justify: true);")
-            s = re.sub(r"(?:#h\([^)]*\);)?@@NOINDENT@@\s*", "#src-cont;", s)
-            s = s.replace("@@PAGEBREAK@@", "\n#pagebreak()\n")
-        else:
-            s = re.sub(r"[ \t]*\n*@@PAGEBREAK@@\n*[ \t]*", "\n\n", s)
-        s = re.sub(
-            r"@@FLIPPED([2-9])@@.*?(?=@@FLIPPED)",
-            lambda m: re.sub(
-                r"#set text\(size: ([\d.]+)pt\)", lambda t: f"#set text(size: {float(t.group(1)) * 0.8:.2f}pt)", m.group(0)
-            ),
-            s,
-            flags=re.DOTALL,
-        )
-        s = re.sub(
-            r"@@FLIPPED(\d+)@@",
-            lambda m: f"\n#set page(flipped: true, columns: {m.group(1)})\n#set table(inset: (x: 4pt, y: 1.6pt))\n"
-            if m.group(1) != "0"
-            else "\n#set page(flipped: false, columns: 1)\n#set table(inset: 5pt)\n",
-            s,
-        )
-        s = re.sub(r"^@@SUBTITLE@@ (.*)$", r"#chapter-subtitle[\1]", s, flags=re.MULTILINE)
-        s = re.sub(r"^@@BYLINE@@ (.*)$", r"#chapter-byline[\1]", s, flags=re.MULTILINE)
-        s = re.sub(r"@@CONTENTS@@(.*?)@@PAGE@@(\d+)", r'#contents-line("\2")[\1]', s)
-        s = re.sub(r"@@CONTENTSHEAD@@(.*?)$", r"#contents-head[\1]", s, flags=re.MULTILINE)
-        s = re.sub(r"^@@ABSTRACT@@(.*)$", r"#chapter-abstract(note: [\1])[", s, flags=re.MULTILINE)
-        s = re.sub(r"^@@ENDABSTRACT@@$", "]", s, flags=re.MULTILINE)
+        s = marks.to_typst(s, paginate=spec.paginate_like_source)
         s = re.sub(r"@@CODEBLOCK(\d+)@@", lambda m: f"\n\n{code_blocks[int(m.group(1))]}\n\n", s)
         return s
 
@@ -1854,13 +1844,13 @@ class MonographCompiler:
             justify = self.spec.justify_page_end is None or self.spec.justify_page_end(pages[-1][1] if pages else "")
             if continues and justify and not prev_last_line.lstrip().startswith(("![", "$", "#")):
                 prev_pno, prev_page = pages[-1]
-                pages[-1] = (prev_pno, prev_page.rstrip() + " @@JUSTIFYEND@@")
+                pages[-1] = (prev_pno, prev_page.rstrip() + f" {marks.JUSTIFY_END}")
             page = self.render_figure_group(top_figs, fig_dir)
-            page += f"@@NOINDENT@@{body}" if continues else body
+            page += f"{marks.NO_INDENT}{body}" if continues else body
             page += self.render_figure_group(bot_figs, fig_dir)
             pages.append((pno, page))
         return "\n\n".join(
-            f"@@SRCPAGE{pno}@@\n\n{_mark_page_ends(page, pno)}" for pno, page in pages
+            f"{marks.source_page(pno)}\n\n{_mark_page_ends(page, pno)}" for pno, page in pages
         )
 
     def format_index(self, md_dir: Path, start_p: int, end_p: int) -> str:

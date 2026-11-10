@@ -3,6 +3,8 @@
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from polytypst.books import book_by_key, module
 from polytypst.compiler.monograph import MonographCompiler
 from polytypst.ocr.colab_cluster import ColabOCRCluster
@@ -259,6 +261,7 @@ def test_two_chinese_characters_join_across_a_page_without_a_space():
     assert join_cross_page_text("相对就业（图", "7-12)") == "相对就业（图 7-12)"
 
 
+@pytest.mark.slow
 def test_missing_ocr_image_refs_are_dropped_but_real_ones_kept(tmp_path):
     from polytypst.books import book_specs
     from polytypst.compiler.page_cleaner import PageCleaner

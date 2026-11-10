@@ -58,6 +58,7 @@ def compile_page(
     return pymupdf.open(pdf)
 
 
+@pytest.mark.slow
 def test_the_facsimile_pdf_has_no_structure_tree_for_readers_to_walk(
     tmp_path: Path,
 ) -> None:

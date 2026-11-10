@@ -2,6 +2,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pymupdf
+import pytest
 
 from polytypst.books import book_by_key
 from polytypst.checker import (
@@ -134,6 +135,7 @@ def _typst_pdf(tmp_path: Path, source: str) -> Path:
     return pdf
 
 
+@pytest.mark.slow
 def test_layout_tier_flags_a_display_shrunk_to_fit(tmp_path: Path) -> None:
     prose = "Ordinary prose fills the page at the body size. " * 12
     pdf = _typst_pdf(

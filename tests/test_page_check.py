@@ -306,6 +306,7 @@ def test_tables_read_html_and_pipe_tables_as_rows(tmp_path: Path, scan: Path) ->
     assert check.tables(1) == [[["年份", "1"]], [["a", "b"], ["1", "2"]]]
 
 
+@pytest.mark.slow
 def test_render_pairs_each_caption_with_its_scan_page_and_skips_sentences_that_name_a_table(
     tmp_path: Path, scan: Path
 ) -> None:
@@ -433,6 +434,7 @@ def gray(png: bytes) -> np.ndarray:
     return np.asarray(Image.open(io.BytesIO(png)).convert("L"), dtype=float)
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(("mode", "size"), [("RGB", (1200, 1800)), ("L", (1200, 1800)), ("RGB", (1203, 1805))])
 def test_strips_cut_from_the_scan_jpeg_match_the_mupdf_render(tmp_path: Path, mode: str, size: tuple[int, int]) -> None:
     doc = jpeg_scan(tmp_path, mode, size=size)
@@ -447,6 +449,7 @@ def test_strips_cut_from_the_scan_jpeg_match_the_mupdf_render(tmp_path: Path, mo
         assert 10 * np.log10(255**2 / ((ours - reference) ** 2).mean()) > 40
 
 
+@pytest.mark.slow
 def test_only_a_bare_full_page_jpeg_takes_the_fast_path(tmp_path: Path) -> None:
     doc = jpeg_scan(tmp_path, "RGB", "RGB", "RGB", "RGB", "RGB")
     doc[1].draw_rect(pymupdf.Rect(10, 10, 50, 50))

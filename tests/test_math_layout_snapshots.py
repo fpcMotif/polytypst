@@ -273,6 +273,7 @@ def _write_ocr_cache(source: Path, cache: Path) -> None:
     (cache / "pages.json").write_text(json.dumps({"1": [w, h]}), encoding="utf-8")
 
 
+@pytest.mark.slow
 def test_fermat_lemma_bijections_and_hilbert_cases_typst_snapshot() -> None:
     compiler = MonographCompiler(FERMAT_SPEC)
     body_29, _, _ = compiler.cleaner.clean(FERMAT_PAGE_29_MD, 29)
@@ -288,6 +289,7 @@ def test_fermat_lemma_bijections_and_hilbert_cases_typst_snapshot() -> None:
     )
 
 
+@pytest.mark.slow
 def test_fermat_mordell_proposition_and_conics_correspondence_typst_snapshot() -> None:
     compiler = MonographCompiler(FERMAT_SPEC)
     preamble = compiler.build_typst_preamble()

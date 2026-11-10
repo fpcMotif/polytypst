@@ -1,3 +1,4 @@
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
@@ -5,6 +6,8 @@ import pytest
 from PIL import Image, ImageDraw
 
 from polytypst.ocr.pages import PageImage
+
+sys.dont_write_bytecode = False
 
 PAPER = (222, 210, 180)
 INK = (40, 35, 30)

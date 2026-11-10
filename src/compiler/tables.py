@@ -23,7 +23,7 @@ def _escape_table_cell_text(cell: str) -> str:
     parts = TYPST_MATH_SPAN.split(cell)
     for idx in range(0, len(parts), 2):
         part = re.sub(r"<(?!eq-|fig-|sec-)", r"\<", parts[idx])
-        part = re.sub(r"(?<![@\\])@(?=[\w])(?!@)", r"\@", part)
+        part = re.sub(r"(?<![@\\])@(?=[\w-])(?!@)", r"\@", part)
         part = re.sub(r"(?<!\\)\[", r"\[", part)
         part = re.sub(r"(?<!\\)\]", r"\]", part)
         part = re.sub(r"(?<!\\)\*", r"\*", part)

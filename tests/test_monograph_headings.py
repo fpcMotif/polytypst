@@ -159,6 +159,7 @@ def test_running_head_shows_the_current_chapter_section(tmp_path: Path) -> None:
     assert heads[fresh_page] == f"Fresh Section {fresh_page}"
 
 
+@pytest.mark.slow
 def test_a_chapter_opening_page_has_a_folio_at_the_foot_and_no_running_head(tmp_path: Path) -> None:
     filler = "\n\n".join(f"Filler paragraph {i} of ordinary prose for the page." for i in range(100))
     body = f"#pagebreak()\n#pagebreak()\n#pagebreak()\n#pagebreak()\n= First Chapter\n\n{filler}\n\n#pagebreak()\n= Second Chapter\n\n{filler}\n"
@@ -327,6 +328,7 @@ def test_section_sign_heading_becomes_a_section_once():
     assert compiler.cleaner._normalized_heading("## §20 Generating Field Elements", 77) == ""
 
 
+@pytest.mark.slow
 def test_an_ocr_space_between_inline_math_and_its_hyphenated_word_is_removed():
     compiler = MonographCompiler(KODAIRA_SPEC)
     out = compiler.format_typst("An $L^p$ -norm, a $\\sigma$ -algebra and a $C^\\infty$ -function.")

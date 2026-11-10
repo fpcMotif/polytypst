@@ -8,6 +8,7 @@ from polytypst.corrections import (
     Correction,
     Line,
     Verdict,
+    causes,
     changed_lines,
     history,
     record,
@@ -69,6 +70,18 @@ def test_a_verdict_with_no_correction_is_open(tmp_path: Path) -> None:
         "Bgoursat-223"
     ]
     assert history("ahlfors", tmp_path).open_verdicts == ()
+
+
+def test_causes_lists_the_recorded_causes_of_one_layer(tmp_path: Path) -> None:
+    record(
+        Cause(id="RC-04", root_cause="heads", layer="code", status="unfixed"), tmp_path
+    )
+    record(
+        Cause(id="RC-08", root_cause="order", layer="workflow", status="unfixed"),
+        tmp_path,
+    )
+    assert [c.id for c in causes("code", tmp_path)] == ["RC-04"]
+    assert causes("code", tmp_path / "nothing") == ()
 
 
 def test_recording_a_cause_again_replaces_it(tmp_path: Path) -> None:

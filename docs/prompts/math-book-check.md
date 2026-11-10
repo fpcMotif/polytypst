@@ -80,6 +80,8 @@ A role sets the files that the agent can change:
    | `MARGIN_OVERFLOW` | Ink is more than 3pt past the text block. | A wide display, an `array`, or a diagram |
    | `UNDERFULL_PAGE` | The text stops more than 20% above the page foot, and the next page opens no chapter. | A display that cannot break, or a page break in the transcript |
    | `RUNNING_HEAD_FORMULA` | The running head is a formula. | A display that the transcript wrote as a heading |
+   | `RUNNING_HEAD_CROWDED` | The running head wraps to a second line or runs into its folio. | A long section title with no short form for the running head (RC-04) |
+   | `CHAPTER_OPENING_NO_FOLIO` | A page that opens a chapter prints no folio, although most pages print one. | A book `typst_preamble` that sets `footer: none` (RC-02) |
    | `DUPLICATE_HEADING` | A heading prints twice on its page. | A title line in the transcript under the chapter heading |
    | `CONTENTS_WITHOUT_LEADERS` | A contents page shows page numbers with no dot leaders. | The contents page in the transcript |
    | `HYPHENATED_HEADING` | A heading breaks a word with a hyphen. | A heading show rule in `src/compiler/presets.py` or the book's `typst_preamble` that turns hyphenation back on |

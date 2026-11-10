@@ -9,6 +9,7 @@ from ..vision.figure_extractor import (
     ExtractedFigure,
     manifest_figures,
 )
+from . import marks
 from .statements import style_statements
 
 if TYPE_CHECKING:
@@ -266,9 +267,19 @@ def has_circled_footnotes(md: str, folio_pattern: str) -> bool:
     return bool(notes) and all(key in CIRCLED_DIGITS and key in body for key, _ in notes)
 
 
+CODE_FENCE_RE = re.compile(r"^[ \t]*```.*?(?:^[ \t]*```[^\n]*$|\Z)", re.MULTILINE | re.DOTALL)
+
+
+def _blank_code(s: str) -> str:
+    """The text with each fenced code block blanked to spaces, so a search in it keeps the original offsets.
+
+    A circled mark in code is a callout that a list below the code explains, never a note call."""
+    return CODE_FENCE_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), s)
+
+
 def _uncalled_circled(m: re.Match[str], above: list[str]) -> bool:
     key = _note(m)[0]
-    return key in CIRCLED_DIGITS and not any(key in line.lstrip()[1:] for line in above)
+    return key in CIRCLED_DIGITS and not any(key in line.lstrip()[1:] for line in _blank_code("\n".join(above)).splitlines())
 
 
 def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, list[tuple[str, str]]]:
@@ -290,7 +301,7 @@ def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, lis
             in_display = "\n".join(lines[:i]).count("$$") % 2 == 1
             m_note = _note_line(lt, style, below_rule=True)
             if not in_display and m_note and not _uncalled_circled(m_note, lines[:i]) and not any(
-                re.match(r"^(?:#+\s+|\d{1,3}\.\s+\S)", below) for _, below in kept[idx + 1 :]
+                re.match(r"^(?:#+\s+|\d{1,3}\.\s+\S|```)", below) for _, below in kept[idx + 1 :]
             ):
                 in_note_display = False
                 for _, below in kept[idx:]:
@@ -377,8 +388,8 @@ def attach_footnotes(s: str, notes: list[tuple[str, str]], style: str) -> str:
         )
         s = re.sub(r"\s*\\dagger\s*\$", "$†", s)
     for key, text in notes:
-        note = f"@@FNSTART@@{text}@@FNEND@@"
-        call = _footnote_call(s, key, style)
+        note = marks.footnote(text)
+        call = _footnote_call(_blank_code(s), key, style)
         if call:
             clean_s = s[: call.start()] + s[call.end() :]
             pos = call.start()

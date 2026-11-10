@@ -295,6 +295,7 @@ def test_latex_figures_fit_the_text_block():
     assert r"\caption{进口渗透和就业}\label{fig-1-1}" in numbered
 
 
+@pytest.mark.slow
 def test_subsections_under_articles_print_their_own_decimal_number(tmp_path):
     raw = "= 进口竞争\n\n=== 1. 前言\n\n正文.\n\n=== 2. 衡量进口竞争的标准\n\n=== 2.1 进口渗透率\n\n=== 2.2 进口相对价格\n\n=== 3. 结束语\n"
     numbered, _ = number_chapter(raw, 1, TYPST)
@@ -309,6 +310,7 @@ def test_subsections_under_articles_print_their_own_decimal_number(tmp_path):
     assert "3. 结束语" in lines
 
 
+@pytest.mark.slow
 def test_each_article_without_a_label_prints_its_own_number(tmp_path):
     seen: set[str] = set()
     chapters = (

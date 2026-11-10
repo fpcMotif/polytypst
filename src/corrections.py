@@ -145,6 +145,13 @@ def history(book: str, root: Path = QUALITY) -> BookHistory:
     )
 
 
+def causes(layer: str, root: Path = QUALITY) -> tuple[Cause, ...]:
+    """Every recorded cause of `layer`, such as "code", in the order recorded."""
+    return tuple(
+        c for c in _by_id(root / "causes.jsonl", Cause).values() if c.layer == layer
+    )
+
+
 def changed_lines(before: str, after: str) -> list[Line]:
     """The lines a fix changed on one cleaned page, each whole. Raises ValueError when the line count changed."""
     a, b = before.split("\n"), after.split("\n")

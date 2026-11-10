@@ -108,6 +108,7 @@ def facsimile(monkeypatch, tmp_path: Path) -> tuple[Path, Path]:
     return scan, rebuilt
 
 
+@pytest.mark.slow
 def test_parity_visual_writes_a_report_of_the_regions_without_reading_ocr(facsimile, tmp_path: Path) -> None:
     scan, rebuilt = facsimile
     write_pdf(rebuilt, ["The first line of the page."])
@@ -128,6 +129,7 @@ def test_parity_visual_crops_only_the_largest_regions_of_the_book(facsimile, tmp
     assert len(list((out / "img").glob("*_scan.png"))) == 1
 
 
+@pytest.mark.slow
 def test_parity_against_an_older_build_fails_when_a_page_got_worse(facsimile, tmp_path: Path) -> None:
     scan, rebuilt = facsimile
     old = tmp_path / "old.pdf"
@@ -140,6 +142,7 @@ def test_parity_against_an_older_build_fails_when_a_page_got_worse(facsimile, tm
     assert books_cli.main("parity", args) == 0
 
 
+@pytest.mark.slow
 def test_parity_fails_when_a_page_misses_more_scan_ink_than_the_limit(facsimile, tmp_path: Path, capsys) -> None:
     scan, rebuilt = facsimile
     write_pdf(rebuilt, ["The first line of the page."])
@@ -149,6 +152,7 @@ def test_parity_fails_when_a_page_misses_more_scan_ink_than_the_limit(facsimile,
     assert "missing over 0.4: page 1" in capsys.readouterr().out
 
 
+@pytest.mark.slow
 def test_parity_fails_when_a_page_has_more_rebuilt_ink_off_the_scan_than_the_limit(facsimile, tmp_path: Path, capsys) -> None:
     scan, rebuilt = facsimile
     write_pdf(rebuilt, ["The first line of the page.", "The second line of the page.", "A third line."])
@@ -166,6 +170,7 @@ def write_lines_at(path: Path, left: float, lines: list[str]) -> None:
     doc.save(path)
 
 
+@pytest.mark.slow
 def test_parity_fails_when_the_text_block_moved_further_than_the_offset_limit(facsimile, tmp_path: Path, capsys) -> None:
     scan, rebuilt = facsimile
     write_lines_at(rebuilt, 60, ["The first line of the page.", "The second line of the page."])
@@ -175,6 +180,7 @@ def test_parity_fails_when_the_text_block_moved_further_than_the_offset_limit(fa
     assert "offset over 5.0: page 1" in capsys.readouterr().out
 
 
+@pytest.mark.slow
 def test_parity_checks_an_edition_against_its_own_visual_limits_by_default(monkeypatch, tmp_path: Path, capsys) -> None:
     scan, rebuilt = tmp_path / "scan.pdf", tmp_path / "rebuilt.pdf"
     write_pdf(scan, ["The first line of the page.", "The second line of the page."])
@@ -213,6 +219,7 @@ def test_a_reversed_range_or_a_page_below_1_is_an_argument_error(pages: str) -> 
         books_cli.parse_pages(pages)
 
 
+@pytest.mark.slow
 def test_the_report_gives_region_boxes_as_plain_numbers(facsimile, tmp_path: Path) -> None:
     scan, rebuilt = facsimile
     write_pdf(rebuilt, ["The first line of the page."])

@@ -1,27 +1,19 @@
 # What each subagent gets under its brief
 
-Paste the Subagent lines, the Shared notes and the book's own notes under each brief. Each book fact was read from the scan, so the subagent can tell the book's design from a defect.
+Paste the Subagent lines, the Shared note and the book's own notes under each brief. The brief itself ends with the cause list, the known cause ids and the check command. Each book fact was read from the scan, so the subagent can tell the book's design from a defect.
 
 ## Subagent lines
 
-- Check your 20 pages strictly, one at a time, each rebuilt PNG beside its scan PNG, line by line. The scan is the witness. Every page gets its audit line, PASS or FAIL.
-- Run the check the brief names as `mise exec -- uv run python scripts/look_review.py check BOOK NN` from /Users/martinfan/devv/polytypst. It must print "ok".
+- Check your pages strictly, one pair sheet at a time. The scan is the witness. Every page gets its audit line, PASS or FAIL.
 - You must see each PNG as an image. When your tools cannot show you an image, stop and say so.
 - When a scan page shows different text from its rebuilt page, open the scan pages before and after it, and name the matching one in "where".
-- Put the paths of both 300 dpi crops, rebuilt and scan, in "evidence" for every finding about math.
-- When a defect matches a cause id in the notes, add that id, such as "RC-04", to the end of "cause".
+- Put the path of the crop sheet that shows the region, scan beside rebuilt, in "evidence" for every finding about a lost display.
+- A known cause that the brief marks "fixed" or "holding" is a P0 regression when it appears.
+- Use "cause_id": "THM-SPACE" when no space follows a theorem where the scan leaves one.
 
-## Shared notes
+## Shared note
 
-- Cause ids for defects still open:
-  - RC-04: the running head runs into its folio, as in "(REAL OR COMPLEX CASE)159", or the running head is body text.
-  - RC-05: a footnote sits in the body text, not at the foot of the page.
-  - THM-SPACE: no space after a theorem where the scan leaves one.
-- Fixed on 2026-11-09, so each is a P0 regression when it appears:
-  - RC-02: a chapter-opening page with no folio.
-  - RC-03: a chapter number that the scan does not print, as in "1 Part I: Introductory Remarks".
-  - RC-06: a theorem, lemma, corollary or proposition body in a style the scan does not use. The table below gives each book's style.
-- The rebuild sets a typescript in a book face. That change passes.
+The rebuild sets a typescript in a book face. That change passes. For RC-06, the table below gives each book's statement style.
 
 ## Statement style per book
 

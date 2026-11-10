@@ -32,6 +32,7 @@ def layout_convert(code: str) -> str:
     return convert_math_batch([(code, False)], theorem_layout=True)[0]
 
 
+@pytest.mark.slow
 def test_section_sign_survives_conversion():
     assert convert(r"\S 2") == "section 2"
     assert "section 6" in convert(r"(\S 6, \text{Corollary 1})")
@@ -59,6 +60,7 @@ def test_every_book_gets_the_circle_and_operator_name_rewrites():
     assert MonographCompiler(bare).format_typst(text) == expected
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     ("text", "typst"),
     [
@@ -82,6 +84,7 @@ def test_a_figure_reference_names_the_label_the_figure_carries(text, ref):
     assert re.search(rf"{ref}(?![\w.-]*\d)", out), out
 
 
+@pytest.mark.slow
 def test_a_line_that_starts_with_plus_or_slash_prints_that_character(tmp_path):
     spec = MonographSpec(domain="math", slug="t", title="T", author="A")
     typ = tmp_path / "lines.typ"
@@ -107,6 +110,7 @@ def test_a_row_end_with_a_spacing_argument_breaks_the_row_without_printing_the_s
     assert "".join(out.split()) == r"a=b\c=d"
 
 
+@pytest.mark.slow
 def test_two_parallel_signs_around_an_arrow_stay_parallel_signs():
     out = convert(r"l_1 \| l_2 \Rightarrow m_1 \| m_2")
     assert "norm" not in out
@@ -162,6 +166,7 @@ def test_dollar_signs_nested_in_text_do_not_leak():
     assert "§ 3, formula (30)" in out
 
 
+@pytest.mark.slow
 def test_convert_math_batch_and_margin_helper_return_finished_typst_math():
     out = convert(r"\int f(x) dx \neq \prod_{i=1}^n a_i \unknownocrmacro")
     assert "dif x" in out
@@ -267,6 +272,7 @@ def _tight(code: str) -> str:
     return convert(code).replace(" ", "")
 
 
+@pytest.mark.slow
 def test_a_norm_becomes_a_norm_call_that_keeps_its_scripts():
     assert _tight(r"\|f\|_p") == "norm(f)_p"
     assert _tight(r"\|f\|_p^2") == "norm(f)_p^2"
@@ -276,22 +282,26 @@ def test_a_norm_becomes_a_norm_call_that_keeps_its_scripts():
     assert _tight(r"\left\| \|f\|_{L^p} \right\|_{L^q}") == "norm(norm(f)_(L^p))_(L^q)"
 
 
+@pytest.mark.slow
 def test_bars_that_are_not_one_norm_stay_bars():
     assert "norm" not in convert(r"\ell \parallel m, m \parallel n")
     assert "norm" not in convert(r"\|x, y\|")
     assert "norm" not in convert(r"a \| b")
 
 
+@pytest.mark.slow
 def test_supp_is_an_upright_operator():
     assert convert(r"\supp f") == convert(r"\operatorname{supp} f") == 'op("supp") f'
 
 
+@pytest.mark.slow
 def test_a_starred_operator_name_sets_its_scripts_as_limits():
     out = convert(r"\operatorname*{ess\,sup}_{x \in X} f(x)")
     assert out.startswith('op("ess sup", limits: #true)_(x in X)'), out
     assert 'op("argmax", limits: #true)' in convert(r"\operatorname*{argmax}_{y} g(y)")
 
 
+@pytest.mark.slow
 def test_absolute_values_become_typst_abs_calls():
     assert layout_convert(r"|x - y|") == "abs(x - y)"
     assert layout_convert(r"|x - y|^2") == "abs(x - y)^2"
@@ -300,6 +310,7 @@ def test_absolute_values_become_typst_abs_calls():
     assert "norm" not in layout_convert(r"|x|")
 
 
+@pytest.mark.slow
 def test_bars_in_set_builders_and_evaluations_survive():
     set_builder = convert(r"\{ x \in \mathbb{R}^n : |x| < 1 \}")
     assert "abs(x)" in set_builder
@@ -307,6 +318,7 @@ def test_bars_in_set_builders_and_evaluations_survive():
     assert "abs" not in convert(r"f|_A")
 
 
+@pytest.mark.slow
 def test_upright_math_operators():
     assert convert(r"\sup_{x \in X} f(x)") == "sup_(x in X) f ( x )"
     assert convert(r"\inf_{x \in X} f(x)") == "inf_(x in X) f ( x )"
@@ -317,6 +329,7 @@ def test_upright_math_operators():
     assert "op(\"supp\")" in convert(r"\operatorname{supp} f")
 
 
+@pytest.mark.slow
 def test_loc_in_subscripts_is_upright():
     for expr in (
         r"L^p_{\text{loc}}",
@@ -329,6 +342,7 @@ def test_loc_in_subscripts_is_upright():
         assert "l o c" not in res
 
 
+@pytest.mark.slow
 def test_star_operator_spacing_and_scripts():
     conv = layout_convert(r"f * g")
     assert "ast.op" in conv
@@ -342,6 +356,7 @@ def test_star_operator_spacing_and_scripts():
     assert "ast.op" in res and "^ast" in res
 
 
+@pytest.mark.slow
 def test_ellipses_horizontal_and_centered():
     assert layout_convert(r"\dots") == "…"
     assert layout_convert(r"\ldots") == "…"
@@ -353,6 +368,7 @@ def test_ellipses_horizontal_and_centered():
     assert "…" not in convert(r"x_1, \dots, x_n")
 
 
+@pytest.mark.slow
 def test_sized_delimiters():
     res1 = layout_convert(r"\left\langle x, y \right\rangle")
     assert res1.startswith("lr(chevron.l") and res1.endswith("chevron.r)")
@@ -362,12 +378,14 @@ def test_sized_delimiters():
     assert layout_convert(r"\left\{ \frac{a}{b} \right\}") == "lr({ a / b })"
 
 
+@pytest.mark.slow
 def test_widehat_conversion():
     assert convert(r"\widehat{f}") == "hat(f)"
     wide = convert(r"\widehat{f * g}")
     assert "hat(" in wide or "accent(" in wide
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     ("latex", "spelled"),
     [

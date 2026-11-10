@@ -59,6 +59,7 @@ def test_a_chapter_zero_heading_compiles_and_prints_its_number(tmp_path: Path) -
     assert "Chapitre 0" in pymupdf.open(tmp_path / "book.pdf")[0].get_text()
 
 
+@pytest.mark.slow
 def test_printed_figure_numbers_and_references_match_the_scan(tmp_path: Path) -> None:
     pymupdf.open().new_page(width=20, height=20).get_pixmap().save(tmp_path / "fig.png")
     body = "\n\n".join(

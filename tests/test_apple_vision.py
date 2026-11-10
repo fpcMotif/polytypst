@@ -12,6 +12,7 @@ sleep 30
 """
 
 
+@pytest.mark.slow
 def test_a_runner_that_stops_writing_is_killed_after_the_lines_it_wrote(tmp_path: Path) -> None:
     runner = tmp_path / "runner"
     runner.write_text(STALLING_RUNNER)

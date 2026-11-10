@@ -56,24 +56,28 @@ def typst_cases(out: str) -> list[str]:
     return [line.split()[0] for line in table.strip().splitlines()[1:]]
 
 
+@pytest.mark.slow
 def test_profile_splits_build_time_by_owner(probe, capsys):
     assert books_cli.main("profile", ["probe", "--step", "build"]) == 0
     owners = owner_rows(capsys.readouterr().out)
     assert {"Python bytecode", "numpy", "Typst"} <= owners.keys()
 
 
+@pytest.mark.slow
 def test_profile_shows_waits_on_a_subprocess_as_their_own_row(probe, capsys):
     assert books_cli.main("profile", ["probe", "--step", "build"]) == 0
     seconds = float(owner_rows(capsys.readouterr().out)["subprocess wait"].split()[-2])
     assert seconds >= 0.25
 
 
+@pytest.mark.slow
 def test_profile_lists_the_top_functions_by_own_time(probe, capsys):
     assert books_cli.main("profile", ["probe", "--step", "build"]) == 0
     top = capsys.readouterr().out.split("top functions by own time", 1)[1]
     assert "test_profile.py:25(<genexpr>)" in top
 
 
+@pytest.mark.slow
 def test_profile_times_the_generated_typst_in_three_labeled_cases(probe, capsys):
     assert books_cli.main("profile", ["probe", "--step", "build"]) == 0
     out = capsys.readouterr().out
@@ -83,6 +87,7 @@ def test_profile_times_the_generated_typst_in_three_labeled_cases(probe, capsys)
     assert (probe / "build" / "x.typ").read_text(encoding="utf-8") == SOURCE
 
 
+@pytest.mark.slow
 def test_profile_json_has_the_rows_of_the_text_and_they_add_up_to_the_wall_time(probe, capsys):
     assert books_cli.main("profile", ["probe", "--step", "build"]) == 0
     text = capsys.readouterr().out

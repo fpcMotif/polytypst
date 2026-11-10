@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pymupdf
+import pytest
 
 from polytypst.checker import (
     LAYOUT_TIER,
@@ -137,6 +138,41 @@ def test_a_heading_broken_with_a_hyphen_is_flagged(tmp_path: Path) -> None:
     title = '#show heading: set text(hyphenate: true, size: 20pt)\n#show heading: set par(justify: true)\n#set text(lang: "en")\n'
     report = _layout(tmp_path, f"{title}#set page(width: 120mm, margin: (top: 90pt))\n= {LONG_TITLE}\n\n{PROSE}")
     assert set(_pages(report, "HYPHENATED_HEADING")) == {1}
+
+
+NUMBERED = '#set page(numbering: "1")\n'
+OPENING = f"= The Gauss-Bonnet Theorem\n\n{PROSE}"
+
+
+@pytest.mark.slow
+def test_a_chapter_opening_page_with_no_folio_is_flagged(tmp_path: Path) -> None:
+    pages = f"{PROSE}\n#pagebreak()\n{PROSE}\n#pagebreak()\n{PROSE}\n#page(footer: none)[{OPENING}]"
+    assert _pages(_layout(tmp_path, NUMBERED + pages), "CHAPTER_OPENING_NO_FOLIO") == [4]
+
+
+def test_a_chapter_opening_page_with_its_folio_passes(tmp_path: Path) -> None:
+    pages = f"{PROSE}\n#pagebreak()\n{PROSE}\n#pagebreak()\n{PROSE}\n#pagebreak()\n{OPENING}"
+    assert _pages(_layout(tmp_path, NUMBERED + pages), "CHAPTER_OPENING_NO_FOLIO") == []
+
+
+def test_a_book_that_prints_no_folios_has_no_missing_folio(tmp_path: Path) -> None:
+    pages = f"{PROSE}\n#pagebreak()\n{PROSE}\n#pagebreak()\n{OPENING}"
+    assert _pages(_layout(tmp_path, pages), "CHAPTER_OPENING_NO_FOLIO") == []
+
+
+def test_a_running_head_that_runs_into_its_folio_is_crowded(tmp_path: Path) -> None:
+    report = _layout(tmp_path, f"#set page(header: [(REAL OR COMPLEX CASE)159])\n{PROSE}")
+    assert _pages(report, "RUNNING_HEAD_CROWDED") == [1]
+
+
+def test_a_running_head_that_wraps_to_a_second_line_is_crowded(tmp_path: Path) -> None:
+    head = "#set page(width: 120mm, header: [Pseudodifferential operators of the real or complex principal type #h(1fr) 3])\n"
+    assert _pages(_layout(tmp_path, head + PROSE), "RUNNING_HEAD_CROWDED") == [1]
+
+
+def test_a_short_running_head_apart_from_its_folio_is_not_crowded(tmp_path: Path) -> None:
+    report = _layout(tmp_path, f"#set page(header: [§2 Gauss' Equation #h(1fr) 3])\n{PROSE}")
+    assert _pages(report, "RUNNING_HEAD_CROWDED") == []
 
 
 def test_a_heading_that_wraps_at_spaces_is_not_hyphenated(tmp_path: Path) -> None:

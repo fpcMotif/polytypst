@@ -104,6 +104,7 @@ def synthetic_page(seed: int) -> tuple[Image.Image, int, int]:
     return img, cap_top, upper
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("seed", range(40))
 def test_whitespace_scan_matches_reference(seed: int) -> None:
     img, cap_top, upper = synthetic_page(seed)
@@ -197,6 +198,7 @@ def pdf_with_raster(tmp_path: Path) -> Path:
     return pdf_path
 
 
+@pytest.mark.slow
 def test_extract_all_returns_digital_and_scanned_figures(tmp_path: Path) -> None:
     caption = OcrLine("FIG. 1", x=0.45, y=0.3, w=0.08, h=0.02)
     ocr_pages = [LinePage(1, (caption,))]

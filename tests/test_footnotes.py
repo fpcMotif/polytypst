@@ -166,6 +166,35 @@ def test_circled_run_in_heads_are_not_calls_for_later_circled_heads():
     assert split_page_footnotes(page, "circled", KLEIN_SPEC.folio_pattern) == (page.rstrip("\n"), [])
 
 
+def test_a_callout_list_whose_marks_sit_only_in_code_stays_in_the_body():
+    page = (
+        "```python\ndef sample():\n    z = np.random.choice(2, p=phis) ①\n"
+        "    x = np.random.multivariate_normal(mu, cov) ②\n    return x\n```\n\n"
+        "然后按以下步骤进行采样。\n\n① np.random.choice(2, p=phis)\n根据 phis 指定的概率分布对 0 或 1 进行采样。\n\n"
+        "② np.random.multivariate_normal(mu, cov)\n从多维正态分布中采样一个数据。\n\n"
+        "下面是采样 500 个数据的代码。\n\n```python\nN = 500\n```\n"
+    )
+    assert split_page_footnotes(page, "circled", KLEIN_SPEC.folio_pattern) == (page.rstrip("\n"), [])
+
+
+def test_a_circled_note_run_never_takes_a_code_block():
+    page = (
+        "# ② 计算余弦相似度\nsimilarity = np.zeros(vocab_size)\n```\n\n上述实现按如下顺序执行。\n\n"
+        "① 取出查询词的单词向量。\n\n② 求得余弦相似度。\n\n下面是一个例子。\n\n"
+        "```python\n>>> x.argsort()\narray([1, 2, 0])\n```\n\n上述代码进行了排列。\n"
+    )
+    assert split_page_footnotes(page, "circled", KLEIN_SPEC.folio_pattern) == (page.rstrip("\n"), [])
+
+
+def test_a_circled_note_never_attaches_inside_a_code_block():
+    body = "```python\nmodel.eval() ①\n```\n\n切换到评估模式①。"
+    assert attach_footnotes(body, [("①", "注释。")], "circled") == (
+        "```python\nmodel.eval() ①\n```\n\n切换到评估模式" + note("注释。") + "。"
+    )
+    code_only = "```python\nmodel.eval() ①\n```\n\n切换到评估模式。"
+    assert attach_footnotes(code_only, [("①", "注释。")], "circled") == code_only + note("注释。")
+
+
 def test_a_circled_call_wins_over_a_parenthesized_exponent_earlier_in_math():
     body = "均值为 $\\mu^{(1)}$，其中 $\\theta_1^{(1)}$ 为初值。它在两期之间转换①，表达式如下。"
     text = attach_footnotes(body, [("①", "不仅是均值。")], "circled")
@@ -268,6 +297,7 @@ def page_words(spec, tmp_path):
     return [[w for w in page.get_text().split() if w[0] in "ABCDE"] for page in pymupdf.open(tmp_path / "notes.pdf")]
 
 
+@pytest.mark.slow
 def test_paren_marks_restart_on_each_page(tmp_path):
     assert page_words(FUKUSO_SPEC, tmp_path) == [["A1)", "B2)"], ["C1)", "D2)"], ["E1)"]]
 
