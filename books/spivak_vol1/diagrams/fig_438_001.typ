@@ -1,0 +1,21 @@
+#import "@preview/fletcher:0.5.8" as fletcher
+#fletcher.diagram(
+  spacing: (1.4em, 0.2em),
+  node-inset: 3pt,
+  label-size: 0.85em,
+  fletcher.node((0, 0), $0$),
+  fletcher.node((1, 0), $H^1 (S^2)$),
+  fletcher.node((2, 0), $H^1 (U) plus.o H^1 (V)$),
+  fletcher.node((3, 0), $H^1 (U inter V)$),
+  fletcher.node((4, 0), $0.$),
+  fletcher.node((1, 1), rotate(90deg, $tilde.eq$)),
+  fletcher.node((2, 1), rotate(90deg, $tilde.eq$)),
+  fletcher.node((3, 1), rotate(90deg, $tilde.eq$)),
+  fletcher.node((1, 2), $0$),
+  fletcher.node((2, 2), $0$),
+  fletcher.node((3, 2), $RR$),
+  fletcher.edge((0, 0), (1, 0), "->"),
+  fletcher.edge((1, 0), (2, 0), "->"),
+  fletcher.edge((2, 0), (3, 0), "->"),
+  fletcher.edge((3, 0), (4, 0), "->"),
+)

@@ -1,14 +1,18 @@
 slug = "grothendieck_serre"
+name = 'grothendieck2004-serre'
 title = "Grothendieck-Serre Correspondence"
 author = "Alexandre Grothendieck and Jean-Pierre Serre"
 publisher = "American Mathematical Society"
 series = ""
 year = 2004
 domain = "math"
-source_pdf = "Grothendieck-Serre Correspondence (Jean-Pierre Serre) .pdf"
+source_pdf = "Grothendieck-Serre Correspondence (Jean-Pierre Serre）.pdf"
 pdf_page_count = 480
 cross_references = true
 latex_preamble = '\AtBeginDocument{\pdfstringdefDisableCommands{\def\ell{l}\def\mathcal#1{#1}\def\mathrm#1{#1}}}'
 chapters = [
   { number = 1, title = "Grothendieck-Serre Correspondence", start_page = 1, end_page = 480 },
+]
+heading_rewrites = [
+  ['^### (\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{4}\b.*)$', '#### \1'],
 ]

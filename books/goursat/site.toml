@@ -1,0 +1,10 @@
+[[page]]
+slug = "goursat-analyse"
+title = "A Course in Mathematical Analysis, Volume I"
+subtitle = "Derivatives and Differentials, Definite Integrals, Expansion in Series, Applications to Geometry"
+author = "Édouard Goursat (Trans. E. R. Hedrick)"
+domain = "Classical Mathematical Analysis & Differential Geometry"
+badge = "Dover/Hedrick Edition + KaTeX Modern Notation + Restored Figures"
+description = "巴黎大学古萨的数学分析教程第一卷，Hedrick 英译本。内容包括实变函数的微分与偏导数、隐函数、定积分、级数展开与几何应用。全书 646 页，公式用 KaTeX 排版。"
+chapters = "transcript-pages"
+editions = ["monograph"]

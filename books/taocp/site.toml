@@ -1,0 +1,14 @@
+[[page]]
+slug = "taocp-vol3"
+title = "The Art of Computer Programming, Vol. 3: Sorting and Searching"
+subtitle = "Second Edition, Set in Computer Modern"
+author = "Donald E. Knuth"
+language = "en-US"
+domain = "Algorithms, Data Structures & Combinatorial Computing"
+badge = "Knuth CM Typeface + 300-DPI Matched Diagrams + Complete Exercises"
+description = "高德纳《计算机程序设计艺术》第三卷：排序与查找。包含第 5 章（内部排序、外部排序、最优排序）与第 6 章（顺序查找、树查找、散列法），收录全部习题与数学常数附录，共 768 页。"
+chapters = "latex-html"
+source = "@OUTPUT@/taocp"
+files = "taocp_vol3"
+figure_images = 'fig\d'
+table_images = 'tab\d'

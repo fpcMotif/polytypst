@@ -49,6 +49,7 @@ def _ink(out_dir: Path, name: str, source: str) -> np.ndarray:
     return np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width) < 128
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("rules", ["", NUMBERED], ids=["display", "numbered"])
 def test_cached_diagram_prints_like_its_include(tmp_path: Path, rules: str) -> None:
     out = _book(tmp_path)
@@ -60,6 +61,7 @@ def test_cached_diagram_prints_like_its_include(tmp_path: Path, rules: str) -> N
     assert (included != cached).sum() <= 0.005 * included.sum()
 
 
+@pytest.mark.slow
 def test_a_second_build_reuses_the_render_and_an_edit_renders_again(tmp_path: Path) -> None:
     out = _book(tmp_path)
     first = with_cached_diagrams(BODY, PREAMBLE, out)

@@ -14,6 +14,8 @@ from re import Pattern
 
 from polytypst_native import Typst, TypstError
 
+from ..paths import FONTS
+
 KNOWN_MATH_WORDS: set[str] = {
     "sin",
     "cos",
@@ -350,7 +352,7 @@ def parse_braced(s: str, pos: int) -> tuple[str, int]:
         elif s[i] == "}" and s[i - 1] != "\\":
             depth -= 1
         i += 1
-    return s[pos + 1 : i - 1], i
+    return s[pos + 1 : i - 1 if depth == 0 else i], i
 
 
 def parse_bracketed(s: str, pos: int) -> tuple[str, int]:
@@ -600,7 +602,7 @@ SUB_GREEK_SPLIT_RE = re.compile(
     rf"(_[0-9a-zA-Z])(?!(?:beta|zeta|theta)(?![a-zA-Z]))({GREEK_WORDS})"
 )
 BARE_BRACES_RE = re.compile(r"(?<!\\)\{([^{}]*)\}")
-NON_MATH_CHARS_RE = re.compile(r"[^\x00-\x7Fα-ωΑ-Ωℂℝℤℕℚ℘≤≥≠±∓×·→⇒↔⇐⇔⟶⟵⟷⟼⟹⟸⟺•—–§\s]")
+NON_MATH_CHARS_RE = re.compile(r"[^\x00-\x7Fα-ωΑ-Ωℂℝℤℕℚ℘≤≥≠±∓×·→⇒↔⇐⇔⟶⟵⟷⟼⟹⟸⟺↪↩•—–§\s]")
 MULTI_TOK_RE = re.compile(r"(?<![a-zA-Z0-9])[a-zA-Z0-9]{2,}(?![a-zA-Z0-9])")
 
 def _is_variable_product(m: re.Match[str]) -> bool:
@@ -619,6 +621,15 @@ BIG_ABS_RE = re.compile(r"\\[bB]igg?l\s*\|([^|]+?)\\[bB]igg?r\s*\|")
 def _abs_call(m: re.Match[str]) -> str:
     inner = m.group(1).strip()
     return f" lr(| {inner} |) " if "," in inner else f" abs({inner}) "
+
+
+_FALLBACK_MACROS = (
+    (re.compile(r"\^\s*\{?\s*\\circ\s*\}?"), "^ degree "),
+    (re.compile(r"\\circ(?![a-zA-Z])"), " compose "),
+    (re.compile(r"\\top(?![a-zA-Z])"), " top "),
+    (re.compile(r"\\n?limits(?![a-zA-Z])"), ""),
+    (re.compile(r"\\[lr]vert(?![a-zA-Z])"), " | "),
+)
 
 
 @functools.lru_cache(maxsize=8192)
@@ -651,6 +662,8 @@ def sanitize_math_code(code: str, is_display: bool = False, theorem_layout: bool
     code = convert_latex_sqrt(code)
     code = convert_unary_macros(code)
     code = convert_script_braces(code)
+    for pattern, repl in _FALLBACK_MACROS:
+        code = pattern.sub(repl, code)
 
     code = (
         code.replace(r"\,", " thin ")
@@ -761,7 +774,9 @@ def sanitize_math_code(code: str, is_display: bool = False, theorem_layout: bool
         code = re.sub(
             r"\\\|\s*([^|\n]+?)\s*\\\|",
             lambda m: (
-                f" lr(|| {m.group(1)} ||) "
+                f" parallel {m.group(1)} parallel "
+                if _has_barrier_at_depth_zero(m.group(1))
+                else f" lr(|| {m.group(1)} ||) "
                 if "," in m.group(1)
                 else f" norm({m.group(1)}) "
             ),
@@ -905,10 +920,17 @@ OPERATOR_STRING_RE = re.compile(r'(?<![\w(])"([A-Za-z]{2,})"')
 UPRIGHT_LETTERS_RE = re.compile(r"upright\(((?:[A-Za-z] )+[A-Za-z])\)")
 ESCAPED_BAR_RE = re.compile(r"\\\|")
 ESCAPED_DELIM_RE = re.compile(r"\\([()\[\]])")
+LABELLED_ARROW_RE = re.compile(r"([⟶⟵])(?=\s*[_^])")
 LATEX_MACRO_REWRITES: tuple[tuple[Pattern[str], str], ...] = (
     (re.compile(r"\\tag\*?\{[^{}]*\}"), ""),
     (re.compile(r"\\(?:nonumber|notag|displaystyle|textstyle)(?![a-zA-Z])"), ""),
-    (re.compile(r"\\dfrac(?![a-zA-Z])"), r"\\frac"),
+    (re.compile(r"\\[dt]frac(?![a-zA-Z])"), r"\\frac"),
+    (re.compile(r"\\xrightarrow\s*\[((?:[^\[\]{}]|\{[^{}]*\})*)\]\s*\{((?:[^{}]|\{[^{}]*\})*)\}"), r"⟶_{\1}^{\2}"),
+    (re.compile(r"\\xleftarrow\s*\[((?:[^\[\]{}]|\{[^{}]*\})*)\]\s*\{((?:[^{}]|\{[^{}]*\})*)\}"), r"⟵_{\1}^{\2}"),
+    (re.compile(r"\\xrightarrow\s*\{((?:[^{}]|\{[^{}]*\})*)\}"), r"⟶^{\1}"),
+    (re.compile(r"\\xleftarrow\s*\{((?:[^{}]|\{[^{}]*\})*)\}"), r"⟵^{\1}"),
+    (re.compile(r"\\hookrightarrow(?![a-zA-Z])"), "↪"),
+    (re.compile(r"\\hookleftarrow(?![a-zA-Z])"), "↩"),
     (re.compile(r"\\varprojlim"), r"\\underset{\\longleftarrow}{\\lim}"),
     (re.compile(r"\\varinjlim"), r"\\underset{\\longrightarrow}{\\lim}"),
     (re.compile(r"\\leqq(?![a-zA-Z])"), r"\\leq"),
@@ -1065,7 +1087,12 @@ def _mark_norms(code: str) -> str:
             if open_bar[0].startswith((r"\right", r"\rVert")) or close_bar[0].startswith((r"\left", r"\lVert")):
                 continue
             inner = code[open_bar.end() : close_bar.start()]
-            if inner.strip() and _is_balanced(inner) and not re.search(r"[,&]|\\\\", _depth_zero(inner)):
+            if (
+                inner.strip()
+                and _is_balanced(inner)
+                and not re.search(r"[,&]|\\\\", _depth_zero(inner))
+                and not _has_barrier_at_depth_zero(inner)
+            ):
                 code = code[: open_bar.start()] + rf"\operatorname{{{NORM_MARK}}}({inner.strip()})" + code[close_bar.end() :]
                 break
         else:
@@ -1109,7 +1136,10 @@ def _is_balanced(text: str, brackets: bool = False) -> bool:
     return all(d == 0 for d in depth.values())
 
 
-_REL_NAMES = "le|ge|leq|geq|in|notin|subset|supset|subseteq|supseteq|neq|ne|approx|sim|equiv|to|mapsto|rightarrow"
+_REL_NAMES = (
+    "le|ge|leq|geq|in|notin|subset|supset|subseteq|supseteq|neq|ne|approx|sim|equiv|to|mapsto|rightarrow"
+    "|Rightarrow|leftarrow|Leftarrow|leftrightarrow|Leftrightarrow|implies|iff|longrightarrow|Longrightarrow"
+)
 _BARRIER_REL_RE = re.compile(rf"\\({_REL_NAMES}|coloneqq)\b")
 
 
@@ -1383,13 +1413,19 @@ def _run_pandoc_math(items: list[tuple[str, bool]], theorem_layout: bool = False
     return out
 
 
+_TRAILING_LINEBREAK_RE = re.compile(r"(?<!\\)((?:\\\\)*)\\\s*$")
+_ROW_SPACING_RE = re.compile(r"\\\\\s*\[[^\]\n]*\]")
+_DIV_RE = re.compile(r"\\div(?![a-zA-Z])")
+_DIV_WORD_RE = re.compile(r"(?<![\\a-zA-Z])div(?![a-zA-Z])")
+
+
 def convert_math_batch(items: list[tuple[str, bool]], theorem_layout: bool = False) -> list[str]:
     """Convert (LaTeX, is_display) snippets to Typst math bodies in one Pandoc run.
 
     A snippet that Pandoc rejects falls back to the regex sanitizer.
     A result that Typst rejects becomes the LaTeX source as a math string.
     """
-    keys = [(code, is_display, theorem_layout) for code, is_display in items]
+    keys = [(_ROW_SPACING_RE.sub(r"\\\\", code), is_display, theorem_layout) for code, is_display in items]
     todo = list(dict.fromkeys(k for k in keys if k not in _PANDOC_CACHE))
     if todo:
         pandoc = _run_pandoc_math([(code, is_display) for code, is_display, _ in todo], theorem_layout)
@@ -1403,11 +1439,16 @@ def convert_math_batch(items: list[tuple[str, bool]], theorem_layout: bool = Fal
                 except RecursionError:
                     converted = _as_math_string(key[0])
                 converted = converted.replace("plus.circle", "plus.o")
+                converted = LABELLED_ARROW_RE.sub(r"limits(\1)", converted)
                 if converted.count('"') % 2:
                     converted = converted.replace('"', "")
-            _PANDOC_CACHE[key] = finish_typst_math(
-                normalize_typst_differentials(_give_operands(converted)), theorem_layout
+            converted = _TRAILING_LINEBREAK_RE.sub(
+                r"\1",
+                finish_typst_math(normalize_typst_differentials(_give_operands(converted)), theorem_layout),
             )
+            if _DIV_RE.search(key[0]) and not _DIV_WORD_RE.search(key[0]):
+                converted = re.sub(r"(?<![\w.\"])div(?![\w.(\"])", "÷", converted)
+            _PANDOC_CACHE[key] = converted
         finished = [(_PANDOC_CACHE[k], k[1]) for k in todo]
         for key in _typst_rejects(finished):
             _PANDOC_CACHE[todo[key]] = _as_math_string(todo[key][0])
@@ -1528,7 +1569,6 @@ def finish_typst_math(s: str, theorem_layout: bool = False) -> str:
 
 
 _TYPST_ERROR_LINE_RE = re.compile(r"\.typ:(\d+):\d+: error")
-REPO_FONTS_DIR = Path(__file__).resolve().parents[2] / "fonts"
 
 
 def _as_math_string(latex: str) -> str:
@@ -1560,7 +1600,7 @@ def run_typst(
 ) -> subprocess.CompletedProcess[str]:
     cmd = typst_command(fallback_nix=True) or ("typst",)
     return subprocess.run(
-        [*cmd, subcommand, "--font-path", str(REPO_FONTS_DIR), *args],
+        [*cmd, subcommand, "--font-path", str(FONTS), *args],
         check=check,
         capture_output=capture_output,
         text=True,
@@ -1569,7 +1609,7 @@ def run_typst(
 
 @functools.cache
 def _embedded_typst() -> Typst | None:
-    return Typst([str(REPO_FONTS_DIR)])
+    return Typst([str(FONTS)])
 
 
 def _embedded_options(target: Path, extra_args: tuple[str, ...]) -> dict[str, object] | None:

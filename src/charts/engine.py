@@ -1,0 +1,1582 @@
+from __future__ import annotations
+
+import json
+import math
+import re
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field, replace
+from functools import cache
+from html import escape
+from pathlib import Path
+from typing import Literal
+
+import pymupdf
+
+ThemeMode = Literal["mono", "color", "dark", "scan"]
+FONT_STACK = "'Songti SC', 'STIX Two Text', 'PingFang SC', 'Noto Serif CJK SC', serif"
+SANS_STACK = "'PingFang SC', 'Helvetica Neue', 'STIX Two Text', sans-serif"
+SERIF_STACK = "'Times New Roman', 'STIX Two Text', 'Songti SC', serif"
+BODY_SERIF_STACK = "'Source Serif 4', 'Songti SC', serif"
+ChartStyle = Literal["a", "b"]
+PRINT_SCALE = 0.6
+SCAN_TEXT_WIDTH = 0.78
+SCAN_LINE_PT = 330.0
+SCAN_PAGE_ASPECT = 1.51
+PT_PER_PX = 0.625
+_scan_canvas_size: ContextVar[tuple[float, float] | None] = ContextVar("scan_canvas_size", default=None)
+_last_rendered_spec: ContextVar[FigureSpec | None] = ContextVar("last_rendered_spec", default=None)
+
+
+def last_rendered_spec() -> FigureSpec | None:
+    return _last_rendered_spec.get()
+
+
+HOUSE_FONT_STACK = "'PingFang SC', 'Helvetica Neue', sans-serif"
+TRIM_PAD_PX = 3.0
+
+
+def _one_type_family(svg: str) -> str:
+    """Every label of a printed chart in one sans family: serif CJK beside sans numerals reads as two styles."""
+    import re
+
+    svg = re.sub(r'font-family="[^"]*"', f'font-family="{HOUSE_FONT_STACK}"', svg)
+    return re.sub(r"font-family:\s*[^;\"]+", f"font-family: {HOUSE_FONT_STACK}", svg)
+
+
+def _trim_to_ink(svg: str) -> str:
+    """Shrink the viewBox to the drawn ink plus a hairline pad, so the caption sits the same distance under
+    every chart instead of under whatever blank band the generator left."""
+    import re
+
+    m = re.search(r'viewBox="\s*([-\d.]+)[\s,]+([-\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)\s*"', svg)
+    if not m:
+        return svg
+    vx, vy, vw, vh = (float(v) for v in m.groups())
+    doc = pymupdf.open("svg", svg.encode("utf-8"))
+    try:
+        page = doc[0]
+        zoom = 2.0
+        pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False)
+        sx, sy = page.rect.width / vw, page.rect.height / vh
+    finally:
+        doc.close()
+    from PIL import Image
+
+    grey = Image.frombytes("RGB", (pix.width, pix.height), pix.samples).convert("L")
+    box = grey.point(lambda v: 255 if v < 235 else 0).getbbox()
+    if not box:
+        return svg
+    x0, y0, x1, y1 = box
+    nx0 = vx + x0 / zoom / sx - TRIM_PAD_PX
+    ny0 = vy + y0 / zoom / sy - TRIM_PAD_PX
+    nw = (x1 - x0) / zoom / sx + 2 * TRIM_PAD_PX
+    nh = (y1 - y0) / zoom / sy + 2 * TRIM_PAD_PX
+    if nw >= vw - 1 and nh >= vh - 1:
+        return svg
+    svg = svg.replace(m.group(0), f'viewBox="{nx0:.1f} {ny0:.1f} {nw:.1f} {nh:.1f}"', 1)
+    svg = re.sub(r'(<svg\b[^>]*?)\swidth="[\d.]+"', rf'\1 width="{nw:.1f}"', svg, count=1)
+    return re.sub(r'(<svg\b[^>]*?)\sheight="[\d.]+"', rf'\1 height="{nh:.1f}"', svg, count=1)
+
+
+def finish_chart(svg: str) -> str:
+    """The house finish every printed chart gets: one type family, and no blank margin around the ink."""
+    svg = _trim_to_ink(_one_type_family(svg))
+    if m := re.search(r'viewBox="[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+)"', svg):
+        vw, vh = float(m.group(1)), float(m.group(2))
+        scale = min(PT_PER_PX, SCAN_LINE_PT / vw, 450.0 / vh)
+        min_fs = math.ceil((6.55 / scale) * 10) / 10
+        svg = re.sub(
+            r'font-size="([\d.]+)"',
+            lambda fm: f'font-size="{max(float(fm.group(1)), min_fs):g}"',
+            svg,
+        )
+    return svg
+
+
+def chart_svg(generator: Callable[[ThemeMode], str], style: ChartStyle) -> str:
+    if style == "a":
+        return finish_chart(generator("mono"))
+    svg = generator("scan")
+    for stack in (FONT_STACK, SANS_STACK, SERIF_STACK):
+        svg = svg.replace(stack, BODY_SERIF_STACK)
+    return svg
+
+
+@cache
+def _scan_boxes(manifest: Path) -> dict[str, tuple[float, float, float, float]]:
+    entries = json.loads(manifest.read_text(encoding="utf-8")) if manifest.exists() else []
+    return {str(e["figure_id"]): tuple(e["box"]) for e in entries if e.get("box")}
+
+
+@contextmanager
+def scan_canvas(book_dir: Path, fid: str) -> Iterator[None]:
+    box = _scan_boxes(book_dir / "figures_manifest.json").get(fid)
+    size = None
+    if box:
+        width = min(1.0, (box[2] - box[0]) / SCAN_TEXT_WIDTH) * SCAN_LINE_PT / PT_PER_PX
+        size = (width, width * (box[3] - box[1]) / (box[2] - box[0]) * SCAN_PAGE_ASPECT)
+    token = _scan_canvas_size.set(size)
+    try:
+        yield
+    finally:
+        _scan_canvas_size.reset(token)
+
+
+@dataclass(frozen=True)
+class Palette:
+    mode: ThemeMode
+    bg: str
+    panel_bg: str
+    fg: str
+    muted: str
+    axis: str
+    grid: str
+    zero: str
+    border: str
+    series: tuple[str, ...]
+    fills: tuple[str, ...]
+    band_fills: tuple[str, ...]
+    span_fills: tuple[str, ...]
+
+
+PALETTES: dict[ThemeMode, Palette] = {
+    "mono": Palette(
+        mode="mono",
+        bg="#ffffff",
+        panel_bg="#ffffff",
+        fg="#000000",
+        muted="#000000",
+        axis="#000000",
+        grid="#c4c4c4",
+        zero="#666666",
+        border="none",
+        series=(
+            "#000000",
+            "#000000",
+            "#666666",
+            "#666666",
+            "#000000",
+            "#666666",
+        ),
+        fills=(
+            "#262626",
+            "#a6a6a6",
+            "#d9d9d9",
+            "#595959",
+            "#f0f0f0",
+            "#7f7f7f",
+        ),
+        band_fills=(
+            "rgba(0, 0, 0, 0.10)",
+            "rgba(0, 0, 0, 0.14)",
+            "rgba(0, 0, 0, 0.07)",
+        ),
+        span_fills=(
+            "rgba(0, 0, 0, 0.12)",
+            "rgba(0, 0, 0, 0.07)",
+            "rgba(0, 0, 0, 0.18)",
+        ),
+    ),
+    "color": Palette(
+        mode="color",
+        bg="#ffffff",
+        panel_bg="#f8fafc",
+        fg="#0f172a",
+        muted="#475569",
+        axis="#334155",
+        grid="#e2e8f0",
+        zero="#64748b",
+        border="#cbd5e1",
+        series=(
+            "#2563eb",
+            "#e11d48",
+            "#059669",
+            "#d97706",
+            "#7c3aed",
+            "#0891b2",
+        ),
+        fills=(
+            "#3b82f6",
+            "#f43f5e",
+            "#10b981",
+            "#f59e0b",
+            "#8b5cf6",
+            "#06b6d4",
+        ),
+        band_fills=(
+            "rgba(37, 99, 235, 0.14)",
+            "rgba(225, 29, 72, 0.13)",
+            "rgba(5, 150, 105, 0.13)",
+        ),
+        span_fills=(
+            "rgba(59, 130, 246, 0.11)",
+            "rgba(245, 158, 11, 0.13)",
+            "rgba(16, 185, 129, 0.11)",
+        ),
+    ),
+    "dark": Palette(
+        mode="dark",
+        bg="#090d16",
+        panel_bg="#0f1624",
+        fg="#f8fafc",
+        muted="#94a3b8",
+        axis="#64748b",
+        grid="#1e293b",
+        zero="#475569",
+        border="#1e293b",
+        series=(
+            "#38bdf8",
+            "#fb7185",
+            "#34d399",
+            "#facc15",
+            "#a78bfa",
+            "#fb923c",
+        ),
+        fills=(
+            "#0284c7",
+            "#e11d48",
+            "#059669",
+            "#ca8a04",
+            "#7c3aed",
+            "#ea580c",
+        ),
+        band_fills=(
+            "rgba(56, 189, 248, 0.18)",
+            "rgba(251, 113, 133, 0.16)",
+            "rgba(52, 211, 153, 0.16)",
+        ),
+        span_fills=(
+            "rgba(56, 189, 248, 0.12)",
+            "rgba(250, 204, 21, 0.12)",
+            "rgba(167, 139, 250, 0.12)",
+        ),
+    ),
+}
+
+DASH_PATTERNS: dict[str, str] = {
+    "solid": "",
+    "dashed": "6.4,3.2",
+    "dotted": "3.2,2.9",
+    "dashdot": "7.2,2.9,1.8,2.9",
+    "longdash": "12,4",
+}
+MONO_LINE_STYLES = ("solid", "dashed", "solid", "dashdot", "dotted", "longdash")
+MONO_SERIES_WIDTHS = (2.0, 1.84, 2.0, 1.76, 1.84, 1.76)
+
+
+PALETTES["scan"] = replace(
+    PALETTES["mono"],
+    mode="scan",
+    fg="#000000",
+    muted="#000000",
+    axis="#000000",
+    grid="#000000",
+    zero="#000000",
+    border="#ffffff",
+    span_fills=("rgba(0, 0, 0, 0.45)", "rgba(0, 0, 0, 0.3)", "rgba(0, 0, 0, 0.2)"),
+)
+
+
+def get_palette(mode: ThemeMode = "mono") -> Palette:
+    return PALETTES[mode]
+
+
+def is_mono(mode: ThemeMode) -> bool:
+    """Whether the mode prints in black ink only, so series differ by dash, marker fill and hatch, not colour."""
+    return mode in ("mono", "scan")
+
+
+def _line_style(ln: LineSeries, panel: PanelSpec, mode: ThemeMode) -> str:
+    if is_mono(mode) and ln.style == "solid" and ln.color_idx > 0 and len(panel.lines) > 1 and not ln.fixed_style:
+        return MONO_LINE_STYLES[ln.color_idx % len(MONO_LINE_STYLES)]
+    return ln.style
+
+
+@dataclass
+class LineSeries:
+    x: Sequence[float]
+    y: Sequence[float | None]
+    label: str = ""
+    color_idx: int = 0
+    style: str = "solid"
+    marker: str | None = None
+    width: float = 2.2
+    axis: Literal["y1", "y2"] = "y1"
+    area_fill: bool = False
+    fixed_style: bool = False
+    hollow: bool | None = None
+    solid_fill: bool = False
+
+
+@dataclass
+class BarSeries:
+    x: Sequence[float]
+    y: Sequence[float]
+    label: str = ""
+    color_idx: int = 0
+    width: float = 0.6
+    bottom: Sequence[float] | None = None
+    axis: Literal["y1", "y2"] = "y1"
+    hatch: bool = False
+    opacity: float = 0.85
+
+
+@dataclass
+class BandSeries:
+    x: Sequence[float]
+    y_low: Sequence[float]
+    y_high: Sequence[float]
+    label: str = ""
+    color_idx: int = 0
+    show_edges: bool = True
+    edge_style: str = "dashed"
+
+
+@dataclass
+class VSpan:
+    x0: float
+    x1: float
+    label: str = ""
+    color_idx: int = 0
+
+
+@dataclass
+class Annotation:
+    x: float
+    y: float
+    text: str
+    dx: float = 0.0
+    dy: float = -18.0
+    arrow: bool = True
+    axis: Literal["y1", "y2"] = "y1"
+    color_idx: int | None = None
+    fontsize: float = 11.5
+    align: Literal["start", "middle", "end"] = "middle"
+
+
+@dataclass
+class TextBox:
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+    lines: Sequence[str]
+    fontsize: float = 11.5
+
+
+@dataclass
+class ArrowPath:
+    points: Sequence[tuple[float, float]]
+
+
+@dataclass
+class PanelSpec:
+    title: str = ""
+    xlim: tuple[float, float] = (0.0, 10.0)
+    ylim: tuple[float, float] = (0.0, 10.0)
+    xticks: Sequence[float | tuple[float, str]] = field(default_factory=list)
+    yticks: Sequence[float | tuple[float, str]] = field(default_factory=list)
+    y2lim: tuple[float, float] | None = None
+    y2ticks: Sequence[float | tuple[float, str]] = field(default_factory=list)
+    xlabel: str = ""
+    ylabel: str = ""
+    y2label: str = ""
+    zero_line: bool = True
+    hlines: Sequence[tuple[float, str, str]] = field(default_factory=list)
+    vlines: Sequence[tuple[float, str, str]] = field(default_factory=list)
+    vspans: Sequence[VSpan] = field(default_factory=list)
+    bands: Sequence[BandSeries] = field(default_factory=list)
+    bars: Sequence[BarSeries] = field(default_factory=list)
+    lines: Sequence[LineSeries] = field(default_factory=list)
+    annotations: Sequence[Annotation] = field(default_factory=list)
+    scatters: Sequence[tuple[Sequence[float], Sequence[float], Sequence[str], int, bool]] = field(
+        default_factory=list
+    )
+    legend_loc: Literal["top", "bottom", "inside", "none"] = "top"
+    xtick_vertical: bool = False
+    open_frame: bool = False
+    text_boxes: Sequence[TextBox] = field(default_factory=list)
+    arrow_paths: Sequence[ArrowPath] = field(default_factory=list)
+
+
+@dataclass
+class FigureSpec:
+    fig_id: str
+    title: str
+    panels: Sequence[PanelSpec]
+    rows: int = 1
+    cols: int = 1
+    subtitle: str = ""
+    note: str = ""
+    width: int = 860
+    height: int = 520
+
+
+def _decimals(v: float) -> int:
+    return next((d for d in (0, 1) if abs(v * 10**d - round(v * 10**d)) < 1e-6), 2)
+
+
+def _fmt_num(v: float, decimals: int | None = None) -> str:
+    return f"{v:.{_decimals(v) if decimals is None else decimals}f}".replace("-", "−")
+
+
+def _norm_ticks(ticks: Sequence[float | tuple[float, str]], lim: tuple[float, float], n: int = 5) -> list[tuple[float, str]]:
+    """Ticks as (value, label); bare values share one number of decimals, so 0.8 sits beside 1.0, not 1."""
+    if not ticks:
+        lo, hi = lim
+        step = (hi - lo) / max(1, n - 1)
+        ticks = [lo] if hi <= lo else [lo + i * step for i in range(n)]
+    decimals = max((_decimals(float(t)) for t in ticks if not isinstance(t, tuple)), default=0)
+    res = [(float(t[0]), str(t[1]).replace("-", "−")) if isinstance(t, tuple) else (float(t), _fmt_num(float(t), decimals)) for t in ticks]
+    num_re = re.compile(r"^[−-]?\d+(?:\.(\d+))?(%?)$")
+    matches = [num_re.match(lab) for _, lab in res]
+    if len(res) > 2 and all(matches):
+        places = {len(m.group(1) or "") for m in matches if m}
+        if len(places) > 1:
+            d = max(places)
+            res = [(v, _fmt_num(v, d) + (m.group(2) if m else "")) for (v, _), m in zip(res, matches)]
+    return res
+
+
+def _dashed_path_d(pts: Sequence[tuple[float, float]], dash_str: str) -> str:
+    if len(pts) < 2:
+        return ""
+    if not dash_str:
+        return "M " + " L ".join(f"{x:.2f},{y:.2f}" for x, y in pts)
+    pattern = [float(p) for p in dash_str.split(",") if p.strip()]
+    if not pattern:
+        return "M " + " L ".join(f"{x:.2f},{y:.2f}" for x, y in pts)
+    out: list[str] = []
+    pat_idx = 0
+    pat_rem = pattern[0]
+    draw = True
+    cur_x, cur_y = pts[0]
+    out.append(f"M {cur_x:.2f},{cur_y:.2f}")
+    for nx, ny in pts[1:]:
+        dx, dy = nx - cur_x, ny - cur_y
+        seg_len = math.hypot(dx, dy)
+        if seg_len < 1e-6:
+            continue
+        ux, uy = dx / seg_len, dy / seg_len
+        rem = seg_len
+        while rem > 1e-6:
+            step = min(rem, pat_rem)
+            cur_x += ux * step
+            cur_y += uy * step
+            rem -= step
+            pat_rem -= step
+            if draw:
+                out.append(f"L {cur_x:.2f},{cur_y:.2f}")
+            if pat_rem <= 1e-6:
+                pat_idx = (pat_idx + 1) % len(pattern)
+                pat_rem = pattern[pat_idx]
+                draw = not draw
+                if draw:
+                    out.append(f"M {cur_x:.2f},{cur_y:.2f}")
+    return " ".join(out)
+
+
+def _draw_marker(
+    cx: float,
+    cy: float,
+    shape: str,
+    color: str,
+    bg: str,
+    size: float = 4.0,
+    hollow: bool = False,
+    stroke_width: float | None = None,
+) -> str:
+    fill = bg if hollow else color
+    stroke = color
+    sw = f"{stroke_width:g}" if stroke_width else ("1.6" if hollow else "1.2")
+    if shape == "circle":
+        return f'<circle cx="{cx:.2f}" cy="{cy:.2f}" r="{size:.2f}" fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>'
+    if shape == "square":
+        s = size * 0.9
+        return f'<rect x="{cx - s:.2f}" y="{cy - s:.2f}" width="{2 * s:.2f}" height="{2 * s:.2f}" fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>'
+    if shape == "triangle":
+        s = size * 1.15
+        pts = f"{cx:.2f},{cy - s:.2f} {cx - s:.2f},{cy + s * 0.85:.2f} {cx + s:.2f},{cy + s * 0.85:.2f}"
+        return f'<polygon points="{pts}" fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>'
+    if shape == "diamond":
+        s = size * 1.15
+        pts = f"{cx:.2f},{cy - s:.2f} {cx + s:.2f},{cy:.2f} {cx:.2f},{cy + s:.2f} {cx - s:.2f},{cy:.2f}"
+        return f'<polygon points="{pts}" fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>'
+    if shape == "cross":
+        s = size * 0.95
+        return (
+            f'<line x1="{cx - s:.2f}" y1="{cy - s:.2f}" x2="{cx + s:.2f}" y2="{cy + s:.2f}" stroke="{stroke}" stroke-width="1.8"/>'
+            f'<line x1="{cx - s:.2f}" y1="{cy + s:.2f}" x2="{cx + s:.2f}" y2="{cy - s:.2f}" stroke="{stroke}" stroke-width="1.8"/>'
+        )
+    return ""
+
+
+LEGEND_ROW_H = 16.0
+LegendItem = tuple[str, str, str, str | None, tuple[str, bool] | None]
+
+
+def _marker_hollow(ln: LineSeries, mode: ThemeMode) -> bool:
+    return ln.hollow if ln.hollow is not None else (is_mono(mode) and ln.color_idx % 2 == 1)
+
+
+def _xtick_drop(panel: PanelSpec) -> float:
+    """Extra height below the axis that vertical tick labels need."""
+    if not panel.xtick_vertical:
+        return 0.0
+    return max((_text_w(lab, 10.5) for _, lab in _norm_ticks(panel.xticks, panel.xlim, 6)), default=0.0) - 8.0
+
+
+def _text_w(text: str, size: float) -> float:
+    return sum(size if ord(ch) > 0x2E7F else size * 0.56 for ch in text)
+
+
+def _legend_item_w(item: LegendItem, size: float = 10.8, swatch: float = 18.0) -> float:
+    return swatch + 4.0 + _text_w(item[1], size) + 14.0
+
+
+def _legend_items(panel: PanelSpec, pal: Palette, mode: ThemeMode) -> list[LegendItem]:
+    items: list[LegendItem] = []
+    for b in panel.bars:
+        if b.label:
+            bcol = pal.fills[b.color_idx % len(pal.fills)]
+            items.append(("bar", b.label, bcol, "hatch" if (is_mono(mode) and b.hatch) else None, False))
+    for ln in panel.lines:
+        if ln.label:
+            lcol = pal.series[ln.color_idx % len(pal.series)]
+            items.append(("line", ln.label, lcol, _line_style(ln, panel, mode), (ln.marker, _marker_hollow(ln, mode)) if ln.marker else None))
+    for i, bd in enumerate(panel.bands):
+        if bd.label and bd.show_edges:
+            bcol = pal.series[bd.color_idx % len(pal.series)]
+            items.append(("band", bd.label, bcol, "dashed", False))
+        elif bd.label:
+            layers = "|".join(pal.band_fills[b.color_idx % len(pal.band_fills)] for b in panel.bands[: i + 1])
+            items.append(("fill", bd.label, layers, None, False))
+    return items
+
+
+def _legend_columns(rows: list[list[LegendItem]], size: float, swatch: float) -> list[float]:
+    cols = max((len(r) for r in rows), default=0)
+    return [max((_legend_item_w(r[j], size, swatch) for r in rows if j < len(r)), default=0.0) for j in range(cols)]
+
+
+def _wrap_legend(items: list[LegendItem], width: float, size: float = 10.8, swatch: float = 18.0) -> list[list[LegendItem]]:
+    """The fewest rows of a grid whose columns line up, so a wrapped legend reads as a table, not ragged rows."""
+    for cols in range(len(items), 0, -1):
+        rows = [items[i : i + cols] for i in range(0, len(items), cols)]
+        if cols == 1 or sum(_legend_columns(rows, size, swatch)) <= width:
+            return rows
+    return []
+
+
+MIN_PLOT_H = 110.0
+PLOT_ASPECT = 0.42
+TITLE_SIZE = 13.5
+TITLE_LINE_H = 17.0
+NOTE_SIZE = 10.5
+NOTE_LINE_H = 14.0
+
+
+@dataclass(frozen=True)
+class Style:
+    """Type sizes and rule weights of one house style."""
+
+    tick_font: str = SANS_STACK
+    tick_size: float = 10.5
+    tick_gap: float = 8.0
+    grid_width: float = 0.9
+    grid_dash: str = "2.5,2.5"
+    frame_width: float = 1.2
+    zero_line: bool = True
+    legend_size: float = 10.8
+    title_size: float = TITLE_SIZE
+    title_weight: str = "600"
+    title_left: bool = False
+    xlabel_inline: bool = False
+    legend_bottom: bool = False
+    legend_wide: bool = False
+    scatter_grid: bool = True
+    l_frame: bool = False
+    tick_out: bool = False
+    tick_len: float = 4.5
+    minor_tick_len: float = 0.0
+    tick_width: float = 1.1
+    ref_width: float = 1.2
+    zero_width: float = 1.25
+    marker_r: float = 3.6
+    marker_stroke: float | None = None
+    line_widths: tuple[float, float] | None = None
+    label_size: float = 11.0
+    note_size: float = NOTE_SIZE
+    plot_aspect: float = PLOT_ASPECT
+    swatch: float = 18.0
+    dash_cap: str = "round"
+    inplot_size: float = 10.5
+
+
+def pt(points: float) -> float:
+    """SVG px for a printed size in pt, since a full-width chart prints its 516 px on the 330 pt text line."""
+    return round(points / PT_PER_PX, 2)
+
+
+BOOK_STYLE = Style(
+    tick_size=pt(7.8),
+    grid_width=pt(0.3),
+    grid_dash="",
+    frame_width=pt(0.5),
+    legend_size=pt(8.0),
+    title_size=pt(9.0),
+    l_frame=True,
+    tick_out=True,
+    tick_len=pt(2.8),
+    minor_tick_len=pt(1.5),
+    tick_width=pt(0.5),
+    ref_width=pt(0.55),
+    zero_width=pt(0.55),
+    marker_r=pt(1.8),
+    marker_stroke=pt(0.7),
+    line_widths=(pt(0.9), pt(1.25)),
+    label_size=pt(8.0),
+    note_size=pt(7.5),
+    plot_aspect=0.62,
+    swatch=pt(14.0),
+    dash_cap="butt",
+    inplot_size=pt(7.5),
+    xlabel_inline=True,
+    legend_wide=True,
+)
+
+
+STYLES: dict[ThemeMode, Style] = {
+    "mono": BOOK_STYLE,
+    "scan": Style(
+        tick_font=SERIF_STACK,
+        tick_size=12.0,
+        tick_gap=2.0,
+        grid_width=0.7,
+        grid_dash="",
+        frame_width=0.8,
+        zero_line=False,
+        legend_size=12.0,
+        title_size=12.0,
+        title_weight="400",
+        title_left=True,
+        xlabel_inline=True,
+        legend_bottom=True,
+        legend_wide=True,
+        scatter_grid=False,
+    ),
+}
+
+
+def get_style(mode: ThemeMode) -> Style:
+    """The house style of a mode: the printed book's charts for "scan" (solid black grid, serif ticks with every
+    label kept, the x unit after the last label, legend under the axis), else the redraw's own."""
+    return STYLES.get(mode, Style())
+
+
+def _xlabel_inline(panel: PanelSpec, style: Style) -> bool:
+    """Whether the x unit sits after the last tick label, as a short unit such as 年 does in the scan."""
+    return style.xlabel_inline and _text_w(panel.xlabel, style.tick_size) <= 2 * style.tick_size
+
+
+def _legend_loc(panel: PanelSpec, style: Style) -> str:
+    return "bottom" if style.legend_bottom and panel.legend_loc == "top" else panel.legend_loc
+
+
+@dataclass
+class PanelFrame:
+    pad_l: float
+    pw: float
+    pad_t: float
+    pad_b: float
+    leg_rows: list[list[LegendItem]]
+    y_label_gap: float
+    title_lines: list[str]
+
+
+def _wrap_title(title: str, width: float, size: float = TITLE_SIZE) -> list[str]:
+    """Break text that is wider than its room, after a colon, comma or closing bracket when one fits."""
+    if not title or _text_w(title, size) <= width:
+        return [title] if title else []
+    breaks = [i + 1 for i, ch in enumerate(title) if ch in "：:）)，,、；; " and _text_w(title[: i + 1], size) <= width]
+    cut = breaks[-1] if breaks else max(i for i in range(1, len(title)) if _text_w(title[:i], size) <= width)
+    return [title[:cut].rstrip(), *_wrap_title(title[cut:].lstrip(), width, size)]
+
+
+def _panel_frame(panel: PanelSpec, cell_w: float, cols: int, pal: Palette, mode: ThemeMode) -> PanelFrame:
+    pad_l = 54.0 if panel.ylabel or cols == 1 else 46.0
+    pad_r = 52.0 if panel.y2lim is not None else 22.0
+    pw = max(60.0, cell_w - pad_l - pad_r)
+    style = get_style(mode)
+    loc = _legend_loc(panel, style)
+    leg_w = cell_w - 12.0 if style.legend_wide else pw
+    items = _legend_items(panel, pal, mode) if loc != "none" else []
+    leg_rows = [[it] for it in items] if loc == "inside" else _wrap_legend(items, leg_w, style.legend_size, style.swatch)
+    leg_h = 22.0 + LEGEND_ROW_H * (len(leg_rows) - 1) if leg_rows else 0.0
+    top_legend = bool(leg_rows) and loc == "top"
+    title_lines = _wrap_title(panel.title, cell_w - abs(2 * pad_l + pw - cell_w) - 6.0, style.title_size)
+    y_label_gap = 17.0 if (top_legend or title_lines) and (panel.ylabel or panel.y2label) else 0.0
+    title_h = 26.0 + TITLE_LINE_H * (len(title_lines) - 1) if title_lines else 10.0
+    pad_t = title_h + (leg_h if top_legend else 8.0) + y_label_gap
+    xlabel_h = 14.0 if panel.xlabel and not _xlabel_inline(panel, style) else 0.0
+    pad_b = 34.0 + _xtick_drop(panel) + xlabel_h + (leg_h + 6.0 if loc == "bottom" and leg_rows else 0.0)
+    return PanelFrame(pad_l, pw, pad_t, pad_b, leg_rows, y_label_gap, title_lines)
+
+
+def _free_row(placed: list[tuple[float, float, float]], x0: float, x1: float, y: float) -> float:
+    """The first label row at or below `y` where x0..x1 clears every label already placed."""
+    while any(py == y and x0 < px1 + 4 and px0 < x1 + 4 for px0, px1, py in placed):
+        y += 13.0
+    placed.append((x0, x1, y))
+    return y
+
+
+POINT_LABEL_SPOTS: tuple[tuple[float, float, str], ...] = (
+    (5.0, -4.0, "start"), (-5.0, -4.0, "end"), (5.0, 11.0, "start"), (-5.0, 11.0, "end"),
+    (0.0, -8.0, "middle"), (0.0, 16.0, "middle"), (5.0, -14.0, "start"), (-5.0, -14.0, "end"),
+    (10.0, 20.0, "start"), (-10.0, 20.0, "end"), (10.0, -20.0, "start"), (-10.0, -20.0, "end"),
+)
+
+
+def _place_point_label(
+    placed: list[tuple[float, float, float, float]], px: float, py: float, width: float
+) -> tuple[float, float, str]:
+    """The first spot around a point whose label box clears the labels already placed."""
+    def box(dx: float, dy: float, anchor: str) -> tuple[float, float, float, float]:
+        x0 = px + dx - {"start": 0.0, "middle": width / 2, "end": width}[anchor]
+        return (x0 - 1.0, py + dy - 10.0, x0 + width + 1.0, py + dy + 3.0)
+
+    def overlap(b: tuple[float, float, float, float]) -> float:
+        return sum(
+            max(0.0, min(b[2], o[2]) - max(b[0], o[0])) * max(0.0, min(b[3], o[3]) - max(b[1], o[1])) for o in placed
+        )
+
+    dx, dy, anchor = min(POINT_LABEL_SPOTS, key=lambda s: overlap(box(*s)))
+    placed.append(box(dx, dy, anchor))
+    return px + dx, py + dy, anchor
+
+
+def _thin_ticks(
+    ticks: list[tuple[float, str]], to_px: Callable[[float], float], min_gap: float
+) -> list[tuple[float, str]]:
+    """Drop tick labels that would sit closer than `min_gap` to a kept one, keeping zero first."""
+    order = sorted(range(len(ticks)), key=lambda i: (ticks[i][0] != 0.0, i))
+    kept: list[int] = []
+    for i in order:
+        if all(abs(to_px(ticks[i][0]) - to_px(ticks[k][0])) >= min_gap for k in kept):
+            kept.append(i)
+    return [ticks[i] for i in sorted(kept)]
+
+
+def _is_source_or_note_text(text: str) -> bool:
+    import re
+
+    return bool(re.match(r"^\s*[（(\[［]?\s*(?:资料来源|数据来源|注)\s*[：:]", text))
+
+
+def render_figure_svg(spec: FigureSpec, mode: ThemeMode = "mono") -> str:
+    _last_rendered_spec.set(spec)
+    pal = get_palette(mode)
+    style = get_style(mode)
+    grid_dash = f' stroke-dasharray="{style.grid_dash}"' if style.grid_dash else ""
+    W, H = round(spec.width * PRINT_SCALE), round(spec.height * PRINT_SCALE)
+    if canvas := _scan_canvas_size.get():
+        W, H = round(canvas[0]), round(canvas[1])
+    elif mode == "mono":
+        W = min(round(860 * PRINT_SCALE), W)
+    rows = max(1, spec.rows)
+    cols = max(1, spec.cols)
+    grid_left = 18.0
+    grid_right = W - 18.0
+    cell_w = (grid_right - grid_left) / cols
+    top_y = 16.0
+    grid_top = top_y + (16.0 if spec.subtitle else 0.0) + 6.0
+    drawn_note = "" if _is_source_or_note_text(spec.note) else spec.note
+    note_lines = _wrap_title(drawn_note, grid_right - grid_left - 16.0, style.note_size)
+    note_line_h = style.note_size * NOTE_LINE_H / NOTE_SIZE
+    bottom_pad = 18.0 + note_line_h * len(note_lines)
+    frames = [_panel_frame(panel, cell_w, cols, pal, mode) for panel in spec.panels[: rows * cols]]
+    plot_aspect = 0.0 if canvas else (style.plot_aspect / rows if rows > 1 else style.plot_aspect)
+    cell_h_min = max(f.pad_t + f.pad_b + max(MIN_PLOT_H, plot_aspect * f.pw) for f in frames)
+    H = max(H, math.ceil(grid_top + rows * cell_h_min + bottom_pad))
+    if not canvas and mode == "mono" and rows > 1:
+        H = min(H, 680)
+    out: list[str] = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">',
+        f"<title>{escape(spec.title)}</title>",
+        "<defs>",
+        (f'<pattern id="hatch_{mode}" width="6" height="6" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">'
+        f'<line x1="0" y1="0" x2="0" y2="6" stroke="{pal.fg}" stroke-width="1.4" stroke-opacity="0.55"/>'
+        "</pattern>"),
+        (f'<pattern id="crosshatch_{mode}" width="6" height="6" patternUnits="userSpaceOnUse">'
+        f'<path d="M 0 0 L 6 6 M 6 0 L 0 6" stroke="{pal.fg}" stroke-width="1.0" stroke-opacity="0.45"/>'
+        "</pattern>"),
+        (f'<marker id="arrow_{mode}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">'
+        f'<path d="M 0 1.5 L 8.5 5 L 0 8.5 z" fill="{pal.fg}"/>'
+        "</marker>"),
+        "</defs>",
+        f'<rect width="{W}" height="{H}" fill="{pal.bg}"/>',
+    ]
+
+    if spec.subtitle:
+        out.append(
+            f'<text x="{W / 2:.1f}" y="{top_y:.1f}" text-anchor="middle" '
+            f'font-family="{FONT_STACK}" font-size="12.5" fill="{pal.muted}">'
+            f"{escape(spec.subtitle)}</text>"
+        )
+
+    cell_h = (H - bottom_pad - grid_top) / rows
+
+    for idx, (panel, frame) in enumerate(zip(spec.panels, frames)):
+        r = idx // cols
+        c = idx % cols
+        cx0 = grid_left + c * cell_w
+        cy0 = grid_top + r * cell_h
+
+        has_y2 = panel.y2lim is not None
+        pad_l, pw, pad_t, pad_b = frame.pad_l, frame.pw, frame.pad_t, frame.pad_b
+        leg_rows, y_label_gap = frame.leg_rows, frame.y_label_gap
+
+        px0 = cx0 + pad_l
+        py0 = cy0 + pad_t
+        ph = max(50.0, cell_h - pad_t - pad_b)
+        px1 = px0 + pw
+        py1 = py0 + ph
+
+        title_x, title_anchor = (cx0 + 6.0, "start") if style.title_left else (px0 + pw / 2, "middle")
+        for line_idx, title_line in enumerate(frame.title_lines):
+            out.append(
+                f'<text x="{title_x:.1f}" y="{cy0 + 18.0 + TITLE_LINE_H * line_idx:.1f}" text-anchor="{title_anchor}" '
+                f'font-family="{FONT_STACK}" font-size="{style.title_size}" font-weight="{style.title_weight}" fill="{pal.fg}">'
+                f"{escape(title_line)}</text>"
+            )
+        if panel.ylabel:
+            yl_anchor = "start" if len(panel.ylabel) > 4 else "end"
+            yl_x = (px0 - 28.0) if len(panel.ylabel) > 4 else (px0 - 6.0)
+            out.append(
+                f'<text x="{max(6.0, yl_x):.1f}" y="{py0 - 11:.1f}" text-anchor="{yl_anchor}" '
+                f'font-family="{FONT_STACK}" font-size="{style.label_size}" fill="{pal.muted}">'
+                f"{escape(panel.ylabel)}</text>"
+            )
+        if has_y2 and panel.y2label:
+            y2_anchor = "end" if len(panel.y2label) > 4 else "start"
+            y2_x = (px1 + 28.0) if len(panel.y2label) > 4 else (px1 + 6.0)
+            out.append(
+                f'<text x="{min(W - 6.0, y2_x):.1f}" y="{py0 - 11:.1f}" text-anchor="{y2_anchor}" '
+                f'font-family="{FONT_STACK}" font-size="{style.label_size}" fill="{pal.muted}">'
+                f"{escape(panel.y2label)}</text>"
+            )
+
+        out.append(
+            f'<rect x="{px0:.2f}" y="{py0:.2f}" width="{pw:.2f}" height="{ph:.2f}" '
+            f'fill="{pal.panel_bg}" stroke="{"none" if panel.open_frame else pal.border}" stroke-width="1"/>'
+        )
+
+        xlo, xhi = panel.xlim
+        ylo, yhi = panel.ylim
+        y2lo, y2hi = panel.y2lim if panel.y2lim is not None else (ylo, yhi)
+
+        def map_x(xv: float, _xlo: float = xlo, _xhi: float = xhi, _px0: float = px0, _pw: float = pw) -> float:
+            if _xhi == _xlo:
+                return _px0 + _pw / 2
+            return _px0 + (xv - _xlo) / (_xhi - _xlo) * _pw
+
+        def map_y1(yv: float, _ylo: float = ylo, _yhi: float = yhi, _py0: float = py0, _py1: float = py1, _ph: float = ph) -> float:
+            if _yhi == _ylo:
+                return _py0 + _ph / 2
+            return _py1 - (yv - _ylo) / (_yhi - _ylo) * _ph
+
+        def map_y2(yv: float, _y2lo: float = y2lo, _y2hi: float = y2hi, _py0: float = py0, _py1: float = py1, _ph: float = ph) -> float:
+            if _y2hi == _y2lo:
+                return _py0 + _ph / 2
+            return _py1 - (yv - _y2lo) / (_y2hi - _y2lo) * _ph
+
+        clip_id = f"clip_{spec.fig_id}_{idx}_{mode}"
+        out.append(
+            f'<clipPath id="{clip_id}"><rect x="{px0:.2f}" y="{py0:.2f}" width="{pw:.2f}" height="{ph:.2f}"/></clipPath>'
+        )
+
+        out.append(f'<g clip-path="url(#{clip_id})">')
+        placed_labels: list[tuple[float, float, float]] = []
+        for vsp in panel.vspans:
+            sx0 = max(px0, min(px1, map_x(vsp.x0)))
+            sx1 = max(px0, min(px1, map_x(vsp.x1)))
+            sfill = pal.span_fills[vsp.color_idx % len(pal.span_fills)]
+            out.append(
+                f'<rect x="{min(sx0, sx1):.2f}" y="{py0:.2f}" width="{abs(sx1 - sx0):.2f}" height="{ph:.2f}" fill="{sfill}"/>'
+            )
+            if vsp.label:
+                half = _text_w(vsp.label, style.inplot_size) / 2
+                vy = _free_row(placed_labels, (sx0 + sx1) / 2 - half, (sx0 + sx1) / 2 + half, py0 + 13)
+                out.append(
+                    f'<text x="{(sx0 + sx1) / 2:.2f}" y="{vy:.2f}" text-anchor="middle" '
+                    f'font-family="{FONT_STACK}" font-size="{style.inplot_size}" fill="{pal.muted}">{escape(vsp.label)}</text>'
+                )
+        out.append("</g>")
+
+        tick_out, tick_in = (style.tick_len, 0.0) if style.tick_out else (0.0, style.tick_len)
+        label_gap = tick_out + 2.5 if style.tick_out else 6.5
+        yticks = _norm_ticks(panel.yticks, panel.ylim, 5)
+        if len(yticks) > 1:
+            yticks = _thin_ticks(yticks, map_y1, 0.8 * style.tick_size)
+        scatter = bool(panel.scatters) or (bool(panel.lines) and all(ln.style == "none" for ln in panel.lines))
+        grid = style.scatter_grid or not scatter
+        for yv, ylab in yticks:
+            yy = map_y1(yv)
+            if py0 - 1.0 <= yy <= py1 + 1.0:
+                if grid:
+                    out.append(
+                        f'<line x1="{px0:.2f}" y1="{yy:.2f}" x2="{px1:.2f}" y2="{yy:.2f}" '
+                        f'stroke="{pal.grid}" stroke-width="{style.grid_width}"{grid_dash}/>'
+                    )
+                out.append(
+                    f'<line x1="{px0 - tick_out:.2f}" y1="{yy:.2f}" x2="{px0 + tick_in:.2f}" y2="{yy:.2f}" '
+                    f'stroke="{pal.axis}" stroke-width="{style.tick_width}"/>'
+                )
+                out.append(
+                    f'<text x="{px0 - label_gap - r * 0.01:.2f}" y="{yy + 3.8:.2f}" text-anchor="end" '
+                    f'font-family="{style.tick_font}" font-size="{style.tick_size}" fill="{pal.muted}">{escape(ylab)}</text>'
+                )
+
+        if has_y2 and panel.y2lim is not None:
+            y2ticks = _norm_ticks(panel.y2ticks, panel.y2lim, len(yticks))
+            for yv, ylab in y2ticks:
+                yy = map_y2(yv)
+                if py0 - 1.0 <= yy <= py1 + 1.0:
+                    out.append(
+                        f'<line x1="{px1 - tick_in:.2f}" y1="{yy:.2f}" x2="{px1 + tick_out:.2f}" y2="{yy:.2f}" '
+                        f'stroke="{pal.axis}" stroke-width="{style.tick_width}"/>'
+                    )
+                    out.append(
+                        f'<text x="{px1 + label_gap + r * 0.01:.2f}" y="{yy + 3.8:.2f}" text-anchor="start" '
+                        f'font-family="{style.tick_font}" font-size="{style.tick_size}" fill="{pal.muted}">{escape(ylab)}</text>'
+                    )
+
+        xticks = all_xticks = _norm_ticks(panel.xticks, panel.xlim, 6)
+        drop = _xtick_drop(panel)
+        if len(xticks) > 1:
+            label_w = 12.0 if panel.xtick_vertical else max(_text_w(lab, style.tick_size) for _, lab in xticks) + style.tick_gap
+            xticks = _thin_ticks(xticks, map_x, label_w)
+        if style.minor_tick_len:
+            for xv, _ in all_xticks:
+                xx = map_x(xv)
+                if (xv, _) not in xticks and px0 - 1.0 <= xx <= px1 + 1.0:
+                    out.append(
+                        f'<line x1="{xx:.2f}" y1="{py1:.2f}" x2="{xx:.2f}" y2="{py1 + style.minor_tick_len:.2f}" '
+                        f'stroke="{pal.axis}" stroke-width="{style.tick_width}"/>'
+                    )
+        label_end = px1
+        for xv, xlab in xticks:
+            xx = map_x(xv)
+            if px0 - 1.0 <= xx <= px1 + 1.0:
+                out.append(
+                    f'<line x1="{xx:.2f}" y1="{py1 - tick_in:.2f}" x2="{xx:.2f}" y2="{py1 + tick_out:.2f}" '
+                    f'stroke="{pal.axis}" stroke-width="{style.tick_width}"/>'
+                )
+                if panel.xtick_vertical:
+                    out.append(
+                        f'<text transform="translate({xx + 3.8:.2f},{py1 + 6.0:.2f}) rotate(-90)" text-anchor="end" '
+                        f'font-family="{style.tick_font}" font-size="{style.tick_size}" fill="{pal.muted}">{escape(xlab)}</text>'
+                    )
+                    continue
+                out.append(
+                    f'<text x="{xx:.2f}" y="{py1 + 18.0:.2f}" text-anchor="middle" '
+                    f'font-family="{style.tick_font}" font-size="{style.tick_size}" fill="{pal.muted}">{escape(xlab)}</text>'
+                )
+                label_end = max(label_end, xx + _text_w(xlab, style.tick_size) / 2)
+
+        if panel.xlabel and _xlabel_inline(panel, style):
+            out.append(
+                f'<text x="{label_end + 4:.1f}" y="{py1 + 18.0:.1f}" text-anchor="start" '
+                f'font-family="{FONT_STACK}" font-size="{style.tick_size}" fill="{pal.muted}">{escape(panel.xlabel)}</text>'
+            )
+        elif panel.xlabel and style.xlabel_inline:
+            out.append(
+                f'<text x="{px1:.1f}" y="{py1 + 34 + drop:.1f}" text-anchor="end" '
+                f'font-family="{FONT_STACK}" font-size="{style.tick_size}" fill="{pal.muted}">{escape(panel.xlabel)}</text>'
+            )
+        elif panel.xlabel:
+            out.append(
+                f'<text x="{px0 + pw / 2:.1f}" y="{py1 + 34 + drop:.1f}" text-anchor="middle" '
+                f'font-family="{FONT_STACK}" font-size="{max(11.5, style.label_size)}" fill="{pal.muted}">{escape(panel.xlabel)}</text>'
+            )
+
+        if panel.zero_line and style.zero_line and ylo < 0 < yhi:
+            zy = map_y1(0.0)
+            out.append(
+                f'<line x1="{px0:.2f}" y1="{zy:.2f}" x2="{px1:.2f}" y2="{zy:.2f}" '
+                f'stroke="{pal.zero}" stroke-width="{style.zero_width}"/>'
+            )
+
+        out.append(f'<g clip-path="url(#{clip_id})">')
+
+        ref_col = pal.zero if style.l_frame else pal.muted
+        for hy, hlab, hstyle in panel.hlines:
+            yy = map_y1(hy)
+            dash = DASH_PATTERNS.get(hstyle, "5,4")
+            hd_str = _dashed_path_d([(px0, yy), (px1, yy)], dash)
+            out.append(
+                f'<path d="{hd_str}" fill="none" stroke="{ref_col}" stroke-width="{style.ref_width}"/>'
+            )
+            if hlab:
+                out.append(
+                    f'<text x="{px1 - 6:.2f}" y="{yy - 4:.2f}" text-anchor="end" '
+                    f'font-family="{FONT_STACK}" font-size="{style.inplot_size}" fill="{pal.muted}">{escape(hlab)}</text>'
+                )
+
+        for vx, vlab, vstyle in panel.vlines:
+            xx = map_x(vx)
+            dash = DASH_PATTERNS.get(vstyle, "5,4")
+            vd_str = _dashed_path_d([(xx, py0), (xx, py1)], dash)
+            out.append(
+                f'<path d="{vd_str}" fill="none" stroke="{ref_col}" stroke-width="{style.ref_width}"/>'
+            )
+            if vlab:
+                vw = _text_w(vlab, style.inplot_size)
+                flip = xx + 4 + vw > px1
+                lx0 = xx - 4 - vw if flip else xx + 4
+                vy = _free_row(placed_labels, lx0, lx0 + vw, py0 + 13)
+                out.append(
+                    f'<text x="{xx - 4 if flip else xx + 4:.2f}" y="{vy:.2f}" text-anchor="{"end" if flip else "start"}" '
+                    f'font-family="{FONT_STACK}" font-size="{style.inplot_size}" fill="{pal.muted}">{escape(vlab)}</text>'
+                )
+
+        for b in panel.bands:
+            if len(b.x) < 2:
+                continue
+            bfill = pal.band_fills[b.color_idx % len(pal.band_fills)]
+            bcol = pal.series[b.color_idx % len(pal.series)]
+            upper_coords = [(map_x(xv), map_y1(yh)) for xv, yh in zip(b.x, b.y_high)]
+            lower_coords = [(map_x(xv), map_y1(yl)) for xv, yl in zip(b.x, b.y_low)]
+            upper_pts = [f"{px:.2f},{py:.2f}" for px, py in upper_coords]
+            lower_pts = [f"{px:.2f},{py:.2f}" for px, py in reversed(lower_coords)]
+            poly = " ".join(upper_pts + lower_pts)
+            out.append(f'<polygon points="{poly}" fill="{bfill}" stroke="none"/>')
+            if b.show_edges:
+                dash = DASH_PATTERNS.get(b.edge_style, "5,3.5")
+                u_path = _dashed_path_d(upper_coords, dash)
+                l_path = _dashed_path_d(lower_coords, dash)
+                out.append(
+                    f'<path d="{u_path}" fill="none" stroke="{bcol}" stroke-width="1.25" stroke-opacity="0.75"/>'
+                )
+                out.append(
+                    f'<path d="{l_path}" fill="none" stroke="{bcol}" stroke-width="1.25" stroke-opacity="0.75"/>'
+                )
+
+        for b in panel.bars:
+            y_fn = map_y2 if b.axis == "y2" else map_y1
+            bcol = pal.fills[b.color_idx % len(pal.fills)]
+            bw_px = max(2.0, abs(map_x(xlo + b.width) - map_x(xlo)))
+            for i, (xv, yv) in enumerate(zip(b.x, b.y)):
+                b0 = b.bottom[i] if b.bottom is not None and i < len(b.bottom) else 0.0
+                y_top = y_fn(max(b0, b0 + yv))
+                y_bot = y_fn(min(b0, b0 + yv))
+                bh = max(0.8, abs(y_bot - y_top))
+                bx = map_x(xv) - bw_px / 2
+                fill_attr = pal.fills[2] if (is_mono(mode) and b.hatch) else bcol
+                out.append(
+                    f'<rect x="{bx:.2f}" y="{min(y_top, y_bot):.2f}" width="{bw_px:.2f}" height="{bh:.2f}" '
+                    f'fill="{fill_attr}" fill-opacity="{b.opacity:.2f}" stroke="{pal.fg if is_mono(mode) else bcol}" stroke-width="0.7"/>'
+                )
+
+        scatter_boxes = [
+            (map_x(xv) - 4.0, map_y1(yv) - 4.0, map_x(xv) + 4.0, map_y1(yv) + 4.0)
+            for xs, ys, *_ in panel.scatters
+            for xv, yv in zip(xs, ys)
+        ]
+        scatter_label_nodes: list[str] = []
+        for xs, ys, pt_labels, c_idx, connect in panel.scatters:
+            scol = pal.series[c_idx % len(pal.series)]
+            pts_px = [(map_x(xv), map_y1(yv)) for xv, yv in zip(xs, ys)]
+            if connect and len(pts_px) >= 2:
+                d_str = "M " + " L ".join(f"{px:.2f},{py:.2f}" for px, py in pts_px)
+                out.append(
+                    f'<path d="{d_str}" fill="none" stroke="{scol}" stroke-width="1.6" stroke-opacity="0.75"/>'
+                )
+            for i, (px, py) in enumerate(pts_px):
+                out.append(_draw_marker(
+                    px, py, "circle", scol, pal.panel_bg, style.marker_r,
+                    hollow=(is_mono(mode) and c_idx % 2 == 1), stroke_width=style.marker_stroke,
+                ))
+                if pt_labels and i < len(pt_labels) and pt_labels[i]:
+                    point_size = style.inplot_size if mode == "mono" else style.inplot_size - 1.0
+                    lx, ly, anchor = _place_point_label(scatter_boxes, px, py, _text_w(pt_labels[i], point_size))
+                    scatter_label_nodes.append(
+                        f'<text x="{lx:.2f}" y="{ly:.2f}" text-anchor="{anchor}" font-family="{SANS_STACK}" '
+                        f'font-size="{point_size}" fill="{pal.fg}">{escape(pt_labels[i])}</text>'
+                    )
+
+        marker_nodes: list[tuple[bool, str]] = []
+        for l_idx, ln in enumerate(panel.lines):
+            y_fn = map_y2 if ln.axis == "y2" else map_y1
+            lcol = pal.series[ln.color_idx % len(pal.series)]
+            style_key = _line_style(ln, panel, mode)
+            dash = DASH_PATTERNS.get(style_key, "")
+            if style.line_widths and ln.width == 2.2:
+                width = MONO_SERIES_WIDTHS[ln.color_idx % len(MONO_SERIES_WIDTHS)]
+            elif style.line_widths:
+                width = min(max(ln.width, style.line_widths[0]), style.line_widths[1])
+            else:
+                width = ln.width
+
+            segments: list[list[tuple[float, float]]] = []
+            cur: list[tuple[float, float]] = []
+            for xv, yv in zip(ln.x, ln.y):
+                if yv is None or math.isnan(yv):
+                    if cur:
+                        segments.append(cur)
+                        cur = []
+                else:
+                    cur.append((map_x(xv), y_fn(yv)))
+            if cur:
+                segments.append(cur)
+
+            for seg in segments:
+                if len(seg) >= 2 and style_key != "none":
+                    if ln.area_fill or (mode in ("color", "dark") and len(panel.lines) == 1 and not panel.bars and not panel.bands):
+                        z_py = min(py1, max(py0, y_fn(0.0)))
+                        area_pts = (
+                            [f"{seg[0][0]:.2f},{z_py:.2f}"]
+                            + [f"{px:.2f},{py:.2f}" for px, py in seg]
+                            + [f"{seg[-1][0]:.2f},{z_py:.2f}"]
+                        )
+                        afill = pal.band_fills[ln.color_idx % len(pal.band_fills)]
+                        if ln.solid_fill:
+                            afill = pal.fills[ln.color_idx % len(pal.fills)]
+                        if not is_mono(mode) or ln.area_fill:
+                            out.append(f'<polygon points="{" ".join(area_pts)}" fill="{afill}" stroke="none"/>')
+                    d_str = _dashed_path_d(seg, dash)
+                    out.append(
+                        f'<path d="{d_str}" fill="none" stroke="{lcol}" stroke-width="{width:.2f}" '
+                        f'stroke-linecap="{style.dash_cap if dash else "round"}" stroke-linejoin="round"/>'
+                    )
+                if ln.marker:
+                    step = 1 if style_key == "none" else max(1, len(seg) // 18)
+                    is_hol = _marker_hollow(ln, mode)
+                    m_rad = style.marker_r * (1.12 if is_hol else 0.92) if is_mono(mode) and len(panel.lines) > 1 else style.marker_r
+                    for m_i, (px, py) in enumerate(seg):
+                        if m_i % step == 0 or m_i == len(seg) - 1:
+                            marker_nodes.append((
+                                not is_hol,
+                                _draw_marker(
+                                    px,
+                                    py,
+                                    ln.marker,
+                                    lcol,
+                                    pal.panel_bg,
+                                    m_rad,
+                                    hollow=is_hol,
+                                    stroke_width=style.marker_stroke,
+                                ),
+                            ))
+        for _, m_svg in sorted(marker_nodes, key=lambda item: item[0]):
+            out.append(m_svg)
+
+        for ap in panel.arrow_paths:
+            pts = [(map_x(px), map_y1(py)) for px, py in ap.points]
+            out.append(
+                f'<polyline points="{" ".join(f"{px:.2f},{py:.2f}" for px, py in pts)}" fill="none" '
+                f'stroke="{pal.fg}" stroke-width="1.2"/>'
+            )
+            (ax0, ay0), (ax1, ay1) = pts[-2], pts[-1]
+            seg_len = math.hypot(ax1 - ax0, ay1 - ay0) or 1.0
+            ux, uy = (ax1 - ax0) / seg_len, (ay1 - ay0) / seg_len
+            head = [(ax1, ay1), (ax1 - 7 * ux - 3.5 * uy, ay1 - 7 * uy + 3.5 * ux), (ax1 - 7 * ux + 3.5 * uy, ay1 - 7 * uy - 3.5 * ux)]
+            out.append(f'<polygon points="{" ".join(f"{px:.2f},{py:.2f}" for px, py in head)}" fill="{pal.fg}"/>')
+
+        out.append("</g>")
+
+        if panel.open_frame or style.l_frame:
+            right = f" L {px1:.2f},{py0:.2f}" if has_y2 else ""
+            out.append(
+                f'<path d="M {px0:.2f},{py0:.2f} L {px0:.2f},{py1:.2f} L {px1:.2f},{py1:.2f}{right}" '
+                f'fill="none" stroke="{pal.axis}" stroke-width="{style.frame_width}"/>'
+            )
+        else:
+            out.append(
+                f'<rect x="{px0:.2f}" y="{py0:.2f}" width="{pw:.2f}" height="{ph:.2f}" '
+                f'fill="none" stroke="{pal.axis}" stroke-width="{style.frame_width}"/>'
+            )
+
+        out.extend(scatter_label_nodes)
+
+        for ann in panel.annotations:
+            y_fn = map_y2 if ann.axis == "y2" else map_y1
+            ax = map_x(ann.x)
+            ay = y_fn(ann.y)
+            tx = ax + ann.dx * PRINT_SCALE
+            ty = ay + ann.dy * PRINT_SCALE
+            acol = pal.series[ann.color_idx % len(pal.series)] if ann.color_idx is not None else pal.fg
+            if ann.arrow and (abs(ann.dx) > 2 or abs(ann.dy) > 2):
+                out.append(
+                    f'<line x1="{tx:.2f}" y1="{ty:.2f}" x2="{ax:.2f}" y2="{ay:.2f}" '
+                    f'stroke="{acol}" stroke-width="1.2" marker-end="url(#arrow_{mode})"/>'
+                )
+            text_dy = -4.0 if ann.dy <= 0 else 11.0
+            ann_fs = max(ann.fontsize, style.inplot_size) if mode == "mono" else ann.fontsize
+            ann_w = _text_w(ann.text, ann_fs)
+            left = {"start": 0.0, "middle": ann_w / 2, "end": ann_w}[ann.align]
+            text_x = min(max(tx, 4.0 + left), W - 4.0 - (ann_w - left))
+            out.append(
+                f'<text x="{text_x:.2f}" y="{ty + text_dy:.2f}" text-anchor="{ann.align}" '
+                f'font-family="{FONT_STACK}" font-size="{ann_fs:.1f}" font-weight="500" fill="{acol}">'
+                f"{escape(ann.text)}</text>"
+            )
+
+        for tb in panel.text_boxes:
+            bx0, bx1 = map_x(tb.x0), map_x(tb.x1)
+            by0, by1 = map_y1(tb.y0), map_y1(tb.y1)
+            top, bot = min(by0, by1), max(by0, by1)
+            out.append(
+                f'<rect x="{bx0:.2f}" y="{top:.2f}" width="{bx1 - bx0:.2f}" height="{bot - top:.2f}" '
+                f'fill="{pal.panel_bg}" stroke="{pal.fg}" stroke-width="1.0"/>'
+            )
+            step = (bot - top) / len(tb.lines)
+            tb_fs = max(tb.fontsize, style.inplot_size) if mode == "mono" else tb.fontsize
+            for i, text in enumerate(tb.lines):
+                out.append(
+                    f'<text x="{bx0 + 4:.2f}" y="{top + step * (i + 0.5) + tb_fs * 0.35:.2f}" '
+                    f'font-family="{FONT_STACK}" font-size="{tb_fs:.1f}" font-weight="500" fill="{pal.fg}">'
+                    f"{escape(text)}</text>"
+                )
+
+        if leg_rows:
+            inside = _legend_loc(panel, style) == "inside"
+            if inside:
+                box_w = max(_legend_item_w(row[0], style.legend_size, style.swatch) for row in leg_rows)
+                out.append(
+                    f'<rect x="{px0 + 4.0:.2f}" y="{py0 + 4.0:.2f}" width="{box_w:.2f}" '
+                    f'height="{LEGEND_ROW_H * len(leg_rows) + 6.0:.2f}" fill="{pal.panel_bg}"/>'
+                )
+            for row_idx, row in enumerate(leg_rows):
+                if inside:
+                    ly = py0 + 20.0 + LEGEND_ROW_H * row_idx
+                elif _legend_loc(panel, style) == "top":
+                    ly = py0 - 10.0 - y_label_gap - LEGEND_ROW_H * (len(leg_rows) - 1 - row_idx)
+                else:
+                    xlabel_row = panel.xlabel and not _xlabel_inline(panel, style)
+                    ly = py1 + (52.0 if xlabel_row else 36.0) + drop + LEGEND_ROW_H * row_idx
+                row_x, row_w = (cx0 + 6.0, cell_w - 12.0) if style.legend_wide else (px0, pw)
+                col_ws = _legend_columns(leg_rows, style.legend_size, style.swatch)
+                lx = row_x + max(0.0, (row_w - sum(col_ws)) / 2.0)
+                if inside:
+                    lx = px0 + 10.0
+                for col_idx, (kind, ltext, lcol, lstyle, mk) in enumerate(row):
+                    iw = col_ws[col_idx] if not inside else _legend_item_w((kind, ltext, lcol, lstyle, mk), style.legend_size, style.swatch)
+                    if kind == "bar":
+                        fill_attr = pal.fills[2] if lstyle == "hatch" else lcol
+                        out.append(
+                            f'<rect x="{lx:.2f}" y="{ly - 8.5:.2f}" width="14" height="9" '
+                            f'fill="{fill_attr}" stroke="{pal.fg if is_mono(mode) else lcol}" stroke-width="0.8"/>'
+                        )
+                    elif kind == "fill":
+                        out.extend(
+                            f'<rect x="{lx:.2f}" y="{ly - 9.0:.2f}" width="16" height="10" fill="{layer}" stroke="none"/>'
+                            for layer in lcol.split("|")
+                        )
+                    else:
+                        if lstyle != "none":
+                            dash = DASH_PATTERNS.get(lstyle or "solid", "")
+                            leg_d = _dashed_path_d([(lx, ly - 4.0), (lx + style.swatch, ly - 4.0)], dash)
+                            leg_w = style.line_widths[1] if style.line_widths else 2.1
+                            out.append(
+                                f'<path d="{leg_d}" fill="none" stroke="{lcol}" stroke-width="{leg_w}"/>'
+                            )
+                        if mk:
+                            out.append(_draw_marker(
+                                lx + style.swatch / 2, ly - 4, mk[0], lcol, pal.panel_bg, min(3.0, style.marker_r),
+                                hollow=mk[1], stroke_width=style.marker_stroke,
+                            ))
+                    out.append(
+                        f'<text x="{lx + style.swatch + 4:.2f}" y="{ly:.2f}" font-family="{FONT_STACK}" '
+                        f'font-size="{style.legend_size}" fill="{pal.fg}">{escape(ltext)}</text>'
+                    )
+                    lx += iw
+
+    for line_idx, note_line in enumerate(note_lines):
+        out.append(
+            f'<text x="{grid_left + 8:.1f}" y="{H - 10 - note_line_h * (len(note_lines) - 1 - line_idx):.1f}" '
+            f'font-family="{FONT_STACK}" font-size="{style.note_size}" fill="{pal.muted}">{escape(note_line)}</text>'
+        )
+
+    out.append("</svg>")
+    svg_str = "\n".join(out)
+    return _normalize_rgba_fills(svg_str)
+
+
+def _normalize_rgba_fills(svg_str: str) -> str:
+    import re
+
+    def _repl(m: re.Match[str]) -> str:
+        r, g, b = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        a = float(m.group(4))
+        return f'fill="#{r:02x}{g:02x}{b:02x}" fill-opacity="{a:.2f}"'
+
+    return re.sub(
+        r'fill="rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)"',
+        _repl,
+        svg_str,
+    )
+
+
+def svg_to_png(svg_text: str, png_path: Path, dpi: int = 300) -> None:
+    png_path.parent.mkdir(parents=True, exist_ok=True)
+    doc = pymupdf.open("svg", svg_text.encode("utf-8"))
+    try:
+        page = doc[0]
+        pix = page.get_pixmap(dpi=dpi)
+        pix.save(str(png_path))
+    finally:
+        doc.close()
+
+
+def save_figure_outputs(
+    fig_id: str,
+    svg_by_mode: dict[ThemeMode, str],
+    book_dir: Path,
+    dpi: int = 300,
+) -> None:
+    dir_map: list[tuple[ThemeMode, Path]] = [
+        ("mono", book_dir / "figures"),
+        ("mono", book_dir / "figures_mono"),
+        ("color", book_dir / "figures_color"),
+        ("dark", book_dir / "figures_3b1b_dark"),
+    ]
+    png_cache: dict[ThemeMode, bytes] = {}
+    for mode, svg_text in svg_by_mode.items():
+        doc = pymupdf.open("svg", svg_text.encode("utf-8"))
+        try:
+            png_cache[mode] = doc[0].get_pixmap(dpi=dpi).tobytes("png")
+        finally:
+            doc.close()
+
+    for mode, target_dir in dir_map:
+        if mode not in svg_by_mode:
+            continue
+        target_dir.mkdir(parents=True, exist_ok=True)
+        (target_dir / f"fig_{fig_id}.svg").write_text(svg_by_mode[mode], encoding="utf-8")
+        (target_dir / f"fig_{fig_id}.png").write_bytes(png_cache[mode])
+
+
+def _split_note_and_source(raw: str) -> tuple[str, str]:
+    import re
+
+    notes: list[str] = []
+    sources: list[str] = []
+    for part in [p.strip() for p in re.split(r"\n\s*\n", raw) if p.strip()]:
+        if re.match(r"^\s*[（(\[［]?\s*(?:资料来源|数据来源)\s*[：:]", part):
+            sources.append(part)
+        else:
+            notes.append(part)
+    return "\n\n".join(notes), "\n\n".join(sources)
+
+
+def _describe_spec(spec: FigureSpec, clean_title: str, svg_text: str) -> tuple[str, str]:
+    import re
+
+    if not spec.panels:
+        texts = [t.strip() for t in re.findall(r"<text[^>]*>([^<]+)</text>", svg_text) if t.strip()]
+        summary = "；".join(dict.fromkeys(texts[:8]))
+        alt = f"矢量图：{clean_title}" + (f"（{summary}）" if summary else "")
+        return alt, alt
+    kinds: list[str] = []
+    if any(any(ln.style != "none" for ln in p.lines) for p in spec.panels):
+        kinds.append("折线图")
+    if any(p.bars for p in spec.panels):
+        kinds.append("柱状图")
+    if any(p.scatters or any(ln.style == "none" for ln in p.lines) for p in spec.panels):
+        kinds.append("散点图")
+    if any(p.bands for p in spec.panels):
+        kinds.append("区间带图")
+    kind_str = "+".join(kinds) or "统计图表"
+    layout_str = f"{len(spec.panels)}面板（{spec.rows}×{spec.cols}）{kind_str}" if len(spec.panels) > 1 else f"单面板{kind_str}"
+    panel_descs: list[str] = []
+    all_series: list[str] = []
+    for idx, p in enumerate(spec.panels, 1):
+        p_head = p.title or (f"面板{idx}" if len(spec.panels) > 1 else "主面板")
+        s_labels = [
+            s.label
+            for s in (*p.lines, *p.bars, *p.bands)
+            if s.label and not s.label.startswith("_")
+        ]
+        s_labels = list(dict.fromkeys(s_labels))
+        all_series.extend(s for s in s_labels if s not in all_series)
+        axes: list[str] = []
+        if p.xlabel:
+            axes.append(f"横轴：{p.xlabel} [{p.xlim[0]:g}, {p.xlim[1]:g}]")
+        else:
+            axes.append(f"横轴范围：[{p.xlim[0]:g}, {p.xlim[1]:g}]")
+        if p.ylabel:
+            axes.append(f"纵轴：{p.ylabel} [{p.ylim[0]:g}, {p.ylim[1]:g}]")
+        else:
+            axes.append(f"纵轴范围：[{p.ylim[0]:g}, {p.ylim[1]:g}]")
+        if p.y2lim is not None:
+            axes.append(f"右轴：{p.y2label or '副轴'} [{p.y2lim[0]:g}, {p.y2lim[1]:g}]")
+        s_part = f"，序列：{'、'.join(s_labels)}" if s_labels else ""
+        panel_descs.append(f"{p_head}（{'，'.join(axes)}{s_part}）")
+    series_brief = f"，包含{'、'.join(all_series[:6])}" + ("等序列" if len(all_series) > 6 else "") if all_series else ""
+    alt = f"{clean_title}（{layout_str}{series_brief}）"
+    desc = f"{clean_title}：{layout_str}。" + "；".join(panel_descs) + "。"
+    return alt, desc
+
+
+def enrich_book_figures_manifest(
+    book_key: str,
+    generators: dict[str, Callable[[ThemeMode], str]] | None = None,
+) -> Path:
+    import contextlib
+    import inspect
+    import re
+
+    from PIL import Image
+
+    from polytypst.book_state import transcripts
+    from polytypst.books import book_by_key
+    from polytypst.compiler.page_cleaner import PageCleaner
+    from polytypst.ocr.transcripts import TranscriptStore
+    from polytypst.vision.figure_extractor import (
+        FIGURES_MANIFEST_NAME,
+        ExtractedFigure,
+        load_figures_manifest,
+        write_figures_manifest,
+    )
+
+    book = book_by_key(book_key)
+    out_dir = book.out_dir
+    manifest_path = out_dir / FIGURES_MANIFEST_NAME
+    existing = {f.figure_id: f for f in load_figures_manifest(manifest_path)} if manifest_path.exists() else {}
+
+    store = TranscriptStore(transcripts(out_dir))
+    cleaner = PageCleaner.for_spec(book.spec, out_dir)
+    caption_by_id: dict[str, str] = {}
+    page_by_id: dict[str, int] = {}
+    end_page = max((c.end_page for c in book.spec.chapters), default=0)
+    for pno in range(1, end_page + 1):
+        txt = store.text(pno)
+        if not txt:
+            continue
+        cleaned = cleaner.clean(txt, pno)
+        for raw_id, cap in cleaned.top_figures + cleaned.bottom_figures:
+            fid = raw_id.replace("_", "-", 1)
+            caption_by_id[fid] = cap
+            page_by_id.setdefault(fid, pno)
+
+    gens = generators or {}
+    repo_root = Path(__file__).resolve().parents[2]
+    fig_dir = out_dir / "figures"
+    raw_dir = out_dir / "figures_raw"
+
+    all_ids: list[str] = list(existing)
+    for p in sorted(fig_dir.glob("fig_*.*")):
+        fid = p.stem.removeprefix("fig_")
+        if fid not in all_ids:
+            all_ids.append(fid)
+    for fid in gens:
+        if fid not in all_ids and (fig_dir / f"fig_{fid}.svg").exists():
+            all_ids.append(fid)
+
+    def _sort_key(fid: str) -> tuple[int, ...]:
+        nums = [int(n) for n in re.findall(r"\d+", fid)]
+        return tuple(nums) if nums else (999, 999)
+
+    all_ids.sort(key=_sort_key)
+    enriched: list[ExtractedFigure] = []
+
+    for fid in all_ids:
+        ef = existing.get(fid)
+        m_ch = re.match(r"^(\d+)-", fid)
+        chapter = int(m_ch.group(1)) if m_ch else (ef.chapter if ef else None)
+        source_page = page_by_id.get(fid) or (ef.source_page if ef else 0)
+
+        spec_obj: FigureSpec | None = None
+        repro = ef.reproduced_by if ef else ""
+        svg_rel = f"figures/fig_{fid}.svg" if (fig_dir / f"fig_{fid}.svg").exists() else None
+        svg_text = (fig_dir / f"fig_{fid}.svg").read_text(encoding="utf-8") if svg_rel else ""
+
+        if fid in gens:
+            fn = gens[fid]
+            _last_rendered_spec.set(None)
+            with contextlib.suppress(Exception):
+                s_txt = fn("mono")
+                if not svg_text:
+                    svg_text = s_txt
+            spec_obj = last_rendered_spec()
+            try:
+                src_file = Path(inspect.getsourcefile(fn) or "").resolve().relative_to(repo_root)
+                _, line_no = inspect.getsourcelines(fn)
+                repro = f"{src_file}:{line_no}:{fn.__name__}"
+            except (OSError, TypeError, ValueError):
+                repro = getattr(fn, "__name__", "vector_generator")
+        elif not repro:
+            repro = "vector_svg" if svg_rel else "scan_crop"
+
+        raw_crop_rel = f"figures_raw/fig_{fid}.png"
+        fig_crop_rel = f"figures/fig_{fid}.png"
+        if (raw_dir / f"fig_{fid}.png").exists():
+            scan_crop_path = raw_crop_rel
+        elif (fig_dir / f"fig_{fid}.png").exists():
+            scan_crop_path = fig_crop_rel
+        else:
+            scan_crop_path = ef.scan_crop_path if ef else ""
+
+        image_rel_path = ef.image_rel_path if ef else (fig_crop_rel if (fig_dir / f"fig_{fid}.png").exists() else (svg_rel or fig_crop_rel))
+        w_px = ef.width_px if ef else 0
+        h_px = ef.height_px if ef else 0
+        if (not w_px or not h_px) and scan_crop_path and (out_dir / scan_crop_path).exists():
+            with Image.open(out_dir / scan_crop_path) as im:
+                w_px, h_px = im.size
+
+        cap = caption_by_id.get(fid) or (ef.caption if ef else "")
+        if (not cap or cap.strip() == f"图 {fid}") and spec_obj and spec_obj.title:
+            cap = spec_obj.title
+        if not cap:
+            cap = f"图 {fid}"
+
+        clean_title = re.sub(r"^(?:图\s*\d+(?:[\.\-]\d+)*[A-Za-z]?\.?\s*[：:]?\s*)", "", cap).strip() or cap
+
+        raw_note = cleaner.figure_notes.get(fid.replace("-", "_", 1), "")
+        note_str, source_str = _split_note_and_source(raw_note)
+        if spec_obj and spec_obj.note:
+            sp_note, sp_src = _split_note_and_source(spec_obj.note)
+            if not note_str and sp_note:
+                note_str = sp_note
+            if not source_str and sp_src:
+                source_str = sp_src
+
+        if spec_obj is not None:
+            alt, desc = _describe_spec(spec_obj, clean_title, svg_text)
+        elif svg_text:
+            texts = [t.strip() for t in re.findall(r"<text[^>]*>([^<]+)</text>", svg_text) if t.strip()]
+            summary = "；".join(dict.fromkeys(texts[:8]))
+            alt = f"{clean_title}（矢量重绘图表）"
+            desc = f"{clean_title}：矢量重绘图表" + (f"，包含文字：{summary}。" if summary else "。")
+        else:
+            alt = f"{clean_title}（原书第{source_page}页扫描裁切图）" if source_page else f"{clean_title}（原书扫描裁切图）"
+            desc = f"{clean_title}：原书第{source_page}页扫描裁切图表（{w_px}×{h_px} px）。"
+
+        enriched.append(
+            ExtractedFigure(
+                figure_id=fid,
+                caption=cap,
+                image_rel_path=image_rel_path,
+                source_page=source_page,
+                box=ef.box if ef else None,
+                width_px=w_px,
+                height_px=h_px,
+                chapter=chapter,
+                title=clean_title,
+                alt=alt,
+                description=desc,
+                note=note_str,
+                source=source_str,
+                scan_crop_path=scan_crop_path,
+                svg_path=svg_rel,
+                reproduced_by=repro,
+            )
+        )
+
+    write_figures_manifest(manifest_path, enriched)
+    _scan_boxes.cache_clear()
+    return manifest_path

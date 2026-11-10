@@ -66,8 +66,12 @@ def bad_words(page: PageParity, tol: Tolerance) -> list[str]:
 def verdict(page: PageParity, tol: Tolerance) -> list[str]:
     """Reasons the page fails scan parity; empty when it passes."""
     reasons = []
-    if page.words_source and len(page.words) < tol.min_matched_share * page.words_source:
-        reasons.append(f"only {len(page.words)}/{page.words_source} words matched")
+    if (page.words_source or page.lines_source) and len(page.words) < tol.min_matched_share * max(page.words_source, 1):
+        reasons.append(
+            f"only {len(page.words)}/{page.words_source} words matched"
+            if page.words_source
+            else f"no scan words measured on {page.lines_source} scan lines"
+        )
     if max(abs(page.page_dx), abs(page.page_dy)) > tol.page_offset_pt:
         reasons.append(f"page offset {page.page_dx:+.2f},{page.page_dy:+.2f}pt")
     bad = bad_words(page, tol)
@@ -127,8 +131,10 @@ _DOCS: dict[Path, pymupdf.Document] = {}
 
 def _write_page_images(page: PageParity, img: Path) -> str:
     """Write a page's source, rebuilt and overlay images; returns its diagram crops' HTML."""
-    src = _DOCS.setdefault(page.source, pymupdf.open(page.source))
-    ours = _DOCS.setdefault(page.rebuilt, pymupdf.open(page.rebuilt))
+    for path in (page.source, page.rebuilt):
+        if path not in _DOCS:
+            _DOCS[path] = pymupdf.open(path)
+    src, ours = _DOCS[page.source], _DOCS[page.rebuilt]
     a, b = _gray(src, page.source_page), _gray(ours, page.rebuilt_pages[0])
     stem = f"p{page.source_page:03d}"
     Image.fromarray(a).save(img / f"{stem}_source.png")
@@ -194,7 +200,7 @@ def write_report(results: list[PageParity], out_dir: Path, tolerance: Tolerance)
     summary = {"pages": len(rows), "passed": len(rows) - len(failed), "failed": len(failed), "right_overflow_lines": sum(r.right_overflow_lines for r in results), "tolerance": asdict(tolerance)}
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=1), encoding="utf-8")
     (out_dir / "index.html").write_text(_page_html(summary, "".join(items)), encoding="utf-8")
-    return not failed
+    return bool(rows) and not failed
 
 
 def _page_html(summary: dict, rows: str) -> str:

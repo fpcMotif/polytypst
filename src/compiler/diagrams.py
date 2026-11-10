@@ -90,7 +90,7 @@ def parse_array_diagram(latex: str) -> Diagram | None:
         return None
     rows = [[c.strip() for c in _split_top(r, "&")] for r in _split_top(m.group(1), r"\\")]
     rows = [r for r in rows if any(r)]
-    if len(rows) < 3:
+    if len(rows) < 3 or any(len(_SLANTED_RE.findall(c)) > 1 for r in rows for c in r):
         return None
     width = max(map(len, rows))
     rows = [r + [""] * (width - len(r)) for r in rows]

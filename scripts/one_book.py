@@ -21,19 +21,20 @@ from collections import Counter
 from pathlib import Path
 
 from polytypst.books import book_by_key
-from polytypst.books_cli import DOCUMENT_FORMATS, audit_edition, format_output
-from polytypst.edition import Book
+from polytypst.edition_audit import EditionNotBuilt, audit_edition
 
 
-def audit(book: Book, name: str, issue_rules: frozenset[str]) -> Counter[str]:
-    edition = book.editions[name]
-    for fmt in sorted(edition.formats | {"pdf"}):
-        path = format_output(edition, fmt)
-        if fmt in DOCUMENT_FORMATS and not path.exists():
-            if fmt == "pdf":
-                sys.exit(f"missing {fmt}: {path}")
-            print(f"missing {fmt}: {path}")
-    return audit_edition(book, name, edition, issue_rules)
+def audit(book, name: str, issue_rules: set[str]) -> Counter[str]:
+    try:
+        found = audit_edition(book, name)
+    except EditionNotBuilt as error:
+        sys.exit(str(error))
+    for rule, reason in found.skipped.items():
+        print(f"{rule} not checked: {reason}")
+    for rule in sorted(issue_rules):
+        for hit in found.hits.get(rule, []):
+            print(f"{rule} {hit.line[:160]}")
+    return found.counts
 
 
 def main() -> None:
@@ -63,7 +64,7 @@ def main() -> None:
         book.build(name, None, frozenset(f for f in args.formats.split(",") if f))
         return
 
-    counts = audit(book, name, frozenset(r for r in args.issues.split(",") if r))
+    counts = audit(book, name, {r for r in args.issues.split(",") if r})
     print(json.dumps(dict(sorted(counts.items())), indent=1, ensure_ascii=False))
     print(f"{args.key} {name}: {counts.total()} issues")
     if args.against:

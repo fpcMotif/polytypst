@@ -6,22 +6,26 @@ from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
+import pymupdf
+
 from .books import BOOKS_DIR, book_by_key, books
-from .checker import AuditSpec, DocumentQualityChecker
 from .compiler.presets import DOMAIN_PROFILES
 from .edition import Book, Edition, VisualLimits
-from .figure_leaks import FIGURE_TEXT_LEAK, figure_text_leaks
-from .literal_numbers import edition_literal_counts
+from .edition_audit import (
+    BASELINE,
+    EditionNotBuilt,
+    audit_edition,
+    read_baseline,
+    rises,
+)
+from .naming import BookNameError, check_name, edition_file, rename_build
 from .new_book import scaffold_book
-from .ocr.scan import SourceScanError
-from .parity import FACSIMILE, compare, verdict, write_report
+from .parity import compare, verdict, write_report
 from .parity.ink_cache import InkCache
 from .parity.measure import measure_pages, read_measures, worse, write_measures
 from .parity.source import SOURCES_ENV, ensure_source_ocr, source_ocr_dir, source_pdf
 from .parity.visual import (
-    LAYOUT_LIMIT,
     TOP_REGIONS,
-    layout_check,
     visual_check,
     write_visual_report,
 )
@@ -36,8 +40,6 @@ from .review import (
 from .rules import all_rules
 from .step_profile import as_json, profile_step, render, run_cold, time_typst
 
-LAYOUT_SAMPLE_EVERY = 10
-
 EPILOG = f"""\
 examples:
   polytypst books
@@ -51,15 +53,6 @@ docs/scanned-books.md explains the procedure and the report.
 """
 
 
-BASELINE = Path("quality/baseline.json")
-DOCUMENT_FORMATS = {"pdf": "", "epub": "EPUB_"}
-
-
-def format_output(edition: Edition, fmt: str) -> Path:
-    """The file an edition writes for `fmt`, beside its rebuilt PDF and named like it."""
-    return edition.rebuilt if fmt == "pdf" else edition.rebuilt.with_suffix(f".{fmt}")
-
-
 def parse_pages(text: str) -> set[int]:
     """'31-34,40' -> {31, 32, 33, 34, 40}."""
     pages: set[int] = set()
@@ -71,6 +64,8 @@ def parse_pages(text: str) -> set[int]:
             raise argparse.ArgumentTypeError(
                 f"pages must look like 3,7-9, got {text!r}"
             ) from None
+        if start < 1 or stop < start:
+            raise argparse.ArgumentTypeError(f"pages count from 1 and a range runs low to high, got {part.strip()!r}")
         pages.update(range(start, stop + 1))
     return pages
 
@@ -106,12 +101,17 @@ def _build(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         parser.error(f"{args.book} has no footnotes to renumber; leave out --footnotes")
     if args.pages and edition.build_pages is None:
         parser.error(f"{args.book} {name} cannot rebuild only some pages; leave out --pages")
+    try:
+        named = check_name(args.name, "--name") if args.name else None
+    except BookNameError as e:
+        parser.error(str(e))
     _ = book.build(name, args.source, formats, args.footnotes, parse_pages(args.pages) if args.pages else None)
+    if named:
+        print(f"renamed to {rename_build(edition.rebuilt, edition_file(named, name, name == next(iter(book.editions))))}")
     if edition.spec is None:
         return 0
-    baseline = json.loads(BASELINE.read_text(encoding="utf-8")) if BASELINE.exists() else {}
-    recorded = baseline.get(args.book, {}).get(name, {})
-    rose = _rose(Counter(edition_literal_counts(edition.rebuilt, edition.built_spec)), recorded)
+    recorded = read_baseline(BASELINE).get(args.book, {}).get(name, {})
+    rose, _ = rises(audit_edition(book, name, frozenset({"source"})).counts, recorded)
     for line in rose:
         print(f"numbering: {line}; run: polytypst audit {args.book} --edition {name}")
     return 1 if rose else 0
@@ -149,10 +149,6 @@ def _measure(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
-def _rose(counts: Counter[str], recorded: dict[str, int]) -> list[str]:
-    return [f"{rule} {n} > {recorded.get(rule, 0)}" for rule, n in sorted(counts.items()) if n > recorded.get(rule, 0)]
-
-
 def _scan_ink(book: Book, source: Path) -> InkCache:
     return InkCache(source, book.out_dir / "facsimile" / "ink", page_ink)
 
@@ -168,9 +164,15 @@ def _parity(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         parser.error(f"{args.against} is missing")
     source = source_pdf(book.spec, args.source)
     page_map = edition.parity.page_map()
-    if args.pages:
-        wanted = parse_pages(args.pages)
+    wanted = parse_pages(args.pages) if args.pages else None
+    if wanted is not None:
         page_map = {p: v for p, v in page_map.items() if p in wanted}
+    unmapped = []
+    if edition.parity.one_to_one:
+        scan_pages = range(1, int(pymupdf.open(source).page_count) + 1)
+        unmapped = [p for p in scan_pages if (wanted is None or p in wanted) and not page_map.get(p)]
+        for p in unmapped:
+            print(f"scan page {p} has no rebuilt page")
     preset = edition.parity.visual or VisualLimits()
     limits = {
         "missing": args.max_missing if args.max_missing is not None else preset.missing,
@@ -179,7 +181,8 @@ def _parity(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         "offset": args.max_offset if args.max_offset is not None else preset.offset,
     }
     if args.visual or args.against or edition.parity.visual or any(v is not None for v in limits.values()):
-        return _visual(args, _scan_ink(book, source), edition.rebuilt, page_map, args.out or book.out_dir / f"visual_{name}", limits)
+        code = _visual(args, _scan_ink(book, source), edition.rebuilt, page_map, args.out or book.out_dir / f"visual_{name}", limits)
+        return 1 if unmapped else code
     ensure_source_ocr(source, book.ocr, book.spec.ocr_languages)
     out = args.out or book.out_dir / f"parity_{name}"
     results = compare(
@@ -189,7 +192,7 @@ def _parity(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     ok = write_report(results, out, edition.parity.tolerance)
     failed = sum(1 for r in results if verdict(r, edition.parity.tolerance))
     print(f"{len(results) - failed}/{len(results)} pages pass; report: {out / 'index.html'}")
-    return 0 if ok else 1
+    return 0 if ok and not unmapped else 1
 
 
 def _review(parser: argparse.ArgumentParser, argv: list[str]) -> int:
@@ -206,7 +209,7 @@ def _review(parser: argparse.ArgumentParser, argv: list[str]) -> int:
     if not args.folder.is_dir():
         parser.error(f"{args.folder} is not a folder")
     ocr = source_ocr_dir(args.folder)
-    if not any(ocr.glob("p[0-9][0-9][0-9].json")):
+    if not any(ocr.glob("p[0-9][0-9][0-9]*.json")):
         if args.scan is None:
             parser.error(f"{ocr} has no OCR pages; pass --scan SCAN.pdf to read them")
         ensure_source_ocr(args.scan, ocr, args.ocr_languages.split(","))
@@ -252,42 +255,8 @@ def _share(text: str) -> float:
     return value
 
 
-def audit_edition(
-    book: Book, name: str, edition: Edition, show_rules: frozenset[str] = frozenset()
-) -> Counter[str]:
-    built = edition.built_spec
-    spec = AuditSpec.from_monograph(built) if built else AuditSpec()
-    spec = replace(spec, scan_line_breaks=edition.scan_line_breaks)
-    counts: Counter[str] = Counter()
-    for fmt in sorted(edition.formats | {"pdf"}):
-        if fmt in DOCUMENT_FORMATS and format_output(edition, fmt).exists():
-            for issue in DocumentQualityChecker(format_output(edition, fmt), spec).run_all_checks().issues:
-                counts[f"{DOCUMENT_FORMATS[fmt]}{issue.rule_name}"] += 1
-                if issue.rule_name in show_rules:
-                    print(f"{fmt} p{issue.page_num} {issue.rule_name}: {issue.context_snippet[:70]!r}")
-    if built:
-        counts.update(edition_literal_counts(edition.rebuilt, built))
-        if leaks := figure_text_leaks(book):
-            counts[FIGURE_TEXT_LEAK] = len(leaks)
-    if edition.parity is not None and edition.parity.tolerance is FACSIMILE:
-        counts.update(_layout_counts(book, name, edition))
-    return counts
-
-
-def _layout_counts(book: Book, name: str, edition: Edition) -> Counter[str]:
-    try:
-        source = source_pdf(book.spec, None)
-    except SourceScanError as error:
-        print(f"{edition.rebuilt.name} {name}: layout not checked: {error}")
-        return Counter()
-    page_map = edition.parity.page_map() if edition.parity else {}
-    sample = {p: v for p, v in page_map.items() if p % LAYOUT_SAMPLE_EVERY == 0}
-    shares = layout_check(source, edition.rebuilt, sample)
-    return Counter({"facsimile_layout": sum(1 for share in shares.values() if share > LAYOUT_LIMIT)})
-
-
 def _audit(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
-    baseline = json.loads(args.baseline.read_text(encoding="utf-8")) if args.baseline.exists() else {}
+    baseline = read_baseline(args.baseline)
     if args.book:
         targets = [(key, *_pick(parser, key, args.edition)[1:]) for key in args.book]
     else:
@@ -309,15 +278,18 @@ def _audit(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
             print(f"{key} {name}: FAIL, no baseline; run: polytypst audit {key} --edition {name} --update")
             ok = False
             continue
-        missing = [f for f in sorted(edition.formats) if not format_output(edition, f).exists()]
-        if missing:
-            formats = ",".join(missing)
+        try:
+            audit = audit_edition(book_by_key(key), name)
+        except EditionNotBuilt as error:
+            formats = ",".join(error.formats)
             print(f"{key} {name}: FAIL, no {formats} output; run: polytypst build {key} --edition {name} --formats {formats}")
             ok = False
             continue
-        counts = audit_edition(book_by_key(key), name, edition)
+        for rule, reason in audit.skipped.items():
+            print(f"{key} {name}: {rule} not checked: {reason}")
+        counts = audit.counts
         recorded = baseline.get(key, {}).get(name, {})
-        rose = _rose(counts, recorded)
+        rose, fell = rises(counts, recorded)
         if args.update:
             if rose and name in baseline.get(key, {}) and not args.allow_rise:
                 print(f"{key} {name}: FAIL, not recorded; fix the rise or pass --allow-rise")
@@ -328,12 +300,18 @@ def _audit(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
             baseline.setdefault(key, {})[name] = dict(sorted(counts.items()))
             print(f"{key} {name}: recorded {counts.total()} issues")
             continue
-        fell = [f"{rule} {counts[rule]} < {n}" for rule, n in sorted(recorded.items()) if counts[rule] < n]
         print(f"{key} {name}: {'FAIL' if rose else 'ok'}, {counts.total()} issues")
+        if rose and args.hits is None:
+            print(f"  next: polytypst audit {key} --edition {name} --hits")
         for line in rose:
             print(f"  rose: {line}")
         for line in fell:
             print(f"  fell: {line}; run with --update to lower the baseline")
+        if args.hits is not None:
+            for rule in args.hits or [line.split()[0] for line in rose]:
+                found = [hit.line for hit in audit.hits.get(rule, [])]
+                for line in found or [f"no hits for {rule}; `polytypst rules` lists every rule"]:
+                    print(f"  hit: {rule} {line}")
         ok = ok and not rose
     if args.update:
         args.baseline.parent.mkdir(parents=True, exist_ok=True)
@@ -367,7 +345,7 @@ def _profile(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     def step() -> int:
         return main(args.step, step_argv)
 
-    typ = edition.rebuilt.with_suffix(".typ")
+    typ = edition.source("typ")
     before = typ.stat().st_mtime_ns if typ.exists() else None
     title = f"{args.book} {name} {args.step}{' --cold' if args.cold else ''}"
     profile = profile_step(title, (lambda: run_cold(step)) if args.cold else step)
@@ -386,7 +364,7 @@ def main(command: str, argv: list[str]) -> int:
             "Exits 1 when the built Typst or LaTeX has more literal numbers than quality/baseline.json records.",
             "parity": "Check a rebuilt edition against its source scan. Writes a report and exits 1 when a page fails.",
             "measure": "Measure each page of a rebuilt facsimile against its scan: coverage of the scan's ink cells and "
-            "the extra, missing and layout shares. Writes output/<book>/review/measure_<edition>.json and exits 1 "
+            "the extra, missing and layout shares. Writes $POLYTYPST_OUTPUT/<book>/review/measure_<edition>.json and exits 1 "
             "when a page got worse than measure_<edition>_baseline.json beside it.",
             "audit": "Count the checker's issues per rule in every format a rebuilt edition declares. Exits 1 when a count rises above the baseline, a declared format has no output, or a built edition has no baseline.",
             "rules": "List every rule a book is checked against: its stage, severity, the command that enforces it, and where it is written.",
@@ -445,6 +423,11 @@ def main(command: str, argv: list[str]) -> int:
             "and an edition with a count that rose is left as recorded and fails",
         )
         parser.add_argument("--allow-rise", action="store_true", help="with --update, record counts that rose too")
+        parser.add_argument(
+            "--hits", nargs="*", metavar="RULE",
+            help="print one line per hit, with the PDF page or the generated .typ/.tex file:line and the typed text; "
+            "with no RULE, the hits of every rule that rose",
+        )
         return _audit(parser, parser.parse_args(argv))
     if command != "books":
         parser.add_argument("book", help="book key from `polytypst books`")
@@ -459,6 +442,11 @@ def main(command: str, argv: list[str]) -> int:
         parser.add_argument(
             "--footnotes", choices=("original", "running"), default="original",
             help="original: the scan's marks (1), *, †) and restarts; running: 1, 2, 3 through the book",
+        )
+        parser.add_argument(
+            "--name",
+            help="name the built files NAME.pdf, or NAME.<edition>.pdf after the first edition, such as ahlfors1979-complex "
+            "(default: the book's name in book.toml, else <surname><year>-<title word>)",
         )
         parser.add_argument(
             "--pages",
@@ -481,7 +469,7 @@ def main(command: str, argv: list[str]) -> int:
         )
     if command == "parity":
         parser.add_argument("--pages", help="source pages to check, e.g. 31-34,40 (default: all)")
-        parser.add_argument("--out", type=Path, help="report folder (default: output/<book>/parity_<edition>, or visual_<edition>)")
+        parser.add_argument("--out", type=Path, help="report folder (default: $POLYTYPST_OUTPUT/<book>/parity_<edition>, or visual_<edition>)")
         parser.add_argument(
             "--visual", action="store_true",
             help="compare ink only, without OCR: box the rebuilt ink the scan lacks and the scan ink not rebuilt, with crops",

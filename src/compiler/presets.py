@@ -145,22 +145,6 @@ PUBLISHER_PRESETS: dict[str, PublisherPreset] = {
         header_rule_pt=0.35,
         pandoc_geometry="paperwidth=6.5in,paperheight=10.0in,margin=0.86in",
     ),
-    "bourbaki_1970": PublisherPreset(
-        key="bourbaki_1970",
-        imprint_name="Springer-Verlag",
-        default_series="Elements of Mathematics",
-        cities_line="Berlin · Heidelberg · New York · London · Paris · Tokyo",
-        width_pt=388,
-        height_pt=609,
-        margin_inside_pt=32,
-        margin_outside_pt=32,
-        margin_top_pt=74,
-        margin_bottom_pt=66,
-        body_size_pt=9.6,
-        heading_style="bourbaki",
-        header_rule_pt=0.0,
-        pandoc_geometry="paperwidth=5.39in,paperheight=8.46in,margin=0.45in",
-    ),
     "springer_1971": PublisherPreset(
         key="springer_1971",
         imprint_name="Springer-Verlag",
@@ -200,11 +184,16 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
     "en": LanguageProfile(
         code="en",
         typst_lang="en",
-        font_stack=("New Computer Modern",),
+        font_stack=(
+            "New Computer Modern",
+            "New Computer Modern Math",
+            "STIX Two Math",
+            "Zapf Dingbats",
+        ),
         math_font="New Computer Modern Math",
         first_line_indent="1.5em",
-        leading="0.78em",
-        par_spacing="1.05em",
+        leading="0.52em",
+        par_spacing="0.52em",
         hyphenate=True,
         cjk_punctuation_compress=False,
         contents_title="Contents",
@@ -249,8 +238,8 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
         font_stack=("New Computer Modern",),
         math_font="New Computer Modern Math",
         first_line_indent="1.2em",
-        leading="0.76em",
-        par_spacing="1.0em",
+        leading="0.52em",
+        par_spacing="0.52em",
         hyphenate=True,
         cjk_punctuation_compress=False,
         contents_title="Table des matières",
@@ -476,7 +465,9 @@ class CompositionConfig:
         h4_body = "#smallcaps(it.body)" if use_sc else "#it.body"
         if not self.theorem_layout:
             italic_h3 = 'style: "italic", ' if self.language.code != "zh" else ""
-            return f"""{h1}
+            return f"""#show heading: set text(hyphenate: false)
+
+{h1}
 
 #show heading.where(level: 2): it => block(above: 1.75em, below: 0.75em, sticky: true)[
   #text(12.5pt, weight: "bold", font: {font_expr})[#if it.numbering != none [#counter(heading).display(it.numbering) ]#it.body]
@@ -531,16 +522,17 @@ class CompositionConfig:
 
 
 def resolve_composition(
-    publisher: str = "cambridge",
+    publisher: str | PublisherPreset = "cambridge",
     lang: str = "en",
     *,
     domain: str,
     theorem_layout: bool = False,
 ) -> CompositionConfig:
-    pub_key = publisher.strip().lower()
     lang_key = lang.strip().lower().split("-")[0]
     return CompositionConfig(
-        publisher=PUBLISHER_PRESETS.get(pub_key, PUBLISHER_PRESETS["cambridge"]),
+        publisher=publisher
+        if isinstance(publisher, PublisherPreset)
+        else PUBLISHER_PRESETS.get(publisher.strip().lower(), PUBLISHER_PRESETS["cambridge"]),
         language=LANGUAGE_PROFILES.get(lang_key, LANGUAGE_PROFILES["en"]),
         domain=domain_profile(domain),
         theorem_layout=theorem_layout,

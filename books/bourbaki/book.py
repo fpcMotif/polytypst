@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from polytypst.compiler.monograph import BUILD_DIR
 from polytypst.edition import (
     Book,
     Parity,
@@ -15,7 +16,8 @@ from .facsimile import STYLE as FACSIMILE_STYLE
 from .marks import query_marks
 from .spec import BOURBAKI_1970_SPEC, BOURBAKI_SPEC
 
-VINTAGE_TYP = OUT_DIR / f"{BOURBAKI_1970_SPEC.slug}.typ"
+NAME = "bourbaki1989-commutative"
+VINTAGE_TYP = OUT_DIR / BUILD_DIR / f"{NAME}.typ"
 
 
 def vintage_page_map() -> dict[int, list[int]]:
@@ -39,9 +41,10 @@ BOOK = Book(
         "vintage": monograph_edition(
             BOURBAKI_1970_SPEC, OUT_DIR, "1970 look, paginated and line-broken like the scan", prepare_vintage,
             Parity(vintage_page_map, SOURCE_PAGINATED, DIAGRAM_DIR, DIAGRAM_TEXT),
+            file=NAME,
         ),
-        "facsimile": facsimile_edition(BOURBAKI_SPEC, OUT_DIR, FACSIMILE_STYLE),
-        "modern": monograph_edition(BOURBAKI_SPEC, OUT_DIR, "reflowed Springer-style monograph"),
+        "facsimile": facsimile_edition(BOURBAKI_SPEC, OUT_DIR, FACSIMILE_STYLE, file=f"{NAME}.facsimile"),
+        "modern": monograph_edition(BOURBAKI_SPEC, OUT_DIR, "reflowed Springer-style monograph", file=f"{NAME}.modern"),
     },
     install_bourbaki_diagrams,
 )

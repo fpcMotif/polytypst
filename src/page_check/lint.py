@@ -153,11 +153,8 @@ def lint_fixups(
 
 
 def built_typ(check: PageCheck) -> Path | None:
-    out = check.book.out_dir
-    return next(
-        (p for p in sorted(out.glob("*.typ")) if p.stem in (check.book.spec.slug, check.key, "book", out.name)),
-        None,
-    )
+    typ = next(iter(check.book.editions.values())).source("typ")
+    return typ if typ.exists() else None
 
 
 def lint(check: PageCheck) -> list[Issue]:

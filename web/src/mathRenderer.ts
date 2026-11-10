@@ -30,17 +30,12 @@ function renderTeXSegment(tex: string, displayMode: boolean): string {
   if (!cleaned) {
     return "";
   }
-  try {
-    return katex.renderToString(cleaned, {
-      displayMode,
-      throwOnError: false,
-      strict: "ignore",
-      trust: true,
-      macros: { ...KATEX_MACROS },
-    });
-  } catch {
-    return `<code class="text-xs font-mono text-amber-900 bg-amber-50 px-1 rounded">${escapeHtml(cleaned)}</code>`;
-  }
+  return katex.renderToString(cleaned, {
+    displayMode,
+    throwOnError: false,
+    strict: "ignore",
+    macros: { ...KATEX_MACROS },
+  });
 }
 
 function unescapeHtml(raw: string): string {

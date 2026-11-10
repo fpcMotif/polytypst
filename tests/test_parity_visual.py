@@ -1,3 +1,4 @@
+import argparse
 import json
 from pathlib import Path
 
@@ -79,6 +80,13 @@ def test_a_page_whose_differing_ink_shrank_is_improved_and_one_that_grew_regress
     assert compare_runs([bad], [good]) == {"improved": [], "regressed": [1]}
 
 
+def test_a_page_that_the_new_build_lost_is_a_regression() -> None:
+    scan = text_line(blank(), 50.0)
+    page = page_visual(scan, scan.copy(), 1, 1)
+    lost = page_visual(scan, scan.copy(), 2, 2)
+    assert compare_runs([page], [page, lost]) == {"improved": [], "regressed": [2]}
+
+
 def write_pdf(path: Path, lines: list[str]) -> None:
     doc = pymupdf.open()
     page = doc.new_page(width=W, height=H)
@@ -100,6 +108,7 @@ def facsimile(monkeypatch, tmp_path: Path) -> tuple[Path, Path]:
     return scan, rebuilt
 
 
+@pytest.mark.slow
 def test_parity_visual_writes_a_report_of_the_regions_without_reading_ocr(facsimile, tmp_path: Path) -> None:
     scan, rebuilt = facsimile
     write_pdf(rebuilt, ["The first line of the page."])
@@ -120,6 +129,7 @@ def test_parity_visual_crops_only_the_largest_regions_of_the_book(facsimile, tmp
     assert len(list((out / "img").glob("*_scan.png"))) == 1
 
 
+@pytest.mark.slow
 def test_parity_against_an_older_build_fails_when_a_page_got_worse(facsimile, tmp_path: Path) -> None:
     scan, rebuilt = facsimile
     old = tmp_path / "old.pdf"
@@ -132,6 +142,7 @@ def test_parity_against_an_older_build_fails_when_a_page_got_worse(facsimile, tm
     assert books_cli.main("parity", args) == 0
 
 
+@pytest.mark.slow
 def test_parity_fails_when_a_page_misses_more_scan_ink_than_the_limit(facsimile, tmp_path: Path, capsys) -> None:
     scan, rebuilt = facsimile
     write_pdf(rebuilt, ["The first line of the page."])
@@ -141,6 +152,7 @@ def test_parity_fails_when_a_page_misses_more_scan_ink_than_the_limit(facsimile,
     assert "missing over 0.4: page 1" in capsys.readouterr().out
 
 
+@pytest.mark.slow
 def test_parity_fails_when_a_page_has_more_rebuilt_ink_off_the_scan_than_the_limit(facsimile, tmp_path: Path, capsys) -> None:
     scan, rebuilt = facsimile
     write_pdf(rebuilt, ["The first line of the page.", "The second line of the page.", "A third line."])
@@ -158,6 +170,7 @@ def write_lines_at(path: Path, left: float, lines: list[str]) -> None:
     doc.save(path)
 
 
+@pytest.mark.slow
 def test_parity_fails_when_the_text_block_moved_further_than_the_offset_limit(facsimile, tmp_path: Path, capsys) -> None:
     scan, rebuilt = facsimile
     write_lines_at(rebuilt, 60, ["The first line of the page.", "The second line of the page."])
@@ -167,6 +180,7 @@ def test_parity_fails_when_the_text_block_moved_further_than_the_offset_limit(fa
     assert "offset over 5.0: page 1" in capsys.readouterr().out
 
 
+@pytest.mark.slow
 def test_parity_checks_an_edition_against_its_own_visual_limits_by_default(monkeypatch, tmp_path: Path, capsys) -> None:
     scan, rebuilt = tmp_path / "scan.pdf", tmp_path / "rebuilt.pdf"
     write_pdf(scan, ["The first line of the page.", "The second line of the page."])
@@ -182,6 +196,30 @@ def test_parity_checks_an_edition_against_its_own_visual_limits_by_default(monke
     assert books_cli.main("parity", ["probe", "--source", str(scan), "--out", str(tmp_path / "v")]) == 0
 
 
+def test_a_one_to_one_edition_fails_for_each_scan_page_that_the_rebuild_lacks(monkeypatch, tmp_path: Path, capsys) -> None:
+    scan, rebuilt = tmp_path / "scan.pdf", tmp_path / "rebuilt.pdf"
+    write_pdf(scan, ["The first line of the page."])
+    doc = pymupdf.open(scan)
+    doc.insert_pdf(pymupdf.open(scan))
+    doc.save(tmp_path / "scan2.pdf")
+    write_pdf(rebuilt, ["The first line of the page."])
+    parity = Parity(lambda: {1: [1]}, FACSIMILE, one_to_one=True)
+    edition = Edition(rebuilt, lambda source, formats, footnotes: None, parity=parity)
+    book = Book(MonographSpec(domain="math", slug="x", title="X", author="A"), tmp_path, {"facsimile": edition})
+    monkeypatch.setattr(books_cli, "books", lambda: {"probe": book})
+    monkeypatch.setattr(books_module, "books", lambda: {"probe": book})
+    args = ["probe", "--source", str(tmp_path / "scan2.pdf"), "--visual", "--out", str(tmp_path / "v")]
+    assert books_cli.main("parity", args) == 1
+    assert "scan page 2 has no rebuilt page" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("pages", ["9-3", "0", "2,0-1"])
+def test_a_reversed_range_or_a_page_below_1_is_an_argument_error(pages: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError):
+        books_cli.parse_pages(pages)
+
+
+@pytest.mark.slow
 def test_the_report_gives_region_boxes_as_plain_numbers(facsimile, tmp_path: Path) -> None:
     scan, rebuilt = facsimile
     write_pdf(rebuilt, ["The first line of the page."])

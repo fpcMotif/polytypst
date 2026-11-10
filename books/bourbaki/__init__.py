@@ -2,10 +2,11 @@ import shutil
 from pathlib import Path
 
 from polytypst.parity.diagrams import DiagramText
+from polytypst.paths import OUTPUT
 
 DIAGRAM_DIR = Path(__file__).parent / "diagrams"
 DIAGRAM_TEXT = DiagramText(font="Baskervville", size=9.6, weight=500)
-OUT_DIR = Path("output/bourbaki")
+OUT_DIR = OUTPUT / "bourbaki"
 
 
 def install_bourbaki_diagrams(out_dir: Path) -> list[Path]:

@@ -85,6 +85,7 @@ class HttpTranscriber(ABC):
         self._lock = threading.Lock()
         self._next_start = 0.0
         self._failures_in_a_row = 0
+        self._failed_pages: set[int] = set()
         self._stopped = threading.Event()
 
     @abstractmethod
@@ -115,6 +116,9 @@ class HttpTranscriber(ABC):
         except PageFailed as exc:
             print(f"Page {page.number}: {exc}")
             with self._lock:
+                if page.number in self._failed_pages:
+                    return None
+                self._failed_pages.add(page.number)
                 self._failures_in_a_row += 1
                 if self._failures_in_a_row >= self.max_failures_in_a_row:
                     self._stopped.set()

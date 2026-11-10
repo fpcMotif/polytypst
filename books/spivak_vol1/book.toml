@@ -1,0 +1,421 @@
+slug = "spivak_vol1"
+name = 'spivak-geometry1'
+title = "A Comprehensive Introduction to Differential Geometry, Vol. 1, 3rd Edition"
+statement_style = 'upright'
+author = "Michael Spivak"
+domain = "math"
+source_pdf = "A Comprehensive Introduction to Differential Geometry, Vol.1, 3rd Edition (Michael Spivak).pdf"
+pdf_page_count = 508
+cross_references = true
+commutative_diagrams = true
+# The transcripts keep the scan's running heads, "Chapter 8" or the chapter title in title case, as headings.
+# The chapter openings set "CHAPTER 8" and the title in capitals, so these patterns match case.
+running_header_regexes = [
+  '^(?:#+\s*)?(?:\d{1,3}\s+)?\*?(?-i:Chapter \d{1,2}|Appendix [A-Z]|Manifolds|Differentiable Structures|The Tangent Bundle|Tensors|Vector Fields and Differential Equations|Integral Manifolds|Differential Forms|Integration|Riemannian Metrics|Lie Groups|Excursion in the Realm of Algebraic Topology)\*?(?:\s+\d{1,3})?$',
+]
+# The scan starts each chapter and the appendix on a new page; the transcript gives them as "CHAPTER 8" headings.
+typst_preamble = '''
+@ENGINE_PREAMBLE@
+#let back-titles = ([Notation Index], [INDEX], [Index], [CORRECTIONS FOR VOLUME I])
+#let head-fonts = ("New Computer Modern", "New Computer Modern Math", "STIX Two Math", "Zapf Dingbats")
+#set page(header: context {
+  let page-number = counter(page).get().first()
+  let on-chapter-page = query(heading.where(level: 1)).any(h => h.location().page() == page-number)
+  if page-number > 4 and not on-chapter-page [
+    #let chaps = query(heading.where(level: 1).before(here()))
+    #let book-title = "A Comprehensive Introduction to Differential Geometry, Vol. 1, 3rd Edition"
+    #if calc.odd(page-number) [
+      #let in-chapter = if chaps == () { heading.where(level: 2) } else { heading.where(level: 2).after(chaps.last().location()) }
+      #let secs = query(in-chapter).filter(h => h.location().page() <= here().page())
+      #let on-page = secs.filter(h => h.location().page() == here().page())
+      #let back = query(heading.where(level: 3).before(here())).filter(h => h.body in back-titles)
+      #let title = if on-page != () { on-page.first().body } else if back != () and (secs == () or back.last().location().page() >= secs.last().location().page()) { back.last().body } else if secs != () { secs.last().body } else if chaps != () { chaps.last().body } else { book-title }
+      #grid(
+        columns: (1fr, auto),
+        align(left)[#text(8.5pt, font: head-fonts, style: "italic")[#title]],
+        align(right)[#text(9.5pt, font: head-fonts)[#page-number]]
+      )
+    ] else [
+      #let title = if chaps != () { chaps.last().body } else { book-title }
+      #grid(
+        columns: (auto, 1fr),
+        align(left)[#text(9.5pt, font: head-fonts)[#page-number]],
+        align(right)[#text(8.5pt, font: head-fonts, style: "italic")[#title]]
+      )
+    ]
+    #v(-0.35em)
+    #line(length: 100%, stroke: 0.35pt + luma(120))
+  ]
+})
+#show heading.where(level: 2): it => {
+  let t = it.body.at("text", default: "")
+  if t.starts-with("CHAPTER ") or t.starts-with("APPENDIX ") { pagebreak(weak: true) }
+  it
+}
+'''
+latex_preamble = '''
+\renewcommand\sourcearticle[1]{\refstepcounter{sourcearticle}\setcounter{equation}{0}\subsection*{\arabic{sourcearticle}. #1}}
+'''
+chapters = [
+  { number = 1, title = "A Comprehensive Introduction to Differential Geometry, Vol. 1, 3rd Edition", start_page = 1, end_page = 508 },
+]
+
+[hooks]
+figures = 'install_diagrams'
+
+[transcript_fixups]
+17 = [['Conse-\s+quently', 'Consequently']]
+# The transcript has (l); the scan prints the equation reference (1).
+31 = [['\(l\)', '(1)']]
+54 = [
+  ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖'],
+  ['\(l\)', '(1)'],
+  # The transcript has an extra bar after (p); the scan prints ∂x^j/∂y^i(p) ∂/∂x^j|_p.
+  ['\\left\. \\frac\{\\partial x\^j\}\{\\partial y\^i\}\(p\) \\right\|_p ', '\frac{\partial x^j}{\partial y^i}(p) '],
+]
+# False negative (the page check missed it): the transcript has one-onc; the scan prints one-one.
+57 = [['be one-onc on', 'be one-one on']]
+61 = [['\(l\)', '(1)']]
+80 = [
+  ['\(l\)', '(1)'],
+  # The transcript has a broken array plus a separate display for pi o f_* = f o pi; the scan prints the square with the equation beside it.
+  ["\\$\\$\\n\\\\begin\\{array\\}\\{ccc\\}\\nT\\\\mathbb\\{R\\}\\^n.*?\\\\end\\{array\\}\\n\\$\\$\\n\\n\\$\\$\\n\\\\pi \\\\circ f_\\* = f \\\\circ \\\\pi\\.\\n\\$\\$", "$$\\scandiagram{080_001}$$"],
+]
+92 = [
+  ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖'],
+  ['\(l\)', '(1)'],
+  # The transcript has three displays with a broken [] for the arrow; the scan prints the equation, a down arrow labelled t^n = t_I, and the target element.
+  ["\\$\\$\\ni_\\*\\(\\[x, v\\]_p\\) = \\[I, D.*?\\\\in \\(M, i\\)_p;\\n\\$\\$", "$$\\scandiagram{092_001}$$"],
+]
+106 = [
+  ['\(l\)', '(1)'],
+  ['([①-④])', '$\text{\1}$'],
+  # Transcript has a broken array; scan prints a zig-zag of triangles.
+  ["\\$\\$\\n\\\\begin\\{array\\}\\{ccc\\}\\n\\(TM\\)\\|U & \\\\xrightarrow\\{\\\\sim\\} & TU.*?\\\\end\\{array\\}\\n\\$\\$", "$$\\scandiagram{106_001}$$"],
+  # Scan prints a square with up arrows.
+  ["\\$\\$\\n\\\\begin\\{array\\}\\{ccc\\}\\n\\(TM\\)\\|U & \\\\xrightarrow\\{\\\\alpha_x\\}.*?\\\\end\\{array\\}\\n\\$\\$", "$$\\scandiagram{106_002}$$"],
+  # Scan prints k o y = x o j.
+  ["\\$k \\\\circ j = x \\\\circ j\\$", "$k \\circ y = x \\circ j$"],
+]
+171 = [['\(l\)', '(1)']]
+200 = [['\(l\)', '(1)'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+203 = [['\(l\)', '(1)']]
+206 = [['\(l\)', '(1)'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+407 = [['\(l\)', '(1)']]
+424 = [['\(l\)', '(1)']]
+431 = [['\(l\)', '(1)']]
+460 = [['\(l\)', '(1)'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+352 = [
+  ['\(l\)', '(1)'],
+  # The transcript has Cyrillic g_{ир}; the scan prints g_{ir}.
+  ['g_\{ир\}', 'g_{ir}'],
+]
+# The transcript has A^\dagger; the scan prints the transpose A^t.
+76 = [['\^\\dagger(?![A-Za-z])', '^t']]
+115 = [['\^\\dagger(?![A-Za-z])', '^t']]
+119 = [['\^\\dagger(?![A-Za-z])', '^t']]
+323 = [['\^\\dagger(?![A-Za-z])', '^t']]
+# The transcript has \blacksquare; the scan prints the end mark ❖, written \diamond elsewhere in this book.
+174 = [['\\blacksquare', '\diamond']]
+318 = [['\\blacksquare', '\diamond']]
+353 = [['\\blacksquare', '\diamond']]
+# The transcript has $i$; the scan prints the word "it".
+48 = [['; \$i\$ is \$0\$', '; it is $0$']]
+# The transcript has \{0)\}; the scan prints {0}.
+120 = [['\\\{0\)\\\}', '\{0\}']]
+144 = [
+  # The transcript gives the "or if" line the value 1 and the even permutation -1, and drops the odd row; the scan prints 0, 1 for even, -1 for odd.
+  ['(?m)^1 & \\text\{or if \}', ' & \text{or if }'],
+  [
+    '(?m)^-1 & \\text\{if \} j_1, \\ldots, j_p \\text\{ is an even permutation of \} i_1, \\ldots, i_p \\\\$',
+    '''1 & \text{if } j_1, \ldots, j_p \text{ is an even permutation of } i_1, \ldots, i_p \\
+-1 & \text{if } j_1, \ldots, j_p \text{ is an odd permutation of } i_1, \ldots, i_p \\''',
+  ],
+]
+# The transcript has Morocvcr; the scan prints Moreover.
+263 = [['Morocvcr', 'Moreover']]
+# Scan typo: the scan prints Morcover; meant Moreover.
+301 = [['Morcover', 'Moreover']]
+# The transcript has cash; the scan prints cosh.
+337 = [['function cash and', 'function cosh and']]
+# The transcript has slowing; the scan prints showing.
+358 = [['slowing that', 'showing that'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+# The transcript has fraktur l; the scan prints fraktur h throughout this proof.
+408 = [['\\mathfrak\{l\}', '\mathfrak{h}'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+# The transcript has thc; the scan prints the.
+438 = [
+  ['on thc choice', 'on the choice'],
+  # The transcript has a broken array (rows glued with \\ inside one cell); the scan prints a row with isomorphisms down to 0, 0, R.
+  ["\\$\\$\\n\\\\begin\\{array\\}\\{ccc\\}\\n0 \\\\longrightarrow H\\^1\\(S\\^2\\).*?\\\\end\\{array\\}\\n\\$\\$", "$$\\scandiagram{438_001}$$"],
+]
+# The transcript has homomorphic; the scan prints homeomorphic.
+441 = [['is homomorphic to', 'is homeomorphic to']]
+# The transcript has one-onc; the scan prints one-one.
+455 = [
+  ['is one-onc\.', 'is one-one.'],
+  # The transcript has a 4-row array with dropped cells and PD arrows misplaced; the scan prints two five-column rows joined by PD, PD+PD, PD, PD+PD, PD arrows.
+  ["\\$\\$\\s*\\\\begin\\{array\\}\\{ccccc\\}.*?\\\\end\\{array\\}\\s*\\$\\$", "$$\\scandiagram{455_001}$$"],
+  # The transcript splits the Five Lemma ladder into four garbled arrays; the scan prints one ladder V_1..V_5 over W_1..W_5 with alpha_i, beta_i, phi_i.
+  ["\\$\\$\\s*\\\\begin\\{array\\}\\{ccc\\}\\s*V_1 &.*?\\\\downarrow \\\\phi_5\\s*\\\\end\\{array\\}\\s*\\$\\$", "$$\\scandiagram{455_002}$$"],
+]
+# The transcript has a stray 元 after <; the scan prints only the < sign.
+476 = [['<元 ', '< ']]
+# The transcript has (big place,; the scan prints (big plane).
+481 = [['\(big place,', '(big plane,']]
+501 = [
+  # The transcript has Meuric, Muli-index, nictrizable and merizable; the scan prints Metric, Multi-index and metrizable.
+  ['(?m)^Meuric$', 'Metric'],
+  ['Muli-index', 'Multi-index'],
+  ['non-nictrizable', 'non-metrizable'],
+  ['Non-merizable', 'Non-metrizable'],
+]
+492 = [
+  ['(?m)^# NOTATION INDEX\n\n', "## Notation Index\n\n"],
+  ['(?m)^#{1,2} ((?:CHAPTER \d+|APPENDIX [A-Z]))\n\n<table>\n', "<table>\n<tr><th>\\1</th></tr>\n"],
+  ['(?m)^</?thead>\n', ''],
+  ['<(/?)th>', '<\1td>'],
+  [' class="[^"]*"', ''],
+]
+493 = [
+  ['\A478\n\n# Notation Index\n\n<table>\n', "<table>\n<tr><td></td></tr>\n"],
+  ['(?m)^#{1,2} ((?:CHAPTER \d+|APPENDIX [A-Z]))\n\n<table>\n', "<table>\n<tr><th>\\1</th></tr>\n"],
+  ['(?m)^</?thead>\n', ''],
+  ['<(/?)th>', '<\1td>'],
+  [' class="[^"]*"', ''],
+]
+494 = [
+  ['## CHAPTER 9\n\n<table>\n', "<table>\n<tr><th>CHAPTER 9</th><th></th><th>CHAPTER 10</th><th></th></tr>\n"],
+  ['(?m)^</?thead>\n', ''],
+  ['<(/?)th>', '<\1td>'],
+  [' class="[^"]*"', ''],
+  ['<tr>\s*<td>Notation Index</td>\s*<td></td>\s*<td></td>\s*</tr>', '<tr><td></td></tr>'],
+]
+495 = [
+  ['(?m)^# Notation Index\n\n<table>\n', "<table>\n<tr><td></td></tr>\n"],
+  ['(?m)^#{1,2} ((?:CHAPTER \d+|APPENDIX [A-Z]))\n\n<table>\n', "<table>\n<tr><th>\\1</th></tr>\n"],
+  ['(?m)^</?thead>\n', ''],
+  ['<(/?)th>', '<\1td>'],
+  [' class="[^"]*"', ''],
+]
+# The transcript has Stone-Cech; the scan prints Stone-Čech.
+137 =[['Stone-Cech', 'Stone-Čech']]
+504 = [['Stone-Cech', 'Stone-Čech'], ['(?m)^## (?!Index\b)', '']]
+# The transcript garbles the diagrams; the scan prints them as drawn in diagrams/fig_090_001.typ and fig_090_002.typ.
+90 = [
+  ['\$\$\n\\begin\{array\}\{ccc\}\nT\\mathbb\{R\}\^n.*?\\end\{array\}\n\$\$', '$$\scandiagram{090_001}$$'],
+  ['\$\$\n\\begin\{array\}\{ccc\}\nTU .*?\\end\{array\}\n\$\$', '$$\scandiagram{090_002}$$'],
+]
+# The transcript has DIVPONe; the scan prints DVIPSONE.
+506 = [['DIVPONe', 'DVIPSONE']]
+# Diagrams: the transcript garbles or drops them; the scan prints them as drawn in diagrams/fig_PPP_NNN.typ.
+84 = [
+  # The transcript has only the top arrow and the bracketed note; the scan prints a triangle over S_1 with pi and pi' and the note beside it.
+  ["\\$\\$T\\(S\\^1, i\\) \\\\xrightarrow\\{f_1\\} S\\^1 \\\\times \\\\mathbb\\{R\\}\\^1\\$\\$\\n\\n\\$\\$\\[\\\\pi'\\(a, b\\) = a\\]\\$\\$", "$$\\scandiagram{084_001}$$"],
+  # The transcript sets the sentence as a display with \text; the scan prints it as running text.
+  ["\\$\\$f_1: T\\(S\\^1, i\\).*?commute\\.\\}\\$\\$", "$f_1: T(S^1, i) \\to S^1 \\times \\mathbb{R}^1$ by $f_1(\\lambda u_p) = (p, \\lambda)$, which makes the following diagram commute."],
+]
+88 = [
+  # The transcript has an array with pi_1 and pi_2 on the same row as the arrows; the scan prints a square with vertical arrows.
+  ["\\$\\$\\n\\\\begin\\{array\\}\\{ccc\\}\\nE_1.*?\\\\end\\{array\\}\\n\\$\\$", "$$\\scandiagram{088_001}$$"],
+]
+104 = [
+  ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖'],
+  # The transcript has an array with a broken vertical arrow row; the scan prints a square TM, TN, T'M, T'N with e_M, e_N, f_*, f_sharp.
+  ["\\$\\$\\n\\\\begin\\{array\\}\\{ccc\\}\\nTM.*?\\\\end\\{array\\}\\n\\$\\$", "$$\\scandiagram{104_001}$$"],
+]
+105 = [
+  # Transcript has a plain math line; scan prints it with curved arrow alpha_x under it.
+  ["\\$\\$\\(TM\\)\\|U \\\\xleftarrow.*?\\$\\$", "$$\\scandiagram{105_001}$$"],
+  # Transcript has a plain math line; scan prints it with curved arrow beta_x under it.
+  ["\\$\\$\\(T'M\\)\\|U .*?\\$\\$", "$$\\scandiagram{105_002}$$"],
+  # Transcript has a broken array; scan prints two rows with up arrows and circled 1-4.
+  ["\\(1\\)\\n\\$\\$\\n\\\\begin\\{array\\}\\{ccccc\\}.*?\\\\end\\{array\\}\\n\\$\\$", "(1)\n\n$$\\scandiagram{105_003}$$"],
+]
+107 = [
+  # Scan prints a square with a long top row.
+  ["\\$\\$\\n\\\\begin\\{array\\}\\{cccc\\}\\nTA & \\\\xrightarrow\\{\\\\sim\\} & \\(T\\\\mathbb\\{R\\}\\^n\\)\\|A.*?\\\\end\\{array\\}\\n\\$\\$", "$$\\scandiagram{107_001}$$"],
+  # Transcript has a broken array; scan prints a 3x4 grid with slanted arrows.
+  ["\\$\\$\\n\\\\begin\\{array\\}\\{cccc\\}\\n\\(T\\\\mathbb\\{R\\}\\)\\^n\\|A.*?\\\\end\\{array\\}\\n\\$\\$", "$$\\scandiagram{107_002}$$"],
+]
+108 = [
+  ['([①-⑤])', '$\text{\1}$'],
+  # Transcript dropped diagram (2); scan prints boxes 1-5 with curved arrows.
+  ["\\(2\\)\\n\\nBoxes", "(2)\n\n$$\\scandiagram{108_001}$$\n\nBoxes"],
+  # Transcript dropped this triangle-over-square diagram.
+  ["for ease of reference\\.\\n\\n", "for ease of reference.\n\n$$\\scandiagram{108_002}$$\n\n"],
+  # Transcript dropped this triangle diagram.
+  ["commutativity of the following diagram\\.\\n\\n", "commutativity of the following diagram.\n\n$$\\scandiagram{108_003}$$\n\n"],
+]
+109 = [
+  # Transcript split diagram (3) into a text line and a broken array.
+  ["\\(3\\) \\$\\(TM\\) \\| U \\\\xleftarrow\\{\\\\sim\\} TU\\$\\n\\n\\$\\$ \\\\begin\\{array\\}\\{ccc\\}.*?\\\\end\\{array\\} \\$\\$", "(3)\n\n$$\\scandiagram{109_001}$$"],
+]
+145 = [
+  # The transcript has an HTML table with f^* and f; the scan prints a square with f down and f** down.
+  ["<table>\\n<thead>\\n  <tr class=\"diagram-row\">\\n    <th> \\$V \\\\xrightarrow\\{i_V\\} V\\^\\{\\*\\*\\}\\$ </th>.*?</table>", "$$\\scandiagram{145_001}$$"],
+  # The transcript has an HTML table with f^* and f; the scan prints a square with f down on the left and f^* UP on the right.
+  ["<table>\\n<thead>\\n  <tr class=\"diagram-row\">\\n    <th> \\$V \\\\xrightarrow\\{i_V\\} V\\^\\*\\$ </th>.*?</table>", "$$\\scandiagram{145_002}$$"],
+]
+146 = [
+  # The transcript has a broken array; the scan prints a triangle with A up on the left and a slanted e->w arrow.
+  ["\\$\\$\\n\\\\begin\\{array\\}\\{ccc\\}\\n\\\\mathbb\\{R\\}\\^n &.*?\\\\end\\{array\\},\\n\\$\\$", "$$\\scandiagram{146_001}$$"],
+]
+147 = [
+  # The transcript dropped the triangle (R^k, F(V), h(A), F(e->v), F(e->w)) after 'this means that'.
+  ["this means that\\n\\n", "this means that\n\n$$\\scandiagram{147_001}$$\n\n"],
+]
+241 = [
+  # The transcript has garbled arrows; the scan prints a square with f^* leftward arrows on top and bottom and D down on both sides.
+  ["\\$k\\$-forms on \\$M \\\\leftarrow.*?\\\\quad l\\$-forms on \\$M\\$", "$$\\scandiagram{241_001}$$"],
+]
+386 = [
+  # The transcript has a garbled array with m labels; the scan prints (x,y) -> x-y -> xy^-1 over R x R -> R -> S^1 = R/Z joined by membership signs.
+  ["\\$\\$\\n\\\\begin\\{array\\}\\{ccc\\}\\n\\(x, y\\).*?\\\\end\\{array\\}\\n\\$\\$", "$$\\scandiagram{386_001}$$"],
+]
+435 = [
+  ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖'],
+  # The transcript dropped the big grid (rows 0 -> C^k(M) -> C^k(U)+C^k(V) -> C^k(U n V) -> 0 with d maps, dots above and bare arrows below); the scan prints it.
+  ["as follows,\\n\\n", "as follows,\n\n$$\\scandiagram{435_001}$$\n\n"],
+  # The transcript has the two equations and two garbage lines for their path pictures; the scan prints each equation beside its picture.
+  ["\\$\\$\\(d \\\\oplus d\\) \\\\circ \\\\alpha = \\\\alpha \\\\circ d\\$\\$.*?\\$\\$d = d \\\\oplus d \\\\mid_\\{\\\\beta\\} \\\\beta\\$\\$", "$$\\scandiagram{435_002}$$"],
+]
+436 = [
+  # The transcript has a broken array with \downarrow{...} cells; the scan prints a commutative square.
+  ["\\$\\$ \\\\begin\\{array\\}\\{ccc\\}\\nC_1\\^k.*?\\\\end\\{array\\} \\$\\$", "$$\\scandiagram{436_001}$$"],
+  # OCR read C^k as C^lambda in the sentence after the square.
+  ["\\$C\\^\\\\lambda = C\\^k\\(M\\)\\$", "$C^k = C^k(M)$"],
+]
+437 = [
+  # The transcript has broken rows for the vast diagram (*) and lost the (*) tag; the scan prints three exact rows with d maps, dots-arrows above and below.
+  ["\\$\\$\\n\\\\begin\\{array\\}\\{cccccc\\}.*?\\\\end\\{array\\}\\n\\$\\$", "$$\\scandiagram{437_001}$$"],
+]
+440 = [
+  ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖'],
+  # The transcript splits the picture into a row and an array of vdots; the scan prints two rows with isomorphisms down to R, R and R+R, R.
+  ["\\$\\$ \\\\longrightarrow H\\^0\\(T\\).*?\\\\end\\{array\\}\\$\\$", "$$\\scandiagram{440_001}$$"],
+]
+449 = [
+  # The transcript has a broken array with misplaced ||; the scan prints a row with = down to 0 under the first and last terms and an isomorphism down to R under the fourth.
+  ["\\$\\$\\n\\\\begin\\{array\\}\\{ccc\\}\\nH_c\\^n.*?\\\\end\\{array\\}\\n\\$\\$", "$$\\scandiagram{449_001}$$"],
+]
+453 = [
+  # The transcript has a broken array that mixes the ball picture's C and circle marks into the diagram; the scan prints one row with = down to 0, 0, 0 (the ball picture above it is a figure, not this diagram).
+  ["\\$\\$\\n\\\\begin\\{array\\}\\{ccccccc\\}.*?\\\\end\\{array\\}\\n\\$\\$", "$$\\scandiagram{453_001}$$"],
+]
+467 = [
+  ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖'],
+  # The transcript has a one-line row and drops the triangle; the scan prints a triangle with s*, a down map s-bar_*, an up map (pi|D)*, and pi_0*.
+  ["\\$\\$\\s*H_c\\^k\\(D - S\\) \\\\xrightarrow\\{e\\}.*?\\$\\$", "$$\\scandiagram{467_001}$$"],
+]
+470 = [
+  # The transcript has the square as an array; replaced by the fletcher square.
+  ["\\$\\$\\s*\\\\begin\\{array\\}\\{ccc\\}\\s*H\\^\\{k-1\\}\\(U \\\\cap V\\).*?\\\\end\\{array\\}\\s*\\$\\$", "$$\\scandiagram{470_001}$$"],
+]
+# The transcript has g_{lr}, which Typst reads as its lr function and prints in mono; the scan prints g with subscripts l r.
+341 = [['g_\{lr\}', 'g_{l r}'], ['\\ frac\{d\\gamma\^r\}\{dt\}', '\\frac{d\\gamma^r}{dt}'], ['\\frac\{dg\^j\}\{dt\}', '\\frac{d\\gamma^j}{dt}']]
+342 = [['g_\{lr\}', 'g_{l r}']]
+343 = [['g_\{lr\}', 'g_{l r}'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+347 = [['g_\{lr\}', 'g_{l r}']]
+# The transcript writes the end-of-proof mark as \diamond or \diamondsuit; the scan prints ❖.
+21 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+44 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+49 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+56 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+59 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+60 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+64 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+65 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+66 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+68 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+93 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+94 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+126 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+134 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+154 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+157 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+158 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+160 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+162 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+164 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+167 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+169 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+170 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+172 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+173 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+176 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+181 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+182 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+204 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+205 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+207 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+208 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+210 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+212 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+218 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+219 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+221 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+222 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+223 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+224 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+227 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+231 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+232 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖'], ['d d\(x\^\{i_k\}', '\\mathrm{d} d(x^{i_k}']]
+239 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+240 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+262 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+266 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+271 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+273 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+277 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+286 = [['\*\*Step 3\.\*\*', '*Step 3.*']]
+287 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+288 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+291 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+292 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+293 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+296 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+319 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+320 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+324 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+325 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+330 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+335 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+344 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+345 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+349 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+351 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+361 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+388 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+390 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+394 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+397 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+398 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+400 = [['\\begin\{aligned\}\nG_e &\\xrightarrow\{\\psi_\*\} H_e \\\\\n\\exp \\downarrow & \\quad \\downarrow \\exp \\\\\nG &\\xrightarrow\{\\psi\} H\n\\end\{aligned\}', '\begin{array}{ccc}\nG_e & \xrightarrow{\psi_*} & H_e \\\\\n\exp \downarrow & & \downarrow \exp \\\\\nG & \xrightarrow{\psi} & H\n\end{array}']]
+401 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+402 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+411 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+413 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+414 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖'], ['\*\*Case 2\.\*\*', '*Case 2.*'], ['\*\*Case 3\.\*\*', '*Case 3.*'], ['\*\*ELEGANT PROOF\.\*\*', '*ELEGANT PROOF.*']]
+415 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+417 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+439 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+444 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+445 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+446 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+447 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+448 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+450 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+451 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+452 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+454 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+456 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+462 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+464 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+466 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+475 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+477 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+479 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+480 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+498 = [['(?m)^## (?!Index\b)', '']]
+500 = [['(?m)^## (?!Index\b)', '']]
+502 = [['(?m)^## (?!Index\b)', '']]

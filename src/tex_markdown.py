@@ -14,6 +14,13 @@ _OCR_NEQ_REGEX: Pattern[str] = re.compile(
     r"([a-zA-Z0-9\)])[ \t]+#[ \t]+([0-9Ooa-zA-Z])"
 )
 _HYPHENATION_REGEX: Pattern[str] = re.compile(r"([a-zA-Z]{2,})-\s*\n\s*([a-zA-Z]{2,})")
+DOUBLED_MACRO_RE: Pattern[str] = re.compile(
+    r"\\\\(?=(?:sqrt|frac|int|iint|iiint|oint|sum|prod|lim|log|ln|sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|sinh|cosh|tanh"
+    r"|partial|nabla|infty|alpha|beta|gamma|delta|epsilon|varepsilon|zeta|eta|theta|vartheta|iota|kappa|lambda|mu|nu|xi|pi"
+    r"|rho|sigma|tau|upsilon|phi|varphi|chi|psi|omega|Delta|Gamma|Lambda|Omega|Phi|Pi|Psi|Sigma|Theta|Upsilon|Xi|cdot|cdots"
+    r"|ldots|dots|quad|qquad|left|right|big|Big|bigg|Bigg|operatorname|mathrm|mathbf|mathcal|mathbb|text"
+    r"|begin|end|S|neq|leq|geq|overline|hat|bar|vec|tilde|times|in|to|subset|mathfrak|boldsymbol)\b)"
+)
 
 
 def _has_top_level_linebreak(s: str) -> bool:
@@ -221,11 +228,7 @@ def repair_ocr_math(body: str, is_display: bool = False) -> str:
     s = re.sub(r"\\arc\s*\\cot\b", r"\\operatorname{arccot}", s)
     s = re.sub(r"\\arc\s+(sin|cos|tan)\b", r"\\arc\1", s)
     s = re.sub(r"\\arc\s+cot\b", r"\\operatorname{arccot}", s)
-    s = re.sub(
-        r"\\\\(?=(?:sqrt|frac|int|iint|iiint|oint|sum|prod|lim|log|ln|sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|sinh|cosh|tanh|partial|nabla|infty|alpha|beta|gamma|delta|epsilon|varepsilon|zeta|eta|theta|vartheta|iota|kappa|lambda|mu|nu|xi|pi|rho|sigma|tau|upsilon|phi|varphi|chi|psi|omega|Delta|Gamma|Lambda|Omega|Phi|Pi|Psi|Sigma|Theta|Upsilon|Xi|cdot|cdots|ldots|dots|quad|qquad|left|right|big|Big|bigg|Bigg|operatorname|mathrm|mathbf|mathcal|mathbb|text)\b)",
-        r"\\",
-        s,
-    )
+    s = DOUBLED_MACRO_RE.sub(r"\\", s)
     s = re.sub(r'([A-Za-z0-9\)\}])"', r"\1''", s)
     s = re.sub(r"(?<!\\)\$", "", s)
     s = re.sub(

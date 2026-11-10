@@ -19,7 +19,8 @@ import pymupdf
 from PIL import Image, ImageDraw, ImageFont
 from polytypst_native import encode_png
 
-from .book_state import book_state
+from .book_state import transcripts
+from .books import book_folders, books
 from .compiler import page_cleaner
 from .compiler.monograph import MonographCompiler, adhoc_spec
 from .ocr.lines import LineStore, source_ocr_dir
@@ -150,9 +151,11 @@ def sweep(
 
     with patch.object(page_cleaner, "split_page_footnotes", side_effect=recording):
         for folder in folders:
-            pages = sorted(book_state(folder).glob("markdown_pages/p_*.md"))
-            spec = adhoc_spec(
-                Path(f"{folder.name}.pdf"), len(pages), lang="zh", domain="economics"
+            pages = sorted(transcripts(folder).glob("p_*.md"))
+            spec = (
+                books()[folder.name].spec
+                if folder.name in book_folders()
+                else adhoc_spec(Path(f"{folder.name}.pdf"), len(pages), lang="zh", domain="economics")
             )
             cleaner = MonographCompiler(replace(spec, footnote_style=style)).cleaner
             book = found.setdefault(folder.name, {})

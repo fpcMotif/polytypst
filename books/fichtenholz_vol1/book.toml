@@ -1,4 +1,5 @@
 slug = 'fichtenholz_vol1'
+name = 'fichtenholz2006-calculus1'
 title = '微积分学教程（第一卷）'
 author = 'Г.М. 菲赫金哥尔茨'
 publisher = '高等教育出版社'
@@ -59,6 +60,9 @@ caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?图\s*(?P<number>\d+[a-z]?)\
 caption_format = '图 {number}'
 supplement_none = false
 
+[page_fixups]
+295 = [['（在“向根的一侧”凑成分，', '（在“向根的一侧”凑成分），']]
+
 [hooks]
 heading_hook = '_fichtenholz_heading'
 figures = 'draw_figures'
@@ -89,7 +93,7 @@ font_stack = '("Songti SC", "New Computer Modern Math")'
 size = 10.0
 weight = 400
 diagram_dir = '@BOOK@/diagrams'
-transcripts = 'markdown_pages'
+transcripts = true
 flow = true
 
 [editions.facsimile.facsimile.diagram_text]

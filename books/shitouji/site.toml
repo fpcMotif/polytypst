@@ -1,0 +1,30 @@
+[[page]]
+slug = "shitouji"
+title = "脂硯齋重評石頭記"
+subtitle = "四校訖自用本 · 直排彙校"
+author = "曹雪芹 著 · 脂硯齋 評"
+language = "zh-Hant"
+domain = "中國古典小說"
+rendering = "vertical-classic"
+badge = "直排"
+description = "《石頭記》八十回彙校本。正文直排，夾批雙行小字，側批與眉批依原色區分各本批語。"
+chapters = "site"
+source = "@ASSETS@/shitouji"
+legend = [
+    { color = "E73E29", label = "甲戌本硃批" },
+    { color = "A70236", label = "庚辰本硃批" },
+    { color = "0E56A7", label = "庚辰本墨批 · 己卯本墨夾批" },
+    { color = "EC008C", label = "蒙府本之批" },
+    { color = "A46C35", label = "戚序本之批 · 有正補文" },
+    { color = "008080", label = "甲戌本墨眉批 · 列藏本" },
+    { color = "800080", label = "甲辰本" },
+    { color = "581600", label = "楊藏本" },
+    { color = "FAA624", label = "舒序本補文" },
+]
+
+[page.layout]
+source_pdf = "石頭記＠四校訖自用.v2.006a.PDF"
+first_page = 19
+volumes = "typst/volume_0*.pdf"
+latex = "latex"
+volume_labels = ["第一冊", "第二冊", "第三冊", "第四冊", "第五冊", "第六冊", "第七冊", "第八冊"]

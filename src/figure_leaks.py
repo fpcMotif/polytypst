@@ -15,11 +15,10 @@ import difflib
 import json
 import re
 from collections.abc import Iterable
-from importlib import import_module
 from typing import TYPE_CHECKING
 
 from .ocr.lines import LineStore, OcrLine
-from .vision.figure_extractor import load_figures_manifest
+from .vision.figure_extractor import FIGURES_MANIFEST_NAME, load_figures_manifest
 
 if TYPE_CHECKING:
     from .edition import Book
@@ -63,7 +62,7 @@ def in_top_down_box(line: OcrLine, box: tuple[float, float, float, float]) -> bo
 
 def figure_text_leaks(book: Book, ratio: float = 0.8) -> list[tuple[int, str, int, float, str]]:
     """Every leaked line of a book, once per page line, as (scan page, figure id, line index, ratio, text)."""
-    manifest = book.out_dir / "figures_manifest.json"
+    manifest = book.out_dir / FIGURES_MANIFEST_NAME
     if not manifest.exists() or not isinstance(json.loads(manifest.read_text(encoding="utf-8")), list):
         return []
     ocr = LineStore(book.ocr)
@@ -85,9 +84,11 @@ def figure_text_leaks(book: Book, ratio: float = 0.8) -> list[tuple[int, str, in
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("key", help="the folder name under src/, such as 6_劳动力市场与收入分配")
+    parser.add_argument("key", help="a book key under books/, such as 6_劳动力市场与收入分配")
     parser.add_argument("--ratio", type=float, default=0.8, help="lowest match ratio printed (default 0.8)")
     args = parser.parse_args()
-    book = import_module(f"polytypst.{args.key}.book").BOOK
+    from .books import book_by_key
+
+    book = book_by_key(args.key)
     for page, figure_id, i, best, text in figure_text_leaks(book, args.ratio):
         print(f"p{page} fig {figure_id} L{i} ({best:.2f}): {text[:60]}")

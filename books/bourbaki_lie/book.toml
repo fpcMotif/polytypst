@@ -29,6 +29,7 @@ footnote_style = 'symbol'
 footnote_marks = ['†', '‡', '§']
 pdf_name_markers = ['lie groups and lie algebras', 'bourbaki']
 pdf_page_count = 476
+source_pdf = 'Lie Groups and Lie Algebras (Nicolas Bourbaki）.pdf'
 
 [figures]
 caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Diagram\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[a-z]?)\.?(?:\*\*)?\s*(?P<tail>.*)$'

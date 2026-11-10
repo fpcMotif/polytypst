@@ -21,16 +21,16 @@ import pymupdf
 
 from polytypst.book_state import book_state
 from polytypst.books import module
-from polytypst.compiler.typst_math import REPO_FONTS_DIR as FONTS
 from polytypst.ocr.lines import LineStore
 from polytypst.parity.source import read_source_page, source_ocr_dir, source_pdf
+from polytypst.paths import FONTS
 
 OUT_DIR = module("bourbaki", None).OUT_DIR
 query_typ_marks = module("bourbaki", "marks").query_marks
 BOURBAKI_1970_SPEC = module("bourbaki", "spec").BOURBAKI_1970_SPEC
 
 ORIGINAL = source_pdf(BOURBAKI_1970_SPEC)
-TYP = OUT_DIR / f"{BOURBAKI_1970_SPEC.slug}.typ"
+TYP = module("bourbaki", "book").VINTAGE_TYP
 OCR = source_ocr_dir(OUT_DIR)
 WORK = OUT_DIR / "linebreak_search"
 RESULTS = book_state(OUT_DIR) / "linebreaks.json"

@@ -56,12 +56,22 @@ def checker_rules() -> list[Rule]:
     return list(out.values())
 
 
+def design_rules() -> list[Rule]:
+    out = {}
+    for call in ast.walk(_tree("compiler/page_design.py")):
+        if isinstance(call, ast.Call) and getattr(call.func, "id", "") == "Finding":
+            severity, rule = call.args[:2]
+            if isinstance(severity, ast.Constant) and isinstance(rule, ast.Constant):
+                out.setdefault(rule.value, Rule("pdf-layout", rule.value, severity.value, "audit", "src/compiler/page_design.py", rule.lineno))
+    return list(out.values())
+
+
 def literal_rules() -> list[Rule]:
-    counts = _function(_tree("literal_numbers.py"), "literal_numbering_counts")
+    hits = _function(_tree("literal_numbers.py"), "literal_numbering_hits")
     names = {}
-    for node in ast.walk(counts):
-        if isinstance(node, ast.Subscript) and getattr(node.value, "id", "") == "counts":
-            for s in _strings(node.slice):
+    for node in ast.walk(hits):
+        if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "add" and node.args:
+            for s in _strings(node.args[0]):
                 names.setdefault(s.value, s.lineno)
     return [
         Rule("source", f"{prefix}_{name}", "count", "build,audit", "src/literal_numbers.py", line)
@@ -105,4 +115,4 @@ def transcript_rules() -> list[Rule]:
 
 
 def all_rules() -> list[Rule]:
-    return checker_rules() + literal_rules() + transcript_rules() + parity_rules() + ocr_rules()
+    return checker_rules() + design_rules() + literal_rules() + transcript_rules() + parity_rules() + ocr_rules()

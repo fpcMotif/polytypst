@@ -6,8 +6,8 @@ import pymupdf
 import pytest
 
 from polytypst import books as books_module
-from polytypst import books_cli, cli
-from polytypst.compiler.monograph import MonographSpec
+from polytypst import books_cli, cli, edition_audit
+from polytypst.compiler.monograph import MonographSpec, build_source
 from polytypst.compiler.source_numbers import LATEX, TYPST
 from polytypst.edition import Book, Edition
 
@@ -85,16 +85,19 @@ def test_audit_after_a_running_build_checks_running_footnote_numbers(monkeypatch
     monkeypatch.setattr(books_module, "books", lambda: {"probe": book})
     monkeypatch.setattr(books_cli, "BASELINE", tmp_path / "baseline.json")
     numbered, audited = [], []
-    monkeypatch.setattr(books_cli, "edition_literal_counts", lambda rebuilt, spec: numbered.append(spec) or {})
+    monkeypatch.setattr(edition_audit, "edition_literal_hits", lambda rebuilt, spec: numbered.append(spec) or {})
 
     class Checker:
         def __init__(self, path, spec):
             audited.append(spec)
 
-        def run_all_checks(self):
+        def run_all_checks(self, tiers):
             return SimpleNamespace(issues=[])
 
-    monkeypatch.setattr(books_cli, "DocumentQualityChecker", Checker)
+        def type_profile(self):
+            return None
+
+    monkeypatch.setattr(edition_audit, "DocumentQualityChecker", Checker)
     assert books_cli.main("build", ["probe", "--footnotes", "running"]) == 0
     assert books_cli.main("audit", ["probe", "--baseline", str(tmp_path / "baseline.json")]) == 0
     assert [(s.footnote_numbering, s.footnote_reset) for s in audited] == [("1", "book")]
@@ -107,8 +110,11 @@ def test_audit_after_a_running_build_checks_running_footnote_numbers(monkeypatch
 def test_build_fails_when_literal_numbers_rise_above_the_baseline(monkeypatch, tmp_path, capsys):
     spec = MonographSpec(domain="math", slug="x", title="X", author="A")
     typst = TYPST.chapter_start + "#strong[定理 7] 设 $P$ 是域.\n"
+    (tmp_path / "build").mkdir()
     edition = Edition(
-        tmp_path / "x.pdf", lambda source, formats, footnotes: (tmp_path / "x.typ").write_text(typst, encoding="utf-8"), spec=spec
+        tmp_path / "x.pdf",
+        lambda source, formats, footnotes: build_source(tmp_path / "x.pdf", "typ").write_text(typst, encoding="utf-8"),
+        spec=spec,
     )
     book = Book(spec, tmp_path, {"monograph": edition})
     monkeypatch.setattr(books_cli, "books", lambda: {"probe": book})
@@ -283,8 +289,9 @@ def test_audit_leaves_line_end_hyphens_to_an_edition_that_keeps_the_scan_line_br
 def test_audit_counts_literal_numbers_in_the_typst_and_latex_beside_the_pdf(monkeypatch, tmp_path, capsys):
     pdf = tmp_path / "x.pdf"
     write_pdf(pdf, [BODY, BODY])
-    _ = pdf.with_suffix(".typ").write_text(TYPST.chapter_start + "Remarque (1.6.6) Soient $F$ et (1.1.3).\n")
-    _ = pdf.with_suffix(".tex").write_text(LATEX.chapter_start + "Voir {[}8{]}.\n")
+    build_source(pdf, "typ").parent.mkdir()
+    _ = build_source(pdf, "typ").write_text(TYPST.chapter_start + "Remarque (1.6.6) Soient $F$ et (1.1.3).\n")
+    _ = build_source(pdf, "tex").write_text(LATEX.chapter_start + "Voir {[}8{]}.\n")
     spec = MonographSpec(domain="math", slug="x", title="X", author="A", cross_references=True)
     book = Book(spec, tmp_path, {"monograph": Edition(pdf, lambda source, formats, footnotes: None, spec=spec)})
     monkeypatch.setattr(books_cli, "books", lambda: {"probe": book})
@@ -336,6 +343,54 @@ def test_pending_pages_stop_the_scan_command_before_the_build(monkeypatch, tmp_p
     assert stop.value.code not in (0, None)
     assert "41-45" in str(stop.value.code)
     assert built == []
+
+
+class DoneBook(Book):
+    def transcribe(self, *_):
+        return {}
+
+
+def scan_command(monkeypatch, tmp_path, *flags: str) -> list:
+    built: list = []
+    book = DoneBook(
+        MonographSpec(domain="math", slug="x", title="X", author="A"),
+        tmp_path,
+        {"monograph": Edition(tmp_path / "x.pdf", lambda source, formats, footnotes: built.append(formats),
+                              formats=frozenset({"pdf", "tex"}))},
+    )
+    monkeypatch.setattr(books_module, "book_for_scan", lambda source, key: book)
+    scan = tmp_path / "scan.pdf"
+    scan.write_bytes(b"%PDF")
+    monkeypatch.setattr("sys.argv", ["polytypst", str(scan), "--no-verify", *flags])
+    cli.main()
+    return built
+
+
+def test_the_scan_command_builds_the_formats_it_names_with_spaces_after_commas(monkeypatch, tmp_path):
+    assert scan_command(monkeypatch, tmp_path, "--formats", "typst, pdf") == [frozenset({"pdf"})]
+
+
+def test_the_scan_command_rejects_a_format_the_edition_cannot_make(monkeypatch, tmp_path, capsys):
+    with pytest.raises(SystemExit):
+        scan_command(monkeypatch, tmp_path, "--formats", "pfd")
+    assert "pfd" in capsys.readouterr().err
+
+
+def test_the_scan_command_stops_before_any_work_when_the_book_state_folder_is_unset(monkeypatch, tmp_path):
+    monkeypatch.delenv("POLYTYPST_BOOKS", raising=False)
+    book = Book(
+        MonographSpec(domain="math", slug="x", title="X", author="A"),
+        tmp_path,
+        {"monograph": Edition(tmp_path / "x.pdf", lambda source, formats, footnotes: None)},
+    )
+    monkeypatch.setattr(books_module, "book_for_scan", lambda source, key: book)
+    scan = tmp_path / "scan.pdf"
+    scan.write_bytes(b"%PDF")
+    monkeypatch.setattr("sys.argv", ["polytypst", str(scan), "--no-verify"])
+    with pytest.raises(SystemExit) as stop:
+        cli.main()
+    assert "POLYTYPST_BOOKS" in str(stop.value.code)
+    assert not (tmp_path / "page_renders").exists()
 
 
 def test_the_scan_command_passes_its_round_limit_to_the_transcript_store(monkeypatch, tmp_path):

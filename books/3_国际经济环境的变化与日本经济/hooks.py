@@ -9,17 +9,12 @@ from polytypst.parity.source import source_pdf
 
 KEY = Path(__file__).parent.name
 BOOK_TOML = tomllib.loads((Path(__file__).parent / "book.toml").read_text(encoding="utf-8"))
-RUNNING_HEADER_REGEXES = tuple(BOOK_TOML["running_header_regexes"])
 CHAPTER_TITLES = {c["title"] for c in BOOK_TOML["chapters"]}
 
 # The section rule reads `3 20世纪…` as a number and a title only when the title starts with a non-digit.
 WORD_JOINER = "⁠"
 
 HEADED_BYLINES = ("伊藤元重", "本间正义", "德丸浩", "佐佐木百合")
-
-FALSE_HEADINGS = (
-    r"^(?:#+\s*)?为了政策目标。$",
-)
 
 
 def intl_econ_heading_hook(lt: str, chapter: int) -> str | None:
@@ -28,12 +23,6 @@ def intl_econ_heading_hook(lt: str, chapter: int) -> str | None:
         sec_title = m_ch.group(2).strip()
         if sec_num != chapter and sec_title in CHAPTER_TITLES:
             return f"## {sec_num} {sec_title}"
-    for rx in RUNNING_HEADER_REGEXES:
-        if re.match(rx, lt, re.IGNORECASE):
-            return ""
-    for rx in FALSE_HEADINGS:
-        if re.match(rx, lt):
-            return re.sub(r"^#+\s*", "", lt)
     if re.match(r"^#+\s*(?:（日本）内阁府经济社会综合研究所|作者简介|中文版前言|中文版序言|序\s*国际经济环境的变化与日本经济)$", lt):
         return ""
     if m := re.match(rf"^#+\s*((?:——|{'|'.join(HEADED_BYLINES)}).*)$", lt):
@@ -44,7 +33,6 @@ def intl_econ_heading_hook(lt: str, chapter: int) -> str | None:
         return f"### {m.group(1)} {m.group(2).strip()}"
     if m := re.match(r"^#+\s*(\d+)\s+(\d+世纪.*)$", lt):
         return f"## {m.group(1)} {WORD_JOINER}{m.group(2)}"
-    # The cleaner keeps only the first of equal headings across the book, which drops every later `1 前言` and `导 语`.
     if m := re.match(r"^#+\s*(\d+)\s+(\S.*)$", lt):
         return f"## {m.group(1)} {m.group(2).strip()}"
     if m := re.match(r"^#+\s*(\d+\s*世纪.*)$", lt):

@@ -6,6 +6,7 @@ publisher = 'Academic Press'
 series = ''
 year = 1943
 domain = 'math'
+cross_references = true
 preface_page = 9
 chapters = [
   { number = 1, title = 'Introduction', start_page = 13, end_page = 19 },

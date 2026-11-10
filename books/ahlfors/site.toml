@@ -1,0 +1,11 @@
+[[page]]
+slug = "ahlfors"
+title = "Complex Analysis (Third Edition)"
+subtitle = "An Introduction to the Theory of Analytic Functions of One Complex Variable"
+author = "Lars V. Ahlfors"
+domain = "Complex Function Theory & Riemann Surfaces"
+badge = "1979 McGraw-Hill Edition + KaTeX Engine + Pen-and-Ink Figures"
+description = "哈佛大学阿尔福斯的复分析教程，第三版。收录全部 8 章：复数代数、复函数、解析映射、复积分、级数展开、共形映射与狄利克雷问题、椭圆函数、全局解析函数。附 50 幅矢量图与黑白插图。"
+chapters = "transcript-pages"
+editions = ["complete"]
+layout = { drop_paragraphs = ['1\.1\.1\.1\.1', '^//'] }

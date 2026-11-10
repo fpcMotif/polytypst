@@ -2,6 +2,7 @@ from polytypst.compiler.monograph import ChapterSpec, MonographSpec
 
 LONDON_TREASURY_SPEC = MonographSpec(
     slug="london_branch_treasury_and_trading_reader",
+    name="london2026-treasury",
     title="伦敦分行资金与交易业务阅读册",
     subtitle="从业者经验导读、轮岗问题与53篇原始文献汇编",
     author="赴任前阅读编委会",

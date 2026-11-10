@@ -1,4 +1,5 @@
 slug = '2'
+name = 'esri2022-deflation'
 title = '通缩经济与货币政策'
 author = '（日本）内阁府经济社会综合研究所'
 publisher = '中国金融出版社'
@@ -9,6 +10,7 @@ domain = 'economics'
 merge_continued_tables = true
 chapter_openings = true
 aliases = ['2', '2 通缩经济与货币政策', '2_通缩经济与货币政策']
+pdf_name_markers = ['通缩经济与货币政策']
 source_pdf = '2 通缩经济与货币政策.pdf'
 
 chapters = [

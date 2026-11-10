@@ -13,8 +13,9 @@ from pathlib import Path
 
 from polytypst_native import Typst
 
-from .compiler.typst_math import REPO_FONTS_DIR, typst_command
+from .compiler.typst_math import typst_command
 from .parity.ink_cache import InkCache
+from .paths import FONTS
 
 PYTHON = "Python bytecode"
 SUBPROCESS = "subprocess wait"
@@ -163,7 +164,7 @@ def time_typst(typ: Path) -> list[TypstTime]:
     text = typ.read_text(encoding="utf-8")
     scratch.write_text(text, encoding="utf-8")
     try:
-        cold, typst = _timed(lambda: _compiled(Typst([str(REPO_FONTS_DIR)]), scratch))
+        cold, typst = _timed(lambda: _compiled(Typst([str(FONTS)]), scratch))
         scratch.write_text(edit_one_line(text), encoding="utf-8")
         edited, _ = _timed(lambda: _compiled(typst, scratch))
         repeat, _ = _timed(lambda: _compiled(typst, scratch))
@@ -189,7 +190,7 @@ def _time_cli(typ: Path) -> float | None:
     if command is None:
         return None
     with tempfile.TemporaryDirectory() as tmp:
-        argv = [*command, "compile", "--font-path", str(REPO_FONTS_DIR), "--root", "/", str(typ), str(Path(tmp) / "cli.pdf")]
+        argv = [*command, "compile", "--font-path", str(FONTS), "--root", "/", str(typ), str(Path(tmp) / "cli.pdf")]
         seconds, done = _timed(lambda: subprocess.run(argv, capture_output=True, check=False))
     return seconds if done.returncode == 0 else None
 

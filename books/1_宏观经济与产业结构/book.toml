@@ -1,4 +1,5 @@
 slug = '1'
+name = 'esri2022-macro'
 title = '宏观经济与产业结构'
 author = '（日本）内阁府经济社会综合研究所'
 publisher = '中国金融出版社'
@@ -284,7 +285,6 @@ summary = '13 chapters, illustrated monograph with redrawn figures'
 
 [editions.illustrated.spec]
 slug = '1_illustrated'
-book_aliases = false
 
 [editions.facsimile]
 kind = 'facsimile'
@@ -296,8 +296,8 @@ font_file = '/System/Library/Fonts/Supplemental/Songti.ttc'
 font_stack = '("Songti SC", "STSong", "STIX Two Math")'
 size = 10.5
 weight = 400
-diagram_dir = 'output/1_宏观经济与产业结构/figures'
-transcripts = 'markdown_pages'
+diagram_dir = '@OUTPUT@/1_宏观经济与产业结构/figures'
+transcripts = true
 strict_lines = true
 
 [editions.facsimile.facsimile.diagram_text]

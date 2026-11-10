@@ -12,8 +12,9 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
-from polytypst.compiler.typst_math import REPO_FONTS_DIR as FONTS
+from polytypst.compiler import marks
 from polytypst.parity.source import SourcePage, read_source_page, source_ocr_dir
+from polytypst.paths import FONTS
 
 BODY_TOP, BODY_BOTTOM = 60.0, 58.0
 WINDOW = 60
@@ -77,7 +78,7 @@ def _edit_at(body: str, toks: list[re.Match], j: int, e: Ending) -> tuple[int, i
     if e.hyphenated:
         if len(word) > len(e.end) and word.startswith(e.end) and word[len(e.end) :].startswith(e.nxt):
             at = toks[j].start() + len(e.end)
-            return at, at, "@@HY@@"
+            return at, at, marks.HYPHEN_BREAK
         return None
     if word != e.end or j + 1 >= len(toks) or toks[j + 1].group().lower() != e.nxt:
         return None
@@ -85,7 +86,7 @@ def _edit_at(body: str, toks: list[re.Match], j: int, e: Ending) -> tuple[int, i
     space = re.search(r"\s+", gap)
     if space is None or "\n\n" in gap or "$" in gap:
         return None
-    return toks[j].end() + space.start(), toks[j].end() + space.end(), "@@BR@@"
+    return toks[j].end() + space.start(), toks[j].end() + space.end(), marks.LINE_BREAK
 
 
 def insert_breaks(body: str, endings: list[Ending]) -> str:
@@ -180,7 +181,7 @@ def keep_fitting_breaks(body: str) -> str:
             start, indent = m.end(), False
         dropped = [s for s in (m.span() for m in MARKER_RE.finditer(para)) if s not in kept]
         for a, b in reversed(dropped):
-            replacement = "" if para[a:b] == "@@HY@@" else " "
+            replacement = "" if para[a:b] == marks.HYPHEN_BREAK else " "
             para = para[:a] + replacement + para[b:]
         out.append(para)
     return "\n\n".join(out)
@@ -191,7 +192,7 @@ def last_line_fills(page: str) -> bool:
     para = page.rstrip().split("\n\n")[-1]
     tail = MARKER_RE.split(para)[-1].strip()
     width, _, _ = line_width_pt(tail)
-    if not MARKER_RE.search(para) and not para.startswith("@@NOINDENT@@"):
+    if not MARKER_RE.search(para) and not para.startswith(marks.NO_INDENT):
         width += INDENT_EM * SIZE_PT
     return run_fills_lines(width)
 

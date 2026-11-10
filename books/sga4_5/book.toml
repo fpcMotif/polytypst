@@ -6,9 +6,10 @@ series = 'Lecture Notes in Mathematics 569'
 year = 1977
 publisher_key = 'springer'
 lang = 'fr'
+statement_style = 'upright'
 domain = 'math'
 chapters = [
-  { number = 0, title = 'Introduction', start_page = 3, end_page = 5, label = 'Introduction' },
+  { number = 0, title = 'Introduction', start_page = 3, end_page = 4, label = 'Introduction' },
   { number = 1, title = '''Un fil d'Ariane pour SGA 4, SGA 4 1/2 et SGA 5''', start_page = 6, end_page = 8, label = '''Fil d'Ariane''' },
   { number = 2, title = 'Cohomologie étale : les points de départ', start_page = 9, end_page = 80, label = 'Arcata' },
   { number = 3, title = 'Rapport sur la formule des traces', start_page = 81, end_page = 114, label = 'Rapport' },
@@ -19,6 +20,9 @@ chapters = [
   { number = 8, title = 'Théorèmes de finitude en cohomologie l-adique', start_page = 238, end_page = 266, label = 'Th. finitude' },
   { number = 9, title = 'Catégories dérivées, état 0', start_page = 267, end_page = 316, label = 'Catégories dérivées' },
   { number = 10, title = 'Erratum pour SGA 4', start_page = 317, end_page = 317, label = 'Erratum' },
+]
+drop_line_regexes = [
+  '^#\s+(?:Introduction\.|Cohomologie étale:\s+les points de départ\.|RAPPORT SUR LA FORMULE DES TRACES|La classe de cohomologie associée à un cycle\.|DUALITE|Applications de la formule des traces aux sommes trigonométriques\.|Erratum pour SGA 4)$',
 ]
 running_header_regexes = [
   '''^(?![#])(?:[0-9A-Z]{1,3}\s*[-–]\s*\d{1,3}\s*)?(?:Arcata|Rapport|Fonction\s+L.*|Cycle|Dualité|Dualite|Sommes\s+trig.*|Th\.\s*finitude.*|Catégories\s+dérivées.*|Erratum.*|Table\s+des\s+matières.*|Un\s+fil\s+d'Ariane.*|Cohomologie\s+étale.*)(?:.*)?$''',
@@ -54,7 +58,7 @@ font_stack = '("STIX Two Text", "STIX Two Math")'
 size = 9.5
 weight = 400
 diagram_dir = '@BOOK@/diagrams'
-transcripts = 'markdown_pages'
+transcripts = true
 
 [editions.facsimile.facsimile.diagram_text]
 font = 'STIX Two Text'

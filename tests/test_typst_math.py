@@ -1,3 +1,4 @@
+import re
 from dataclasses import replace
 
 import pytest
@@ -6,13 +7,21 @@ from polytypst.compiler.monograph import (
     CONTINUATION_OP_RE,
     MonographCompiler,
     MonographSpec,
+    compile_typst,
 )
 from polytypst.compiler.typst_math import (
     clean_margin_and_inline_math,
     convert_environments,
     convert_math_batch,
     normalize_typst_differentials,
+    parse_braced,
+    sanitize_math_code,
 )
+
+
+@pytest.mark.parametrize(("text", "group"), [("{ab}c", ("ab", 4)), ("{ab", ("ab", 3)), ("{a{b}", ("a{b}", 5))])
+def test_a_braced_group_keeps_every_character_when_the_text_ends_before_it_closes(text, group):
+    assert parse_braced(text, 0) == group
 
 
 def convert(code: str, display: bool = False) -> str:
@@ -23,6 +32,7 @@ def layout_convert(code: str) -> str:
     return convert_math_batch([(code, False)], theorem_layout=True)[0]
 
 
+@pytest.mark.slow
 def test_section_sign_survives_conversion():
     assert convert(r"\S 2") == "section 2"
     assert "section 6" in convert(r"(\S 6, \text{Corollary 1})")
@@ -48,6 +58,81 @@ def test_every_book_gets_the_circle_and_operator_name_rewrites():
     expected = MonographCompiler(explicit).format_typst(text)
     assert "⊕" in expected or "2295" in expected
     assert MonographCompiler(bare).format_typst(text) == expected
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    ("text", "typst"),
+    [
+        ("Let $x$ cost $5 today.", "Let $x$ cost 5 today."),
+        ("Spend $5 on $x$ today.", "Spend 5 on $x$ today."),
+        ("Take $2$ pens for $5 each.", "Take $2$ pens for 5 each."),
+        ("Let $a +\nb$ hold, and $5 is the price.", "Let $a + b$ hold, and 5 is the price."),
+    ],
+)
+def test_an_unpaired_dollar_leaves_the_paired_math_as_math(text, typst):
+    out = MonographCompiler(MonographSpec(domain="math", slug="t", title="T", author="A")).format_typst(text)
+    assert " ".join(out.split()) == typst
+
+
+@pytest.mark.parametrize(
+    ("text", "ref"), [("As Figure 3.2 shows.", "@fig-3-2"), ("See Fig. 1.2.1 here.", "@fig-1-2-1"), ("Figure 4b.", "@fig-4b")]
+)
+def test_a_figure_reference_names_the_label_the_figure_carries(text, ref):
+    spec = MonographSpec(domain="math", slug="t", title="T", author="A", cross_references=True)
+    out = MonographCompiler(spec).format_typst(text)
+    assert re.search(rf"{ref}(?![\w.-]*\d)", out), out
+
+
+@pytest.mark.slow
+def test_a_line_that_starts_with_plus_or_slash_prints_that_character(tmp_path):
+    spec = MonographSpec(domain="math", slug="t", title="T", author="A")
+    typ = tmp_path / "lines.typ"
+    _ = typ.write_text(MonographCompiler(spec).format_typst("+ legend marker\n\n/usr/bin is a path."), encoding="utf-8")
+    compile_typst(typ, tmp_path / "lines.pdf")
+    import pymupdf
+
+    text = " ".join(pymupdf.open(tmp_path / "lines.pdf")[0].get_text().split())
+    assert text == "+ legend marker /usr/bin is a path."
+    assert "\\+" not in MonographCompiler(spec).format_typst("$$\na = b\n+ c\n$$\n\nLet $a\n+ b$ hold.")
+
+
+def test_a_body_that_ends_in_a_backslash_does_not_turn_the_other_bodies_into_strings():
+    out = convert_math_batch(
+        [("x \\", False), (r"\sum\limits_{n=1}^\infty a_n", False), (r"f \circ g", False), (r"x^\top y", False)]
+    )
+    assert [body.startswith('"') for body in out] == [False, False, False, False], out
+
+
+def test_a_row_end_with_a_spacing_argument_breaks_the_row_without_printing_the_space():
+    out = convert(r"a = b \\[2pt] c = d", True)
+    assert "p t" not in out and "2pt" not in out
+    assert "".join(out.split()) == r"a=b\c=d"
+
+
+@pytest.mark.slow
+def test_two_parallel_signs_around_an_arrow_stay_parallel_signs():
+    out = convert(r"l_1 \| l_2 \Rightarrow m_1 \| m_2")
+    assert "norm" not in out
+    assert convert(r"\|x - y\| \le \|x\| + \|y\|") == "norm(x - y) lt.eq norm(x) + norm(y)"
+
+
+@pytest.mark.parametrize(
+    ("code", "typst"),
+    [
+        (r"f \circ g", "f compose g"),
+        (r"90^\circ", "90^degree"),
+        (r"x^\top y", "x^top y"),
+        (r"\sum\limits_{n=1} a_n", "sum_(n=1) a_n"),
+        (r"\lvert x \rvert", "| x |"),
+    ],
+)
+def test_the_fallback_converter_keeps_the_meaning_of_common_macros(code, typst):
+    assert "".join(sanitize_math_code(code).split()) == "".join(typst.split())
+
+
+def test_the_division_sign_prints_as_a_sign():
+    assert convert(r"a \div b") == "a ÷ b"
 
 
 def test_square_operator_keeps_full_size():
@@ -81,6 +166,7 @@ def test_dollar_signs_nested_in_text_do_not_leak():
     assert "§ 3, formula (30)" in out
 
 
+@pytest.mark.slow
 def test_convert_math_batch_and_margin_helper_return_finished_typst_math():
     out = convert(r"\int f(x) dx \neq \prod_{i=1}^n a_i \unknownocrmacro")
     assert "dif x" in out
@@ -98,7 +184,7 @@ def test_run_typst_resolves_binary_once_without_triple_retry(monkeypatch, tmp_pa
 
     from polytypst.compiler import typst_math
     from polytypst.compiler.monograph import compile_typst
-    from polytypst.compiler.typst_math import REPO_FONTS_DIR
+    from polytypst.paths import FONTS
 
     calls = []
 
@@ -118,7 +204,7 @@ def test_run_typst_resolves_binary_once_without_triple_retry(monkeypatch, tmp_pa
             "typst",
             "compile",
             "--font-path",
-            str(REPO_FONTS_DIR),
+            str(FONTS),
             "--root",
             "/",
             str(tmp_path / "a.typ"),
@@ -186,6 +272,7 @@ def _tight(code: str) -> str:
     return convert(code).replace(" ", "")
 
 
+@pytest.mark.slow
 def test_a_norm_becomes_a_norm_call_that_keeps_its_scripts():
     assert _tight(r"\|f\|_p") == "norm(f)_p"
     assert _tight(r"\|f\|_p^2") == "norm(f)_p^2"
@@ -195,22 +282,26 @@ def test_a_norm_becomes_a_norm_call_that_keeps_its_scripts():
     assert _tight(r"\left\| \|f\|_{L^p} \right\|_{L^q}") == "norm(norm(f)_(L^p))_(L^q)"
 
 
+@pytest.mark.slow
 def test_bars_that_are_not_one_norm_stay_bars():
     assert "norm" not in convert(r"\ell \parallel m, m \parallel n")
     assert "norm" not in convert(r"\|x, y\|")
     assert "norm" not in convert(r"a \| b")
 
 
+@pytest.mark.slow
 def test_supp_is_an_upright_operator():
     assert convert(r"\supp f") == convert(r"\operatorname{supp} f") == 'op("supp") f'
 
 
+@pytest.mark.slow
 def test_a_starred_operator_name_sets_its_scripts_as_limits():
     out = convert(r"\operatorname*{ess\,sup}_{x \in X} f(x)")
     assert out.startswith('op("ess sup", limits: #true)_(x in X)'), out
     assert 'op("argmax", limits: #true)' in convert(r"\operatorname*{argmax}_{y} g(y)")
 
 
+@pytest.mark.slow
 def test_absolute_values_become_typst_abs_calls():
     assert layout_convert(r"|x - y|") == "abs(x - y)"
     assert layout_convert(r"|x - y|^2") == "abs(x - y)^2"
@@ -219,6 +310,7 @@ def test_absolute_values_become_typst_abs_calls():
     assert "norm" not in layout_convert(r"|x|")
 
 
+@pytest.mark.slow
 def test_bars_in_set_builders_and_evaluations_survive():
     set_builder = convert(r"\{ x \in \mathbb{R}^n : |x| < 1 \}")
     assert "abs(x)" in set_builder
@@ -226,6 +318,7 @@ def test_bars_in_set_builders_and_evaluations_survive():
     assert "abs" not in convert(r"f|_A")
 
 
+@pytest.mark.slow
 def test_upright_math_operators():
     assert convert(r"\sup_{x \in X} f(x)") == "sup_(x in X) f ( x )"
     assert convert(r"\inf_{x \in X} f(x)") == "inf_(x in X) f ( x )"
@@ -236,6 +329,7 @@ def test_upright_math_operators():
     assert "op(\"supp\")" in convert(r"\operatorname{supp} f")
 
 
+@pytest.mark.slow
 def test_loc_in_subscripts_is_upright():
     for expr in (
         r"L^p_{\text{loc}}",
@@ -248,6 +342,7 @@ def test_loc_in_subscripts_is_upright():
         assert "l o c" not in res
 
 
+@pytest.mark.slow
 def test_star_operator_spacing_and_scripts():
     conv = layout_convert(r"f * g")
     assert "ast.op" in conv
@@ -261,6 +356,7 @@ def test_star_operator_spacing_and_scripts():
     assert "ast.op" in res and "^ast" in res
 
 
+@pytest.mark.slow
 def test_ellipses_horizontal_and_centered():
     assert layout_convert(r"\dots") == "…"
     assert layout_convert(r"\ldots") == "…"
@@ -272,6 +368,7 @@ def test_ellipses_horizontal_and_centered():
     assert "…" not in convert(r"x_1, \dots, x_n")
 
 
+@pytest.mark.slow
 def test_sized_delimiters():
     res1 = layout_convert(r"\left\langle x, y \right\rangle")
     assert res1.startswith("lr(chevron.l") and res1.endswith("chevron.r)")
@@ -281,9 +378,30 @@ def test_sized_delimiters():
     assert layout_convert(r"\left\{ \frac{a}{b} \right\}") == "lr({ a / b })"
 
 
+@pytest.mark.slow
 def test_widehat_conversion():
     assert convert(r"\widehat{f}") == "hat(f)"
     wide = convert(r"\widehat{f * g}")
     assert "hat(" in wide or "accent(" in wide
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    ("latex", "spelled"),
+    [
+        (r"X \xrightarrow{f} Y", "x r i g h t"),
+        (r"X \xrightarrow[\sim]{(p_1, p_2)} Y", "x r i g h t"),
+        (r"A \xleftarrow{g} B", "x l e f t"),
+        (r"\tfrac{1}{2}", "t f r a c"),
+        (r"X \hookrightarrow Y", "h o o k"),
+    ],
+)
+def test_arrow_and_fraction_commands_are_not_spelled_out_by_the_regex_fallback(tmp_path, latex: str, spelled: str) -> None:
+    out = convert(latex + r" \unknownocrmacro", display=True)
+    assert spelled not in out
+    assert any(mark in out for mark in ("⟶", "⟵", "↪", "/"))
+    typ = tmp_path / "a.typ"
+    typ.write_text(f"$ {out} $\n", encoding="utf-8")
+    compile_typst(typ, tmp_path / "a.pdf")
 
 

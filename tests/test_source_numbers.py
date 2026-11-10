@@ -10,6 +10,7 @@ from polytypst.compiler.monograph import MonographCompiler
 from polytypst.compiler.presets import NumberingWords
 from polytypst.compiler.source_numbers import (
     LATEX,
+    LATEX_RULES,
     TYPST,
     TYPST_RULES,
     labels,
@@ -294,6 +295,7 @@ def test_latex_figures_fit_the_text_block():
     assert r"\caption{进口渗透和就业}\label{fig-1-1}" in numbered
 
 
+@pytest.mark.slow
 def test_subsections_under_articles_print_their_own_decimal_number(tmp_path):
     raw = "= 进口竞争\n\n=== 1. 前言\n\n正文.\n\n=== 2. 衡量进口竞争的标准\n\n=== 2.1 进口渗透率\n\n=== 2.2 进口相对价格\n\n=== 3. 结束语\n"
     numbered, _ = number_chapter(raw, 1, TYPST)
@@ -308,6 +310,7 @@ def test_subsections_under_articles_print_their_own_decimal_number(tmp_path):
     assert "3. 结束语" in lines
 
 
+@pytest.mark.slow
 def test_each_article_without_a_label_prints_its_own_number(tmp_path):
     seen: set[str] = set()
     chapters = (
@@ -364,8 +367,11 @@ def test_a_latex_figure_caption_escapes_percent_ampersand_and_hash():
 
 @pytest.mark.slow
 def test_a_latex_figure_caption_prints_its_source_number(tmp_path):
-    out, _ = number_chapter("![图 8-8 4 变量 VAR 模型](figures/fig_8-8.png)\n\n见图 8-8。", 1, LATEX)
-    linked = link_references(out, 1, {}, labels(out), LATEX)
+    figure = "![图 8-8 4 变量 VAR 模型](figures/fig_8-8.png)\n\n见图 8-8。"
+    elsewhere, _ = number_chapter(figure, 1, LATEX)
+    assert literal_numbering_counts(elsewhere, LATEX).get("HARDCODED_NUMBERING") == 1
+    out, _ = number_chapter(figure, 8, LATEX)
+    linked = link_references(out, 8, {}, labels(out), LATEX)
     assert literal_numbering_counts(linked, LATEX) == {}
     pymupdf.open().new_page().get_pixmap().save(tmp_path / "fig_8-8.png")
     body = linked.replace("figures/fig_8-8.png", "fig_8-8.png")
@@ -373,7 +379,7 @@ def test_a_latex_figure_caption_prints_its_source_number(tmp_path):
     _ = source.write_text(
         "\\documentclass{article}\\usepackage{graphicx}\\usepackage{caption}"
         "\\captionsetup[figure]{labelformat=empty}\\usepackage{fontspec}\\setmainfont{Songti SC}"
-        f"\\begin{{document}}{body}\\end{{document}}",
+        f"{LATEX_RULES}\\begin{{document}}{body}\\end{{document}}",
         encoding="utf-8",
     )
     for _pass in range(2):
@@ -464,4 +470,13 @@ def test_references_to_theorems_chapters_and_equations_are_linked():
     assert "equation \\hyperlink{eq-c1-2}{(2)}" in tex_linked
     assert "inequality \\hyperlink{eq-c1-3}{(3)}" in tex_linked
     assert "\\hyperlink{sec-1-3}{1.3}(1)" in tex_linked
+
+
+def test_section_zero_prints_zero_without_a_negative_counter():
+    numbered, _ = number_chapter("== 0. Compléments\n\n== 1. Suite\n", 1)
+
+    assert "-1" not in numbered
+    assert '#heading(level: 2, numbering: (..n) => "0")[Compléments]' in numbered
+    assert "== Suite" in numbered
+    assert "update((..c) => (c.pos().at(0, default: 0), 0))" in numbered
 

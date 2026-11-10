@@ -17,6 +17,17 @@ SPEC = MonographSpec(
 )
 
 
+def test_a_row_break_before_a_letter_stays_a_row_break_and_a_doubled_macro_is_repaired():
+    page = (
+        r"The matrix $\begin{pmatrix}a & b\\c & d\end{pmatrix}$ is unitary."
+        "\n\n"
+        r"See $\\S 5$ and $\\frac{1}{2}$."
+    )
+    body = PageCleaner.for_spec(SPEC).clean(page, 5).body
+    assert r"a & b\\c & d" in body
+    assert r"$\S 5$" in body and r"$\frac{1}{2}$" in body
+
+
 def test_a_note_printed_between_a_figure_and_its_caption_travels_with_that_figure():
     spec = replace(
         SPEC,
@@ -321,6 +332,7 @@ def test_a_sub_numbered_figure_caption_loses_its_whole_number(tmp_path):
     assert "caption: [女性]" in missing
 
 
+@pytest.mark.slow
 def test_a_cross_referenced_figure_caption_prints_its_chapter_number(tmp_path):
     import subprocess
 

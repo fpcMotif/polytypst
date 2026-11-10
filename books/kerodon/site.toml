@@ -1,0 +1,16 @@
+[[page]]
+slug = "kerodon-ch1"
+title = "Kerodon, Chapters 1–10"
+subtitle = "An Online Resource for Homotopy-Coherent Mathematics"
+author = "Jacob Lurie"
+language = "en-US"
+domain = "Higher Category Theory & Homotopy Theory"
+badge = "KaTeX Engine + Kerodon Tag Permalinks + 300-DPI Commutative Diagrams"
+description = "Jacob Lurie 的高阶范畴论在线著作 Kerodon。收录第 1 章至第 10 章共 57 节，内容包括单纯集、∞-范畴、Kan 复形、同伦论、Cartesian 纤维化、伴随函子、极限与余极限、米田嵌入、大 ∞-范畴、正合性与动画。每条结果附 Kerodon Tag 永久链接。"
+chapters = "site"
+source = "@OUTPUT@/kerodon"
+files = "kerodon_complete"
+
+[page.layout]
+pdf = "@ROOT@/kerodon.pdf"
+web_cache = "cache_web"

@@ -1,0 +1,45 @@
+slug = "algebra1"
+title = "Algebra I: Basic Notions of Algebra"
+author = "A. I. Kostrikin, I. R. Shafarevich"
+domain = "math"
+source_pdf = "Algebra I Basic Notions Of Algebra (Kostrikin A I, Shafarevich I R).pdf"
+pdf_page_count = 260
+lang = "en"
+cross_references = true
+typst_front_matter = '''
+#show figure.where(kind: image): set figure(supplement: [Fig.], numbering: source-figure-number)
+#show figure.where(kind: table): set figure(supplement: [Table])
+#show figure.caption: set block(above: 1.5em)
+'''
+chapters = [
+  { number = 1, title = "Algebra I: Basic Notions of Algebra", start_page = 1, end_page = 260 },
+]
+
+[figures]
+pair_figures = false
+svg_single_pct = 100
+
+[transcript_fixups]
+4 = [['(?m)^## ', '']]
+5 = [['(?m)^# Contents\n+', ''], ['(?m)^## ', '']]
+8 = [['(?m)^§ 1\. What is Algebra\?$', '## § 1. What is Algebra?']]
+32 = [['(?m)^### III\. Theorem on Finite Fields\.$', '**III.** **Theorem on Finite Fields.**']]
+62 = [
+  ['''(?m)^### (III\.) (Legendre's Theorem\.) (The equation)$''', '**\1** **\2** *\3*'],
+  ['(?m)^### (IV\.) (Minkowski-Hasse Theorem\.) (The equation)$', '**\1** **\2** *\3*'],
+]
+154 = [['(?m)^## § 16\. General Results of Group Theory$', '']]
+204 = [['(?m)^§ 20\. Categories\n+', '']]
+
+[page_fixups]
+23 = [['(z_n\^\{)(i_n\})', '\1\\text{ }\2']]
+29 = [['(is not contained in the ideal \$\(\\varphi\(x\)\)\$)\.', '\1).']]
+52 = [['\n\n\$\$x\^3 - 2, \\quad \\text\{and\} \\quad \[\\mathbb\{Q\}\(\\sqrt\[3\]\{2\}\) : \\mathbb\{Q\}\] = 3\.\$\$', ' $x^3 - 2$, and $[\mathbb{Q}(\sqrt[3]{2}) : \mathbb{Q}] = 3$.']]
+133 = [['glued together as one point\.', 'glued together as one point).']]
+141 = [['\(see Figure 37, \(a\)\)\.', '(see Figure 37, (a))).']]
+153 = [['(\|\\pi\(\\mathrm\{SO\}\(n\))(\| = 2)', '\1)\2']]
+181 = [['\\ sqrt(\[3\]\{2\})', '\\sqrt\1']]
+242 = [['1883, 1888, 1893\]', '1883, 1888, 1893)]']]
+
+[hooks]
+figures = 'draw_figures'

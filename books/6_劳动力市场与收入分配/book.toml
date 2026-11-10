@@ -1,4 +1,5 @@
 slug = '6'
+name = 'esri2022-labor'
 title = '劳动力市场与收入分配'
 author = '（日本）内阁府经济社会综合研究所'
 publisher = '中国金融出版社'
@@ -242,4 +243,3 @@ prepare = 'prepare'
 
 [editions.illustrated.spec]
 slug = '6_illustrated'
-book_aliases = false

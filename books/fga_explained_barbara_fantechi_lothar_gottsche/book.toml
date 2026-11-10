@@ -1,5 +1,6 @@
 slug = 'fga_explained_barbara_fantechi_lothar_gottsche'
 title = "Fundamental Algebraic Geometry: Grothendieck's FGA Explained"
+statement_style = 'upright'
 author = 'Barbara Fantechi, Lothar Göttsche, Luc Illusie, Steven L. Kleiman, Nitin Nitsure, and Angelo Vistoli'
 publisher = 'American Mathematical Society'
 series = 'Mathematical Surveys and Monographs, Volume 123'
@@ -27,7 +28,7 @@ chapters = [
 running_header_regexes = [
   '''^(?:#+\s*)?(?:\d{1,3}\s+)?(?:[0-9A-Z]{1,2}\.(?:\d{1,2}\.?)?\s+)?(?:PREFACE|CONTENTS|INTRODUCTION|PRELIMINARY NOTIONS|ALGEBRAIC GEOMETRY|CATEGORY THEORY|CONTRAVARIANT FUNCTORS|REPRESENTABLE FUNCTORS AND THE YONEDA LEMMA|GROUP OBJECTS|SHEAVES IN GROTHENDIECK TOPOLOGIES|FIBERED CATEGORIES|EXAMPLES OF FIBERED CATEGORIES|CATEGORIES FIBERED IN GROUPOIDS|FUNCTORS AND CATEGORIES FIBERED IN SETS|EQUIVALENCES OF FIBERED CATEGORIES|OBJECTS AS FIBERED CATEGORIES AND THE 2-YONEDA LEMMA|THE FUNCTORS OF ARROWS OF A FIBERED CATEGORY|EQUIVARIANT OBJECTS IN FIBERED CATEGORIES|STACKS|DESCENT OF OBJECTS OF FIBERED CATEGORIES|DESCENT THEORY FOR QUASI-COHERENT SHEAVES|DESCENT FOR MORPHISMS OF SCHEMES|DESCENT ALONG TORSORS|CONSTRUCTION OF HILBERT AND QUOT SCHEMES|THE HILBERT AND QUOT FUNCTORS|CASTELNUOVO[-–—]MUMFORD REGULARITY|SEMI-CONTINUITY AND BASE-CHANGE|GENERIC FLATNESS AND FLATTENING STRATIFICATION|CONSTRUCTION OF QUOT SCHEMES|SOME VARIANTS AND APPLICATIONS|ELEMENTARY DEFORMATION THEORY|INFINITESIMAL STUDY OF SCHEMES|PRO-REPRESENTABLE FUNCTORS|NON-PRO-REPRESENTABLE FUNCTORS|EXAMPLES OF TANGENT-OBSTRUCTION THEORIES|MORE TANGENT-OBSTRUCTION THEORIES|HILBERT SCHEMES OF POINTS|THE SYMMETRIC POWER AND THE HILBERT[-–—]CHOW MORPHISM|IRREDUCIBILITY AND NONSINGULARITY|EXAMPLES OF HILBERT SCHEMES|A STRATIFICATION OF THE HILBERT SCHEMES|THE BETTI NUMBERS OF THE HILBERT SCHEMES OF POINTS|THE HEISENBERG ALGEBRA|GROTHENDIECK['’]S EXISTENCE THEOREM IN FORMAL GEOMETRY|LOCALLY NOETHERIAN FORMAL SCHEMES|THE COMPARISON THEOREM|COHOMOLOGICAL FLATNESS|THE EXISTENCE THEOREM|APPLICATIONS TO LIFTING PROBLEMS|SERRE['’]S EXAMPLES|A LETTER OF SERRE|THE PICARD SCHEME|THE SEVERAL PICARD FUNCTORS|RELATIVE EFFECTIVE DIVISORS|THE CONNECTED COMPONENT OF THE IDENTITY|THE TORSION COMPONENT OF THE IDENTITY|ANSWERS TO ALL THE EXERCISES|APPENDIX [AB]\.?\s*BASIC INTERSECTION THEORY|APPENDIX [AB]\.?\s*ANSWERS TO ALL THE EXERCISES|BASIC INTERSECTION THEORY|BIBLIOGRAPHY|INDEX|TITLES IN THIS SERIES)(?:\s+\d{1,3}|\s+[ivxlcdm]+)?$''',
 ]
-header_zone_lines = 3
+header_zone_lines = 2
 drop_line_regexes = [
   '''^(?:#+\s*)?(?:Chapter\s+\d+|Part\s+\d+)$''',
 ]
@@ -130,6 +131,12 @@ summary = 'monograph'
   # Scan typo: the scan prints where provided; meant were provided.
   ['where\ provided', 'were provided'],
 ]
+"18" = [
+  ['\[\*\*EGA([A-Z0-9]+)\*\*', '[EGA\1'],
+]
+"19" = [
+  ['\[\*\*EGA([A-Z0-9]+)\*\*', '[EGA\1'],
+]
 "21" = [
   # Scan typo: the scan prints of arrow; meant of arrows.
   ['of\ arrow', 'of arrows'],
@@ -155,10 +162,12 @@ A & \longrightarrow & B & \longrightarrow & C
 "24" = [
   # Scan typo: the scan prints points of $X$*); meant points of $X$*)..
   ['points\ of\ \$X\$\*\)', 'points of $X$*).'],
+  ['2\.1\.1\. Representable functors\. Let', "#### 2.1.1. Representable functors.\n\nLet"],
 ]
 "25" = [
   # Scan typo: the scan prints become; meant becomes.
   ['become', 'becomes'],
+  ['### DEFINITION 2\.1\.', '**Definition 2.1.**'],
 ]
 "26" = [
   # Scan typo: the scan prints \{1\} \subseteq \{0, 1\}$ is closed; meant \{1\} \subseteq \{0, 1\}$ is open.
@@ -276,6 +285,9 @@ G & \xrightarrow{\langle i_G, \mathrm{id}_G \rangle} & G \times G & & G & \xrigh
   # Scan typo: the scan prints the inverse image of $U_i$ in $X$; meant the inverse image of $U_i$ in $X'$.
   ['the\ inverse\ image\ of\ \$U_i\$\ in\ \$X\$', '''the inverse image of $U_i$ in $X'$'''],
 ]
+"40" = [
+  ['2\.3\.3\. Sheaves\. If', "#### 2.3.3. Sheaves.\n\nIf"],
+]
 "41" = [
   # The transcript has $$A \xrightarrow{f} B \xrightarrow{g} C.$$; the scan prints $$A \xrightarrow{f} B \overset{g}{\underset{h}{\rightrightarrows}} C.$$.
   ['\$\$A\ \\xrightarrow\{f\}\ B\ \\xrightarrow\{g\}\ C\.\$\$', '$$A \xrightarrow{f} B \overset{g}{\underset{h}{\rightrightarrows}} C.$$'],
@@ -283,6 +295,7 @@ G & \xrightarrow{\langle i_G, \mathrm{id}_G \rangle} & G \times G & & G & \xrigh
   ['two\ functions\ \$f,\ g\\colon\ B\ \\to\ C\$\)', 'two functions $f, g: B \to C$)'],
   # The transcript has (2.3.1) $$FU \longrightarrow \prod_i FU_i \xrightarrow{\text{pr}_1^*} \prod_{i,j; the scan prints (2.3.1) $$FU \longrightarrow \prod_i FU_i \overset{\text{pr}_1^*}{\underset{\tex.
   ['\(2\.3\.1\)\ \$\$FU\ \\longrightarrow\ \\prod_i\ FU_i\ \\xrightarrow\{\\text\{pr\}_1\^\*\}\ \\prod_\{i,j\}\ F\(U_i\ \\times_U\ U_j\)\$\$', '(2.3.1) $$FU \longrightarrow \prod_i FU_i \overset{\text{pr}_1^*}{\underset{\text{pr}_2^*}{\rightrightarrows}} \prod_{i,j} F(U_i \times_U U_j)$$'],
+  ['\*\*2\.3\.4\. Sieves\.\*\* Given', "#### 2.3.4. Sieves.\n\nGiven"],
 ]
 "42" = [
   # The transcript has The set $FU$ can be defined; the scan prints The set $F\mathcal{U}$ can be defined.
@@ -438,12 +451,16 @@ V_i\ \\times_U\ V_i\ \\xrightarrow\{\\operatorname\{pr\}_1\}\ V_i\ \\xrightarrow
   ['such\ that\ \$\\xi_i\^\{\\mathrm\{a\}\}\ =\ \\sigma_i\^\*\\xi\$\.', 'such that $\xi_i^{\text{a}} = \sigma_i^*\overline{\xi}$.'],
   # The transcript has the image of $\xi$ in $GU$.; the scan prints the image of $\overline{\xi}$ in $GU$..
   ['the\ image\ of\ \$\\xi\$\ in\ \$GU\$\.', 'the image of $\overline{\xi}$ in $GU$.'],
+  ['\*\*2\.3\.7\. The sheafification of a functor\.\*\* The', "#### 2.3.7. The sheafification of a functor.\n\nThe"],
 ]
 "51" = [
   # Scan typo: the scan prints there an element; meant there is an element.
   ['there\ an\ element', 'there is an element'],
   # Scan typo: the scan prints a ordered set; meant an ordered set.
   ['a\ ordered\ set', 'an ordered set'],
+]
+"52" = [
+  ['\*\*3\.1\.1\. Definition and first properties\.\*\* In', "#### 3.1.1. Definition and first properties.\n\nIn"],
 ]
 "53" = [
   # Scan typo: the scan prints \widetilde{\xi} \to \xi; meant \xi \to \widetilde{\xi}.
@@ -622,6 +639,7 @@ V_i\ \\times_U\ V_i\ \\xrightarrow\{\\operatorname\{pr\}_1\}\ V_i\ \\xrightarrow
   ['\\mathrm\{Hom\}_S\(X,\ Y\)', '\underline{\mathrm{Hom}}_S(X, Y)'],
   # Scan typo: the scan prints not only we can construct continuous functions locally:; meant not only can we construct continuous functions locally,.
   ['not\ only\ we\ can\ construct\ continuous\ functions\ locally:', 'not only can we construct continuous functions locally,'],
+  ['4\.1\.1\. Gluing continuous maps and topological spaces\. The', "#### 4.1.1. Gluing continuous maps and topological spaces.\n\nThe"],
 ]
 "79" = [
   # Scan typo: the scan prints u_iU_{ij}; meant u_i^{-1}U_{ij}.
@@ -752,6 +770,7 @@ V_i\ \\times_U\ V_i\ \\xrightarrow\{\\operatorname\{pr\}_1\}\ V_i\ \\xrightarrow
   ['there\ is\ unique\ arrow', 'there is a unique arrow'],
   # Scan typo: the scan prints \eta_i \to \xi; meant \eta_i \to \xi_i.
   ['\\eta_i\ \\to\ \\xi', '\eta_i \to \xi_i'],
+  ['4\.2\.1\. Descent for modules over commutative rings\. Here', "#### 4.2.1. Descent for modules over commutative rings.\n\nHere"],
 ]
 "91" = [
   # Scan typo: the scan prints associated homomorphism; meant associated homomorphisms.
@@ -786,6 +805,7 @@ V_i\ \\times_U\ V_i\ \\xrightarrow\{\\operatorname\{pr\}_1\}\ V_i\ \\xrightarrow
   ['whose\ fiber\ of\ a\ scheme\ \$U\$\ over\ \$S\$', 'whose fiber over a scheme $U$ over $S$'],
   # Scan typo: the scan prints is stack; meant is a stack.
   ['is\ stack', 'is a stack'],
+  ['4\.2\.2\. Descent for quasi\-coherent sheaves\. Here', "#### 4.2.2. Descent for quasi-coherent sheaves.\n\nHere"],
 ]
 "94" = [
   # Scan typo: the scan prints it easy to see; meant it is easy to see.
@@ -946,6 +966,7 @@ X & \xrightarrow{f} & Y \\
   ['has\ been\ already\ been\ used', 'has already been used'],
   # Scan typo: the scan prints copies $L_1$ of $L_2$ of; meant copies $L_1$ and $L_2$ of.
   ['copies\ \$L_1\$\ of\ \$L_2\$\ of', 'copies $L_1$ and $L_2$ of'],
+  ['4\.4\.2\. Failure of descent for morphisms of schemes\. Now', "#### 4.4.2. Failure of descent for morphisms of schemes.\n\nNow"],
 ]
 "115" = [
   # Scan typo: the scan prints covering $V \to V$; meant covering $V \to U$.
@@ -976,6 +997,8 @@ X & \xrightarrow{f} & Y \\
   ['\$\(\\mathcal\{F\},\ q\)\$\ and\ \$\(\\mathcal\{F\},\ q\)\$', '''$(\mathcal{F}, q)$ and $(\mathcal{F}', q')$'''],
   # The transcript has \mathbb{P}^n_Z; the scan prints \mathbb{P}^n_\mathbb{Z}.
   ['\\mathbb\{P\}\^n_Z', '\mathbb{P}^n_\mathbb{Z}'],
+  ['5\.1\.3\. The functors \$\\mathfrak\{Hilb\}_\{X/S\}\$ and \$\\mathfrak\{Quot\}_\{E/X/S\}\$\. The', "#### 5.1.3. The functors $\\mathfrak{Hilb}_{X/S}$ and $\\mathfrak{Quot}_{E/X/S}$.\n\nThe"],
+  ['5\.1\.4\. Stratification by Hilbert polynomials\. Let', "#### 5.1.4. Stratification by Hilbert polynomials.\n\nLet"],
 ]
 "121" = [
   # The transcript has \Omega\text{ut}_{E/X/S}; the scan prints \mathfrak{Quot}_{E/X/S}.
@@ -984,6 +1007,8 @@ X & \xrightarrow{f} & Y \\
   ['\\prod_\{\\Phi\ \\in\ \\mathbb\{Q\}\[\\lambda\]\}', '\coprod_{\Phi \in \mathbb{Q}[\lambda]}'],
   # The transcript has \Omega\text{ut}_{\oplus^{S}/S/S}^{1, \mathcal{O}_S}; the scan prints \mathfrak{Quot}_{E/S/S}^{1, \mathcal{O}_S}.
   ['\\Omega\\text\{ut\}_\{\\oplus\^\{S\}/S/S\}\^\{1,\ \\mathcal\{O\}_S\}', '\mathfrak{Quot}_{E/S/S}^{1, \mathcal{O}_S}'],
+  ['#### 5\.1\.5\. Elementary examples, exercises\. \(1\)', "#### 5.1.5. Elementary examples, exercises.\n\n(1)"],
+  ['#### \(2\) Grassmannian as a Quot scheme\.', '(2) *Grassmannian as a Quot scheme.*'],
 ]
 "122" = [
   # The transcript has \Omega \omega_{E/S/S}^{d, \mathcal{O}_S}; the scan prints \mathfrak{Quot}_{E/S/S}^{d, \mathcal{O}_S}.
@@ -1002,6 +1027,7 @@ X & \xrightarrow{f} & Y \\
   ['\\xrightarrow\{\\sim\}', '\rightrightarrows'],
   # The transcript has \mathfrak{H}ilb_{X/\mathbb{C}}; the scan prints \mathfrak{Hilb}_{X/\mathbb{C}}.
   ['\\mathfrak\{H\}ilb_\{X/\\mathbb\{C\}\}', '\mathfrak{Hilb}_{X/\mathbb{C}}'],
+  ['5\.1\.6\. \*\*Construction of Grassmannian\.\*\* The', "#### 5.1.6. Construction of Grassmannian.\n\nThe"],
 ]
 "124" = [
   # The transcript has \mathbb{P}_{\mathbb{Z}}^r - 1; the scan prints \mathbb{P}_{\mathbb{Z}}^{r-1}.
@@ -1036,12 +1062,18 @@ X & \xrightarrow{f} & Y \\
 "130" = [
   # The transcript has \phi^* \bigoplus^q \mathcal{O}_{\mathbb{P}_S^n}(b + r); the scan prints \phi^* \pi_{S*} \bigoplus^q \mathcal{O}_{\mathbb{P}_S^n}(b + r).
   ['\\phi\^\*\ \\bigoplus\^q\ \\mathcal\{O\}_\{\\mathbb\{P\}_S\^n\}\(b\ \+\ r\)', '\phi^* \pi_{S*} \bigoplus^q \mathcal{O}_{\mathbb{P}_S^n}(b + r)'],
+  ['5\.3\.3\. Grothendieck complex for semi\-continuity\. The', "#### 5.3.3. Grothendieck complex for semi-continuity.\n\nThe"],
+]
+"131" = [
+  ['\(\[EGA\] III 7\.7\.6\)', '[EGAIII2, 7.7.6]'],
+  ['\(\[EGA\] III 7\.7\.8, 7\.7\.9\)', '[EGAIII2, 7.7.8, 7.7.9]'],
 ]
 "132" = [
   # The transcript has (R^i \pi_* \mathcal{F})_s'; the scan prints (R^i \pi_* \mathcal{F})_{s'}.
   ["\\(R\\^i\\ \\\\pi_\\*\\ \\\\mathcal\\{F\\}\\)_s'", '''(R^i \pi_* \mathcal{F})_{s'}'''],
   # The transcript has H i(X_s, \mathcal{F}_s); the scan prints H^i(X_s, \mathcal{F}_s).
   ['H\ i\(X_s,\ \\mathcal\{F\}_s\)', 'H^i(X_s, \mathcal{F}_s)'],
+  ['\*\*5\.3\.4\. Base\-change for flat sheaves\.\*\* The', "#### 5.3.4. Base-change for flat sheaves.\n\nThe"],
 ]
 "133" = [
   # The transcript has M'_f; the scan prints M'_{f'}.
@@ -1052,6 +1084,7 @@ X & \xrightarrow{f} & Y \\
   ['''free\ over\ respectively\ \$A_f\$\ and\ \$A_\{f''\}\$''', '''free over respectively $A_{f'}$ and $A_{f''}$'''],
   # The transcript has A_g[b_1, \ldots, b_n] \oplus^m B_g; the scan prints A_g[b_1, \dots, b_n]^{\oplus m}.
   ['A_g\[b_1,\ \\ldots,\ b_n\]\ \\oplus\^m\ B_g', 'A_g[b_1, \dots, b_n]^{\oplus m}'],
+  ['\[EGA\]', '[EGAIII1]'],
 ]
 "134" = [
   # The transcript has \mathbb{P}_S^n; the scan prints \mathbb{P}_{S'}^n.
@@ -1070,6 +1103,8 @@ X & \xrightarrow{f} & Y \\
   ['\\Omega_\{quot\}\^\{\\Psi,\ L\}\ E_\{\(\\nu\)/X/S\}', '\mathfrak{Quot}_{E(\nu)/X/S}^{\Psi, L}'],
   # The transcript has \Omega_{quot}^{\Phi, L} G_{/X/S}; the scan prints \mathfrak{Quot}_{G/X/S}^{\Phi, L}.
   ['\\Omega_\{quot\}\^\{\\Phi,\ L\}\ G_\{/X/S\}', '\mathfrak{Quot}_{G/X/S}^{\Phi, L}'],
+  ['5\.5\.2\. Main existence theorems\. Grothendieck', "#### 5.5.2. Main existence theorems.\n\nGrothendieck"],
+  ['5\.5\.3\. Reduction to the case of \$\\mathfrak\{Quot\}_\{\\pi\^\* W / \\mathbb\{P\}\(V\)/S\}\^\{\\Phi, L\}\$\. It', "#### 5.5.3. Reduction to the case of $\\mathfrak{Quot}_{\\pi^* W / \\mathbb{P}(V)/S}^{\\Phi, L}$.\n\nIt"],
 ]
 "139" = [
   # The transcript has \mathfrak{Q}ut_{E/X/S}^{\Phi,L}(T); the scan prints \mathfrak{Quot}_{E/X/S}^{\Phi, L}(T).
@@ -1108,6 +1143,7 @@ Hence we have shown that $\mathfrak{Quot}_{E/X/S}^{\Phi,L}$ is represented by a 
 $$\mathbf{Quot}_{E/X/S}^{\Phi,L} \subset \mathbb{P}(\bigwedge^{\Phi(r)}(W \otimes_{\mathcal{O}_S} \text{Sym}^r V)).$$
 
 In particular, the morphism $\mathbf{Quot}_{E/X/S}^{\Phi,L} \to S$'''],
+  ['#### 5\.5\.6\. Use of flattening stratification\. We', "#### 5.5.6. Use of flattening stratification.\n\nWe"],
 ]
 "141" = [
   # The transcript has functor $\mathfrak{Q}ot_{E/X/S}^{\Phi,L}$; the scan prints functor $\mathfrak{Quot}_{E/X/S}^{\Phi, L}$.
@@ -1148,6 +1184,7 @@ In particular, the morphism $\mathbf{Quot}_{E/X/S}^{\Phi,L} \to S$'''],
   ['\\Omega_\{U\ \\otimes\ E/X/S\}', '\mathfrak{Quot}_{E/X/S}'],
   # The transcript has \Omega_{U \otimes \overline{E}/\overline{X}/S}; the scan prints \mathfrak{Quot}_{\overline{E}/\overline{X}/S}.
   ['\\Omega_\{U\ \\otimes\ \\overline\{E\}/\\overline\{X\}/S\}', '\mathfrak{Quot}_{\overline{E}/\overline{X}/S}'],
+  ['#### 5\.6\.2\. Scheme of morphisms\. We', "#### 5.6.2. Scheme of morphisms.\n\nWe"],
 ]
 "144" = [
   # The transcript has *morphism; the scan prints 569X**morphism.
@@ -1162,6 +1199,7 @@ In particular, the morphism $\mathbf{Quot}_{E/X/S}^{\Phi,L} \to S$'''],
   ['\\operatorname\{Mor\}_S\(X,\ X\)', '\mathbf{Mor}_S(X, X)'],
   # The transcript has \operatorname{Hilb}_{Z/S}; the scan prints \mathbf{Hilb}_{Z/S}.
   ['\\operatorname\{Hilb\}_\{Z/S\}', '\mathbf{Hilb}_{Z/S}'],
+  ['\*\*5\.6\.3\. Quotient by a flat projective equivalence relation\.\*\* Let', "#### 5.6.3. Quotient by a flat projective equivalence relation.\n\nLet"],
 ]
 "145" = [
   # The transcript has f_1, f_2: R \xrightarrow{\sim} X; the scan prints f_1, f_2 : R \rightrightarrows X.
@@ -1296,10 +1334,12 @@ In particular, the morphism $\mathbf{Quot}_{E/X/S}^{\Phi,L} \to S$'''],
 "193" = [
   # The transcript has (A/J)^{\circ}; the scan prints (A/J)^\sim.
   ['\(A/J\)\^\{\\circ\}', '(A/J)^\sim'],
+  ['\[\*\*EGA([A-Z0-9]+)\*\*', '[EGA\1'],
 ]
 "194" = [
   # The transcript has X_* = (X_0; the scan prints X_. = (X_0.
   ['X_\*\ =\ \(X_0', 'X_. = (X_0'],
+  ['#### 8\.1\.3\. Locally noetherian formal schemes', '**8.1.3.** *Locally noetherian formal schemes*'],
 ]
 "195" = [
   # The transcript has We will say that $F$ is *coherent* if each $F_n$ is coherent and the transition ; the scan prints We will say that $F.$ is *coherent* if each $F_n$ is coherent and the transition.
@@ -1334,12 +1374,14 @@ Y_n & \longrightarrow & Y'''],
 "198" = [
   # The transcript has (R^q f_* F)^{\sim}; the scan prints (R^q f_* F)\hat{\ }.
   ['\(R\^q\ f_\*\ F\)\^\{\\sim\}', '(R^q f_* F)\hat{\ }'],
+  ['\[\*\*EGA([A-Z0-9]+)\*\*', '[EGA\1'],
 ]
 "199" = [
   # The transcript has \varphi_q : H^q(X, F) \to \lim_n H^q(X, F_n); the scan prints (8.2.4.1) \quad \varphi_q : H^q(X, F)\hat{\ } \to \lim_n H^q(X, F_n).
   ['\\varphi_q\ :\ H\^q\(X,\ F\)\ \\to\ \\lim_n\ H\^q\(X,\ F_n\)', '(8.2.4.1) \quad \varphi_q : H^q(X, F)\hat{\ } \to \lim_n H^q(X, F_n)'],
   # The transcript has \psi_q : H^q(\hat{X}, \hat{F}) \to \lim_n H^q(X, F_n); the scan prints (8.2.4.2) \quad \psi_q : H^q(\hat{X}, \hat{F}) \to \lim_n H^q(X, F_n).
   ['\\psi_q\ :\ H\^q\(\\hat\{X\},\ \\hat\{F\}\)\ \\to\ \\lim_n\ H\^q\(X,\ F_n\)', '(8.2.4.2) \quad \psi_q : H^q(\hat{X}, \hat{F}) \to \lim_n H^q(X, F_n)'],
+  ['#### 8\.2\.5\. Artin–Rees and Mittag\-Leffler\.', '**8.2.5.** *Artin–Rees and Mittag-Leffler.*'],
 ]
 "200" = [
   # The transcript has [**EGAI1**, 2.1.6]; the scan prints [EGAII, 2.1.6].
@@ -1354,6 +1396,8 @@ Y_n & \longrightarrow & Y'''],
   ['Let\ \$f\ :\ X\ \\to\ Y\$\ is\ a\ proper\ morphism', 'Let $f : X \to Y$ be a proper morphism'],
   # The transcript has \tilde{Y} & \longleftarrow & \tilde{Y}; the scan prints Y & \longleftarrow & \tilde{Y}.
   ['\\tilde\{Y\}\ \&\ \\longleftarrow\ \&\ \\tilde\{Y\}', 'Y & \longleftarrow & \tilde{Y}'],
+  ['#### 8\.2\.6\. The finiteness theorem\.', '**8.2.6.** *The finiteness theorem.*'],
+  ['#### 8\.2\.7\. Proof of 8\.2\.4\.', '**8.2.7.** *Proof of 8.2.4.*'],
 ]
 "202" = [
   # The transcript has H^q(F)^\circ; the scan prints H^q(F)^\wedge.
@@ -1394,6 +1438,7 @@ Y_n & \longrightarrow & Y'''],
   ['''Y'\ \&\ \\xrightarrow\{g\}\ \&\ X''', '''Y' & \xrightarrow{g} & Y'''],
   # The transcript has R^q f_* (h^* F); the scan prints R^q f'_* (h^* F).
   ['R\^q\ f_\*\ \(h\^\*\ F\)', '''R^q f'_* (h^* F)'''],
+  ['#### 8\.2\.19\. Base change maps\. Let', '**8.2.19.** *Base change maps.* Let'],
 ]
 "207" = [
   # The transcript has g_* R^q f_*(h^* F); the scan prints g_* R^q f'_*(h^* F).
@@ -1440,6 +1485,7 @@ Y_n & \longrightarrow & Y'''],
   ['T\^n\ /\ T\^\{n\+1\}', '\mathcal{I}^n / \mathcal{I}^{n+1}'],
   # The transcript has \operatorname{gr}_I E = \bigoplus_{n \in \mathbb{N}} T^n E / T^{n+1} E; the scan prints \operatorname{gr}_{\mathcal{I}} E = \bigoplus_{n \in \mathbb{N}} \mathcal{I}^n E.
   ['\\operatorname\{gr\}_I\ E\ =\ \\bigoplus_\{n\ \\in\ \\mathbb\{N\}\}\ T\^n\ E\ /\ T\^\{n\+1\}\ E', '\operatorname{gr}_{\mathcal{I}} E = \bigoplus_{n \in \mathbb{N}} \mathcal{I}^n E / \mathcal{I}^{n+1} E'],
+  ['\[\*\*EGA([A-Z0-9]+)\*\*', '[EGA\1'],
 ]
 "216" = [
   # The transcript has E = (j^* F); the scan prints E = (j^* F)^\wedge.
@@ -1468,6 +1514,7 @@ Y_n & \longrightarrow & Y'''],
   ['\(X\ \\times_Y\ Z\)', '(X \times_Y Z)^\wedge'],
   # The transcript has $A\{t\} = A[t]$; the scan prints $A\{t\} = A[t]^\wedge$.
   ['\$A\\\{t\\\}\ =\ A\[t\]\$', '$A\{t\} = A[t]^\wedge$'],
+  ['\$\\hat\{Y\}\$ \-formal', '$\hat{Y}$-formal'],
 ]
 "219" = [
   # The transcript has \mathcal{O}_{\mathcal{X}+0}^{r+1}; the scan prints \mathcal{O}_{X_0}^{r+1}.
@@ -1477,7 +1524,8 @@ Y_n & \longrightarrow & Y'''],
   # The transcript has $i : X \to P$; the scan prints $i_\cdot : X_\cdot \to P_\cdot$.
   ['\$i\ :\ X\ \\to\ P\$', '$i_\cdot : X_\cdot \to P_\cdot$'],
   # The transcript has j^* \mathcal{O}_P(1)); the scan prints j^* \mathcal{O}_P(1).
-  ['j\^\*\ \\mathcal\{O\}_P\(1\)\)', 'j^* \mathcal{O}_P(1)'],
+  ['j\^\*\ \\mathcal\{O\}_P\(1\)\)\$', 'j^* \mathcal{O}_P(1)$'],
+  ['\$\\hat\{Y\}\$ \-formal', '$\hat{Y}$-formal'],
 ]
 "220" = [
   # The transcript has inductive system $X$ as in (1); the scan prints inductive system $X_\cdot$ as in (1).
@@ -1504,6 +1552,7 @@ S_0 & \xrightarrow{i} & S'''],
   ['\(ii\)\ \(\*jacobian\ criterion\*\)', '(ii) \(*jacobian criterion*)'],
   # The transcript has (iii) (*formal smoothness*); the scan prints (iii) \(*formal smoothness*).
   ['\(iii\)\ \(\*formal\ smoothness\*\)', '(iii) \(*formal smoothness*)'],
+  ['8\.5\.8\. We will', '**8.5.8.** We will'],
 ]
 "226" = [
   # The transcript has $S_0 \xrightarrow{i_1} S_1 \xrightarrow{i_1} S_2$; the scan prints $S_0 \longrightarrow S_1 \xrightarrow{i_1} S_2$.
@@ -1554,6 +1603,9 @@ S_0 & \xrightarrow{i} & S'''],
 "237" = [
   # The transcript has $Y$*-extension; the scan prints $Y$-extension.
   ['\$Y\$\*\-extension', '$Y$-extension'],
+]
+"238" = [
+  ['\[\*\*EGA([A-Z0-9]+)\*\*', '[EGA\1'],
 ]
 "239" = [
   # The transcript has 228 8. GROTHENDIECK'S EXISTENCE THEOREM IN FORMAL GEOMETRY; the scan prints nothing (running head).
@@ -1626,10 +1678,21 @@ S_0 & \xrightarrow{i} & S'''],
 "268" = [
   # The transcript has \mathcal{I}; the scan prints I.
   ['\\mathcal\{I\}', 'I'],
+  ['''\$\$\n\\begin\{aligned\}\n\(9\.2\.11\.4\) \\quad ''', '''(9.2.11.4) $$
+\begin{aligned}
+'''],
+  ['\\phantom\{\(9\.2\.11\.4\)\} ', ''],
+  ['''\$\$\n\(9\.2\.11\.5\) \\quad ''', '''(9.2.11.5) $$
+'''],
+  ['''#### 9\.3\.1 \(Effective divisors\)\n\n''', '**9.3.1** (Effective divisors). '],
 ]
 "270" = [
   # The transcript has \mathrm{Tor}_1^A(B, k) \to \mathrm{Tor}_1^A(C, k) \to I \otimes k \to B \otimes ; the scan prints (9.3.4.1) \operatorname{Tor}_1^A(B, k) \to \operatorname{Tor}_1^A(C, k) \to I \o.
   ['\\mathrm\{Tor\}_1\^A\(B,\ k\)\ \\to\ \\mathrm\{Tor\}_1\^A\(C,\ k\)\ \\to\ I\ \\otimes\ k\ \\to\ B\ \\otimes\ k\.', '(9.3.4.1) \operatorname{Tor}_1^A(B, k) \to \operatorname{Tor}_1^A(C, k) \to I \otimes k \to B \otimes k.'],
+]
+"271" = [
+  ['\[\*\*EGA([A-Z0-9]+)\*\*', '[EGA\1'],
+  ['\[\*\*OB72\*\*', '[OB72'],
 ]
 "272" = [
   # The transcript has 9.3. RELATIVE EFFECTIVE DIVISORS; the scan prints nothing (running head).
@@ -1878,6 +1941,7 @@ S_0 & \xrightarrow{i} & S'''],
 "309" = [
   # Scan typo: the scan prints an nonempty; meant a nonempty.
   ['an\ nonempty', 'a nonempty'],
+  ['\[\*\*EGA([A-Z0-9]+)\*\*', '[EGA\1'],
 ]
 "310" = [
   # The transcript has \sum_{i=0}^r a_i \binom{n+i}{r}; the scan prints \sum_{i=0}^r a_i \binom{n+i}{i}.
@@ -1918,6 +1982,7 @@ S_0 & \xrightarrow{i} & S'''],
   ['f_T\ \*\ \\mathcal\{O\}_\{X_T\}', 'f_{T*} \mathcal{O}_{X_T}'],
   # The transcript has Theorem,; the scan prints nothing (running head).
   ['Theorem,', ''],
+  ['\[\*\*EGAG\*\*', '[EGAI'],
 ]
 "316" = [
   # The transcript has f_P^* \mathcal{N}; the scan prints f_T^* \mathcal{N}.
@@ -1948,6 +2013,8 @@ S_0 & \xrightarrow{i} & S'''],
   ['\\dim\ \\mathrm\{H\}\^i\(\\Omega_X\^i\)', '\dim \mathrm{H}^i(\Omega_X^2)'],
   # The transcript has X \times P; the scan prints X \times P..
   ['X\ \\times\ P', 'X \times P.'],
+  ['\[\*\*EGA([A-Z0-9]+)\*\*', '[EGA\1'],
+  ['\[\*\*Har77\*\*', '[Har77'],
 ]
 "320" = [
   # The transcript has $Q$ is free; the scan prints $\mathcal{Q}$ is free.

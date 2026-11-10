@@ -122,8 +122,9 @@ def test_lint_leaves_correct_text_and_titles_that_run_across_a_page_alone(tmp_pa
 def test_lint_finds_a_running_head_left_in_the_built_book(tmp_path: Path, scan: Path) -> None:
     check = make_check(tmp_path, scan, {1: "正文。"}, key="4_不良债权与金融危机")
     typ = "正文一段。\n\n120 不良债权与金融危机\n\n正文。\n#set page(header: [不良债权与金融危机])\n"
-    check.book.out_dir.mkdir(parents=True)
-    (check.book.out_dir / "book.typ").write_text(typ, encoding="utf-8")
+    built = next(iter(check.book.editions.values())).source("typ")
+    built.parent.mkdir(parents=True)
+    built.write_text(typ, encoding="utf-8")
     heads = [hit for hit in lint(check) if hit["rule"] == "running_head"]
     assert [(hit["page"], hit["transcript"]) for hit in heads] == [(None, "120 不良债权与金融危机")]
 
@@ -264,6 +265,27 @@ def test_a_page_counts_as_checked_only_with_the_receipt_for_its_scan_png_and_tra
     assert check.chunks(2) == [(2, 3), (4, 5)]
 
 
+def test_a_verdict_line_that_is_not_one_of_the_four_settles_no_claim(tmp_path: Path, scan: Path) -> None:
+    check = make_check(tmp_path, scan, {3: "a"})
+    claim = {"page": 3, **issue("word", "a", "b")}
+    check.results.add_verdicts([{**claim, "verdict": "unsure"}])
+    assert check.results.verdict_keys() == set()
+    check.results.add_verdicts([{**claim, "verdict": "real"}])
+    assert check.results.verdict_keys() == {(3, "word", "a", "b")}
+
+
+def test_a_record_with_an_unknown_issue_kind_does_not_check_its_page(tmp_path: Path, scan: Path) -> None:
+    check = make_check(tmp_path, scan, {1: "page 1"})
+    check.page_png(1).parent.mkdir(parents=True, exist_ok=True)
+    check.page_png(1).write_bytes(b"png 1")
+    write_jsonl(check.results.folder / "p1-1.jsonl", [
+        {"page": 1, "receipt": check.receipt(1), "issues": [issue("wrod", "a", "b")]},
+    ])
+    tally = check.tally()
+    assert tally.checked == set()
+    assert tally.bad_lines
+
+
 def test_run_starts_one_agent_for_each_chunk_of_unchecked_pages(tmp_path: Path, scan: Path) -> None:
     check = make_check(tmp_path, scan, {n: f"page {n}" for n in range(1, 6)}, key="4_banks")
     agents = FakeAgents()
@@ -284,6 +306,7 @@ def test_tables_read_html_and_pipe_tables_as_rows(tmp_path: Path, scan: Path) ->
     assert check.tables(1) == [[["年份", "1"]], [["a", "b"], ["1", "2"]]]
 
 
+@pytest.mark.slow
 def test_render_pairs_each_caption_with_its_scan_page_and_skips_sentences_that_name_a_table(
     tmp_path: Path, scan: Path
 ) -> None:
@@ -411,6 +434,7 @@ def gray(png: bytes) -> np.ndarray:
     return np.asarray(Image.open(io.BytesIO(png)).convert("L"), dtype=float)
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(("mode", "size"), [("RGB", (1200, 1800)), ("L", (1200, 1800)), ("RGB", (1203, 1805))])
 def test_strips_cut_from_the_scan_jpeg_match_the_mupdf_render(tmp_path: Path, mode: str, size: tuple[int, int]) -> None:
     doc = jpeg_scan(tmp_path, mode, size=size)
@@ -425,6 +449,7 @@ def test_strips_cut_from_the_scan_jpeg_match_the_mupdf_render(tmp_path: Path, mo
         assert 10 * np.log10(255**2 / ((ours - reference) ** 2).mean()) > 40
 
 
+@pytest.mark.slow
 def test_only_a_bare_full_page_jpeg_takes_the_fast_path(tmp_path: Path) -> None:
     doc = jpeg_scan(tmp_path, "RGB", "RGB", "RGB", "RGB", "RGB")
     doc[1].draw_rect(pymupdf.Rect(10, 10, 50, 50))

@@ -182,6 +182,38 @@ def test_many_failed_pages_in_a_row_stop_the_backend(page_render: PageRender) ->
         _ = list(transcriber.transcribe(pages))
 
 
+def test_pages_that_failed_apart_do_not_stop_the_backend_when_retried(page_render: PageRender) -> None:
+    pages = [page_render(n, blank=n % 2 == 0) for n in range(1, 11)]
+    bad = base64.b64encode(pages[1].path.read_bytes())
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500) if bad in request.content else openai_reply("ok")
+
+    transcriber = openai(handle)
+    assert len(list(transcriber.transcribe(pages))) == 5
+    assert list(transcriber.transcribe(pages[1::2])) == []
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        {"choices": [{"message": {"content": None}, "finish_reason": "content_filter"}]},
+        {"choices": [{"message": {"content": "half a pa"}, "finish_reason": "length"}]},
+    ],
+)
+def test_an_openai_reply_without_a_whole_transcript_fails_the_page(page_render: PageRender, message: dict) -> None:
+    assert list(openai(lambda _r: httpx.Response(200, json=message)).transcribe([page_render(1)])) == []
+
+
+def test_a_gemini_reply_cut_at_the_token_limit_fails_the_page(page_render: PageRender) -> None:
+    body = {"candidates": [{"content": {"parts": [{"text": "half a pa"}]}, "finishReason": "MAX_TOKENS"}]}
+    gemini = GeminiTranscriber(
+        model="m", prompt="Transcribe.", api_key="k", provenance="gemini:m", concurrency=1, max_side=0,
+        client=client(lambda _r: httpx.Response(200, json=body)),
+    )
+    assert list(gemini.transcribe([page_render(1)])) == []
+
+
 def test_concurrent_pages_all_arrive(page_render: PageRender) -> None:
     pages = [page_render(n) for n in range(1, 7)]
     got = list(openai(lambda _r: openai_reply("ok"), concurrency=3).transcribe(pages))

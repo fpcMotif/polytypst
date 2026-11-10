@@ -19,13 +19,17 @@ chapters = [
 ]
 figure_pages = [216]
 running_header_regexes = [
-  '''^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.\s+)?(?:Préliminaires|Le langage des schémas|Sommaire|Table des matières|Avant-propos|Introduction|Foncteurs représentables|Compléments de topologie|Compléments sur les faisceaux|Espaces annelés|Faisceaux quasi-cohérents et faisceaux cohérents|Compléments d'algèbre commutative|Compléments d'algèbre topologique|Schémas affines|Schémas et morphismes de schémas|Produit et somme de schémas|Changement de base|Sous-schémas et morphismes d'immersion|Schémas réduits|Morphismes séparés|Critères valuatifs|Conditions de finitude relatives|Ensembles constructibles dans les schémas|Applications rationnelles|Foncteurs représentables élémentaires dans la théorie des schémas|Schémas formels|Ultraschémas et espaces algébriques de Serre|Spectres maximaux et ultraschémas|Espaces algébriques de Serre|Bibliographie|Index des notations|Index terminologique)(?:\s+\d{1,3})?$''',
+  '''^(?:#+\s*)?(?:[0-9A-Z]{1,2}\.\s+)?(?:Préliminaires|Le langage des schémas|Sommaire|Table des matières|Avant-propos|Introduction|Foncteurs représentables|Compléments de topologie|Compléments sur les faisceaux|Espaces annelés|Faisceaux quasi-cohérents et faisceaux cohérents|Compléments d'algèbre commutative|Compléments d'algèbre topologique|Schémas affines|Schémas et morphismes de schémas|Produit et somme de schémas|Changement de base|Sous-schémas et morphismes d'immersion|Schémas réduits|Morphismes séparés|Critères valuatifs|Conditions de finitude relatives|Ensembles constructibles dans les schémas|Applications rationnelles|Foncteurs représentables élémentaires dans la théorie des schémas|Schémas formels|Ultraschémas et espaces algébriques de Serre|Bibliographie|Index des notations|Index terminologique)(?:\s+\d{1,3})?$''',
+  '''^(?:#+\s*)?(?:Spectres maximaux et ultraschémas|Espaces algébriques de Serre)(?:\s+\d{1,3})?$''',
   '''^\d{1,3}\s+(?:[0-9A-Z]{1,2}\.\s+)?(?:Préliminaires|Le langage des schémas|Sommaire|Table des matières|Avant-propos|Introduction|Foncteurs représentables|Compléments de topologie|Compléments sur les faisceaux|Espaces annelés|Faisceaux quasi-cohérents et faisceaux cohérents|Compléments d'algèbre commutative|Compléments d'algèbre topologique|Schémas affines|Schémas et morphismes de schémas|Produit et somme de schémas|Changement de base|Sous-schémas et morphismes d'immersion|Schémas réduits|Morphismes séparés|Critères valuatifs|Conditions de finitude relatives|Ensembles constructibles dans les schémas|Applications rationnelles|Foncteurs représentables élémentaires dans la théorie des schémas|Schémas formels|Ultraschémas et espaces algébriques de Serre|Spectres maximaux et ultraschémas|Espaces algébriques de Serre|Bibliographie|Index des notations|Index terminologique)$''',
 ]
 footnote_style = 'parenthesized'
 footnote_numbering = '(1)'
 cross_references = true
 commutative_diagrams = true
+heading_rewrites = [
+  ['^### ([12]\.\s+(?:Spectres maximaux|Espaces algébriques).*)$', '## \1'],
+]
 pdf_page_count = 474
 source_pdf = 'ega1.pdf'
 ocr_prompt = '''
@@ -37,6 +41,11 @@ Rules:
 4. Bold structural environments: (1.1.1), **Définition**, **Proposition**, **Théorème**, **Corollaire**, **Lemme**, **Remarque**, and italicize *Démonstration.*.
 5. Label display equations with exact numbering if present.
 6. Do not omit any prose, definitions, proofs, or footnotes.'''
+
+[page_fixups]
+220 = [['''(^|\n)(1\.7\.\s+Images directes[^\n]+)''', '\1### \2']]
+257 = [['''(^|\n)(3\.8\.\s+Morphismes universellement[^\n]+)''', '\1### \2']]
+371 = [['''(^|\n)(9\.3\.\s+Application aux changements[^\n]+)''', '\1### \2']]
 
 [citation_abbreviations]
 M = '2'
@@ -186,7 +195,7 @@ font_stack = '("STIX Two Text", "STIX Two Math")'
 size = 9.5
 weight = 400
 diagram_dir = '@BOOK@/diagrams'
-transcripts = 'markdown_pages'
+transcripts = true
 
 [editions.facsimile.facsimile.diagram_text]
 font = 'STIX Two Text'

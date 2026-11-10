@@ -92,6 +92,7 @@ def test_portrait_pdf_is_its_own_page_map(tmp_path: Path) -> None:
     assert (scan.page_count, scan.split, scan.pdf) == (4, False, path)
 
 
+@pytest.mark.slow
 def test_large_embedded_png_passes_through_and_grey_renders_fresh(
     tmp_path: Path,
 ) -> None:
@@ -116,6 +117,21 @@ def test_large_embedded_png_passes_through_and_grey_renders_fresh(
     )
     with Image.open(grey.path) as im:
         assert (im.mode, im.size) == ("L", (600, 800))
+
+
+def test_a_rotated_page_or_an_image_that_does_not_fill_it_renders_as_shown(tmp_path: Path) -> None:
+    buffer = io.BytesIO()
+    Image.new("RGB", (1200, 1600), "white").save(buffer, format="PNG")
+    path = tmp_path / "scan.pdf"
+    doc = pymupdf.open()
+    rotated = doc.new_page(width=600, height=800)
+    rotated.insert_image(pymupdf.Rect(0, 0, 600, 800), stream=buffer.getvalue())
+    rotated.set_rotation(90)
+    doc.new_page(width=600, height=800).insert_image(pymupdf.Rect(0, 0, 600, 400), stream=buffer.getvalue())
+    doc.save(path)
+    first, second = SourceScan(path).pages(tmp_path / "renders", dpi=72)
+    with Image.open(first.path) as a, Image.open(second.path) as b:
+        assert (a.size, b.size) == ((800, 600), (600, 800))
 
 
 def test_renders_are_reused_until_the_settings_change(

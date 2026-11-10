@@ -2,6 +2,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pymupdf
+import pytest
 
 from polytypst.books import book_by_key
 from polytypst.checker import (
@@ -78,6 +79,22 @@ def test_a_stalled_figure_ocr_is_reported_and_the_other_figure_checks_still_run(
     assert [i.rule_name for i in report.issues] == ["FIGURE_OCR_STALLED", "CORRUPTED_FIGURE_CROP"]
 
 
+def test_an_unreadable_figure_crop_is_reported(tmp_path: Path, monkeypatch) -> None:
+    from polytypst.ocr import lines
+
+    pdf = _pdf(tmp_path, [[BODY]])
+    (tmp_path / "figures").mkdir()
+    _ = (tmp_path / "figures" / "fig_1-1.png").write_bytes(b"\x89PNG\r\n\x1a\nbroken")
+    monkeypatch.setattr(lines, "line_reader", lambda languages: _StalledReader())
+    monkeypatch.setattr(lines, "FIGURE_OCR_DIR", tmp_path / "figure_ocr")
+    report = CheckReport(pdf, 1)
+
+    DocumentQualityChecker(pdf).check_extracted_figures_purity(report)
+
+    crops = [i for i in report.issues if i.rule_name == "CORRUPTED_FIGURE_CROP"]
+    assert len(crops) == 1 and "unreadable" in crops[0].message
+
+
 def test_text_tier_catches_a_pipe_table_typst_set_as_prose(tmp_path: Path) -> None:
     doc = pymupdf.open()
     page = doc.new_page()
@@ -118,6 +135,7 @@ def _typst_pdf(tmp_path: Path, source: str) -> Path:
     return pdf
 
 
+@pytest.mark.slow
 def test_layout_tier_flags_a_display_shrunk_to_fit(tmp_path: Path) -> None:
     prose = "Ordinary prose fills the page at the body size. " * 12
     pdf = _typst_pdf(

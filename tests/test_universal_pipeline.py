@@ -3,6 +3,8 @@
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from polytypst.books import book_by_key, module
 from polytypst.compiler.monograph import MonographCompiler
 from polytypst.ocr.colab_cluster import ColabOCRCluster
@@ -76,7 +78,9 @@ def test_goursat_captions_place_their_vector_figures(tmp_path: Path):
 
     assert 'image("figures/fig_1.svg"' in cleaned
     assert 'image("figures/fig_37_a.svg"' in cleaned
-    assert "caption: [Figure 37a]" in cleaned
+    assert '<fig-1>' in cleaned
+    assert 'numbering: _ => "37-a"' in cleaned
+    assert "<fig-37-a>" in cleaned
     assert "FIG. 1\n" not in cleaned
 
 
@@ -114,9 +118,9 @@ def test_cross_page_join_repairs_math_split_by_page_break():
 
 
 def test_double_backslash_before_macro_is_collapsed():
-    from polytypst.compiler.page_cleaner import _DOUBLE_BACKSLASH_MACRO_RE
+    from polytypst.tex_markdown import DOUBLED_MACRO_RE
 
-    assert _DOUBLE_BACKSLASH_MACRO_RE.sub(r"\\", r"\\mathcal{A} \\ x") == r"\mathcal{A} \\ x"
+    assert DOUBLED_MACRO_RE.sub(r"\\", r"\\mathcal{A} \\ x") == r"\mathcal{A} \\ x"
 
 
 def test_figure_extractor_box_detection():
@@ -250,30 +254,6 @@ def test_spec_less_book_names_no_invented_publisher_or_author():
         assert invented not in title_page
 
 
-def test_markdown_pages_merge_when_inline_math_straddles_pages():
-    from polytypst.compiler.monograph import join_markdown_pages
-
-    merged = join_markdown_pages(["本文 $t = (t_1,", "$t_2)$ の続き"])
-    assert len(merged) == 1
-    assert "$t = (t_1, t_2)$" in merged[0]
-
-
-def test_a_paragraph_that_runs_across_a_page_stays_one_paragraph_ahead_of_the_figures():
-    from polytypst.compiler.monograph import join_markdown_pages
-
-    merged = join_markdown_pages([
-        "前文。\n\n相对就业（图\n\n![图 7-11 a](figures/fig_7-11.svg)",
-        "![图 7-13 b](figures/fig_7-13.svg)\n\n7-12)。因此可以节省。\n\n## 5 结束语",
-    ])
-    assert merged == [
-        (
-            "前文。\n\n相对就业（图 7-12)。因此可以节省。\n\n![图 7-11 a](figures/fig_7-11.svg)\n\n"
-            "![图 7-13 b](figures/fig_7-13.svg)\n\n## 5 结束语"
-        )
-    ]
-    assert join_markdown_pages(["第一段。", "第二段。"]) == ["第一段。", "第二段。"]
-
-
 def test_two_chinese_characters_join_across_a_page_without_a_space():
     from polytypst.compiler.monograph import join_cross_page_text
 
@@ -281,6 +261,7 @@ def test_two_chinese_characters_join_across_a_page_without_a_space():
     assert join_cross_page_text("相对就业（图", "7-12)") == "相对就业（图 7-12)"
 
 
+@pytest.mark.slow
 def test_missing_ocr_image_refs_are_dropped_but_real_ones_kept(tmp_path):
     from polytypst.books import book_specs
     from polytypst.compiler.page_cleaner import PageCleaner

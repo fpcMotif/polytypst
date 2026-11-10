@@ -1,4 +1,5 @@
 slug = "spivak_vol3"
+name = 'spivak1999-geometry3'
 title = "A Comprehensive Introduction to Differential Geometry, Vol. 3, 3rd Edition"
 author = "Michael Spivak"
 publisher = 'Publish or Perish, Inc.'
@@ -7,10 +8,14 @@ domain = 'math'
 source_pdf = 'A Comprehensive Introduction to Differential Geometry, Vol. 3, 3rd Edition (Michael Spivak.pdf'
 pdf_page_count = 324
 cross_references = true
-preface_page = 5
+# The transcripts keep some running heads, the chapter title with or without its page number.
+running_header_regexes = [
+  '^(?:#+\s*)?(?:\d{1,3}\s+)?\*?(?:Chapter \d{1,2}|Preface|The Fundamental Equations for Hypersurfaces|Elements of the Theory of Surfaces in .{1,30}|A Compendium of Surfaces|Curves on Surfaces|Complete Surfaces of Constant Curvature|The Gauss-Bonnet Theorem and Related Topics|(?i:Mini-Bibliography for Volume III|Notation Index|Index))\*?(?:\s+\d{1,3})?$',
+]
 
 chapters = [
-  { number = 0, title = 'Table of Contents', start_page = 5, end_page = 10 },
+  { number = 0, title = 'Preface', start_page = 3, end_page = 4, label = '' },
+  { number = 0, title = 'Table of Contents', start_page = 5, end_page = 7, label = '' },
   { number = 1, title = 'The Fundamental Equations for Hypersurfaces', start_page = 11, end_page = 40, label = 'Chapter 1' },
   { number = 2, title = 'Elements of the Theory of Surfaces in $\mathbf{R}^3$', start_page = 41, end_page = 144, label = 'Chapter 2' },
   { number = 3, title = 'A Compendium of Surfaces', start_page = 145, end_page = 196, label = 'Chapter 3' },
@@ -35,3 +40,219 @@ summary = 'illustrated monograph with 3b1b colour figures'
 slug = 'spivak_vol3_illustrated'
 subtitle = 'Illustrated Edition with 3Blue1Brown Colour Geometric Figures'
 figure_dir = 'figures_color'
+
+[transcript_fixups]
+# The transcript has (l); the scan prints the equation reference (1).
+33 = [['\(l\)', '(1)'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+67 = [['\(l\)', '(1)']]
+78 = [['\(l\)', '(1)']]
+94 = [['\(l\)', '(1)']]
+109 = [['\(l\)', '(1)']]
+120 = [['\(l\)', '(1)']]
+133 = [['\(l\)', '(1)']]
+190 = [['\(l\)', '(1)']]
+238 = [['\(l\)', '(1)']]
+264 = [['\(l\)', '(1)']]
+# The transcript has \Pi; the scan prints II, the second fundamental form.
+24 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+26 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+43 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+59 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+71 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+80 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+83 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+97 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+115 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+134 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+142 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+198 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+199 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+200 = [['\\Pi(?![A-Za-z])', '\mathrm{II}'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+201 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+203 = [['\\Pi(?![A-Za-z])', '\mathrm{II}'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+204 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+205 = [['\\Pi(?![A-Za-z])', '\mathrm{II}'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+236 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+242 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+317 = [['\\Pi(?![A-Za-z])', '\mathrm{II}']]
+131 = [['\\mathbf\{\\Pi\}', '\mathbf{II}'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+119 = [
+  ['\\mathbf\{\\Pi\}', '\mathbf{II}'],
+  ['\\Pi(?![A-Za-z])', '\mathrm{II}'],
+  # The transcript has $i$; the scan prints the word "is".
+  ['Our formula \$i\$ rather', 'Our formula *is* rather'],
+]
+23 = [
+  ['\(l\)', '(1)'],
+  ['\\Pi(?![A-Za-z])', '\mathrm{II}'],
+  # The transcript has j^σ; the scan prints y^σ.
+  ['j\^\{\\sigma\}\{\}_\{:j\}', 'y^{\sigma}{}_{:j}'],
+]
+93 = [
+  ['\(l\)', '(1)'],
+  ['\\Pi(?![A-Za-z])', '\mathrm{II}'],
+]
+128 = [
+  ['\(l\)', '(1)'],
+  # The transcript has \mathbb{I}; the scan prints II.
+  ['\\mathbb\{I\}', '\mathrm{II}'],
+]
+91 = [
+  ['\(l\)', '(1)'],
+  # The transcript has A^\dagger; the scan prints the transpose A^t.
+  ['\^\\dagger(?![A-Za-z])', '^t'],
+]
+# The transcript has A^\dagger; the scan prints the transpose A^t.
+100 = [['\^\\dagger(?![A-Za-z])', '^t']]
+102 = [['\^\\dagger(?![A-Za-z])', '^t']]
+103 = [['\^\\dagger(?![A-Za-z])', '^t']]
+# The transcript has \blacksquare; the scan prints the end mark ❖.
+274 = [['\$\\blacksquare\$|\\blacksquare(?![A-Za-z])', '❖']]
+# The transcript has (1l); the scan prints (11).
+125 = [['\(1l\)', '(11)'], ['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+# The transcript has Otsuki; the scan prints Ōtsuki.
+4 = [['T\. Otsuki', 'T. Ōtsuki']]
+# The transcript has lowercase y_p; the scan prints Y_p.
+36 = [['''R'\(X_p, y_p\)''', '''R'(X_p, Y_p)''']]
+# The transcript has y^σ; the scan prints the normal field v^σ.
+25 = [['y\^\{\\rho\}_\{:j\} y\^\{\\sigma\} = -', 'y^{\rho}_{:j} v^{\sigma} = -']]
+# The transcript has a stray subscript on the second form; the scan prints ⟨II(p), II(p)⟩.
+126 = [['\\mathfrak\{U\}_\(p\)', '\mathfrak{U}(p)']]
+# The transcript has an extra period; the scan prints "s.] Now".
+141 = [['\$\.\]\. Now', '$.] Now']]
+# The transcript drops both rulings; the scan prints them after "parameterized as" and after "or".
+163 = [
+  [
+    'parameterized as\n\nor\n\n',
+    '''parameterized as
+
+$$f(s, t) = (a \cos s, b \sin s, 0) + t(-a \sin s, b \cos s, c)$$
+
+or
+
+$$f(s, t) = (a \cos s, b \sin s, 0) + t(a \sin s, -b \cos s, c)$$
+
+''',
+  ],
+]
+# The transcript closes the root before cosh² t and sinh² t; the scan puts them under the root.
+175 = [
+  ['\\sqrt\{1 - 4a\^2\} \\cosh\^2 t', '\sqrt{1 - 4a^2 \cosh^2 t}'],
+  ['\\sqrt\{1 - 4a\^2\} \\sinh\^2 t', '\sqrt{1 - 4a^2 \sinh^2 t}'],
+]
+# The transcript has homomorphic; the scan prints homeomorphic.
+286 = [['is homomorphic to', 'is homeomorphic to']]
+# The transcript has Feuchel; the scan prints Fenchel.
+315 = [['Feuchel, W\.', 'Fenchel, W.']]
+# The transcript has umbilic; the scan prints umbilics.
+322 = [['umbilic on, 155', 'umbilics on, 155']]
+# The transcript has the boxed Gauss' Equation as a quote with a $ that closes outside it; the scan prints a two-line display.
+21 = [["> Gauss' Equation: \n> \n> \\$.*?\n\\$\n", "Gauss' Equation:\n\n$$\n\\begin{aligned}\n&\\langle R(X_p, Y_p)Z_p, W_p \\rangle + \\langle s(X_p, Z_p), s(Y_p, W_p) \\rangle - \\langle s(Y_p, Z_p), s(X_p, W_p) \\rangle \\\\\n&\\quad = K_0[\\langle X_p, W_p \\rangle \\cdot \\langle Y_p, Z_p \\rangle - \\langle X_p, Z_p \\rangle \\cdot \\langle Y_p, W_p \\rangle].\n\\end{aligned}\n$$\n"]]
+# The transcript has ❋; the scan prints the end-of-proof mark ❖.
+224 = [['❋', '❖']]
+# The transcript writes the end-of-proof mark as \diamond or \diamondsuit; the scan prints ❖.
+12 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+13 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+14 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+15 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+16 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+18 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+19 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+28 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+35 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+37 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+45 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+61 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+73 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+74 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+76 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+107 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+114 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+117 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+118 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+127 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+137 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+202 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+207 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+210 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+211 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+213 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+217 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+218 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+232 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+233 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+245 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+246 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+251 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+252 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+257 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+260 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+261 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+265 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+266 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+269 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+272 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+273 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+275 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+276 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+280 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+282 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+284 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+287 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+290 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+292 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+294 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+296 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+309 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+310 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+311 = [['\$\\diamond(?:suit)?\$|\\diamond(?:suit)?(?![A-Za-z])', '❖']]
+
+[page_fixups]
+"14" = [['## 5\. THEOREM\n\n', '5. **THEOREM.** ']]
+"20" = [['reserve that name for II\. The tensor II', 'reserve that name for $\mathrm{II}$. The tensor $\mathrm{II}$']]
+"34" = [['## 17\. PROPOSITION\.\n\n', '17. **PROPOSITION.** ']]
+"66" = [['## 3\. FUNDAMENTAL THEOREM OF SURFACE THEORY \(BONNET; 1867\)\n\n', '3. **FUNDAMENTAL THEOREM OF SURFACE THEORY (BONNET; 1867).** ']]
+"113" = [['## 13\. PROPOSITION\n\n', '13. **PROPOSITION.** ']]
+"142" = [['## 21\. FUNDAMENTAL THEOREM OF SPECIAL AFFINE SURFACE THEORY \(RADON; 1918\)\.', '21. **FUNDAMENTAL THEOREM OF SPECIAL AFFINE SURFACE THEORY (RADON; 1918).**']]
+"152" = [
+  ['## 3\. Generalized Cone', '### 3. Generalized Cone'],
+  ['## 4\. Tangent Developable', '### 4. Tangent Developable'],
+]
+"158" = [['1\. \*Möbius Strip\*', '### 1. Möbius Strip']]
+"160" = [['## 2\. \(Right\) Helicoid', '### 2. (Right) Helicoid']]
+"162" = [['2\. \*Elliptic Hyperboloid \(of one sheet\)\*', '### 2. Elliptic Hyperboloid (of one sheet)']]
+"164" = [
+  ['## 3\. Elliptic Hyperboloid \(of two sheets\)', '### 3. Elliptic Hyperboloid (of two sheets)'],
+  ['## 4\. Elliptic Paraboloid', '### 4. Elliptic Paraboloid'],
+]
+"165" = [['## 5\. Hyperbolic Paraboloid', '### 5. Hyperbolic Paraboloid']]
+"169" = [['1\. \*Torus\*', '### 1. Torus']]
+"170" = [['## 2\. Catenoid', '### 2. Catenoid']]
+"171" = [['## 3\. Rotation Surfaces of Constant Curvature', '### 3. Rotation Surfaces of Constant Curvature']]
+"172" = [
+  ['## Case 1\. \$K = 0\$', '#### Case 1. $K = 0$'],
+  ['## Case 2\. \$K > 0\$', '#### Case 2. $K > 0$'],
+]
+"173" = [['## Case 3\. \$K < 0\$', '#### Case 3. $K < 0$']]
+"176" = [['## 4\. A Classical Counterexample', '### 4. A Classical Counterexample']]
+"181" = [["## 1\\. Scherk's Minimal Surface", "### 1. Scherk's Minimal Surface"]]
+"184" = [["## 2\\. Enneper's Minimal Surface", "### 2. Enneper's Minimal Surface"]]
+"203" = [['## 3\. PROPOSITION\.', '3. **PROPOSITION.**']]
+"218" = [['## 11\. THEOREM \(DARBOUX\)\n\n', '11. **THEOREM (DARBOUX).** ']]
+"224" = [['## 16\. THEOREM \(CLAIRAUT\)\n\n', '16. **THEOREM (CLAIRAUT).** ']]
+"229" = [
+  [
+    '''\\downarrow f_\\Delta \\circ i & & \\downarrow \\pi \\\\
+& \\mathbb\{P\}\^1 & \\\\
+& \\downarrow \\alpha & \\\\
+& S\^1 & \\\\''',
+    '''& \searrow f_\Delta \circ i & \downarrow \pi \\
+& & \mathbb{P}^1 \\
+& & \downarrow \alpha \\
+& & S^1''',
+  ],
+]
+"260" = [['&= \\delta_\{i2\} \\alpha_1 X_1 \(\\alpha_2 - \\delta_\{i1\} \\alpha_2 X_2 \(\\alpha_1\)', '&= \delta_{i2} \alpha_1 X_1 (\alpha_2) - \delta_{i1} \alpha_2 X_2 (\alpha_1)']]
+"265" = [["## 13\\. LEMMA \\(HAZZIDAKIS' FORMULA\\)\n\n", "13. **LEMMA (HAZZIDAKIS' FORMULA).** "]]
+"267" = [['## 12\. THEOREM\.\n\n', '12. **THEOREM.** ']]
+"299" = [['## 18\. COROLLARY \(FENCHEL\)\n\n', '18. **COROLLARY (FENCHEL).** ']]

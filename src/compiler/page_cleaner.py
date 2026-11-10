@@ -3,13 +3,14 @@ from itertools import pairwise
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from ..tex_markdown import normalize_html_tables, repair_page_math
+from ..tex_markdown import DOUBLED_MACRO_RE, normalize_html_tables, repair_page_math
 from ..vision.figure_extractor import (
     FIGURES_MANIFEST_NAME,
     ExtractedFigure,
     manifest_figures,
 )
-from .presets import resolve_composition
+from . import marks
+from .statements import style_statements
 
 if TYPE_CHECKING:
     from .monograph import MonographSpec
@@ -17,7 +18,6 @@ if TYPE_CHECKING:
 Figure = tuple[str, str]
 
 _OPEN_EQNUM_SPACE_RE = re.compile(r"\((\d{1,3})\.[ \t]+(\d{1,3})\)")
-_DOUBLE_BACKSLASH_MACRO_RE = re.compile(r"\\\\(?=[A-Za-z])")
 _MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)\s]+)\)")
 
 _DOUBLE_SUBSCRIPT_RE = re.compile(r"(\^\\[A-Za-z]+)_")
@@ -26,6 +26,10 @@ _STAR_DOUBLE_SUPERSCRIPT_RE = re.compile(r"\^\*_\{([^{}]*)\}\^(\{[^{}]*\}|\\[A-Z
 TOP_LEVEL_MATTER_RE = re.compile(
     r"^(?:导\s*语|参考文献(?:（续）)?|附录(?:\s|$)|补遗(?:\s|$)|主要结论|结\s*语|结束语|前\s*言|序\s*言|各章概要|作者简介|后记)"
 )
+
+
+def title_letters(title: str) -> str:
+    return "".join(ch for ch in re.sub(r"\$[^$]*\$", "", title) if ch.isalnum()).casefold()
 
 
 def _fix_inline_math_delimiters(text: str) -> str:
@@ -263,19 +267,29 @@ def has_circled_footnotes(md: str, folio_pattern: str) -> bool:
     return bool(notes) and all(key in CIRCLED_DIGITS and key in body for key, _ in notes)
 
 
+CODE_FENCE_RE = re.compile(r"^[ \t]*```.*?(?:^[ \t]*```[^\n]*$|\Z)", re.MULTILINE | re.DOTALL)
+
+
+def _blank_code(s: str) -> str:
+    """The text with each fenced code block blanked to spaces, so a search in it keeps the original offsets.
+
+    A circled mark in code is a callout that a list below the code explains, never a note call."""
+    return CODE_FENCE_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), s)
+
+
 def _uncalled_circled(m: re.Match[str], above: list[str]) -> bool:
     key = _note(m)[0]
-    return key in CIRCLED_DIGITS and not any(key in line.lstrip()[1:] for line in above)
+    return key in CIRCLED_DIGITS and not any(key in line.lstrip()[1:] for line in _blank_code("\n".join(above)).splitlines())
 
 
 def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, list[tuple[str, str]]]:
     lines = md.splitlines()
     notes: list[tuple[str, str]] = []
     kept = [(i, ln.strip()) for i, ln in enumerate(lines) if ln.strip() and not re.match(folio_pattern, ln.strip(), re.IGNORECASE)]
-    for (i, lt), (_, after) in pairwise(kept):
+    for idx, ((i, lt), (_, after)) in enumerate(pairwise(kept)):
         if FOOTNOTE_RULE_RE.match(lt) and _note_line(after, style, below_rule=True):
             in_display = False
-            for _, below in kept[kept.index((i, lt)) + 1 :]:
+            for _, below in kept[idx + 1 :]:
                 if not in_display and (m := _note_line(below, style, below_rule=True)):
                     notes.append(_note(m))
                 else:
@@ -287,7 +301,7 @@ def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, lis
             in_display = "\n".join(lines[:i]).count("$$") % 2 == 1
             m_note = _note_line(lt, style, below_rule=True)
             if not in_display and m_note and not _uncalled_circled(m_note, lines[:i]) and not any(
-                re.match(r"^(?:#+\s+|\d{1,3}\.\s+\S)", below) for _, below in kept[idx + 1 :]
+                re.match(r"^(?:#+\s+|\d{1,3}\.\s+\S|```)", below) for _, below in kept[idx + 1 :]
             ):
                 in_note_display = False
                 for _, below in kept[idx:]:
@@ -295,13 +309,11 @@ def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, lis
                         notes[-1] = (notes[-1][0], _inline_note_math(f"{notes[-1][1]} {below}"))
                     elif m := _note_line(below, style, below_rule=True):
                         notes.append(_note(m))
-                    elif re.match(r"^(\d{1,2})\)\s+(\S.*)$", below) and re.search(
+                    elif (m_ed := re.match(r"^(\d{1,2})\)\s+(\S.*)$", below)) and re.search(
                         rf"(?:\^\{{?\s*{below.split(')', 1)[0]}\)\s*\}}?|[{SUPERSCRIPT_DIGITS}]+\))",
                         "\n".join(lines[:i]),
                     ):
-                        m_ed = re.match(r"^(\d{1,2})\)\s+(\S.*)$", below)
-                        if m_ed:
-                            notes.append((f"{m_ed.group(1)})", _inline_note_math(m_ed.group(2).strip())))
+                        notes.append((f"{m_ed.group(1)})", _inline_note_math(m_ed.group(2).strip())))
                     else:
                         notes[-1] = (notes[-1][0], _inline_note_math(f"{notes[-1][1]} {below}"))
                     in_note_display ^= below.count("$$") % 2 == 1
@@ -376,8 +388,8 @@ def attach_footnotes(s: str, notes: list[tuple[str, str]], style: str) -> str:
         )
         s = re.sub(r"\s*\\dagger\s*\$", "$†", s)
     for key, text in notes:
-        note = f"@@FNSTART@@{text}@@FNEND@@"
-        call = _footnote_call(s, key, style)
+        note = marks.footnote(text)
+        call = _footnote_call(_blank_code(s), key, style)
         if call:
             clean_s = s[: call.start()] + s[call.end() :]
             pos = call.start()
@@ -406,18 +418,6 @@ THEOREM_KINDS = (
     "Conjecture",
     "Axiom",
     "Fact",
-)
-ITALIC_THEOREM_KINDS = frozenset(
-    {
-        "theorem",
-        "lemma",
-        "corollary",
-        "proposition",
-        "conjecture",
-        "axiom",
-        "claim",
-        "fact",
-    }
 )
 THEOREM_HEAD_RE = re.compile(
     rf"^(?P<open>\*\*)?(?P<kind>{'|'.join(THEOREM_KINDS)})\s+"
@@ -449,11 +449,6 @@ RUN_IN_VERBS = frozenset(
         "the",
     ]
 )
-CHAPTER_OPENING_RE = re.compile(
-    r"^(?:#+\s*.+|(?:CHAPTER|APPENDIX)\s+[0-9A-Z]+|[—–-]+\s*.+?\s*[—–-]+)$",
-    re.IGNORECASE,
-)
-
 SCANNER_WATERMARK_RE = re.compile(r"ClibPDF\s*-\s*www\.[\w.]+\.(?:com|net)[;,]?[ \t]*")
 DISPLAY_TO_BLANK_LINE_RE = re.compile(r"\$\$(.*?)(?:\$\$|(?=\n[ \t]*\n)|\Z)", re.DOTALL)
 DISPLAY_TAG_RE = re.compile(r"(?:\\tag\{[^{}]*\}|\(\d+(?:\.\d+)*[a-z]?\))\s*$")
@@ -583,9 +578,6 @@ def normalize_run_in(lt: str, from_heading: bool = False, upper: bool = False) -
         kind = m["kind"].upper() if upper else m["kind"].capitalize()
         note = f" {m['note']}" if m["note"] else ""
         r = (m["rest"] or "").strip()
-        if r and m["kind"].lower() in ITALIC_THEOREM_KINDS and "*" not in r:
-            m_item = re.match(r"^(\([0-9ivx]+\))\s+(.+)$", r)
-            r = f"{m_item.group(1)} *{m_item.group(2)}*" if m_item else f"*{r}*"
         rest = f" {r}" if r else ""
         return f"**{kind} {m['num']}.**{note}{rest}"
     m = PROOF_HEAD_RE.match(lt)
@@ -638,15 +630,17 @@ class PageCleaner:
         self._chapter_starts: frozenset[int] = frozenset(
             c.start_page for c in spec.chapters
         )
+        self._unspaced_chapter_titles: dict[int, list[str]] = {}
+        for c in spec.chapters:
+            self._unspaced_chapter_titles.setdefault(c.start_page, []).append(title_letters(c.title))
+        self._chapter_line_pages: set[int] = set()
         self._chapter_figures: dict[str, ExtractedFigure] = {
             fid: f for fid, f in manifest_figures(asset_root / FIGURES_MANIFEST_NAME).items() if "-" in fid
         }
 
     @classmethod
     def for_spec(cls, spec: MonographSpec, asset_root: Path = Path()) -> PageCleaner:
-        composition = resolve_composition(
-            publisher=spec.publisher_key, lang=spec.lang, domain=spec.domain, theorem_layout=spec.theorem_layout
-        )
+        composition = spec.composition(theorem_layout=spec.theorem_layout)
         return cls(spec, composition.theorem_heads, asset_root)
 
     def _chapter_of(self, pno: int) -> int:
@@ -684,6 +678,13 @@ class PageCleaner:
             pno in self._chapter_starts
             and lines_so_far <= 2
             and bool(re.match(r"^(?:#+\s*)?[1-9]\d?$", lt))
+        )
+
+    def _overlaps_chapter_title(self, lt: str, pno: int) -> bool:
+        unspaced_line = title_letters(re.sub(r"^#+\s*", "", lt))
+        return bool(unspaced_line) and any(
+            unspaced_line in title or title in unspaced_line
+            for title in self._unspaced_chapter_titles.get(pno, ())
         )
 
     def _normalized_heading(self, lt: str, pno: int) -> str | None:
@@ -846,8 +847,16 @@ class PageCleaner:
                     self.figure_notes[fid] = "\n\n".join(filter(None, [self.figure_notes.get(fid), *trailing]))
             last_caption = None
 
+        in_code_block = False
         for line in md_text.splitlines():
             lt = line.strip()
+            if lt.startswith("```"):
+                in_code_block = not in_code_block
+                body_lines.append(line)
+                continue
+            if in_code_block:
+                body_lines.append(line)
+                continue
             if not lt:
                 body_lines.append("")
                 continue
@@ -932,13 +941,25 @@ class PageCleaner:
 
             if spec.normalize_headings:
                 heading = self._normalized_heading(lt, pno) if spec.heading_hook is not None else None
-                if (
+                chapter_line = re.match(
+                    r"^#\s*(?:Chapter\s+\d+|\d+\s+.*|步骤\s*\d+.*|第\s*\d+\s*章.*|附录\s*[A-Za-z].*|前言|后记|参考文献)", lt, re.IGNORECASE
+                )
+                is_chapter_title_line = (
                     heading is None
                     and pno in self._chapter_starts
                     and not any(b.strip() and not b.startswith("#") for b in body_lines)
-                    and re.match(r"^#\s+(?:Chapter\s+\d+|\d+\s+.*)", lt, re.IGNORECASE)
+                    and (
+                        chapter_line
+                        or (
+                            (any(b.startswith("#") for b in body_lines) or pno in self._chapter_line_pages)
+                            and self._overlaps_chapter_title(lt, pno)
+                        )
+                    )
                     and not re.match(r"^#*\s*(?:[0-9A-Z]+\.\d+|§)", lt)
-                ):
+                )
+                if is_chapter_title_line:
+                    if chapter_line:
+                        self._chapter_line_pages.add(pno)
                     continue
                 if heading is None and spec.heading_hook is None:
                     heading = self._normalized_heading(lt, pno)
@@ -974,7 +995,7 @@ class PageCleaner:
         claim_sources_after_caption()
         s = "\n".join(body_lines).strip()
         s = re.sub(r"\\\s+(begin|end)\b", r"\\\1", s)
-        s = _DOUBLE_BACKSLASH_MACRO_RE.sub(r"\\", s)
+        s = DOUBLED_MACRO_RE.sub(r"\\", s)
         s = _OPEN_EQNUM_SPACE_RE.sub(r"(\1.\2)", s)
         s = self._drop_missing_images(s)
         s = _fix_inline_math_delimiters(s)
@@ -989,6 +1010,7 @@ class PageCleaner:
                 txt = m.group(0).replace("~", "～")
                 return re.sub(r"(?<=[，。；：\s（\[])\((\d{1,2})\)(?=[\s\u4e00-\u9fff，。；：])", r"（\1）", txt)
             s = re.sub(r"\$\$[\s\S]*?\$\$|(?<!\\)\$(?:[^$\n\\]|\\.)+\$|[^$]+", _replace_cjk_prose, s)
+        s = style_statements(s, spec.statement_style or ("upright" if spec.lang in ("zh", "ja") else "italic"))
         for pattern, repl in spec.page_fixups.get(pno, ()):
             rep_arg = (
                 repl if re.search(r"\\[1-9]|\\g<", repl) else (lambda _, r=repl: r)

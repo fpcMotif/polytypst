@@ -9,7 +9,7 @@ run = "uv sync && cd web && bun install && bun run prepare"
 
 [tasks.test]
 description = "Run the full Python test suite via uv + pytest"
-run = "uv run pytest -q"
+run = "uv run pytest -q -m ''"
 
 [tasks.lint]
 description = "Lint every Python file with the pinned ruff"
@@ -18,12 +18,16 @@ run = "uv run ruff check src tests scripts"
 [tasks.check]
 description = "Lint, then run the full Python test suite"
 depends = ["lint"]
-run = "uv run pytest -q"
+run = "uv run pytest -q -m ''"
 
 [tasks.rebuild]
-description = "Rebuild one book (pdf,tex) and audit it, each step under REBUILD_TIMEOUT seconds; logs in output/logs"
+description = "Rebuild one book (pdf,tex) and audit it, each step under REBUILD_TIMEOUT seconds; logs in $POLYTYPST_OUTPUT/logs"
 usage = 'arg "<key>" help="Book key, such as 6_劳动力市场与收入分配"'
 run = 'scripts/rebuild.sh {{usage.key}}'
+
+[tasks.check-charts]
+description = "Check that books/*/charts redraw every chart SVG in $POLYTYPST_OUTPUT byte for byte"
+run = "uv run polytypst charts --check"
 
 [tasks.canaries]
 description = "Rebuild and audit one math, one English economics, and one Chinese economics book; run after changing src/compiler"

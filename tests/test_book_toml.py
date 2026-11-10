@@ -7,6 +7,7 @@ import pytest
 from polytypst import books as catalog
 from polytypst.compiler.monograph import ChapterSpec, MonographCompiler, MonographSpec
 from polytypst.edition import OUTPUT
+from polytypst.paths import FONTS
 
 MINIMAL = 'slug = "probe"\ntitle = "Probe"\nauthor = "A"\ndomain = "math"\n'
 
@@ -85,8 +86,8 @@ def test_editions_override_the_spec_and_keep_their_old_output_folder(tmp_path: P
     book = catalog.load_toml("probe", folder)
     assert book.out_dir == OUTPUT / "probe3"
     assert list(book.editions) == ["vol3", "vol2"]
-    assert book.editions["vol3"].rebuilt == OUTPUT / "probe3" / "probe.pdf"
-    assert book.editions["vol2"].rebuilt == OUTPUT / "probe2" / "probe_two.pdf"
+    assert book.editions["vol3"].rebuilt == OUTPUT / "probe3" / "a-probe.pdf"
+    assert book.editions["vol2"].rebuilt == OUTPUT / "probe2" / "a-probe.vol2.pdf"
     assert book.editions["vol2"].spec.year == 1990
     assert book.editions["vol2"].spec.title == "Probe"
 
@@ -101,6 +102,14 @@ def test_repo_token_becomes_the_repository_folder(tmp_path: Path):
     folder = write(tmp_path / "probe", MINIMAL + "latex_preamble = '[Path=@REPO@/fonts/]'\n")
     spec = catalog.load_toml("probe", folder).spec
     assert spec.latex_preamble == f"[Path={catalog.BOOKS_DIR.parent}/fonts/]"
+
+
+def test_fonts_and_output_tokens_name_the_folders_outside_the_repository(tmp_path: Path):
+    folder = write(tmp_path / "probe", MINIMAL + "latex_preamble = '[Path=@FONTS@/] @OUTPUT@/probe'\n")
+    spec = catalog.load_toml("probe", folder).spec
+    assert spec.latex_preamble == f"[Path={FONTS}/] {OUTPUT}/probe"
+    assert not FONTS.is_relative_to(catalog.BOOKS_DIR.parent)
+    assert not OUTPUT.is_relative_to(catalog.BOOKS_DIR.parent)
 
 
 def test_a_broken_book_stops_only_itself(shelf: Path):
@@ -198,7 +207,7 @@ def test_a_facsimile_edition_takes_its_style_from_toml_and_hooks(tmp_path: Path)
     assert style.scan_pages == frozenset({1, 2})
     assert style.diagram_boxes.__name__ == "boxes"
     assert style.install_diagrams(tmp_path) == []
-    assert edition.rebuilt == OUTPUT / "hooked_facsimile" / "probe_facsimile.pdf"
+    assert edition.rebuilt == OUTPUT / "hooked_facsimile" / "a-probe.pdf"
     assert edition.parity is not None and edition.parity.diagrams == folder / "diagrams"
 
 
@@ -225,3 +234,11 @@ def test_engine_tokens_become_the_compilers_own_title_page_and_preamble(tmp_path
     plain = MonographSpec(slug="probe", title="Probe", author="A", domain="math")
     assert spec.typst_front_matter == "#let before = 1\n" + MonographCompiler(plain).build_typst_title_page()
     assert spec.typst_preamble == MonographCompiler(plain).build_typst_preamble() + "\n#let after = 2"
+
+
+def test_a_broken_book_does_not_stop_matching_a_scan_to_the_other_books(shelf: Path, capsys) -> None:
+    write(shelf / "broken", 'slug = "broken"\nnot_a_field = 1\n')
+    write(shelf / "probe", MINIMAL + "pdf_name_markers = ['probe']\n")
+    assert catalog.book_for_scan(Path("probe_scan.pdf")).spec.slug == "probe"
+    assert catalog.book_for_scan(Path("unrelated.pdf")) is None
+    assert "broken" in capsys.readouterr().err

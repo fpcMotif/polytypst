@@ -1,6 +1,7 @@
 """Automated Strict Document Quality Checker & Linter for polytypst deliverables."""
 
 import re
+import statistics
 import unicodedata
 from collections import Counter
 from collections.abc import Callable
@@ -12,8 +13,9 @@ from typing import Literal
 
 import pymupdf
 
-from .compiler.monograph import MonographSpec
+from .compiler.monograph import MonographSpec, build_source
 from .compiler.page_cleaner import CIRCLED_DIGITS
+from .compiler.page_design import PageDesign, page_design
 
 Severity = Literal["ERROR", "WARNING"]
 TEXT_TIER = 1
@@ -86,6 +88,7 @@ class AuditSpec:
     footnote_marks: tuple[str, ...] = ()
     footnote_reset: str = "page"
     scan_line_breaks: bool = False
+    design: PageDesign | None = None
 
     def footnote_label(self, n: int) -> str:
         if n <= len(self.footnote_marks):
@@ -114,11 +117,61 @@ class AuditSpec:
             footnote_numbering=spec.footnote_numbering if spec.footnote_style else "",
             footnote_marks=spec.footnote_marks,
             footnote_reset=spec.footnote_reset,
+            design=None
+            if spec.typst_preamble
+            else page_design(spec.composition()),
         )
 
 
 def _letters(text: str) -> str:
     return "".join(c for c in text.casefold() if c.isalpha())
+
+
+_HEAD_BAND = 0.08
+_FOOT_BAND = 0.93
+_FOLIO = re.compile(r"(?<![\w.])(?:\d{1,4}|[ivxlc]+)(?![\w.])")
+_GLUED_FOLIO = re.compile(r"[A-Za-z)\]]\d{1,4}$|^\d{1,4}[A-Za-z(\[]")
+_OVERFLOW_PT = 3.0
+_TYPST_DEFAULT_FONTS = ("New Computer Modern Math",)
+_TYPST_FONT_RE = re.compile(r'\bfont:\s*(\([^)]*\)|"[^"]*"|[A-Za-z][\w-]*)')
+_CONTENTS_TITLE_RE = re.compile(r"^(?:table\s+of\s+)?contents$", re.IGNORECASE)
+_LEADER_RE = re.compile(r"(?:\.\s*){4,}")
+_HYPHENS = ("-", "­", "‐")
+_PAGE_NUMBER_END_RE = re.compile(r"\s\d{1,3}$")
+
+
+def _font_key(name: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+def _family_pattern(family: str) -> re.Pattern[str]:
+    words = re.findall(r"[a-z]+|\d+", family.lower())
+    prefixes = ["|".join(w[:k] for k in range(len(w), min(3, len(w)) - 1, -1)) for w in words]
+    return re.compile(f"(?:{prefixes[0]})" + "".join(f"(?:{p}|{w[0]})" for p, w in zip(prefixes[1:], words[1:], strict=True)))
+
+
+def typst_font_families(source: str) -> list[str]:
+    families = []
+    for m in _TYPST_FONT_RE.finditer(source):
+        value = m[1]
+        if not value.startswith(("(", '"')):
+            bound = re.search(rf"\blet\s+{re.escape(value)}\s*=\s*(\([^)]*\)|\"[^\"]*\")", source)
+            value = bound[1] if bound else ""
+        families += re.findall(r'"([^"]+)"', value)
+    return families
+
+
+def _heading_key(spans: list[dict]) -> str:
+    return "".join(c for s in spans for c in s["text"].casefold() if c.isalnum())
+
+
+def _line_spans(page_dict: dict) -> list[tuple[pymupdf.Rect, list[dict]]]:
+    return [
+        (pymupdf.Rect(ln["bbox"]), spans)
+        for b in page_dict["blocks"]
+        for ln in b.get("lines", [])
+        if (spans := [s for s in ln["spans"] if s["text"].strip()])
+    ]
 
 
 def _snippet(text: str, start: int, end: int, pad: int = 20) -> str:
@@ -175,8 +228,18 @@ _LEAKED_MATH_WORDS = (
     "even",
     "odd",
     "otherwise",
+    "arrow",
+    "underbrace",
+    "overbrace",
+    "frac",
+    "mapsto",
+    "text",
+    "theorem",
+    "which",
+    "there",
+    "every",
 )
-_ITALIC_RUN_RE = re.compile(r"[\U0001D434-\U0001D6A5]{3,}")
+_ITALIC_RUN_RE = re.compile(r"[\U0001D434-\U0001D6A5ℎ]{3,}")
 _SPACED_WORDS = (
     (r"\bi\s+n\s+f\s+i\s+n\s+i\s+t\s+y\b", "Mangled 'infinity'"),
     (r"\bp\s+a\s+r\s+t\s+i\s+a\s+l\b", "Mangled 'partial'"),
@@ -276,6 +339,15 @@ class DocumentQualityChecker:
                 self.check_shrunken_display_math,
                 self.check_visual_line_height_spikes,
                 self.check_footnote_mark_sequence,
+                self.check_font_fallback,
+                self.check_underfull_pages,
+                self.check_running_head_formulas,
+                self.check_crowded_running_heads,
+                self.check_chapter_opening_folios,
+                self.check_duplicate_headings,
+                self.check_contents_leaders,
+                self.check_hyphenated_headings,
+                self.check_page_design,
             ),
             STRUCTURE_TIER: (
                 self.check_chapter_structural_integrity,
@@ -546,22 +618,31 @@ class DocumentQualityChecker:
                     " | ".join(matches[:2]),
                 )
 
+    def page_overflow(self, pno: int) -> tuple[float, str]:
+        """How far, in pt, ink on 0-based page `pno` passes the text block sideways, and the text, "image" or "drawing" that does."""
+        page = self.doc[pno]
+        left, right = self._text_block.get((pno + 1) % 2) or (0.0, 0.96 * page.rect.width - _OVERFLOW_PT)
+        top, foot = _HEAD_BAND * page.rect.height, _FOOT_BAND * page.rect.height
+        items = [(r, "".join(s["text"] for s in spans)) for r, spans in _line_spans(self._page_dicts[pno])]
+        items += [(pymupdf.Rect(info["bbox"]), "image") for info in page.get_image_info()]
+        items += [(d["rect"], "drawing") for d in page.get_drawings() if d["rect"].width > 0.5 or d["rect"].height > 0.5]
+        past = [(max(r.x1 - right, left - r.x0), text) for r, text in items if r.y1 > top and r.y0 < foot]
+        return max(past, default=(0.0, ""))
+
     def check_equation_margin_overflow(self, report: CheckReport) -> None:
         """Rule 9: Equations and text must not exceed page margin boundary."""
         for pno in range(len(self.doc)):
-            page = self.doc[pno]
-            max_allowed_x = page.rect.width * 0.96
-            for b in page.get_text("blocks"):
-                x1 = b[2]
-                if x1 > max_allowed_x:
-                    self._issue(
-                        report,
-                        "WARNING",
-                        "MARGIN_OVERFLOW",
-                        pno + 1,
-                        f"Block overflowed margin: x1={x1:.1f} > max={max_allowed_x:.1f}",
-                        b[4].strip().replace("\n", " ")[:80],
-                    )
+            left, right = self._text_block.get((pno + 1) % 2) or (0.0, 0.96 * self.doc[pno].rect.width - _OVERFLOW_PT)
+            by, text = self.page_overflow(pno)
+            if by > _OVERFLOW_PT:
+                self._issue(
+                    report,
+                    "WARNING",
+                    "MARGIN_OVERFLOW",
+                    pno + 1,
+                    f"Ink reaches {by:.1f}pt past the text block ({left:.1f}-{right:.1f}pt)",
+                    text[:80],
+                )
 
     def check_chapter_structural_integrity(self, report: CheckReport) -> None:
         """Rule 10: Chapters must progress monotonically; no duplicate headings or stale headers."""
@@ -690,8 +771,8 @@ class DocumentQualityChecker:
                     t = l.text.strip()
                     if cap_re.search(t):
                         issues.append(f"Leaked figure caption in crop: {t!r}")
-            except (OSError, RuntimeError, ValueError):
-                pass
+            except (OSError, RuntimeError, ValueError) as exc:
+                issues.append(f"Image unreadable ({exc})")
             if issues:
                 self._issue(
                     report,
@@ -835,7 +916,7 @@ class DocumentQualityChecker:
 
             number_zone = page.rect.width * 0.6
             spans: list[tuple[tuple[float, float, float, float], str]] = []
-            for blk in page.get_text("dict").get("blocks", []):
+            for blk in self._page_dicts[pno].get("blocks", []):
                 if blk.get("type") != 0:
                     continue
                 for line in blk.get("lines", []):
@@ -1074,6 +1155,240 @@ class DocumentQualityChecker:
                             lines[0][:80],
                         )
 
+    @cached_property
+    def _text_block(self) -> dict[int, tuple[float, float]]:
+        edges: dict[int, tuple[list[float], list[float]]] = {0: ([], []), 1: ([], [])}
+        for pno, d in enumerate(self._page_dicts):
+            wide = [r for r, _ in _line_spans(d) if r.width > 0.6 * self.doc[pno].rect.width]
+            if len(wide) >= 5:
+                lefts, rights = edges[(pno + 1) % 2]
+                lefts.append(statistics.quantiles([r.x0 for r in wide], n=10)[0])
+                rights.append(statistics.quantiles([r.x1 for r in wide], n=10)[-1])
+        frames = {p: (statistics.median(lefts), statistics.median(rights)) for p, (lefts, rights) in edges.items() if lefts}
+        return {p: frames.get(p) or frames[1 - p] for p in (0, 1)} if frames else {}
+
+    @cached_property
+    def _declared_fonts(self) -> tuple[re.Pattern[str], ...]:
+        typ = build_source(self.pdf_path, "typ")
+        families = typst_font_families(typ.read_text(encoding="utf-8")) if typ.exists() else []
+        return tuple(_family_pattern(f) for f in dict.fromkeys((*families, *_TYPST_DEFAULT_FONTS))) if families else ()
+
+    def _typst_fonts(self, pno: int) -> set[str]:
+        return {f[3].split("+")[-1].removesuffix("-Identity-H") for f in self.doc.get_page_fonts(pno) if f[2] == "Type0"}
+
+    def check_font_fallback(self, report: CheckReport) -> None:
+        if not self._declared_fonts:
+            return
+        for pno, d in enumerate(self._page_dicts):
+            if pno + 1 in self.spec.figure_pages:
+                continue
+            typst_fonts = self._typst_fonts(pno)
+            fallback: dict[str, Counter[str]] = {}
+            for _, spans in _line_spans(d):
+                for s in spans:
+                    if s["font"] in typst_fonts and not any(f.search(_font_key(s["font"])) for f in self._declared_fonts):
+                        fallback.setdefault(s["font"], Counter()).update(s["text"].strip())
+            for font, chars in fallback.items():
+                self._issue(
+                    report,
+                    "WARNING",
+                    "FONT_FALLBACK",
+                    pno + 1,
+                    f"{font} sets characters that no declared font covers",
+                    "".join(c for c, _ in chars.most_common(20)),
+                )
+
+    def _first_body_line(self, pno: int) -> tuple[pymupdf.Rect, list[dict]] | None:
+        return min(self._body_line_spans(pno), key=lambda line: line[0].y0, default=None)
+
+    def _body_line_spans(self, pno: int) -> list[tuple[pymupdf.Rect, list[dict]]]:
+        height = self.doc[pno].rect.height
+        return [(r, spans) for r, spans in _line_spans(self._page_dicts[pno]) if r.y1 > _HEAD_BAND * height and r.y0 < _FOOT_BAND * height]
+
+    def _opens_chapter(self, pno: int) -> bool:
+        first = self._first_body_line(pno)
+        if first is None:
+            return False
+        text = "".join(s["text"] for s in first[1]).strip()
+        return bool(re.match(self.spec.chapter_heading_regex, text)) or (
+            self._body_size is not None and max(s["size"] for s in first[1]) >= 1.2 * self._body_size
+        )
+
+    def _content_bottom(self, pno: int) -> float:
+        page = self.doc[pno]
+        foot = _FOOT_BAND * page.rect.height
+        bottoms = [r.y1 for r, _ in _line_spans(self._page_dicts[pno]) if r.y1 <= foot]
+        bottoms += [info["bbox"][3] for info in page.get_image_info() if info["bbox"][3] <= foot]
+        bottoms += [d["rect"].y1 for d in page.get_drawings() if d["rect"].y1 <= foot]
+        return max(bottoms, default=0.0)
+
+    def check_underfull_pages(self, report: CheckReport) -> None:
+        bottoms = [self._content_bottom(pno) for pno in range(len(self.doc))]
+        filled = sorted(b for b in bottoms if b)
+        if not filled:
+            return
+        full = filled[len(filled) * 3 // 4]
+        for pno in range(self.spec.front_matter_pages, len(self.doc) - 1):
+            if not bottoms[pno] or pno + 1 in self.spec.figure_pages or full - bottoms[pno] <= 0.2 * full:
+                continue
+            following = next((n for n in range(pno + 1, len(self.doc)) if bottoms[n]), None)
+            if following is None or self._opens_chapter(following):
+                continue
+            self._issue(
+                report,
+                "WARNING",
+                "UNDERFULL_PAGE",
+                pno + 1,
+                f"Text stops {full - bottoms[pno]:.0f}pt above the text block's foot and the next page opens no chapter",
+            )
+
+    def check_running_head_formulas(self, report: CheckReport) -> None:
+        for pno, d in enumerate(self._page_dicts):
+            head = [s for r, spans in _line_spans(d) if r.y1 < _HEAD_BAND * self.doc[pno].rect.height for s in spans]
+            letters = [(c, "Math" in s["font"]) for s in head for c in s["text"] if not (c.isspace() or c.isdigit())]
+            if letters and 2 * sum(math for _, math in letters) >= len(letters):
+                self._issue(
+                    report,
+                    "WARNING",
+                    "RUNNING_HEAD_FORMULA",
+                    pno + 1,
+                    "The running head is a formula, so a display was set as a heading",
+                    "".join(s["text"] for s in head)[:80],
+                )
+
+    def _band_lines(self, pno: int) -> tuple[list[tuple[pymupdf.Rect, str]], list[tuple[pymupdf.Rect, str]]]:
+        """The text lines of 0-based page `pno` in its head band and in its foot band."""
+        height = self.doc[pno].rect.height
+        lines = [(r, "".join(s["text"] for s in spans).strip()) for r, spans in _line_spans(self._page_dicts[pno])]
+        return (
+            [line for line in lines if line[0].y1 <= _HEAD_BAND * height],
+            [line for line in lines if line[0].y0 >= _FOOT_BAND * height],
+        )
+
+    def _has_folio(self, pno: int) -> bool:
+        head, foot = self._band_lines(pno)
+        return any(_FOLIO.search(text) for _, text in head + foot)
+
+    def check_chapter_opening_folios(self, report: CheckReport) -> None:
+        pages = range(self.spec.front_matter_pages, len(self.doc))
+        if 2 * sum(self._has_folio(pno) for pno in pages) < len(pages):
+            return
+        for pno in pages:
+            if self._opens_chapter(pno) and not self._has_folio(pno):
+                self._issue(report, "WARNING", "CHAPTER_OPENING_NO_FOLIO", pno + 1, "A page that opens a chapter prints no folio")
+
+    def check_crowded_running_heads(self, report: CheckReport) -> None:
+        for pno in range(len(self.doc)):
+            head, _ = self._band_lines(pno)
+            folios = [r for r, text in head if text.isdigit()]
+            titles = [(r, text) for r, text in head if not text.isdigit()]
+            glued = [text for _, text in titles if _GLUED_FOLIO.search(text)]
+            near = [
+                text
+                for r, text in titles
+                for f in folios
+                if min(r.y1, f.y1) > max(r.y0, f.y0) and max(r.x0, f.x0) - min(r.x1, f.x1) < f.height / 2
+            ]
+            wrapped = [titles[0][1]] if titles and max(r.y0 for r, _ in titles) >= min(r.y1 for r, _ in titles) else []
+            if crowded := glued or near or wrapped:
+                self._issue(
+                    report,
+                    "WARNING",
+                    "RUNNING_HEAD_CROWDED",
+                    pno + 1,
+                    "The running head wraps or runs into its folio",
+                    crowded[0][:80],
+                )
+
+    def check_duplicate_headings(self, report: CheckReport) -> None:
+        if self._body_size is None:
+            return
+        for pno in range(len(self.doc)):
+            runs: list[tuple[float, str]] = []
+            for _, spans in self._body_line_spans(pno):
+                size = round(min(s["size"] for s in spans), 1)
+                if runs and runs[-1][0] == size:
+                    runs[-1] = (size, runs[-1][1] + _heading_key(spans))
+                else:
+                    runs.append((size, _heading_key(spans)))
+            headings = {key for size, key in runs if size >= 1.15 * self._body_size and len(key) >= 6}
+            doubled = [key for key in headings if len(key) % 2 == 0 and key[: len(key) // 2] == key[len(key) // 2 :]]
+            repeated = [key for key, n in Counter(key for _, key in runs if key in headings).items() if n > 1]
+            for key in doubled + repeated:
+                self._issue(report, "WARNING", "DUPLICATE_HEADING", pno + 1, "A heading prints twice on its page", key[:80])
+
+    def check_hyphenated_headings(self, report: CheckReport) -> None:
+        if self._body_size is None:
+            return
+        for pno in range(len(self.doc)):
+            lines = sorted(self._body_line_spans(pno), key=lambda line: line[0].y0)
+            for (top, upper), (below, lower) in pairwise(lines):
+                size = min(s["size"] for s in upper)
+                text = "".join(s["text"] for s in upper).rstrip()
+                if (
+                    size >= 1.15 * self._body_size
+                    and abs(size - min(s["size"] for s in lower)) < 0.2
+                    and text.endswith(_HYPHENS)
+                    and text[-2:-1].isalpha()
+                    and below.y0 - top.y1 < size
+                ):
+                    self._issue(
+                        report, "WARNING", "HYPHENATED_HEADING", pno + 1, "A heading breaks a word with a hyphen", text[-40:]
+                    )
+
+    def check_page_design(self, report: CheckReport) -> None:
+        """The pages against the book's `PageDesign`: trim, text block, line pitch, hyphen runs and word spaces."""
+        if self.spec.design is None:
+            return
+        skip = frozenset(range(1, self.spec.front_matter_pages + 1)) | self.spec.figure_pages
+        for f in self.spec.design.audit(self.doc, skip):
+            report.issues.append(QualityIssue(f.severity, f.rule, f.page, f.message, f.snippet))
+
+    def check_contents_leaders(self, report: CheckReport) -> None:
+        for pno in range(len(self.doc)):
+            lines = ["".join(s["text"] for s in spans).strip() for _, spans in self._body_line_spans(pno)]
+            if not any(_CONTENTS_TITLE_RE.match(line) for line in lines[:3]):
+                continue
+            numbered = sum(bool(_PAGE_NUMBER_END_RE.search(line)) for line in lines)
+            if numbered >= 5 and not _LEADER_RE.search(self._texts[pno]):
+                self._issue(
+                    report,
+                    "WARNING",
+                    "CONTENTS_WITHOUT_LEADERS",
+                    pno + 1,
+                    f"{numbered} contents entries end in a page number with no dot leader",
+                )
+
+    def type_profile(self) -> tuple[str, int, float] | None:
+        """The body text's script, its median characters per full line (a wide CJK character counts two),
+        and its median line pitch over the body size; None when no full body lines were found."""
+        body = self._body_size
+        widths: list[int] = []
+        pitches: list[float] = []
+        cjk = 0
+        for pno in range(self.spec.front_matter_pages, len(self.doc)):
+            frame = self._text_block.get((pno + 1) % 2)
+            if not frame or body is None:
+                continue
+            left, right = frame
+            lines = [
+                (r, spans)
+                for r, spans in sorted(self._body_line_spans(pno), key=lambda line: line[0].y0)
+                if abs(statistics.mean(s["size"] for s in spans) - body) < 0.3 and not any("Math" in s["font"] for s in spans)
+            ]
+            for (upper, spans), (lower, _) in pairwise(lines):
+                if upper.x0 < left + 2 and upper.x1 > right - 2:
+                    text = "".join(s["text"] for s in spans).strip()
+                    wide = [unicodedata.east_asian_width(c) in "WF" for c in text]
+                    cjk += 2 * sum(wide) > len(text)
+                    widths.append(len(text) + sum(wide))
+                    if 0.9 * body < lower.y0 - upper.y0 < 2.5 * body:
+                        pitches.append((lower.y0 - upper.y0) / body)
+        if not widths or not pitches or body is None:
+            return None
+        script = "cjk" if 2 * cjk > len(widths) else "latin"
+        return script, round(statistics.median(widths)), round(statistics.median(pitches), 2)
+
 
 def audit_pdf(
     pdf_path: Path,
@@ -1084,22 +1399,9 @@ def audit_pdf(
         from .books import find_known_book
 
         spec = find_known_book(pdf_path)
-    monograph = spec if isinstance(spec, MonographSpec) else None
     if isinstance(spec, MonographSpec):
         spec = AuditSpec.from_monograph(spec)
     report = DocumentQualityChecker(pdf_path, spec).run_all_checks(tiers)
-    if monograph is not None and monograph.cross_references and STRUCTURE_TIER in tiers:
-        from .literal_numbers import edition_literal_counts
-        for rule, count in edition_literal_counts(pdf_path, monograph).items():
-            report.issues.append(
-                QualityIssue(
-                    "ERROR",
-                    rule,
-                    1,
-                    f"{count} literal or unlinked numbering instance(s) in generated source",
-                    tier=STRUCTURE_TIER,
-                )
-            )
     report.print_summary()
     return report
 

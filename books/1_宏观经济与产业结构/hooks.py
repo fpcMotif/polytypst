@@ -9,16 +9,10 @@ from .figures import crop_macro_figures, figure_page_art, figure_page_boxes
 
 OUT_DIR = OUTPUT / "1_宏观经济与产业结构"
 _BOOK = tomllib.loads((Path(__file__).parent / "book.toml").read_text(encoding="utf-8"))
-RUNNING_HEADER_REGEXES = tuple(_BOOK["running_header_regexes"])
 CHAPTERS = _BOOK["chapters"]
 
 FALSE_HEADINGS = (
-    r"^(?:#+\s*)?2\s+NIES$",
     r"^(?:#+\s*)?分析研发费用的决定因素时.*$",
-)
-
-FALSE_HEADINGS = (
-    *FALSE_HEADINGS,
     r"^(?:#+\s*)?5-2\s+分析股价与经济的关系。$",
 )
 
@@ -35,12 +29,7 @@ TABLE_TITLE = re.compile(r"^(?:附)?表\s*\d+[-.]\d+")
 
 
 def macro_heading_hook(lt: str, chapter: int) -> str | None:
-    """Sections become `##`, subsections `###` and `####`; chapter titles, subtitles and running heads drop; bylines stay text.
-
-    The shared cleaner drops a heading that an earlier chapter already had, which loses each
-    chapter's "导 语" and "1 前言", so every heading line returns here."""
-    if any(re.match(rx, lt, re.IGNORECASE) for rx in RUNNING_HEADER_REGEXES):
-        return ""
+    """Sections become `##`, subsections `###` and `####`; chapter titles, subtitles and running heads drop; bylines stay text."""
     text = re.sub(r"^#+\s*", "", lt).strip()
     if any(re.match(rx, lt) for rx in FALSE_HEADINGS):
         return text

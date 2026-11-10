@@ -1,0 +1,59 @@
+[[chapter]]
+number = 1
+tag = "0001"
+first_page = 18
+last_page = 144
+
+[[chapter]]
+number = 2
+tag = "007J"
+first_page = 145
+last_page = 371
+
+[[chapter]]
+number = 3
+tag = "00SY"
+first_page = 372
+last_page = 613
+
+[[chapter]]
+number = 4
+tag = "01GP"
+first_page = 614
+last_page = 998
+
+[[chapter]]
+number = 5
+tag = "01J2"
+first_page = 999
+last_page = 1325
+
+[[chapter]]
+number = 6
+tag = "02C9"
+first_page = 1326
+last_page = 1442
+
+[[chapter]]
+number = 7
+tag = "02H0"
+first_page = 1443
+last_page = 1803
+
+[[chapter]]
+number = 8
+tag = "03JA"
+first_page = 1804
+last_page = 2183
+
+[[chapter]]
+number = 9
+tag = "04KE"
+first_page = 2184
+last_page = 2465
+
+[[chapter]]
+number = 10
+tag = "04QH"
+first_page = 2466
+last_page = 2547

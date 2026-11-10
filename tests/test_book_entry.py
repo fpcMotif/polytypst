@@ -62,6 +62,7 @@ def test_adhoc_book_marks_blank_pages_instead_of_transcribing_them(
     assert result[3] == "Cached transcript for page 3 of the book.\n"
 
 
+@pytest.mark.slow
 def test_a_scan_with_a_known_page_count_but_no_known_name_is_a_new_book(
     tmp_path: Path,
 ) -> None:
@@ -140,9 +141,18 @@ def test_book_state_names_its_variable_when_unset(
         _ = book_state(tmp_path / "out")
 
 
+@pytest.mark.slow
 def test_known_books_match_by_scan_name_slug_or_explicit_key(tmp_path: Path) -> None:
     hecke = books()["hecke"]
     assert book_for_scan(Path(HECKE_SPEC.source_pdf)) is hecke
     assert book_for_scan(tmp_path / f"{HECKE_SPEC.slug}.pdf") is hecke
     assert book_for_scan(tmp_path / "anything.pdf", key="hecke") is hecke
     assert find_known_book(Path(HECKE_SPEC.source_pdf)) is HECKE_SPEC
+
+
+@pytest.mark.parametrize(
+    "key", ["2_通缩经济与货币政策", "3_国际经济环境的变化与日本经济", "5_财政政策与社会保障"]
+)
+def test_a_renamed_scan_of_an_economics_book_still_finds_its_book(tmp_path: Path, key: str) -> None:
+    title = books()[key].spec.title
+    assert book_for_scan(tmp_path / f"日本经济 {title}（扫描版）.pdf") is books()[key]

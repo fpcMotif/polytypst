@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pymupdf
 
+from polytypst.paths import OUTPUT
+
 # =========================================================================
 # Shared SVG Definitions and Styling
 # =========================================================================
@@ -1148,5 +1150,5 @@ def generate_all_algebra2_figures(out_dir_mono: Path, out_dir_color: Path) -> No
 
 
 if __name__ == "__main__":
-    base_out = Path("output/algebra2")
+    base_out = OUTPUT / "algebra2"
     generate_all_algebra2_figures(base_out / "figures", base_out / "figures_color")

@@ -29,6 +29,19 @@ TYPST_RULES = r"""
   let n = nums.pos().first()
   if ch > 0 { str(ch) + "-" + str(n) } else { str(n) }
 }
+#let source-figure-plain(..nums) = str(nums.pos().first())
+#let source-figure-dotted(..nums) = {
+  let ch = counter(heading).get().first()
+  let n = nums.pos().first()
+  if ch > 0 { str(ch) + "." + str(n) } else { str(n) }
+}
+#let source-figure-ref-number(el) = {
+  let ch = counter(heading).at(el.location()).first()
+  let n = el.counter.at(el.location()).first()
+  if el.numbering == source-figure-plain or ch == 0 { str(n) }
+  else if el.numbering == source-figure-dotted { str(ch) + "." + str(n) }
+  else { str(ch) + "-" + str(n) }
+}
 #let source-equation-number(n) = "(" + (counter(heading).get().slice(1) + (n,)).map(str).join(".") + ")"
 #let source-digits(el) = {
   let nums = counter(heading).at(el.location()).slice(1)
@@ -83,10 +96,8 @@ TYPST_RULES = r"""
     let n = counter(math.equation).at(el.location()).first()
     return link(el.location())[(#n)]
   }
-  if el.func() == figure and el.numbering == source-figure-number {
-    let ch = counter(heading).at(el.location()).first()
-    let n = el.counter.at(el.location()).first()
-    let num = if ch > 0 { str(ch) + "-" + str(n) } else { str(n) }
+  if el.func() == figure and el.numbering in (source-figure-number, source-figure-plain, source-figure-dotted) {
+    let num = source-figure-ref-number(el)
     let sup = if it.supplement == auto { el.supplement } else { it.supplement }
     return link(el.location())[#{ if sup != none [#sup#sym.space.nobreak] }#num]
   }
@@ -98,7 +109,10 @@ TYPST_RULES = r"""
 
 TYPST_EQUATION_LAYOUT = r"""
 #show math.equation.where(block: true): it => {
-  if it.numbering == none { return it }
+  if it.numbering == none {
+    if it.at("label", default: none) == <fitted-display> { return it }
+    return layout(size => align(center, fit-display(it.body, size.width)))
+  }
   layout(size => {
     let number = counter(math.equation).display(it.numbering)
     grid(
@@ -113,7 +127,7 @@ TYPST_EQUATION_LAYOUT = r"""
 """
 
 LATEX_RULES = (
-    r"\newcounter{sourcesection}\newcounter{sourcesubsection}[sourcesection]"
+    r"\newcounter{sourcechapter}\newcounter{sourcesection}\newcounter{sourcesubsection}[sourcesection]"
     r"\newcounter{sourceparagraph}[sourcesubsection]\newcounter{sourcearticle}\newcounter{sourceroman}\newcounter{sourcecircled}"
     r"\renewcommand\thesourcesubsection{\arabic{sourcesection}.\arabic{sourcesubsection}}"
     r"\renewcommand\thesourceparagraph{\thesourcesubsection.\arabic{sourceparagraph}}"
@@ -188,6 +202,8 @@ _PROSE_EQ_EN_RE = re.compile(
 _PARAGRAPH_HEADING_RE = re.compile(rf"^\(({_NUMBER})\.?\)\s*(.*)$")
 _REF_RE = re.compile(rf"\((?:(?P<chapter>0|I{{1,3}}|IV|VI{{0,3}}|IX|X), ?)?(?P<number>{_NUMBER})\.?\)")
 _FIG_REF_RE = re.compile(r"(?i)(?:\bFig(?:ure)?(?:\.|\b)|图)\s*(?P<fig>\d+(?:[.\-]\d+){0,2}[a-z]?)(?![\d\-]|\.\d)")
+_TBL_REF_RE = re.compile(r"(?i)(?:表|附表)\s*(?P<tbl>\d+(?:[.\-]\d+)?[a-z]?)(?![\d\-])")
+_TABLE_CALL_RE = re.compile(r"\btable\(")
 _ART_EQ_RE = re.compile(
     r"(?<![(\w§\d\-])(?<!,\s)(?P<art>\d{1,3})(?P<sep>\s*(?:,\s*|\s+目的|\s+)?(?:公式\s*)?)\((?P<eq>\d+[a-z*]?)\)"
 )
@@ -220,12 +236,40 @@ _BIB_ENTRY_RE = re.compile(rf"(?m)^{_PAGE_MARK}\\?\[(?P<key>\d+(?: bis)?|[A-Z]{{
 _LABEL_RE = re.compile(r"(?:<|\\label\{)((?:eq|par)-c\d+(?:-\d+)+|art-\d+|eq-art-\d+-\d+|(?:fig|tbl|sec)-[\w-]+)")
 
 
+@dataclass(frozen=True)
+class FigureNumber:
+    printed: str
+    label: str
+    n: int
+
+    @classmethod
+    def parse(cls, raw: str) -> FigureNumber:
+        printed = raw.replace("_", "-")
+        digits = re.sub(r"[.\-]", "-", printed)
+        tail = re.match(r"\d+", digits.split("-")[-1])
+        return cls(printed, f"fig-{digits}", int(tail.group(0)) if tail else 1)
+
+
+class FigureCounter:
+    """Mirror one chapter's figure counter, as the scan's figure numbers move it."""
+
+    def __init__(self, chapter: int) -> None:
+        self.chapter = chapter
+        self.figure = 0
+
+    def advance(self, fig: FigureNumber) -> bool:
+        skipped = fig.n != self.figure + 1
+        self.figure = fig.n
+        return skipped
+
+
 class _Writer(Protocol):
     """How one output format writes the numbered elements; the numbers themselves come from its counters."""
 
     events_pattern: str
     math: re.Pattern[str]
     chapter_start: str
+    figure_pattern: re.Pattern[str]
 
     def set_levels(self, nums: tuple[int, ...]) -> str: ...
     def set_article(self, n: int) -> str: ...
@@ -247,6 +291,8 @@ class _Writer(Protocol):
     def ref(self, name: str, chapter: str | None) -> str: ...
     def target(self, name: str) -> str: ...
     def link(self, name: str, text: str) -> str: ...
+    def figure_number(self, fig: FigureNumber, chapter: int, skipped: bool) -> tuple[str, str]: ...
+    def figure(self, m: re.Match[str], label: str, before: str, inside: str) -> str: ...
 
 
 class TypstWriter:
@@ -261,6 +307,7 @@ class TypstWriter:
     )
     math = re.compile(r"(?<!\\)\$(?:[^$\\]|\\[\s\S])*\$")
     chapter_start = "#counter(heading).update((..c) => (c.pos().at(0, default: 0),))\n#counter(math.equation).update(0)\n"
+    figure_pattern = _TYPST_FIG_RE
 
     def set_levels(self, nums: tuple[int, ...]) -> str:
         """Set every level below the chapter, keeping the chapter's own count."""
@@ -327,6 +374,14 @@ class TypstWriter:
     def link(self, name: str, text: str) -> str:
         return f"#link(<{name}>)[{text}]"
 
+    def figure_number(self, fig: FigureNumber, chapter: int, skipped: bool) -> tuple[str, str]:
+        before = f"#counter(figure.where(kind: image)).update({max(0, fig.n - 1)})\n" if skipped else ""
+        style = _typst_figure_style(fig.printed, chapter, fig.n)
+        return before, f"  numbering: {style},\n" if style else ""
+
+    def figure(self, m: re.Match[str], label: str, before: str, inside: str) -> str:
+        return f"{before}#figure(\n{m.group('img')}{inside}  caption: [{m.group('cap').strip()}]\n) <{label}>"
+
 
 class LatexWriter:
     events_pattern = (
@@ -339,6 +394,7 @@ class LatexWriter:
     )
     math = re.compile(r"(?s:\\begin\{equation\}.*?\\end\{equation\}|\$\$.*?\$\$)|(?<!\\)\$(?:[^$\\]|\\.)*\$")
     chapter_start = "\\setcounter{sourcesection}{0}\\setcounter{equation}{0}\n\n"
+    figure_pattern = _LATEX_FIG_RE
     _counters = ("sourcesection", "sourcesubsection", "sourceparagraph")
 
     def set_levels(self, nums: tuple[int, ...]) -> str:
@@ -408,6 +464,20 @@ class LatexWriter:
     def link(self, name: str, text: str) -> str:
         return rf"\hyperlink{{{name}}}{{{text}}}"
 
+    def figure_number(self, fig: FigureNumber, chapter: int, skipped: bool) -> tuple[str, str]:
+        before = f"\\setcounter{{sourcechapter}}{{{chapter}}}\\setcounter{{figure}}{{{max(0, fig.n - 1)}}}"
+        return before, f"\\renewcommand{{\\thefigure}}{{{_latex_figure_style(fig.printed, chapter, fig.n)}}}"
+
+    def figure(self, m: re.Match[str], label: str, before: str, inside: str) -> str:
+        cap = re.sub(r"(?<!\\)([%&#])", r"\\\1", m.group("cap").strip())
+        png = re.sub(r"\.svg$", ".png", m.group("path"))
+        return (
+            f"{before}\\begin{{figure}}[htbp]\\centering"
+            f"\\includegraphics[width=\\linewidth,height=0.75\\textheight,keepaspectratio]{{{png}}}"
+            f"{inside}\\captionsetup{{labelformat=simple,labelsep=space,name={{{m.group('sup')}}}}}"
+            f"\\caption{{{cap}}}\\label{{{label}}}\\end{{figure}}"
+        )
+
 
 TYPST = TypstWriter()
 LATEX = LatexWriter()
@@ -422,6 +492,25 @@ class Resync:
 
     def line(self) -> str:
         return f"chapter {self.chapter}: {self.kind} {self.scan} would have been numbered {self.computed}"
+
+
+def _typst_figure_style(raw_num: str, chapter: int, n: int) -> str:
+    if chapter > 0 and raw_num == f"{chapter}-{n}":
+        return ""
+    if raw_num == str(n):
+        return "source-figure-plain"
+    if chapter > 0 and raw_num == f"{chapter}.{n}":
+        return "source-figure-dotted"
+    return f'_ => "{raw_num}"'
+
+
+def _latex_figure_style(raw_num: str, chapter: int, n: int) -> str:
+    if raw_num == str(n):
+        return r"\arabic{figure}"
+    for sep in "-.":
+        if chapter > 0 and raw_num == f"{chapter}{sep}{n}":
+            return rf"\arabic{{sourcechapter}}{sep}\arabic{{figure}}"
+    return raw_num
 
 
 def _sec_target(number: str) -> str:
@@ -450,7 +539,7 @@ class _Numbering:
         self.roman = 0
         self.circled = 0
         self.equation = 0
-        self.figure = 0
+        self.figures = FigureCounter(chapter)
         self.resyncs: list[Resync] = []
         self.seen: set[str] = seen if seen is not None else set()
 
@@ -605,6 +694,13 @@ def number_chapter(
             if len(marks) == 3 and not title.lstrip().startswith("§"):
                 return state.article_heading(n) + writer.article(rest, state.article_label(n))
             lbl = section_label(f"sec-{n}")
+            if n == 0 and writer is TYPST:
+                _ = state.heading((n,), "§")
+                tag = f" <{lbl}>" if lbl else ""
+                return (
+                    f'#heading(level: 2, numbering: (..n) => "0")[{rest}]{tag}\n'
+                    "#counter(heading).update((..c) => (c.pos().at(0, default: 0), 0))"
+                )
             return state.heading((n,), "§") + writer.section(rest, lbl)
         state.unnumbered_heading()
         return writer.unnumbered(marks, title)
@@ -636,57 +732,15 @@ def number_chapter(
         return top + paragraph(_parse(m.group("bold") or m.group("plain")), m.group("kind") or "")
 
     def number_figure(m: re.Match[str]) -> str:
-        raw_num = m.group("fig")
-        digits = re.sub(r"[.\-]", "-", raw_num)
-        label = f"fig-{digits}"
-        if label in state.seen:
+        fig = FigureNumber.parse(m.group("fig"))
+        if fig.label in state.seen:
             return m.group(0)
-        state.seen.add(label)
-        cap = m.group("cap").strip()
-        num_tail = raw_num.split(".")[-1].split("-")[-1]
-        num_int = int(re.match(r"\d+", num_tail).group(0)) if re.match(r"\d+", num_tail) else 1
-        expected = state.figure + 1
-        state.figure = num_int
-        counter_update = (
-            f"#counter(figure.where(kind: image)).update({max(0, num_int - 1)})\n"
-            if num_int != expected
-            else ""
-        )
-        auto_nums = {f"{state.chapter}-{num_int}", str(num_int)} if state.chapter > 0 else {str(num_int)}
-        numbering = f'  numbering: _ => "{raw_num}",\n' if raw_num not in auto_nums else ""
-        return (
-            f"{counter_update}#figure(\n{m.group('img')}"
-            f"{numbering}"
-            f"  caption: [{cap}]\n"
-            f") <{label}>"
-        )
-
-    def number_figure_latex(m: re.Match[str]) -> str:
-        raw_num = m.group("fig")
-        digits = re.sub(r"[.\-]", "-", raw_num)
-        label = f"fig-{digits}"
-        if label in state.seen:
-            return m.group(0)
-        state.seen.add(label)
-        cap = re.sub(r"(?<!\\)([%&#])", r"\\\1", m.group("cap").strip())
-        num_tail = raw_num.split(".")[-1].split("-")[-1]
-        num_int = int(re.match(r"\d+", num_tail).group(0)) if re.match(r"\d+", num_tail) else 1
-        png = re.sub(r"\.svg$", ".png", m.group("path"))
-        return (
-            f"\\setcounter{{figure}}{{{max(0, num_int - 1)}}}"
-            f"\\begin{{figure}}[htbp]\\centering"
-            f"\\includegraphics[width=\\linewidth,height=0.75\\textheight,keepaspectratio]{{{png}}}"
-            f"\\renewcommand{{\\thefigure}}{{{raw_num}}}"
-            f"\\captionsetup{{labelformat=simple,labelsep=space,name={{{m.group('sup')}}}}}"
-            f"\\caption{{{cap}}}\\label{{{label}}}\\end{{figure}}"
-        )
+        state.seen.add(fig.label)
+        before, inside = writer.figure_number(fig, state.chapter, state.figures.advance(fig))
+        return writer.figure(m, fig.label, before, inside)
 
     events = re.compile(writer.events_pattern.replace("<ITEM_KINDS>", kinds(words.item_kinds)))
-    numbered = events.sub(event, text)
-    if writer is TYPST:
-        numbered = _TYPST_FIG_RE.sub(number_figure, numbered)
-    else:
-        numbered = _LATEX_FIG_RE.sub(number_figure_latex, numbered)
+    numbered = writer.figure_pattern.sub(number_figure, events.sub(event, text))
     return writer.chapter_start + numbered, state.resyncs
 
 
@@ -736,7 +790,6 @@ def link_references(
 
     out = _sub_outside_math(_REF_RE, link, text, writer)
     out = _sub_outside_math(_FIG_REF_RE, link_fig, out, writer)
-    _tbl_ref_re = re.compile(r"(?i)(?:表|附表)\s*(?P<tbl>\d+(?:[.\-]\d+)?[a-z]?)(?![\d\-])")
     def link_tbl(m: re.Match[str]) -> str:
         if writer is TYPST and "caption:" in m.string[max(0, m.start() - 32) : m.start()]:
             return m.group(0)
@@ -748,7 +801,7 @@ def link_references(
             prefix = m.group(0)[: m.start("tbl") - m.start()]
             return rf"{prefix}\ref{{{name}}}"
         return _fmt_ref(name, None, m.string[m.end() : m.end() + 1])
-    out = _sub_outside_math(_tbl_ref_re, link_tbl, out, writer)
+    out = _sub_outside_math(_TBL_REF_RE, link_tbl, out, writer)
 
     def link_num(n: str) -> str:
         target = _sec_target(n)
@@ -955,7 +1008,7 @@ def _sub_outside_math(
     pattern: re.Pattern[str], repl: Callable[[re.Match[str]], str], text: str, writer: _Writer
 ) -> str:
     def sub_paragraph(para: str) -> str:
-        if "#table(" in para:
+        if _TABLE_CALL_RE.search(para):
             return para
         out: list[str] = []
         pos = 0

@@ -1,0 +1,19 @@
+[[page]]
+slug = "serre-arithmetique"
+title = "Cours d'arithmétique"
+subtitle = "Presses Universitaires de France, collection « Le Mathématicien »"
+author = "Jean-Pierre Serre"
+language = "fr-FR"
+domain = "Algebraic Number Theory & Modular Forms"
+badge = "KaTeX / MathJax Engine + Semantic French Theorem Callouts"
+description = "塞尔的法文数论教程。收录第一部分（二次型、p-进域、Hasse-Minkowski 定理）与第二部分（Dirichlet 算术级数定理、模形式与 Hecke 算子）。网页版用 KaTeX 渲染公式，复平面基本域图是矢量图。"
+chapters = "site"
+source = "@OUTPUT@/serre_arithmetique"
+files = "serre_cours_darithmetique"
+
+[page.layout]
+markdown = "combined_serre.md"
+front_number = "Avant-propos"
+front_title = "Avant-propos & Première Partie"
+chapter_heading = '^(CHAPITRE|Chapitre|PREMIÈRE PARTIE|DEUXIÈME PARTIE|APPENDICE|Appendice|Index|Bibliographie)'
+theorem = '''^(?:\*\*)?(THÉORÈME|Théorème|PROPOSITION|Proposition|LEMME|Lemme|COROLLAIRE|Corollaire|DÉFINITION|Définition|REMARQUE|Remarque|Remarques|Démonstration|Exemple|Exemples)\s*([0-9IVX\.\'\s]*)(?:\*\*)?\s*[\.\—\-\:]?\s*(.*)$'''

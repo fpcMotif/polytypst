@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from scripts.book2_figures.engine import (
+from polytypst.charts.engine import (
     PT_PER_PX,
     SCAN_LINE_PT,
     SCAN_PAGE_ASPECT,
@@ -167,6 +167,7 @@ def test_scan_style_draws_no_grid_behind_a_scatter():
     assert not grid_lines(svg(points, "scan"))
 
 
+@pytest.mark.slow
 def test_chart_style_b_is_the_scan_style_set_in_the_body_fonts_and_style_a_is_mono():
     def generator(mode: str) -> str:
         return svg(year_panel(), mode)
@@ -178,6 +179,7 @@ def test_chart_style_b_is_the_scan_style_set_in_the_body_fonts_and_style_a_is_mo
     assert chart_svg(generator, "a") == finish_chart(svg(year_panel(), "mono"))
 
 
+@pytest.mark.slow
 def test_a_printed_chart_is_set_in_one_type_family_and_trimmed_to_its_ink():
     raw = svg(year_panel(), "mono")
     done = finish_chart(raw)
@@ -247,7 +249,7 @@ def test_render_figure_svg_omits_source_and_note_citations_from_svg_and_lint_cat
 
 
 def test_annotations_and_scatter_labels_render_outside_panel_clip_path():
-    from scripts.book2_figures.engine import Annotation
+    from polytypst.charts.engine import Annotation
 
     panel = replace(
         year_panel(),

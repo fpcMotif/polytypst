@@ -73,6 +73,7 @@ def test_a_math_book_ends_a_proof_with_a_qed_box():
     assert "#qed" in _typst("math", PROOF)
 
 
+@pytest.mark.slow
 def test_math_domain_normalizes_proof_labels():
     out1 = _typst("math", "*PROOF.* We prove the result directly.", theorem_layout=True)
     assert "#emph[Proof.] We prove the result directly." in out1
@@ -93,6 +94,7 @@ def test_math_domain_normalizes_proof_labels():
     assert "#emph[Proof.]" not in _typst("math", "*PROOF.* We prove the result directly.")
 
 
+@pytest.mark.slow
 def test_proof_end_mark_in_text_and_display_math():
     out_text = _typst("math", "This completes the proof. ■\n- Next topic", theorem_layout=True)
     assert "#qed-filled\n\n- Next topic" in out_text

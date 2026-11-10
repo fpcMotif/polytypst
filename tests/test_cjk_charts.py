@@ -1,9 +1,32 @@
 from PIL import Image, ImageDraw
 
 from polytypst.ocr.pages import OcrLine, PageImage
-from polytypst.vision.cjk_charts import extract_cjk_charts, transcript_figure_ids
+from polytypst.vision.cjk_charts import (
+    PAD,
+    crop_band,
+    extract_cjk_charts,
+    stack_sheets,
+    transcript_figure_ids,
+)
 
 W, H = 1000, 1500
+
+
+def test_a_band_crops_to_its_ink_padded_by_pad_of_the_page_height():
+    img = Image.new("L", (W, H), 255)
+    ImageDraw.Draw(img).rectangle((300, 400, 599, 699), fill=0)
+    pad = int(PAD * H)
+    crop = crop_band(img, (0.1, 0.1, 0.9, 0.9))
+    assert crop is not None
+    assert crop.size == (300 + 2 * pad, 300 + 2 * pad)
+    assert crop_band(img, (0.1, 0.6, 0.9, 0.9)) is None
+
+
+def test_stacked_sheets_center_each_part_one_above_the_other():
+    sheet = stack_sheets(Image.new("L", (10, 5), 0), Image.new("L", (20, 7), 255))
+    assert sheet.size == (20, 12)
+    assert sheet.getpixel((4, 2)) == 255
+    assert sheet.getpixel((5, 2)) == 0
 PROSE = "这是一个用于测试的正文段落，里面有足够多的汉字来构成一整行文字内容。"
 
 

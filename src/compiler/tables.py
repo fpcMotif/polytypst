@@ -23,7 +23,7 @@ def _escape_table_cell_text(cell: str) -> str:
     parts = TYPST_MATH_SPAN.split(cell)
     for idx in range(0, len(parts), 2):
         part = re.sub(r"<(?!eq-|fig-|sec-)", r"\<", parts[idx])
-        part = re.sub(r"(?<![@\\])@(?=[\w])(?!@)", r"\@", part)
+        part = re.sub(r"(?<![@\\])@(?=[\w-])(?!@)", r"\@", part)
         part = re.sub(r"(?<!\\)\[", r"\[", part)
         part = re.sub(r"(?<!\\)\]", r"\]", part)
         part = re.sub(r"(?<!\\)\*", r"\*", part)
@@ -77,7 +77,7 @@ CAPTIONED_TABLE = re.compile(
 TABLE_RUN = re.compile(
     rf"^(?:{TABLE_CAPTION_BLOCK}\n+)?(?:#block\(sticky: true\)\[[^\n]*\]\n+)?@@TABLEBLOCK\d+@@"
     rf"(?:\n+(?:(?:@@PAGEBREAK@@ *)?(?:#block\(sticky: true\)\[[^\n]*\]|续表)\n+)?@@TABLEBLOCK\d+@@)*"
-    r"(?:\n+(?:注|资料来源|（注|\(注)[^\n]*)*\n*",
+    r"(?:\n+(?:(?:注|资料来源)\s*[:：]|（注|\(注)[^\n]*)*\n*",
     re.MULTILINE,
 )
 
@@ -120,7 +120,7 @@ def _rotate_text_tables(text: str, table_blocks: list[str]) -> str:
     return TABLE_RUN.sub(rotate, text)
 
 
-NOTE_PARAGRAPH = r"(?:注|资料来源|数据来源|[（(\[［]注|[（(\[［]资料来源|[（(\[［]数据来源)[:：）)\]］]?[^\n]*(?:\n(?![ \t]*\n|[\]#])[^\n]+)*"
+NOTE_PARAGRAPH = r"(?:(?:注|资料来源|数据来源)\s*[:：]|[（(\[［](?:注|资料来源|数据来源)[:：）)\]］]?)[^\n]*(?:\n(?![ \t]*\n|[\]#])[^\n]+)*"
 NOTE_ITEM_PARAGRAPH = r"\d{1,2}[.．、]\s*\S[^\n]*(?:\n(?![ \t]*\n|[\]#])[^\n]+)*"
 CALL_NOTE_PARAGRAPH = r"[（(](\d{1,2})[）)][^\n]*(?:\n(?![ \t]*\n|[\]#])[^\n]+)*"
 TABLE_NOTES = re.compile(
@@ -206,6 +206,12 @@ def _is_table_label(line: str) -> bool:
         and not re.search(r"[。，；$]|@@", text)
         and not text.startswith(("#", "|", "]", ")", "=", "- ", "+ ", "/ "))
     )
+
+
+def _sticky_label(line: str) -> str:
+    """Keep a table label on its table's page; a trailing `\\` gets a space so it cannot escape the `]`."""
+    text = line.strip()
+    return f"#block(sticky: true)[{text}{' ' if text.endswith(chr(92)) else ''}]"
 
 
 def _cell_width(cell: str) -> int:
@@ -353,7 +359,7 @@ def continued_table_split(text: str) -> tuple[str, str] | None:
     stripped = text.lstrip()
     m = re.search(
         r"^(?:@@PAGEBREAK@@\s*)?(?:#+\s*)?续表[^\n]*(?:\n[ \t]*)*(?:\n[ \t]*\|[^\n]+\|[ \t]*)+"
-        r"(?:\n+(?:注|资料来源|（注|\(注|（资料来源|\(资料来源)[^\n]*(?:\n(?![ \t]*\n)[^\n]+)*)*",
+        r"(?:\n+(?:(?:注|资料来源)\s*[:：]|（注|\(注|（资料来源|\(资料来源)[^\n]*(?:\n(?![ \t]*\n)[^\n]+)*)*",
         stripped,
         re.MULTILINE,
     )
@@ -382,6 +388,9 @@ def _norm_header_cell(cell: str) -> str:
     return s
 
 
+_MEASURED_CELL = re.compile(r"[-−+]?\d*\.\d+%?|[-−+]?\d+(?:\.\d+)?%")
+
+
 def _is_data_like_cell(cell: str) -> bool:
     s = cell.strip()
     return bool(re.match(r"^(?:\d{4}\s*[年.\-—–/]|[-−+]?\d+(?:\.\d+)?%?$|（[1-9]\）|\([1-9]\))", s))
@@ -393,6 +402,8 @@ def _header_rows_match(r1: list[str], r2: list[str]) -> bool:
     if n1 == n2:
         return True
     if _is_data_like_cell(r1[0]) or _is_data_like_cell(r2[0]):
+        return False
+    if any(_MEASURED_CELL.fullmatch(c.strip()) for c in (*r1, *r2)):
         return False
     non_empty1 = [c for c in n1 if c]
     non_empty2 = [c for c in n2 if c]
@@ -659,7 +670,7 @@ def _format_pipe_tables(
                         )
                     label_at = next((k for k in range(len(out) - 1, -1, -1) if out[k].strip()), None)
                     if label_at is not None and _is_table_label(out[label_at]):
-                        out[label_at] = f"#block(sticky: true)[{out[label_at].strip()}]"
+                        out[label_at] = _sticky_label(out[label_at])
                     if note and "#context {" not in typst_table:
                         typst_table += f"\n#v(0.35em)\n#fig-note[\n{note}\n]\n"
                     out.append(typst_table)
@@ -676,7 +687,7 @@ def layout_tables(text: str, tables: list[str], three_line: bool = False, merge_
     multi-column page share one grid, and a run of text-heavy tables moves to its own landscape page."""
     text = re.sub(
         r"^([^\n]+)\n(?:[ \t]*\n)*(?=@@TABLEBLOCK\d+@@)",
-        lambda m: f"#block(sticky: true)[{m[1].strip()}]\n\n" if _is_table_label(m[1]) else m[0],
+        lambda m: f"{_sticky_label(m[1])}\n\n" if _is_table_label(m[1]) else m[0],
         text,
         flags=re.MULTILINE,
     )

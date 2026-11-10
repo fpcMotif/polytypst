@@ -1,0 +1,20 @@
+#import "@preview/fletcher:0.5.8" as fletcher
+#text(size: 0.92em)[#fletcher.diagram(
+  spacing: (1.2em, 1.6em),
+  label-size: 0.85em,
+  fletcher.node((0, 0), $H_c^n (RR^(n+1))$),
+  fletcher.node((1, 0), $H^n (M)$),
+  fletcher.node((2, 0), $H_c^(n+1) (RR^(n+1) - M)$),
+  fletcher.node((3, 0), $H_c^(n+1) (RR^(n+1))$),
+  fletcher.node((4, 0), $H^(n+1) (M).$),
+  fletcher.node((0, 1), $0$),
+  fletcher.node((3, 1), $RR$),
+  fletcher.node((4, 1), $0$),
+  fletcher.node((3, 0.5), rotate(90deg, $tilde.eq$)),
+  fletcher.edge((0, 0), (1, 0), "->"),
+  fletcher.edge((1, 0), (2, 0), "->", $delta$),
+  fletcher.edge((2, 0), (3, 0), "->"),
+  fletcher.edge((3, 0), (4, 0), "->"),
+  fletcher.node((0, 0.5), $parallel$),
+  fletcher.node((4, 0.5), $parallel$),
+)]

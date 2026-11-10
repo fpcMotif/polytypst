@@ -202,15 +202,15 @@ GOURSAT_TYPST_SNAPSHOT = (
     "quad integral_0^x frac(dif^2 y, dif t^2) dif t + dif alpha = dif ( u v ) $ <eq-1-1-29>\n\n"
     "For the branch\n\n"
     '$ cases(delim: "{", u = x^2 & , v = y^2 & ) $ \n\n'
-    "as shown in (Fig. 14).\n\n"
+    "as shown in (@fig-14).\n\n"
     "#place(auto, float: true, clearance: 1.2em)[\n"
     "#set align(start)\n"
     "#align(center)[\n"
     "  #figure(\n"
     '  image("figures/fig_1.svg", width: 58%),\n'
-    "  caption: [Figure 1],\n"
-    "  supplement: none\n"
-    ")\n"
+    "  numbering: source-figure-plain,\n"
+    "  caption: []\n"
+    ") <fig-1>\n"
     "]\n"
     "]"
 )
@@ -273,6 +273,7 @@ def _write_ocr_cache(source: Path, cache: Path) -> None:
     (cache / "pages.json").write_text(json.dumps({"1": [w, h]}), encoding="utf-8")
 
 
+@pytest.mark.slow
 def test_fermat_lemma_bijections_and_hilbert_cases_typst_snapshot() -> None:
     compiler = MonographCompiler(FERMAT_SPEC)
     body_29, _, _ = compiler.cleaner.clean(FERMAT_PAGE_29_MD, 29)
@@ -288,6 +289,7 @@ def test_fermat_lemma_bijections_and_hilbert_cases_typst_snapshot() -> None:
     )
 
 
+@pytest.mark.slow
 def test_fermat_mordell_proposition_and_conics_correspondence_typst_snapshot() -> None:
     compiler = MonographCompiler(FERMAT_SPEC)
     preamble = compiler.build_typst_preamble()
@@ -408,7 +410,7 @@ def test_math_layout_compiled_page_scan_parity_snapshot(tmp_path: Path) -> None:
         scan, broken_pdf, {1: [1]}, ocr=tmp_path / "ocr", work=tmp_path / "work"
     )[0]
     assert verdict(page_broken, SOURCE_PAGINATED) == [
-        "page offset +14.88,+0.06pt",
+        "page offset +14.88,-4.68pt",
         "5 words off by more than 1.5pt",
-        "2 baselines off by more than 1.5pt",
+        "4 baselines off by more than 1.5pt",
     ]

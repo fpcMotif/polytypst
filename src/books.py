@@ -28,10 +28,15 @@ from .edition import (
     monograph_edition,
 )
 from .facsimile import FacsimileStyle
+from .naming import BookNameError, check_name, default_name, edition_file
+from .paths import ASSETS, FONTS
 
 BOOKS_DIR = Path(__file__).resolve().parent.parent / "books"
 REPO_TOKEN = "@REPO@"
 BOOK_TOKEN = "@BOOK@"
+OUTPUT_TOKEN = "@OUTPUT@"
+FONTS_TOKEN = "@FONTS@"
+ASSETS_TOKEN = "@ASSETS@"
 BOOK_TOML = "book.toml"
 BOOK_PY = "book.py"
 HOOKS_PY = "hooks.py"
@@ -53,6 +58,12 @@ def book_folders() -> dict[str, Path]:
         for p in sorted(BOOKS_DIR.iterdir())
         if p.is_dir() and ((p / BOOK_TOML).is_file() or (p / BOOK_PY).is_file())
     }
+
+
+def newest_input(key: str) -> float:
+    """The newest modification time of the shared compiler and the book's folder; a rebuilt PDF older than this is stale."""
+    inputs = [*(Path(__file__).parent / "compiler").rglob("*.py"), *book_folders()[key].rglob("*")]
+    return max(path.stat().st_mtime for path in inputs if path.is_file())
 
 
 def _package_name(key: str) -> str:
@@ -79,8 +90,12 @@ def _package(key: str, folder: Path) -> str:
 
 
 def module(key: str, name: str | None = "book") -> types.ModuleType:
-    """The module `books/<key>/<name>.py`, imported as part of its book's package; `None` names the package itself."""
-    package = _package(key, book_folders()[key])
+    """The module `books/<key>/<name>.py`, imported as part of its folder's package; `None` names the package itself.
+
+    The folder need not hold a book: site-only folders such as `books/kerodon/` load the same way."""
+    if not (folder := BOOKS_DIR / key).is_dir():
+        raise KeyError(f"no folder books/{key}/")
+    package = _package(key, folder)
     return importlib.import_module(package if name is None else f"{package}.{name}")
 
 
@@ -134,6 +149,13 @@ class _Hooks:
             raise BookFileError(f"{self.path}: {', '.join(unbound)} fill no field; make them private with a leading _")
 
 
+def expand_tokens(value: str) -> str:
+    """`value` with @REPO@, @OUTPUT@, @ASSETS@ and @FONTS@ replaced by those folders."""
+    for token, path in ((REPO_TOKEN, BOOKS_DIR.parent), (OUTPUT_TOKEN, OUTPUT), (ASSETS_TOKEN, ASSETS), (FONTS_TOKEN, FONTS)):
+        value = value.replace(token, str(path))
+    return value
+
+
 def _coerce(tp: object, value: object, where: str, folder: Path) -> object:
     origin, args = typing.get_origin(tp), typing.get_args(tp)
     if origin is typing.Literal:
@@ -173,9 +195,9 @@ def _coerce(tp: object, value: object, where: str, folder: Path) -> object:
     if tp is float and isinstance(value, int | float) and not isinstance(value, bool):
         return float(value)
     if tp is str and isinstance(value, str):
-        return value.replace(REPO_TOKEN, str(BOOKS_DIR.parent))
+        return expand_tokens(value)
     if tp is Path and isinstance(value, str):
-        return Path(value.replace(BOOK_TOKEN, str(folder)).replace(REPO_TOKEN, str(BOOKS_DIR.parent)))
+        return Path(expand_tokens(value.replace(BOOK_TOKEN, str(folder))))
     if tp in (int, bool) and type(value) is tp:
         return value
     raise BookFileError(f"{where}: expected {getattr(tp, '__name__', tp)}, got {value!r}")
@@ -207,6 +229,19 @@ def _out_dir(table: dict[str, object], default: Path, where: str) -> Path:
     return OUTPUT / name
 
 
+def book_name(spec: MonographSpec, dated: bool) -> str:
+    """The book's `name`, or `<surname><year>-<title word>` from its author, title and declared year."""
+    if spec.name:
+        try:
+            return check_name(spec.name, "name")
+        except BookNameError as e:
+            raise BookFileError(str(e)) from None
+    name = default_name(spec.author, spec.title, spec.year if dated else None)
+    if name is None:
+        raise BookFileError(f"name: {spec.author!r}, {spec.title!r} give no Latin name; set name, such as esri2022-macro")
+    return name
+
+
 SPEC_HOOKS = _hook_fields(MonographSpec)
 FACSIMILE_HOOKS = _hook_fields(FacsimileStyle)
 TITLE_PAGE_TOKEN = "@ENGINE_TITLE_PAGE@"
@@ -235,7 +270,7 @@ def _engine_text(spec: MonographSpec) -> MonographSpec:
 
 
 def _edition(
-    name: str, table: object, spec: MonographSpec, out_dir: Path, hooks: _Hooks, folder: Path
+    name: str, table: object, spec: MonographSpec, out_dir: Path, hooks: _Hooks, folder: Path, file: str
 ) -> Edition:
     """One `[editions.<name>]` table: a `monograph` edition by default, or `kind = "facsimile"`."""
     where = f"editions.{name}."
@@ -259,7 +294,7 @@ def _edition(
         overrides |= hooks.bind(SPEC_HOOKS, names, where, by_name=False)
         prepare = table.pop("prepare", None)
         prepare_fn = None if prepare is None else hooks.named(prepare, f"{where}prepare")
-        return monograph_edition(edition_spec(), edition_dir, summary or "", prepare_fn)
+        return monograph_edition(edition_spec(), edition_dir, summary or "", prepare_fn, file=file)
     if kind == "facsimile":
         style_table = table.pop("facsimile", None)
         if style_table is None:
@@ -273,7 +308,7 @@ def _edition(
         visual = table.pop("visual", None)
         limits = None if visual is None else _dataclass(VisualLimits, visual, f"{where}visual", folder)
         extra = {} if summary is None else {"summary": summary}
-        return facsimile_edition(edition_spec(), edition_dir, style, visual=limits, **extra)
+        return facsimile_edition(edition_spec(), edition_dir, style, visual=limits, file=file, **extra)
     raise BookFileError(f"{where}kind: {kind!r} is not one of 'monograph', 'facsimile'")
 
 
@@ -282,6 +317,7 @@ def load_toml(key: str, folder: Path) -> Book:
     `hooks.py` beside it fills the fields that take functions."""
     path = folder / BOOK_TOML
     data = tomllib.loads(path.read_text(encoding="utf-8"))
+    dated = "year" in data
     data.pop("aliases", None)
     out_dir = _out_dir(data, OUTPUT / key, "")
     tables = data.pop("editions", {})
@@ -290,13 +326,21 @@ def load_toml(key: str, folder: Path) -> Book:
     try:
         bound = hooks.bind((*SPEC_HOOKS, "figures"), names, "")
         figures = bound.pop("figures", None)
+        if (folder / "charts" / "__init__.py").is_file():
+            from .charts.redraw import with_charts
+
+            figures = with_charts(key, figures)
         spec = _dataclass(MonographSpec, data, "", folder)
         spec = _engine_text(dataclasses.replace(spec, **bound) if bound else spec)
-        editions = {name: _edition(name, table, spec, out_dir, hooks, folder) for name, table in tables.items()}
+        name = book_name(spec, dated)
+        editions = {
+            edition: _edition(edition, table, spec, out_dir, hooks, folder, edition_file(name, edition, i == 0))
+            for i, (edition, table) in enumerate(tables.items())
+        }
         hooks.check_all_bound()
     except BookFileError as e:
         raise BookFileError(f"{path}: {e}") from None
-    return Book(spec, out_dir, editions or {"monograph": monograph_edition(spec, out_dir, "monograph")}, figures)
+    return Book(spec, out_dir, editions or {"monograph": monograph_edition(spec, out_dir, "monograph", file=name)}, figures)
 
 
 def load_book(key: str, folder: Path) -> Book:
@@ -311,6 +355,13 @@ class _Books(Mapping[str, Book]):
     def __init__(self) -> None:
         self._folders = book_folders()
         self._loaded: dict[str, Book] = {}
+        self._names: dict[str, str] | None = None
+
+    def names(self) -> dict[str, str]:
+        """`_name_table` of these books, read once."""
+        if self._names is None:
+            self._names = _name_table(self, self._folders)
+        return self._names
 
     def __getitem__(self, key: str) -> Book:
         if key not in self._loaded:
@@ -329,7 +380,7 @@ class _Books(Mapping[str, Book]):
 
 
 @cache
-def books() -> Mapping[str, Book]:
+def books() -> _Books:
     """Every book by key. The key is its folder name under books/."""
     return _Books()
 
@@ -365,12 +416,17 @@ def _aliases(folder: Path) -> list[str]:
     return aliases
 
 
-def book_key(name: str) -> str:
-    known = books()
-    folders = book_folders()
+def _name_table(known: Mapping[str, Book], folders: Mapping[str, Path]) -> dict[str, str]:
+    """Every name that finds a book: its key, the key with hyphens, and its aliases."""
     names = {k: k for k in known}
     names |= {k.replace("_", "-"): k for k in known}
     names |= {alias: k for k in known if k in folders for alias in _aliases(folders[k])}
+    return names
+
+
+def book_key(name: str) -> str:
+    known = books()
+    names = known.names() if isinstance(known, _Books) else _name_table(known, book_folders())
     if name in names:
         return names[name]
     starting = [k for k in known if k.startswith(name)]
@@ -390,7 +446,12 @@ def book_for_scan(source: Path, key: str | None = None) -> Book | None:
     """The book named by `key`, else the book whose specs match the scan's file name."""
     if key is not None:
         return book_by_key(key)
-    for book in books().values():
+    for folder in book_folders():
+        try:
+            book = books()[folder]
+        except BookLoadError as error:
+            print(f"skipping book {folder!r} while matching {source.name}: {error}", file=sys.stderr)
+            continue
         specs = [book.spec, *(e.spec for e in book.editions.values() if e.spec is not None)]
         if any(_names(spec, source) for spec in specs):
             return book

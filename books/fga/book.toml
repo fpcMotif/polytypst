@@ -6,6 +6,7 @@ series = ''
 year = 1962
 publisher_key = 'springer'
 lang = 'fr'
+statement_style = 'upright'
 domain = 'math'
 chapters = [
   { number = 0, title = 'Commentaires', start_page = 3, end_page = 13, label = 'Complément' },
@@ -18,7 +19,7 @@ chapters = [
   { number = 232, title = '''V. Les schémas de Picard : théorèmes d'existence''', start_page = 167, end_page = 185, label = 'Exposé 232' },
   { number = 236, title = 'VI. Les schémas de Picard : propriétés générales', start_page = 186, end_page = 208, label = 'Exposé 236' },
 ]
-header_zone_lines = 6
+header_zone_lines = 10
 drop_line_regexes = [
   '^(?:C|\d{3})-\d{1,2}$',
   '^(?:#+\s*)?Séminaire BOURBAKI.*$',
@@ -26,8 +27,17 @@ drop_line_regexes = [
   '^\(?(?:Janvier|Février|Mars|Avril|Mai|Juin|Juillet|Août|Septembre|Octobre|Novembre|Décembre)\s+\d{4}\)?$',
   '^(?:#+\s*)?par Alexander GROTHENDIECK$',
   '^(?:#+\s*)?FONDEMENTS DE LA GÉOMÉTRIE ALGÉBRIQUE\.?$',
-  '''^(?:#+\s*)?TECHNIQUE DE DESCENTE ET THÉORÈMES D'EXISTENCE.*$''',
+  '''^(?:#+\s*)?TECHNIQUES? DE (?:DESCENTE|CONSTRUCTION).*$''',
+  '''^(?:#+\s*)?TECHNIQUE DE DESCENTE ET TÂCHES.*$''',
+  '''^(?:#+\s*)?(?:I|II|III|IV|V|VI)\s*[\.:]\s*(?:GÉNÉRALITÉS|LE TÂCHES|LES SCH[ÉE]MAS).*$''',
+  '^(?:#+\s*)?ADDITIF\s+\(Octobre\s+1961\)$',
   '^(?:#+\s*)?COMMENTAIRES$',
+]
+heading_rewrites = [
+  ['^### ([AB]\.\s+\S.*)$', '## \1'],
+  ['^#### (1\.\s+Foncteurs représentables\.)$', '## \1'],
+  ['^### (\d{1,2}\.\s+\S.*)$', '## \1'],
+  ['''^([0-8]\.\s+(?:Classe de|Le théorème|Application|Catégories fibrées|Relations|Foncteurs représentables, pro-objets|Remarques générales|Schémas \\mathrm\{Hom\}|Quotient par une relation|Étude différentielle|Groupes et foncteurs|Compléments à|Le sous-schéma)[^\n]*)$''', '## \1'],
 ]
 cross_references = true
 commutative_diagrams = true
@@ -62,7 +72,7 @@ font_stack = '("STIX Two Text", "STIX Two Math")'
 size = 9.5
 weight = 400
 diagram_dir = '@BOOK@/diagrams'
-transcripts = 'markdown_pages'
+transcripts = true
 
 [editions.facsimile.facsimile.diagram_text]
 font = 'STIX Two Text'

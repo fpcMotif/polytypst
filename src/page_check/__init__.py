@@ -18,9 +18,10 @@ from ..ocr.lines import LineStore
 from ..ocr.pages import OcrLine
 from ..ocr.transcripts import TranscriptStore
 from ..parity.source import source_pdf
+from ..paths import OUTPUT
 from .results import KINDS, Results, Tally
 
-RESULTS = Path("output/page_check")
+RESULTS = OUTPUT / "page_check"
 LEGACY = Path("quality/page_check_legacy.json")
 KEPT_CHAR = re.compile(r"[一-鿿A-Za-z0-9.%]")
 BAND_PAD = 0.02
@@ -252,6 +253,7 @@ class PageCheck:
                     continue
                 if unknown := [k for k in kinds if k not in KINDS]:
                     t.bad_lines.append(f"{path}:{n}: unknown kind {unknown}")
+                    continue
                 if not trusted and (page not in t.pages or not record.get("receipt") or record["receipt"] != self.receipt(page)):
                     t.unproven.add(page)
                     continue

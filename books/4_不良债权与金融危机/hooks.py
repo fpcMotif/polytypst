@@ -15,7 +15,6 @@ from polytypst.vision.figure_extractor import (
 
 FOLDER = Path(__file__).parent
 _BOOK = tomllib.loads((FOLDER / "book.toml").read_text(encoding="utf-8"))
-RUNNING_HEADER_REGEXES = tuple(_BOOK["running_header_regexes"])
 CHAPTERS = _BOOK["chapters"]
 
 BYLINES = {
@@ -37,13 +36,8 @@ TABLE_TITLE = re.compile(r"^(?:附)?表\s*\d+[-.]\d+")
 
 
 def npl_heading_hook(lt: str, chapter: int) -> str | None:
-    """Sections become `##`, subsections `###`; chapter titles, subtitles and running heads drop; bylines stay text.
-
-    The shared cleaner drops a `###` heading that any earlier chapter already had, which loses each
-    chapter's "导 语" and "1 前言", so every heading line returns here."""
+    """Sections become `##`, subsections `###`; chapter titles, subtitles and running heads drop; bylines stay text."""
     text = re.sub(r"^#+\s*", "", lt).strip()
-    if any(re.match(rx, lt) for rx in RUNNING_HEADER_REGEXES):
-        return ""
     if not chapter and any(c["title"] == text for c in CHAPTERS):
         return ""
     title = next((c["title"] for c in CHAPTERS if c["number"] == chapter and chapter), "")

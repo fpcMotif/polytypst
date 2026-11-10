@@ -9,16 +9,20 @@ Whatever is still literal in the built Typst or LaTeX source is counted here by 
 - REFERENCE_WITHOUT_TARGET: a reference typed as text with no label to link to.
 - UNLINKED_CITATION: a citation typed as text instead of a link to its entry.
 - LITERAL_NUMBER_IN_MATH: a number such as `(4.3.3.1)` typed inside math, usually an equation's own tag.
+- HARDCODED_NUMBERING: a heading or figure that prints a fixed string as its number, such as `numbering: _ => "6"`.
 """
 
 import re
+from bisect import bisect_right
 from collections import Counter
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 
-from .compiler.monograph import MonographSpec, reference_chapters
-from .compiler.presets import ENGLISH_WORDS, NumberingWords, resolve_composition
+from .compiler.chapter_assembly import reference_chapters
+from .compiler.monograph import MonographSpec, build_source
+from .compiler.presets import ENGLISH_WORDS, NumberingWords
 from .compiler.source_numbers import (
     _ART_EQ_RE,
     _FIG_REF_RE,
@@ -27,6 +31,8 @@ from .compiler.source_numbers import (
     _REF_RE,
     LATEX,
     TYPST,
+    LatexWriter,
+    TypstWriter,
     _sec_target,
     chapter_reference_re,
     kinds,
@@ -110,13 +116,106 @@ _MATH = {
         r"|\$\$.*?\$\$|(?<!\\)\$(?:[^$\\]|\\.)*\$"
     ),
 }
+_HARDCODED_NUMBERING = {
+    "typst": re.compile(r'numbering:\s*_\s*=>\s*"'),
+    "latex": re.compile(r"\\renewcommand\{?\\the(?:chapter|section|figure|table|equation)\}?\{[^{}]*\d[^{}]*\}"),
+}
 _MATH_NUMBER_RE = re.compile(r"\(\s*\d+(?:\s*\.\s*\d+){2,}\s*\)")
 _CHAPTER_RE = re.compile(r"-c(\d+)-")
 
 
+@dataclass(frozen=True)
+class LiteralHit:
+    rule: str
+    line: int
+    text: str
+
+
+def _blank(rx: re.Pattern[str], text: str) -> str:
+    return rx.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), text)
+
+
+def _chapters(source: str, writer: TypstWriter | LatexWriter, kind: str) -> list[tuple[int, str]]:
+    marker = writer.chapter_start
+    if marker in source:
+        starts = [m.end() for m in re.finditer(re.escape(marker), source)]
+        ends = [m.start() for m in re.finditer(re.escape(marker), source)][1:] + [len(source)]
+        return [(s, source[s:e]) for s, e in zip(starts, ends)]
+    starts = [m.start() for m in _FALLBACK_SPLIT[kind].finditer(source)]
+    if starts:
+        return [(s, source[s:e]) for s, e in zip(starts, starts[1:] + [len(source)])]
+    preamble = re.match(r"#set math\.equation\(numbering: [^\n]+\)\n", source)
+    skip = preamble.end() if preamble else 0
+    return [(skip, source[skip:])]
+
+
+def literal_numbering_hits(
+    source: str,
+    writer: TypstWriter | LatexWriter,
+    abbreviations: Iterable[str] = (),
+    chapters: Mapping[str, int] = MappingProxyType({}),
+    *,
+    require_vector_figures: bool = False,
+    words: NumberingWords = ENGLISH_WORDS,
+    theorem_layout: bool = False,
+) -> list[LiteralHit]:
+    kind = "typst" if writer is TYPST else "latex"
+    known = labels(source)
+    abbrs = "|".join(map(re.escape, abbreviations)) or "(?!)"
+    citation = re.compile(
+        rf"{_OPEN}(?:\d+(?: bis)?|[A-Z]{{2,4}}(?: \d+)?){_CLOSE}|(?<![\w\[])SGA(?=, \d)|(?<!\w)\((?:{abbrs}), "
+    )
+    newlines = [m.start() for m in re.finditer("\n", source)]
+    hits: list[LiteralHit] = []
+
+    def add(rule: str, at: int, matches: Iterable[re.Match[str]]) -> None:
+        for m in matches:
+            line = bisect_right(newlines, at + m.start()) + 1
+            hits.append(LiteralHit(rule, line, " ".join(m.group(0).split())[:80]))
+
+    add("HARDCODED_NUMBERING", 0, _HARDCODED_NUMBERING[kind].finditer(source))
+    for at, chapter in _chapters(source, writer, kind):
+        ids = Counter(_CHAPTER_RE.findall(" ".join(labels(chapter))))
+        own = ids.most_common(1)[0][0] if ids else None
+        math = _MATH[kind]
+        for m in math.finditer(chapter):
+            add("LITERAL_NUMBER_IN_MATH", at + m.start(), _MATH_NUMBER_RE.finditer(m.group(0)))
+        if theorem_layout and writer.chapter_start in source:
+            add("LITERAL_HEADING_NUMBER", at, _chapter_heading(kind, words).finditer(chapter[:1000]))
+        add("LITERAL_HEADING_NUMBER", at, _HEADING_NUMBER[kind].finditer(chapter))
+        add("LITERAL_FIGURE_CAPTION", at, _FIGURE_CAPTION[kind].finditer(chapter))
+        if require_vector_figures:
+            add("RASTER_FIGURE_FALLBACK", at, _RASTER_FIGURE_FALLBACK[kind].finditer(chapter))
+        text = chapter
+        for rx in (math, _LINKS[kind], _ENTRIES[kind], _FIGURE_BLOCK[kind]):
+            text = _blank(rx, text)
+        add("ORPHANED_FIGURE_CAPTION", at, _ORPHANED_FIGURE_CAPTION[kind].finditer(text))
+        text = _blank(_ORPHANED_FIGURE_CAPTION[kind], text)
+        head = _head_re(words)
+        add("LITERAL_ITEM_HEAD", at, head.finditer(text))
+        text = _blank(head, text)
+        add("UNLINKED_CITATION", at, citation.finditer(text))
+        fig_labels = {k for k in known if k.startswith("fig-")}
+        fig_sep = re.compile(r"[.\-]")
+        add("UNLINKED_FIGURE_REFERENCE", at, (
+            m for m in _FIG_REF_RE.finditer(text)
+            if not fig_labels or f"fig-{fig_sep.sub('-', m.group('fig'))}" in fig_labels
+        ))
+        for m in _REF_RE.finditer(text):
+            digits = m.group("number").replace(".", "-")
+            target = chapters.get(m.group("chapter")) if m.group("chapter") else own
+            linked = any(f"{k}-c{target}-{digits}" in known for k in ("eq", "par"))
+            add("UNLINKED_REFERENCE" if linked else "REFERENCE_WITHOUT_TARGET", at, [m])
+        for rx in (_ART_EQ_RE, _PROSE_ART_RE):
+            add("UNLINKED_REFERENCE", at, (m for m in rx.finditer(text) if f"art-{m.group('art')}" in known))
+        for rx in (reference_re(words), chapter_reference_re(words)):
+            add("UNLINKED_REFERENCE", at, (m for m in rx.finditer(text) if _sec_target(m.group("number")) in known))
+    return sorted(hits, key=lambda h: h.line)
+
+
 def literal_numbering_counts(
     source: str,
-    writer: object,
+    writer: TypstWriter | LatexWriter,
     abbreviations: Iterable[str] = (),
     chapters: Mapping[str, int] = MappingProxyType({}),
     *,
@@ -126,83 +225,43 @@ def literal_numbering_counts(
 ) -> dict[str, int]:
     """Count the literal numbers and citations in a built book's Typst (`TYPST`) or LaTeX (`LATEX`) source.
     `chapters` maps the book's chapter names in references, such as `0` in `(0, 4.1.9)`, to label numbers."""
-    kind = "typst" if writer is TYPST else "latex"
-    known = labels(source)
-    abbrs = "|".join(map(re.escape, abbreviations)) or "(?!)"
-    citation = re.compile(
-        rf"{_OPEN}(?:\d+(?: bis)?|[A-Z]{{2,4}}(?: \d+)?){_CLOSE}|(?<![\w\[])SGA(?=, \d)|(?<!\w)\((?:{abbrs}), "
+    hits = literal_numbering_hits(
+        source, writer, abbreviations, chapters,
+        require_vector_figures=require_vector_figures, words=words, theorem_layout=theorem_layout,
     )
-    counts: Counter[str] = Counter()
-    parts = source.split(writer.chapter_start)[1:]
-    if not parts:
-        fallback = _FALLBACK_SPLIT[kind].split(source)[1:]
-        parts = fallback or [re.sub(r'^#set math\.equation\(numbering: [^\n]+\)\n', "", source)]
-    for chapter in parts:
-        ids = Counter(_CHAPTER_RE.findall(" ".join(labels(chapter))))
-        own = ids.most_common(1)[0][0] if ids else None
-        math = _MATH[kind]
-        counts["LITERAL_NUMBER_IN_MATH"] += sum(
-            len(_MATH_NUMBER_RE.findall(m.group(0))) for m in math.finditer(chapter)
-        )
-        if theorem_layout and writer.chapter_start in source:
-            counts["LITERAL_HEADING_NUMBER"] += len(_chapter_heading(kind, words).findall(chapter[:1000]))
-        counts["LITERAL_HEADING_NUMBER"] += len(_HEADING_NUMBER[kind].findall(chapter))
-        counts["LITERAL_FIGURE_CAPTION"] += len(_FIGURE_CAPTION[kind].findall(chapter))
-        if require_vector_figures:
-            counts["RASTER_FIGURE_FALLBACK"] += len(_RASTER_FIGURE_FALLBACK[kind].findall(chapter))
-        text = _FIGURE_BLOCK[kind].sub(
-            " ", _ENTRIES[kind].sub(" ", _LINKS[kind].sub(" ", math.sub(" ", chapter)))
-        )
-        counts["ORPHANED_FIGURE_CAPTION"] += len(_ORPHANED_FIGURE_CAPTION[kind].findall(text))
-        text = _ORPHANED_FIGURE_CAPTION[kind].sub(" ", text)
-        head = _head_re(words)
-        counts["LITERAL_ITEM_HEAD"] += len(head.findall(text))
-        text = head.sub(" ", text)
-        counts["UNLINKED_CITATION"] += len(citation.findall(text))
-        fig_labels = {k for k in known if k.startswith("fig-")}
-        fig_sep = re.compile(r"[.\-]")
-        counts["UNLINKED_FIGURE_REFERENCE"] += sum(
-            1
-            for m in _FIG_REF_RE.finditer(text)
-            if not fig_labels or f"fig-{fig_sep.sub('-', m.group('fig'))}" in fig_labels
-        )
-        for m in _REF_RE.finditer(text):
-            digits = m.group("number").replace(".", "-")
-            target = chapters.get(m.group("chapter")) if m.group("chapter") else own
-            linked = any(f"{k}-c{target}-{digits}" in known for k in ("eq", "par"))
-            counts["UNLINKED_REFERENCE" if linked else "REFERENCE_WITHOUT_TARGET"] += 1
-        for rx in (_ART_EQ_RE, _PROSE_ART_RE):
-            counts["UNLINKED_REFERENCE"] += sum(
-                1 for m in rx.finditer(text) if f"art-{m.group('art')}" in known
-            )
-        for rx in (reference_re(words), chapter_reference_re(words)):
-            counts["UNLINKED_REFERENCE"] += sum(
-                1 for m in rx.finditer(text) if _sec_target(m.group("number")) in known
-            )
-    return {rule: n for rule, n in counts.items() if n}
+    return dict(Counter(h.rule for h in hits))
 
 
-def edition_literal_counts(rebuilt: Path, spec: MonographSpec) -> dict[str, int]:
-    """The counts for the Typst and LaTeX sources beside a rebuilt PDF, as `TYPST_RULE` and `LATEX_RULE`;
-    every book promises native numbering."""
-    out: dict[str, int] = {}
-    for suffix, writer, prefix in ((".typ", TYPST, "TYPST"), (".tex", LATEX, "LATEX")):
-        path = rebuilt.with_suffix(suffix)
+def edition_literal_hits(rebuilt: Path, spec: MonographSpec) -> dict[str, list[tuple[Path, LiteralHit]]]:
+    out: dict[str, list[tuple[Path, LiteralHit]]] = {}
+    for ext, writer, prefix in (("typ", TYPST, "TYPST"), ("tex", LATEX, "LATEX")):
+        path = build_source(rebuilt, ext)
         if path.exists():
             source = path.read_text(encoding="utf-8")
-            counts = literal_numbering_counts(
+            hits = literal_numbering_hits(
                 source,
                 writer,
                 spec.citation_abbreviations,
                 reference_chapters(spec),
                 require_vector_figures=spec.require_vector_figures,
-                words=resolve_composition(publisher=spec.publisher_key, lang=spec.lang, domain=spec.domain).language.numbering,
+                words=spec.composition().language.numbering,
                 theorem_layout=spec.theorem_layout,
             )
-            out |= {f"{prefix}_{rule}": n for rule, n in counts.items()}
-            if writer is TYPST and (italic := italic_differential_count(source)):
-                out["TYPST_ITALIC_DIFFERENTIAL"] = italic
+            for hit in hits:
+                out.setdefault(f"{prefix}_{hit.rule}", []).append((path, hit))
+            if writer is TYPST:
+                for m in TYPST.math.finditer(source):
+                    for word in italic_differentials(m.group(0)[1:-1]):
+                        line = source.count("\n", 0, m.start() + 1 + word.start()) + 1
+                        hit = LiteralHit("ITALIC_DIFFERENTIAL", line, word.group(0))
+                        out.setdefault("TYPST_ITALIC_DIFFERENTIAL", []).append((path, hit))
     return out
+
+
+def edition_literal_counts(rebuilt: Path, spec: MonographSpec) -> dict[str, int]:
+    """The counts for the Typst and LaTeX sources beside a rebuilt PDF, as `TYPST_RULE` and `LATEX_RULE`;
+    every book promises native numbering."""
+    return {rule: len(hits) for rule, hits in edition_literal_hits(rebuilt, spec).items()}
 
 
 def italic_differential_count(source: str) -> int:

@@ -7,7 +7,8 @@ import pytest
 
 from polytypst.books import module
 from polytypst.compiler import typst_math
-from polytypst.compiler.typst_math import REPO_FONTS_DIR, compile_typst
+from polytypst.compiler.typst_math import compile_typst
+from polytypst.paths import FONTS
 
 query_marks = module("bourbaki", "marks").query_marks
 
@@ -31,7 +32,7 @@ def no_cli_fallback(monkeypatch):
 
 
 def cli(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["typst", args[0], "--font-path", str(REPO_FONTS_DIR), *args[1:]], check=True, capture_output=True, text=True)
+    return subprocess.run(["typst", args[0], "--font-path", str(FONTS), *args[1:]], check=True, capture_output=True, text=True)
 
 
 def gray(path, page=0) -> np.ndarray:
@@ -39,6 +40,7 @@ def gray(path, page=0) -> np.ndarray:
     return np.frombuffer(pix.samples, np.uint8)
 
 
+@pytest.mark.slow
 def test_embedded_pdf_matches_cli(tmp_path):
     typ = tmp_path / "doc.typ"
     typ.write_text(SOURCE, encoding="utf-8")
@@ -59,6 +61,7 @@ def test_embedded_sees_new_inputs_and_edits(tmp_path):
     assert "alpha" in texts[0] and "beta" in texts[1] and "Changed" in texts[2]
 
 
+@pytest.mark.slow
 def test_embedded_png_matches_cli(tmp_path):
     from PIL import Image
 
@@ -69,6 +72,7 @@ def test_embedded_png_matches_cli(tmp_path):
     assert np.array_equal(np.asarray(Image.open(tmp_path / "doc.png")), np.asarray(Image.open(tmp_path / "cli.png")))
 
 
+@pytest.mark.slow
 def test_query_marks_match_cli(tmp_path):
     typ = tmp_path / "doc.typ"
     typ.write_text(SOURCE, encoding="utf-8")

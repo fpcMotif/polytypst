@@ -31,6 +31,7 @@ drop_line_regexes = [
 ]
 pdf_name_markers = ['algebraic geometry 3', 'further study of schemes', 'ueno']
 pdf_page_count = 234
+source_pdf = 'Algebraic Geometry 3 Further Study of Schemes (Kenji Ueno, 上野 健爾).pdf'
 
 [sections]
 "7.1" = [11, 'Algebraic Schemes and Algebraic Varieties']

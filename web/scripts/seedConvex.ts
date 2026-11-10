@@ -1,5 +1,6 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
+import type { Id } from "../convex/_generated/dataModel";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { BookData } from "../src/types";
@@ -92,81 +93,78 @@ async function main() {
       );
     }
 
-    if (!existingPdf) {
-      if (existsSync(localPdfPath)) {
-        try {
-          const uploadUrl = await client.mutation(api.books.generateUploadUrl);
-          const pdfBytes = readFileSync(localPdfPath);
-          const res = await fetch(uploadUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/pdf" },
-            body: pdfBytes,
-          });
-          const { storageId } = await res.json();
-          if (storageId) {
-            const liveUrl = await client.mutation(api.books.updateBookDeliverablePdf, {
-              slug: book.slug,
-              storageId,
-            });
-            console.log(`Uploaded ${book.slug} PDF to Convex Storage -> ${liveUrl}`);
-          }
-        } catch (err) {
-          console.warn(`Could not upload PDF for ${book.slug}:`, err);
-        }
+    if (!existingPdf && existsSync(localPdfPath)) {
+      const uploadUrl = await client.mutation(api.books.generateUploadUrl);
+      const res = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/pdf" },
+        body: readFileSync(localPdfPath),
+      });
+      if (!res.ok) {
+        throw new Error(`PDF upload for ${book.slug} failed: ${res.status} ${await res.text()}`);
       }
+      const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
+      const liveUrl = await client.mutation(api.books.updateBookDeliverablePdf, {
+        slug: book.slug,
+        storageId,
+      });
+      console.log(`Uploaded ${book.slug} PDF to Convex Storage -> ${liveUrl}`);
     }
     console.log(
       `Seeded ${book.slug} (${book.chapters.length} chapters) into Convex at ${convexUrl}`,
     );
   }
 
-  await client.mutation(api.books.addAnnotation, {
-    bookSlug: "modern-firm",
-    chapterSlug: "ch-2",
-    readerName: "Polytypst Editorial",
-    quoteText: "图 5 · X 点、Y 点与 Z 点",
-    note: "网页端采用纯正商业社论排版，将局部最佳点 X、Y 与不匹配点 Z 呈现为高对比语义标签，并与图 5 矢量图联动。",
-  });
-
-  await client.mutation(api.books.addAnnotation, {
-    bookSlug: "serre-arithmetique",
-    chapterSlug: "serre-ch-1",
-    readerName: "Bourbaki Seminar",
-    quoteText: "Loi de réciprocité quadratique & corps p-adiques",
-    note: "Édition web mathématique propulsée par KaTeX avec théorèmes structurés et figures vectorielles SL₂(ℤ).",
-  });
-
-  await client.mutation(api.books.addAnnotation, {
-    bookSlug: "kerodon-ch1",
-    chapterSlug: "sec-1-1",
-    readerName: "Homotopy Reader",
-    quoteText: "Tag 000R · The Boundary of Δⁿ",
-    note: "All 237 environments and 60 300-DPI commutative diagrams linked to official Kerodon tags.",
-  });
-
-  await client.mutation(api.books.addAnnotation, {
-    bookSlug: "ahlfors",
-    chapterSlug: "ch-1",
-    readerName: "Harvard Mathematics",
-    quoteText: "The Algebra of Complex Numbers",
-    note: "Classic McGraw-Hill 1979 Crown Octavo edition with modernized KaTeX typography and 50 publication-grade vector figures.",
-  });
-
-  await client.mutation(api.books.addAnnotation, {
-    bookSlug: "goursat-analyse",
-    chapterSlug: "ch-1",
-    readerName: "Sorbonne Analysis Group",
-    quoteText: "Derivatives and Differentials",
-    note: "Complete Dover/Hedrick English translation of Goursat Cours d'analyse with fully restored mathematical formulas and geometric figures.",
-  });
-
-  await client.mutation(api.books.addAnnotation, {
-    bookSlug: "taocp-vol3",
-    chapterSlug: "sec-4",
-    readerName: "Stanford CS & TeX Project",
-    quoteText: "Chapter Five: Sorting",
-    note: "Donald Knuth's masterpiece sorting algorithms with 300-DPI matched graphics and authentic Computer Modern typography.",
-  });
+  const editorialNotes = [
+    {
+      bookSlug: "modern-firm",
+      chapterSlug: "ch-2",
+      quoteText: "图 5 · X 点、Y 点与 Z 点",
+      note: "网页版把局部最佳点 X、Y 与不匹配点 Z 标为页内锚点，并链接到图 5 的矢量图。",
+    },
+    {
+      bookSlug: "serre-arithmetique",
+      chapterSlug: "serre-ch-1",
+      quoteText: "Loi de réciprocité quadratique & corps p-adiques",
+      note: "KaTeX rend les formules. Les figures du domaine fondamental de SL₂(ℤ) sont vectorielles.",
+    },
+    {
+      bookSlug: "kerodon-ch1",
+      chapterSlug: "sec-1-1",
+      quoteText: "Tag 000R · The Boundary of Δⁿ",
+      note: "Each of the 237 environments links to its Kerodon tag. The 60 commutative diagrams are 300-DPI images.",
+    },
+    {
+      bookSlug: "ahlfors",
+      chapterSlug: "ch-1",
+      quoteText: "The Algebra of Complex Numbers",
+      note: "Rebuilt from the 1979 McGraw-Hill edition. KaTeX sets the formulas, and the 50 figures are vector drawings.",
+    },
+    {
+      bookSlug: "goursat-analyse",
+      chapterSlug: "ch-1",
+      quoteText: "Derivatives and Differentials",
+      note: "Rebuilt from the Dover printing of E. R. Hedrick's English translation, with its formulas and geometric figures.",
+    },
+    {
+      bookSlug: "taocp-vol3",
+      chapterSlug: "sec-4",
+      quoteText: "Chapter Five: Sorting",
+      note: "Set in Computer Modern. The diagrams are 300-DPI images matched to the printed pages.",
+    },
+  ];
+  const readerName = "Polytypst Editorial";
+  for (const { bookSlug, chapterSlug, quoteText, note } of editorialNotes) {
+    const existing = await client.query(api.books.listAnnotations, { bookSlug, chapterSlug });
+    if (existing.some((a) => a.readerName === readerName && a.quoteText === quoteText)) continue;
+    await client.mutation(api.books.addAnnotation, {
+      bookSlug,
+      chapterSlug,
+      readerName,
+      quoteText,
+      note,
+    });
+  }
 
   console.log("Convex seeding complete!");
 }

@@ -62,6 +62,10 @@ source_pdf = 'Analysis - Elliott H. Lieb, Michael Loss (2001）.pdf'
 summary = 'monograph'
 
 [page_fixups]
+72 = [
+  ['\(2\.14\)', '(Theorem 2.14)'],
+  ['Mazur’s theorem \(2\.13\)', 'Mazur’s Theorem 2.13'],
+]
 # Scan typo: the scan prints 'f_j(x)'; meant 'f^j(x)'.
 40 = [
   ['while \$f_j\(x\)\$ is unchanged', 'while $f^j(x)$ is unchanged'],
