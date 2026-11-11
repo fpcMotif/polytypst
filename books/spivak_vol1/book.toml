@@ -8,6 +8,8 @@ source_pdf = "A Comprehensive Introduction to Differential Geometry, Vol.1, 3rd 
 pdf_page_count = 508
 cross_references = true
 commutative_diagrams = true
+footnote_style = "symbol"
+footnote_marks = ["*", "**", "***"]
 # The transcripts keep the scan's running heads, "Chapter 8" or the chapter title in title case, as headings.
 # The chapter openings set "CHAPTER 8" and the title in capitals, so these patterns match case.
 running_header_regexes = [

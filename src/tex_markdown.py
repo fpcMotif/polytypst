@@ -322,6 +322,103 @@ def repair_ocr_math(body: str, is_display: bool = False) -> str:
     return s
 
 
+_SIBLING_PROSE_ITEM_RE: Pattern[str] = re.compile(
+    r"^[ \t]*(?:\*\*\d+(?:\.\d+)+\*\*[ \t]*)?\((\d{1,2})\)[ \t]+"
+    r"(?!(?:\${1,2}[^$\n]+\${1,2}[ \t]*[.,;]?[ \t]*$))\S",
+    re.MULTILINE,
+)
+_ALPHA_SIBLING_ITEM_RE: Pattern[str] = re.compile(r"^[ \t]*\([a-d]\)[ \t]+\$", re.MULTILINE)
+_DOTTED_EQ_ON_PAGE_RE: Pattern[str] = re.compile(
+    r"(?:\\tag\{\(?\d+\.\d+|\(\d+\.\d+[a-z]?\)[ \t]*$|\$\$\s*\(\d+\.\d+)",
+    re.MULTILINE,
+)
+_SOLUTION_HEAD_RE: Pattern[str] = re.compile(
+    r"^(?:\*\*\d+\.\d+\.\d+\*\*|#{2,4}[ \t]+\d+\.\d+\.\d+[ \t]*$)",
+    re.MULTILINE,
+)
+_EXERCISE_HEAD_RE: Pattern[str] = re.compile(
+    r"^(?:#{1,4}[ \t]*EXERCISES?\b|\*\*Exercises?\b)",
+    re.MULTILINE | re.IGNORECASE,
+)
+_LIST_INTRO_RE: Pattern[str] = re.compile(
+    r"下列|可由方程式|试找出|\blist of\b|\bexamples of\b|\bfollowing\b",
+    re.IGNORECASE,
+)
+
+
+def promote_inline_tagged_equations(
+    text: str,
+    num_pattern: str,
+    min_len: int,
+    allow_double_dollar: bool = False,
+    with_tag: bool = False,
+) -> str:
+    delim = r"\${1,2}" if allow_double_dollar else r"\$"
+    rx = re.compile(
+        rf"^[ \t]*\((?P<num>{num_pattern})\)[ \t]*{delim}(?P<math>[^$\n]{{{min_len},}}?){delim}[ \t]*(?P<punct>[.,;]?)[ \t]*$",
+        re.MULTILINE,
+    )
+    matches = list(rx.finditer(text))
+    if not matches:
+        return text
+    runs: list[list[re.Match[str]]] = []
+    for m in matches:
+        cur_num = m.group("num").rstrip(".")
+        if (
+            runs
+            and text[runs[-1][-1].end() : m.start()].strip() == ""
+            and cur_num.isdigit()
+            and (prev_num := runs[-1][-1].group("num").rstrip(".")).isdigit()
+            and int(cur_num) == int(prev_num) + 1
+        ):
+            runs[-1].append(m)
+        else:
+            runs.append([m])
+
+    sibling_nums = [int(sm.group(1)) for sm in _SIBLING_PROSE_ITEM_RE.finditer(text)]
+    has_alpha = bool(_ALPHA_SIBLING_ITEM_RE.search(text))
+    has_dotted = bool(_DOTTED_EQ_ON_PAGE_RE.search(text))
+    has_solution = bool(_SOLUTION_HEAD_RE.search(text))
+    blocked: set[int] = set()
+    for run in runs:
+        first_raw = run[0].group("num").rstrip(".")
+        if "." in first_raw or not first_raw.isdigit() or int(first_raw) > 20:
+            continue
+        first_n = int(first_raw)
+        if (
+            has_dotted
+            or has_solution
+            or bool(_EXERCISE_HEAD_RE.search(text[: run[0].start()]))
+            or any(abs(sn - first_n) <= 6 for sn in sibling_nums)
+            or (first_n == 6 and has_alpha)
+        ):
+            blocked.update(x.start() for x in run)
+            continue
+        if first_n == 1 and len(run) >= 2:
+            prev_lines = [ln.strip() for ln in text[: run[0].start()].splitlines() if ln.strip()]
+            prev = prev_lines[-1] if prev_lines else ""
+            next_lines = [ln.strip() for ln in text[run[-1].end() :].splitlines() if ln.strip()]
+            nxt = next_lines[0] if next_lines else ""
+            if (
+                prev.endswith((":", "："))
+                or bool(_LIST_INTRO_RE.search(prev))
+                or nxt.startswith(("的", "分别"))
+            ):
+                blocked.update(x.start() for x in run)
+
+    def _repl(m: re.Match[str]) -> str:
+        if m.start() in blocked:
+            return m.group(0)
+        num = m.group("num")
+        body = m.group("math").strip()
+        punct = m.group("punct")
+        if with_tag:
+            return f"\n\n$$\n{body}{punct} \\tag{{{num}}}\n$$\n\n"
+        return f"({num})\n$$\n{body}{punct}\n$$"
+
+    return rx.sub(_repl, text)
+
+
 def _normalize_math_delimiters(text: str) -> str:
     text = re.sub(r"<td>([^<\n]*?)</th>", r"<td>\1</td>", text)
     text = re.sub(r"<th>([^<\n]*?)</td>", r"<th>\1</th>", text)
@@ -335,15 +432,17 @@ def _normalize_math_delimiters(text: str) -> str:
         text,
         flags=re.DOTALL,
     )
+    def _attach_outer_tag(m: re.Match[str]) -> str:
+        tag = m.group("pre") or m.group("post")
+        if not tag:
+            return m.group(0)
+        return f"\n\n$$\n{m.group('body').strip()} \\tag{{{tag}}}\n$$\n\n"
+
     text = re.sub(
-        r"^[ \t]*\(([0-9]+[a-zA-Z']*)\)\s*\$\$\s*((?:(?!\$\$).)+?)\s*\$\$",
-        lambda m: f"\n\n$$\n{m.group(2).strip()} \\tag{{{m.group(1)}}}\n$$\n\n",
-        text,
-        flags=re.MULTILINE | re.DOTALL,
-    )
-    text = re.sub(
-        r"\$\$\s*((?:(?!\$\$).)+?)\s*\$\$(?:[ \t]*\n)*[ \t]*\(([0-9]+[a-zA-Z']*)\)[ \t]*$",
-        lambda m: f"\n\n$$\n{m.group(1).strip()} \\tag{{{m.group(2)}}}\n$$\n\n",
+        r"(?:^[ \t]*\((?P<pre>[0-9]+[a-zA-Z'*]*)\)\s*)?"
+        r"\$\$\s*(?P<body>(?:(?!\$\$).)+?)\s*\$\$"
+        r"(?(pre)|(?:(?:[ \t]*\n)*[ \t]*\((?P<post>[0-9]+[a-zA-Z'*]*)\)[ \t]*$)?)",
+        _attach_outer_tag,
         text,
         flags=re.MULTILINE | re.DOTALL,
     )
@@ -361,13 +460,8 @@ def _normalize_math_delimiters(text: str) -> str:
         text,
         flags=re.MULTILINE | re.DOTALL,
     )
-    text = re.sub(
-        r"^[ \t]*\(([0-9]+[a-zA-Z']*)\)[ \t]*\${1,2}([^$\n]+?)\${1,2}([,\.;]?)[ \t]*$",
-        lambda m: (
-            f"\n\n$$\n{m.group(2).strip()}{m.group(3)} \\tag{{{m.group(1)}}}\n$$\n\n"
-        ),
-        text,
-        flags=re.MULTILINE,
+    text = promote_inline_tagged_equations(
+        text, r"[0-9]+[a-zA-Z'*]*", min_len=1, allow_double_dollar=True, with_tag=True
     )
 
     display_blocks: list[str] = []

@@ -25,6 +25,8 @@ running_header_regexes = [
   '^([0-9IVXLCDM]+\.?\s*)?(?:differentiation|the lebesgue integral|the stieltjes integral|integral equations|hilbert and banach spaces|completely continuous|bounded symmetric|unbounded linear|self-adjoint transformations|groups and semigroups|spectral theories|functional analysis|contents|bibliography|index)\b',
 ]
 cross_references = true
+footnote_style = 'superscript'
+footnote_reset = 'chapter'
 latex_preamble = '''
 
 \DeclareUnicodeCharacter{2070}{\textsuperscript{0}}

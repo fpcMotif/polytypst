@@ -5,6 +5,7 @@ domain = "math"
 source_pdf = "Methods of Mathematical Physics [Vol 1](classic) (R. Courant, D. Hilbert) .pdf"
 pdf_page_count = 598
 cross_references = true
+footnote_style = "superscript"
 latex_preamble = '''
 \makeatletter
 \AtBeginDocument{%

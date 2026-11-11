@@ -3,7 +3,12 @@ from itertools import pairwise
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from ..tex_markdown import DOUBLED_MACRO_RE, normalize_html_tables, repair_page_math
+from ..tex_markdown import (
+    DOUBLED_MACRO_RE,
+    normalize_html_tables,
+    promote_inline_tagged_equations,
+    repair_page_math,
+)
 from ..vision.figure_extractor import (
     FIGURES_MANIFEST_NAME,
     ExtractedFigure,
@@ -72,51 +77,70 @@ def _fix_inline_math_delimiters(text: str) -> str:
     return "".join(out)
 
 
-def _section_equation_id(ch: str, num: str | None) -> str:
-    return f"{ch}-{num.replace('.', '-')}" if num else ch
+_EQ_SUFFIX_RE = (
+    r"(?:[a-z]|''|′′|'|′|\^\{\\prime\\prime\}|\^\{\\prime\}|\^\\prime"
+    r"|\*|\^\{\*(?:\\ast)?\}|\^\*|\^\{\\ast\}|\^\\ast)"
+)
+
+
+def _normalize_eq_id(raw: str) -> str:
+    s = raw.strip().rstrip(".")
+    s = re.sub(r"(?:''|′′|\^\{\\prime\\prime\})$", "-prime2", s)
+    s = re.sub(r"(?:'|′|\^\{\\prime\}|\^\\prime)$", "-prime", s)
+    s = re.sub(r"(?:\*|\^\{\*(?:\\ast)?\}|\^\*|\^\{\\ast\}|\^\\ast)$", "-star", s)
+    return s.replace(".", "-")
 
 
 def _label_section_equations(s: str, pno: int, deep: bool = False) -> str:
     """Label `(1.2)`-style equation numbers as `<eq-PAGE-1-2>`.
 
     With `deep`, numbers of any depth such as `(1.2.1.1)` are labelled too, as `<eq-1-2-1-1>`."""
-    number = r"(\d+)(?:\.(\d+(?:\.\d+)*))?\.?" if deep else r"(\d+)(?:\.(\d+[a-z']?))?"
-    s = re.sub(r"\\tag\{\(?(\d+)\.(\d+[a-z']?)\)?\}", rf"\\tag{{{pno}-\1-\2}}", s)
-    s = re.sub(
-        rf"^[ \t]*(\({number}\))[ \t]*\$([^$\n]{{8,}})\$[ \t]*([.,;]?)[ \t]*$",
-        r"\1\n$$\n\4\5\n$$",
-        s,
-        flags=re.MULTILINE,
-    )
+    base = r"(?:[A-Z]\.\d+|\d+(?:\.\d+)*)" if deep else r"(?:[A-Z]\.\d+|\d+(?:\.\d+)?)"
+    num_pat = rf"{base}{_EQ_SUFFIX_RE}?\.?" if deep else rf"{base}{_EQ_SUFFIX_RE}?"
+    number = f"({num_pat})"
+    s = promote_inline_tagged_equations(s, num_pat, min_len=8)
     s = re.sub(r"\\\[\s*(.*?)\s*\\\]", r"$$\n\1\n$$", s, flags=re.DOTALL)
 
-    def replace_block(m: re.Match[str]) -> str:
-        pre_ch, pre_num = m.group(1), m.group(2)
-        body = m.group(3).strip()
-        post_ch, post_num = m.group(4), m.group(5)
+    def label_inside(m: re.Match[str]) -> str:
+        body = m.group(1).strip()
         eq_id = ""
-        if pre_ch:
-            eq_id = _section_equation_id(pre_ch, pre_num)
-        elif post_ch:
-            eq_id = _section_equation_id(post_ch, post_num)
         m_start = re.match(rf"^\({number}\)\s*(?:\\q?quad\s*|\\hfill\s*)*", body)
-        if m_start and not eq_id:
-            eq_id = _section_equation_id(m_start.group(1), m_start.group(2))
+        if m_start:
+            eq_id = _normalize_eq_id(m_start.group(1))
             body = body[m_start.end() :].strip()
         m_end = re.search(rf"(?:\\hfill|\\q?quad|\s)+\({number}\)\s*$", body)
         if m_end and not eq_id:
-            eq_id = _section_equation_id(m_end.group(1), m_end.group(2))
+            eq_id = _normalize_eq_id(m_end.group(1))
             body = body[: m_end.start()].strip()
-        m_tag = re.search(r"\\tag\{([0-9a-zA-Z'-]+)\}", body)
+        m_env_end = re.search(
+            rf"(?:\\hfill|\\q?quad)+\s*\({number}\)\s*(\\end\{{(?:aligned|gathered|split|align\*?)\}})\s*$",
+            body,
+        )
+        if m_env_end and not eq_id:
+            eq_id = _normalize_eq_id(m_env_end.group(1))
+            body = (body[: m_env_end.start()].rstrip() + "\n" + m_env_end.group(2)).strip()
+        m_tag = re.search(r"\\tag\{\(?\s*([0-9a-zA-Z.'′*^\\{}]+?)\s*\)?\}", body)
         if m_tag:
-            eq_id = eq_id or m_tag.group(1)
+            eq_id = eq_id or _normalize_eq_id(m_tag.group(1))
             body = (body[: m_tag.start()] + body[m_tag.end() :]).strip()
+        if not eq_id:
+            return m.group(0)
+        return f"\n\n$$\n{body}\n$$ <eq-{eq_id}>\n\n"
+
+    def replace_block(m: re.Match[str]) -> str:
+        if m.group("already"):
+            return m.group("already")
+        raw = m.group("pre") or m.group("post")
+        body = m.group("body").strip()
+        eq_id = _normalize_eq_id(raw) if raw else ""
         label = f" <eq-{eq_id}>" if eq_id else ""
         return f"\n\n$$\n{body}\n$${label}\n\n"
 
+    s = re.sub(r"\$\$((?:(?!\$\$).)*?)\$\$", label_inside, s, flags=re.DOTALL)
     s = re.sub(
-        rf"(?:^[ \t]*\({number}\)[ \t]*\n*\s*)?\$\$(.*?)\$\$"
-        rf"(?:[ \t]*\n?[ \t]*\n?[ \t]*\({number}\)[ \t]*(?=\n|$)(?!\s*\$\$))?",
+        rf"(?P<already>\$\$((?:(?!\$\$).)*?)\$\$[ \t]*<eq-[^>]+>)"
+        rf"|(?:^[ \t]*\((?P<pre>{num_pat})\)[ \t]*\n*\s*)?\$\$(?P<body>(?:(?!\$\$).)*?)\$\$"
+        rf"(?(pre)|(?:[ \t]*(?:\\q?quad[ \t]*|\n?[ \t]*\n?[ \t]*)\((?P<post>{num_pat})\)[ \t]*(?=\n|$))?)",
         replace_block,
         s,
         flags=re.MULTILINE | re.DOTALL,
@@ -132,37 +156,56 @@ def _label_section_equations(s: str, pno: int, deep: bool = False) -> str:
 
 def _label_page_equations(s: str, ch_num: int, pno: int) -> str:
     """Label plain `(n)` equation numbers as `<eq-CHAPTER-PAGE-n>`."""
-    s = re.sub(r"\\tag\{(\d+)\}", rf"\\tag{{{ch_num}-{pno}-\1}}", s)
+    num_pat = rf"\d+{_EQ_SUFFIX_RE}?"
+    number = f"({num_pat})"
     s = re.sub(
-        r"^[ \t]*\((\d+)\)[ \t]*\$([^$\n]{10,})\$([.,;]?)[ \t]*$",
-        r"(\1)\n$$\n\2\3\n$$",
+        r"\\tag\{\(?\s*(\d+" + _EQ_SUFFIX_RE + r"?)\s*\)?\}",
+        lambda m: f"\\tag{{{ch_num}-{pno}-{_normalize_eq_id(m.group(1))}}}",
         s,
-        flags=re.MULTILINE,
     )
+    s = promote_inline_tagged_equations(s, num_pat, min_len=10)
     s = re.sub(r"\\\[\s*(.*?)\s*\\\]", r"$$\n\1\n$$", s, flags=re.DOTALL)
 
-    def replace_block(m: re.Match[str]) -> str:
-        number = m.group(1) or m.group(3)
-        body = m.group(2).strip()
-        eq_id = f"{ch_num}-{pno}-{number}" if number else ""
-        m_start = re.match(r"^\((\d+)\)\s*(?:\\quad\s*)*", body)
-        if m_start and not eq_id:
-            eq_id = f"{ch_num}-{pno}-{m_start.group(1)}"
+    def label_inside(m: re.Match[str]) -> str:
+        body = m.group(1).strip()
+        eq_id = ""
+        m_start = re.match(rf"^\({number}\)\s*(?:\\q?quad\s*|\\hfill\s*)*", body)
+        if m_start:
+            eq_id = f"{ch_num}-{pno}-{_normalize_eq_id(m_start.group(1))}"
             body = body[m_start.end() :].strip()
-        m_end = re.search(r"(?:\\quad|\s)+\((\d+)\)$", body)
+        m_end = re.search(rf"(?:\\hfill|\\q?quad|\s)+\({number}\)$", body)
         if m_end and not eq_id:
-            eq_id = f"{ch_num}-{pno}-{m_end.group(1)}"
+            eq_id = f"{ch_num}-{pno}-{_normalize_eq_id(m_end.group(1))}"
             body = body[: m_end.start()].strip()
-        m_tag = re.search(r"\\tag\{([0-9-]+)\}", body)
+        m_env_end = re.search(
+            rf"(?:\\hfill|\\q?quad)+\s*\({number}\)\s*(\\end\{{(?:aligned|gathered|split|align\*?)\}})\s*$",
+            body,
+        )
+        if m_env_end and not eq_id:
+            eq_id = f"{ch_num}-{pno}-{_normalize_eq_id(m_env_end.group(1))}"
+            body = (body[: m_env_end.start()].rstrip() + "\n" + m_env_end.group(2)).strip()
+        m_tag = re.search(r"\\tag\{([0-9a-zA-Z'-]+)\}", body)
         if m_tag:
             eq_id = eq_id or m_tag.group(1)
             body = (body[: m_tag.start()] + body[m_tag.end() :]).strip()
+        if not eq_id:
+            return m.group(0)
+        return f"\n\n$$\n{body}\n$$ <eq-{eq_id}>\n\n"
+
+    def replace_block(m: re.Match[str]) -> str:
+        if m.group("already"):
+            return m.group("already")
+        raw = m.group("pre") or m.group("post")
+        body = m.group("body").strip()
+        eq_id = f"{ch_num}-{pno}-{_normalize_eq_id(raw)}" if raw else ""
         label = f" <eq-{eq_id}>" if eq_id else ""
         return f"\n\n$$\n{body}\n$${label}\n\n"
 
+    s = re.sub(r"\$\$((?:(?!\$\$).)*?)\$\$", label_inside, s, flags=re.DOTALL)
     return re.sub(
-        r"(?:^[ \t]*\((\d+)\)[ \t]*\n*\s*)?\$\$(.*?)\$\$"
-        r"(?:[ \t]*\n?[ \t]*\n?[ \t]*\((\d+)\)[ \t]*(?=\n|$)(?!\s*\$\$))?",
+        rf"(?P<already>\$\$((?:(?!\$\$).)*?)\$\$[ \t]*<eq-[^>]+>)"
+        rf"|(?:^[ \t]*\((?P<pre>{num_pat})\)[ \t]*\n*\s*)?\$\$(?P<body>(?:(?!\$\$).)*?)\$\$"
+        rf"(?(pre)|(?:[ \t]*(?:\\q?quad[ \t]*|\n?[ \t]*\n?[ \t]*)\((?P<post>{num_pat})\)[ \t]*(?=\n|$))?)",
         replace_block,
         s,
         flags=re.MULTILINE | re.DOTALL,
@@ -172,29 +215,61 @@ def _label_page_equations(s: str, ch_num: int, pno: int) -> str:
 SUPERSCRIPT_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 CIRCLED_DIGITS = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
 FOOTNOTE_LINE_RES = {
-    "superscript": re.compile(rf"^([{SUPERSCRIPT_DIGITS}]+)\s*(\S.*)$"),
+    "superscript": re.compile(rf"^(?:([{SUPERSCRIPT_DIGITS}]+)|\$\^\{{?(\d{{1,2}})\}}?\$)\s*(\S.*)$"),
     "paren": re.compile(r"^(\d{1,2})\)\s+(\S.*)$"),
     "parenthesized": re.compile(r"^(?=\$\^|\(\d{1,2}\)\s+[A-ZÀ-Ý«\u4e00-\u9fff])(?:\$\^\{?)?\((\d{1,2})\)(?:\}?\$)?\s*(\S.*)$"),
     "circled": re.compile(
-        rf"^(?:(?:\$\^(?:\{{\\text\{{|\{{)?|\\text\{{|\^\{{)?([{CIRCLED_DIGITS}])(?:\}}\}}?\$|\}})?|(?:\$\^\{{?)?\((\d{{1,2}})\)(?:\}}?\$)?|(?:([{SUPERSCRIPT_DIGITS}]+)\)|(?:\$\^\{{|\^\{{)(\d{{1,2}})\)\}}\$?))\s*(\S.*)$"
+        rf"^(?:(?:\$\^(?:\{{\\text\{{|\{{)?|\\text\{{|\^\{{)?([{CIRCLED_DIGITS}])(?:\}}\}}?\$|\}})?|(?:\$\^\{{?|\^\{{?)\((\d{{1,2}})\)\}}?\$?|(?:([{SUPERSCRIPT_DIGITS}]+)\)|(?:\$\^\{{|\^\{{)(\d{{1,2}})\)\}}\$?)|注\s*(\d{{1,2}})\s*[:：])\s*(\S.*)$"
     ),
-    "symbol": re.compile(r"^\\?(\*{1,3}|†{1,2}|‡|§(?=\s+[A-Z]))\s*(\S.*)$"),
+    "symbol": re.compile(r"^(?:\\?(\*{1,3}|†{1,2}|‡|§(?=\s+[A-Z]))|\$\^?\{?(\\dagger|†|\*{1,3})\}?\$)\s*(\S.*)$"),
 }
 FOOTNOTE_RULE_RE = re.compile(r"^(?:[—–-]+|_{3,})$")
 
-NOTE_CONTINUATION_RE = re.compile(r'^[a-z"“$(]')
+NOTE_CONTINUATION_RE = re.compile(r'^(?:[a-z"“(]|\$(?!\$))')
 
 
-def _note_line(line: str, style: str, below_rule: bool = False) -> re.Match[str] | None:
+def _note_line(
+    line: str,
+    style: str,
+    below_rule: bool = False,
+    above: list[str] | None = None,
+    marks: tuple[str, ...] = (),
+    at_foot: bool = False,
+) -> re.Match[str] | None:
     """Above a note rule a star note must open a sentence, and a star touching its word must be the line's only star,
     so italic heads ("*Example 3.* Let"), starred exercises ("*6.") and math lines stay in the body."""
     m = FOOTNOTE_LINE_RES[style].match(line)
-    if not m or below_rule or not (m.group(1) or "").startswith("*"):
-        return m
-    touching = not line.lstrip("\\")[len(m.group(1))].isspace()
-    if not re.match(r"[A-Z“\"]", m.group(2)) or (touching and "*" in re.sub(r"\$[^$]*\$", "", m.group(2))):
+    if not m:
         return None
-    return m
+    key = next(g for g in m.groups()[:-1] if g is not None)
+    norm_key = "†" if key == r"\dagger" else key
+    if marks and norm_key[0] not in {mk[0] for mk in marks}:
+        return None
+    if below_rule or not key.startswith("*"):
+        return m
+    text = m.groups()[-1]
+    touching = m.group(1) is not None and not line.lstrip("\\")[len(key)].isspace()
+    if not re.match(r"[A-Z“\"]", text):
+        return None
+    if not touching:
+        return m
+    plain = re.sub(r"\$[^$]*\$", "", text)
+    star_runs = re.findall(r"\*+", plain)
+    if not star_runs:
+        return m
+    called = above is not None and _footnote_call(_blank_code("\n".join(above)), key, "symbol") is not None
+    if len(star_runs) % 2 == 0 and called:
+        return m
+    if (
+        at_foot
+        and key == "*"
+        and called
+        and plain.endswith("*")
+        and not plain.endswith("**")
+        and len(re.findall(r"\*+", plain[:-1])) % 2 == 0
+    ):
+        return m
+    return None
 
 
 def _inline_note_math(text: str) -> str:
@@ -207,57 +282,93 @@ def _inline_note_math(text: str) -> str:
         text,
     )
 
-def _note(m: re.Match[str]) -> tuple[str, str]:
+def _note(m: re.Match[str], style: str = "") -> tuple[str, str]:
     """A star mark that leaves the note's emphasis stars unpaired also opened an italic title ("*Memorial*, see")."""
     groups = m.groups()
     key = next(g for g in groups[:-1] if g is not None)
-    if all(ch in SUPERSCRIPT_DIGITS for ch in key) and len(groups) > 2 and groups[2] == key:
+    if style == "superscript" and key.isdigit():
+        key = key.translate(str.maketrans("0123456789", SUPERSCRIPT_DIGITS))
+    elif all(ch in SUPERSCRIPT_DIGITS for ch in key) and len(groups) > 2 and groups[2] == key:
         key = key.translate(str.maketrans(SUPERSCRIPT_DIGITS, "0123456789")) + ")"
     elif len(groups) > 3 and groups[3] == key:
         key = f"{key})"
+    elif len(groups) > 4 and groups[4] == key:
+        key = f"注{key}"
+    elif key == r"\dagger":
+        key = "†"
     text = _inline_note_math(groups[-1].strip())
-    if key.startswith("*") and len(re.findall(r"\*+", re.sub(r"\$[^$]*\$", "", text))) % 2:
-        text = f"*{text}"
+    plain = re.sub(r"\$[^$]*\$", "", text)
+    if key.startswith("*") and len(re.findall(r"\*+", plain)) % 2:
+        if text.endswith("*") and not text.endswith("**") and len(re.findall(r"\*+", plain[:-1])) % 2 == 0:
+            text = text[:-1]
+        else:
+            text = f"*{text}"
     return key, text
 
 
-def _split_mid_page_notes(body: str) -> tuple[str, list[tuple[str, str]]]:
+def _split_mid_page_notes(body: str, marks: tuple[str, ...] = ()) -> tuple[str, list[tuple[str, str]]]:
     """Cut note lines that OCR left above body text, with the lines that continue them.
 
     A note ending in a colon takes every line below it, such as a list of volumes."""
     lines = body.splitlines()
+    last_nonempty = next((k for k in range(len(lines) - 1, -1, -1) if lines[k].strip()), -1)
     notes: list[tuple[str, str]] = []
     cut: set[int] = set()
     i = 0
     while i < len(lines):
-        m = _note_line(lines[i].strip(), "symbol")
+        m = _note_line(lines[i].strip(), "symbol", above=lines[:i], marks=marks)
         if not m:
             i += 1
             continue
-        key, text = _note(m)
-        takes_all = text.endswith(":")
+        key, text = _note(m, "symbol")
+        prev_lines = [lines[k].strip() for k in range(i - 1, -1, -1) if k not in cut and lines[k].strip()]
+        prev_body = prev_lines[1] if len(prev_lines) > 1 and prev_lines[0] == "$$" else (prev_lines[0] if prev_lines else "")
+        mid_sentence = bool(
+            prev_body
+            and re.search(r"[a-zA-Z,;\-—–*]|\$[^$]+\$$", prev_body)
+            and not prev_body.endswith((".", "?", "!", ":", ".*", '."', ".'"))
+            and _footnote_call(_blank_code("\n".join(lines[:i])), key, "symbol")
+        )
+        takes_all = text.endswith(":") or mid_sentence
+        in_display = text.count("$$") % 2 == 1
         cut.add(i)
         i += 1
         while i < len(lines):
             nxt = lines[i].strip()
-            if nxt and (_note_line(nxt, "symbol") or not (takes_all or NOTE_CONTINUATION_RE.match(nxt))):
-                break
-            if nxt:
+            if not nxt:
+                cut.add(i)
+                i += 1
+                continue
+            if in_display:
                 text = f"{text} {nxt}"
+                in_display ^= nxt.count("$$") % 2 == 1
+                cut.add(i)
+                i += 1
+                continue
+            if _note_line(nxt, "symbol", above=lines[:i], marks=marks):
+                break
+            starts_display = nxt.startswith("$$") and not text.rstrip().endswith((".", "?", "!", '."', ".'", ".*"))
+            unclosed_tail = i == last_nonempty and text.rstrip().endswith("$$") and not re.search(r"[.?!]\s*\$\$$", text.rstrip())
+            if not (takes_all or starts_display or unclosed_tail or NOTE_CONTINUATION_RE.match(nxt)):
+                break
+            text = f"{text} {nxt}"
+            in_display ^= nxt.count("$$") % 2 == 1
             cut.add(i)
             i += 1
-        notes.append((key, text))
+        notes.append((key, _inline_note_math(text)))
     return "\n".join(ln for k, ln in enumerate(lines) if k not in cut), notes
 
 
-def split_page_footnotes(md: str, style: str, folio_pattern: str) -> tuple[str, list[tuple[str, str]]]:
+def split_page_footnotes(
+    md: str, style: str, folio_pattern: str, marks: tuple[str, ...] = ()
+) -> tuple[str, list[tuple[str, str]]]:
     """Cut the run of note lines, and the rule above it, off the bottom of a page.
 
     In symbol books, also cut notes that OCR placed above the page's last body text."""
-    body, notes = _split_foot_notes(md, style, folio_pattern)
+    body, notes = _split_foot_notes(md, style, folio_pattern, marks)
     if style != "symbol":
         return body, notes
-    body, mid_page = _split_mid_page_notes(body)
+    body, mid_page = _split_mid_page_notes(body, marks)
     return body, mid_page + notes
 
 
@@ -274,24 +385,71 @@ def _blank_code(s: str) -> str:
     """The text with each fenced code block blanked to spaces, so a search in it keeps the original offsets.
 
     A circled mark in code is a callout that a list below the code explains, never a note call."""
-    return CODE_FENCE_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), s)
+    out = CODE_FENCE_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), s)
+    displays = "\n".join(re.findall(r"\$\$[\s\S]*?\$\$", out))
+    if len(set(re.findall(rf"(?:\\q?quad|&)\s*(?:\\text\{{)?([{CIRCLED_DIGITS}])", displays))) >= 2:
+        out = re.sub(
+            r"\$\$[\s\S]*?\$\$",
+            lambda dm: re.sub(
+                rf"(?:\\q?quad|&)\s*(?:\\text\{{)?[{CIRCLED_DIGITS}]\s*\}}?",
+                lambda cm: " " * len(cm.group(0)),
+                dm.group(0),
+            ),
+            out,
+        )
+    return out
 
 
-def _uncalled_circled(m: re.Match[str], above: list[str]) -> bool:
-    key = _note(m)[0]
-    return key in CIRCLED_DIGITS and not any(key in line.lstrip()[1:] for line in _blank_code("\n".join(above)).splitlines())
+def _uncalled_circled(m: re.Match[str], above: list[str], below: list[str] | None = None) -> bool:
+    key = _note(m, "circled")[0]
+    above_text = "\n".join(above)
+    blanked = _blank_code(above_text)
+    if key.startswith("注"):
+        last_above = next((ln.strip() for ln in reversed(above) if ln.strip()), "")
+        return bool(
+            re.search(rf"[（(]\s*{re.escape(key)}\s*[）)]", above_text)
+            or (last_above.endswith("</table>") and _footnote_call(blanked, key, "circled") is None)
+        )
+    if key not in CIRCLED_DIGITS:
+        return _footnote_call(blanked, key, "circled") is None
+    if any(key in line.lstrip()[1:] for line in blanked.splitlines()):
+        return False
+    return not (
+        key == "①"
+        and below
+        and any((bm := _note_line(ln, "circled", below_rule=True)) and _note(bm, "circled")[0] == "②" for ln in below)
+        and any("②" in line.lstrip()[1:] for line in blanked.splitlines())
+        and re.search(r"\^\s*\{?\\(?:odot|ominus|oplus|circ)\}?|\\circledast|⊙", blanked)
+    )
 
 
-def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, list[tuple[str, str]]]:
+def _plain_superscript_note(line: str, above: list[str]) -> tuple[str, str] | None:
+    m = re.match(r"^(\d{1,2})\s+([A-ZÀ-Ý“\"'(].*)$", line)
+    if not m:
+        return None
+    sup_key = m.group(1).translate(str.maketrans("0123456789", SUPERSCRIPT_DIGITS))
+    if not _footnote_call(_blank_code("\n".join(above)), sup_key, "superscript"):
+        return None
+    return sup_key, _inline_note_math(m.group(2).strip())
+
+
+def _split_foot_notes(
+    md: str, style: str, folio_pattern: str, marks: tuple[str, ...] = ()
+) -> tuple[str, list[tuple[str, str]]]:
     lines = md.splitlines()
     notes: list[tuple[str, str]] = []
     kept = [(i, ln.strip()) for i, ln in enumerate(lines) if ln.strip() and not re.match(folio_pattern, ln.strip(), re.IGNORECASE)]
     for idx, ((i, lt), (_, after)) in enumerate(pairwise(kept)):
-        if FOOTNOTE_RULE_RE.match(lt) and _note_line(after, style, below_rule=True):
+        if FOOTNOTE_RULE_RE.match(lt) and (
+            _note_line(after, style, below_rule=True, above=lines[:i], marks=marks)
+            or (style == "superscript" and _plain_superscript_note(after, lines[:i]))
+        ):
             in_display = False
             for _, below in kept[idx + 1 :]:
-                if not in_display and (m := _note_line(below, style, below_rule=True)):
-                    notes.append(_note(m))
+                if not in_display and (m := _note_line(below, style, below_rule=True, above=lines[:i], marks=marks)):
+                    notes.append(_note(m, style))
+                elif not in_display and style == "superscript" and (pn := _plain_superscript_note(below, lines[:i])):
+                    notes.append(pn)
                 else:
                     notes[-1] = (notes[-1][0], _inline_note_math(f"{notes[-1][1]} {below}"))
                 in_display ^= below.count("$$") % 2 == 1
@@ -299,18 +457,19 @@ def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, lis
     if style == "circled":
         for idx, (i, lt) in enumerate(kept):
             in_display = "\n".join(lines[:i]).count("$$") % 2 == 1
-            m_note = _note_line(lt, style, below_rule=True)
-            if not in_display and m_note and not _uncalled_circled(m_note, lines[:i]) and not any(
-                re.match(r"^(?:#+\s+|\d{1,3}\.\s+\S|```)", below) for _, below in kept[idx + 1 :]
+            m_note = _note_line(lt, style, below_rule=True, above=lines[:i], marks=marks)
+            below_lines = [b for _, b in kept[idx + 1 :]]
+            if not in_display and m_note and not _uncalled_circled(m_note, lines[:i], below_lines) and not any(
+                re.match(r"^(?:#+\s+|\d{1,3}\.\s+\S|```)", below) for below in below_lines
             ):
                 in_note_display = False
                 for _, below in kept[idx:]:
                     if in_note_display:
                         notes[-1] = (notes[-1][0], _inline_note_math(f"{notes[-1][1]} {below}"))
-                    elif m := _note_line(below, style, below_rule=True):
-                        notes.append(_note(m))
+                    elif m := _note_line(below, style, below_rule=True, above=lines[:i], marks=marks):
+                        notes.append(_note(m, style))
                     elif (m_ed := re.match(r"^(\d{1,2})\)\s+(\S.*)$", below)) and re.search(
-                        rf"(?:\^\{{?\s*{below.split(')', 1)[0]}\)\s*\}}?|[{SUPERSCRIPT_DIGITS}]+\))",
+                        rf"(?:\^\{{?\s*{below.split(')', 1)[0]}\s*(?:\)\s*\}}?|\}}\s*\))|[{SUPERSCRIPT_DIGITS}]+\))",
                         "\n".join(lines[:i]),
                     ):
                         notes.append((f"{m_ed.group(1)})", _inline_note_math(m_ed.group(2).strip())))
@@ -323,12 +482,16 @@ def _split_foot_notes(md: str, style: str, folio_pattern: str) -> tuple[str, lis
         lt = lines[i].strip()
         if not lt or re.match(folio_pattern, lt, re.IGNORECASE):
             continue
-        m = _note_line(lt, style)
-        if not m or (style == "circled" and _uncalled_circled(m, lines[:i])):
+        m = _note_line(lt, style, above=lines[:i], marks=marks, at_foot=True)
+        if not m and style == "superscript" and (pn := _plain_superscript_note(lt, lines[:i])):
+            notes.append(pn)
+            end = i
+            continue
+        if not m or (style == "circled" and _uncalled_circled(m, lines[:i], [ln.strip() for ln in lines[i + 1 : end] if ln.strip()])):
             if notes and FOOTNOTE_RULE_RE.match(lt):
                 end = i
             break
-        notes.append(_note(m))
+        notes.append(_note(m, style))
         end = i
     return "\n".join(lines[:end]), notes[::-1]
 
@@ -337,17 +500,28 @@ def _footnote_call(s: str, key: str, style: str) -> re.Match[str] | None:
     if style == "superscript":
         digits = key.translate(str.maketrans(SUPERSCRIPT_DIGITS, "0123456789"))
         sup = f"[{SUPERSCRIPT_DIGITS}]"
-        return re.search(rf"(?<!{sup}){re.escape(key)}(?!{sup})|\$\^\{{?{digits}\}}?\$", s)
+        return re.search(rf"(?<!{sup}){re.escape(key)}(?!{sup})|\s?\$\^\{{?{digits}\}}?\$", s)
     if style == "paren":
         sup = key.translate(str.maketrans("0123456789", SUPERSCRIPT_DIGITS))
         return re.search(rf"\$\^\{{?\(?{key}\)\}}?\$|\$\^\{{?{key}\}}?\)\$|{sup}[)⁾]", s)
     if style == "parenthesized":
         return re.search(rf"\s?\$\^\{{?\({key}\)\}}?\$", s)
     if style == "circled":
+        if key.startswith("注"):
+            num = key[1:]
+            sup = num.translate(str.maketrans("0123456789", SUPERSCRIPT_DIGITS))
+            sup_cls = f"[{SUPERSCRIPT_DIGITS}]"
+            return re.search(
+                rf"\s?(?:(?<!{sup_cls}){re.escape(sup)}(?!{sup_cls})|\$\^\{{?{num}\}}?\$|(?<=[。！？.!?])\s*\[{num}\])",
+                s,
+            )
         if key.endswith(")"):
             num = key[:-1]
             sup = num.translate(str.maketrans("0123456789", SUPERSCRIPT_DIGITS))
-            return re.search(rf"\s?\$\^\{{?\s*\(?{num}\)\s*\}}?\$|\^\{{?\s*{num}\)\s*\}}?|{sup}[)⁾]", s)
+            return re.search(
+                rf"\s?\$\^\{{?\s*\(?{num}\s*(?:\)\s*\}}?|\}}\s*\))\$|\^\{{?\s*\(?{num}\s*(?:\)\s*\}}?|\}}\s*\))|{sup}[)⁾]|(?<=[\u4e00-\u9fff）)])\s?\$\^\{{?\s*{num}\s*\}}?\$",
+                s,
+            )
         num = str(CIRCLED_DIGITS.index(key) + 1) if key in CIRCLED_DIGITS else key
         k_char = CIRCLED_DIGITS[int(num) - 1] if num.isdigit() and 1 <= int(num) <= 20 else key
         exact = re.search(
@@ -361,6 +535,7 @@ def _footnote_call(s: str, key: str, style: str) -> re.Match[str] | None:
             return exact
         return re.search(
             r"\s?\$(?!\$)\^(?:\{?\\text\{[⊙①-⑳]\}|\{\\(?:odot|ominus|oplus|circ)\}|\\(?:odot|ominus|oplus|circ))\}?\$(?!\$)"
+            r"|(?<=\$1)\s*\^\s*\{?\\circ\}?(?=\$)"
             r"|\s?\^(?:\{?\\text\{[⊙①-⑳]\}|\{\\(?:odot|ominus|oplus|circ)\}|\\(?:odot|ominus|oplus|circ))\}?"
             r"|\s*\\(?:odot|ominus|oplus|circledast)"
             r"|\$(?!\$)\\circledast\$(?!\$)",
@@ -370,30 +545,56 @@ def _footnote_call(s: str, key: str, style: str) -> re.Match[str] | None:
         for m in re.finditer(rf"(?<!\*)\*+(?=[\s,.;:)]|$)|\$\^\{{?{re.escape(key)}\}}?\$", s):
             line = s[s.rfind("\n", 0, m.start()) + 1 : m.start()]
             outside_math = m.group(0).startswith("$") or len(re.findall(r"(?<!\\)\$", line)) % 2 == 0
-            if m.group(0).strip("$^{}") == key and outside_math and len(re.findall(r"\*+", line)) % 2 == 0:
+            if not outside_math:
+                continue
+            star_runs = re.findall(r"\*+", line)
+            if m.group(0).strip("$^{}") == key and len(star_runs) % 2 == 0:
                 return m
+            if (
+                not m.group(0).startswith("$")
+                and m.group(0) == f"*{key}"
+                and sum(len(r) == 1 for r in star_runs) % 2 == 1
+            ):
+                return re.compile(re.escape(key)).search(s, m.start() + 1, m.end())
         return None
     if key == "§":
         return re.search(r"(?<=\S)§(?=[\s,.;:)]|$)", s)
+    if key == "†":
+        return re.search(r"†|\$\^?\{?\\dagger\}?\$|\s*\\dagger(?![a-zA-Z])", s)
     return re.search(rf"{re.escape(key)}|\$\^?\{{?\\dagger\}}?\$", s)
 
 
 def attach_footnotes(s: str, notes: list[tuple[str, str]], style: str) -> str:
     if style == "symbol":
-        s = re.sub(
-            r"(\S)(\s*\n\s*\$\$(?:(?!\$\$).)*?)\s*\\dagger\s*(\$\$)",
-            r"\1†\2\n\3",
-            s,
-            flags=re.DOTALL,
-        )
-        s = re.sub(r"\s*\\dagger\s*\$", "$†", s)
+        if any(k == "†" for k, _ in notes):
+            first_dag = re.search(r"†|\\dagger(?![a-zA-Z])", s)
+            m_hoist = re.search(
+                r"(?<![\$>])([^\s$>])(\s*\n\s*\$\$(?:(?!\$\$).)*?)\s*\\dagger\s*(\$\$)",
+                s,
+                flags=re.DOTALL,
+            )
+            if (
+                first_dag
+                and first_dag.group(0).startswith("\\")
+                and m_hoist
+                and m_hoist.start() < first_dag.end() <= m_hoist.end()
+            ):
+                s = (
+                    s[: m_hoist.start()]
+                    + f"{m_hoist.group(1)}†{m_hoist.group(2)}\n{m_hoist.group(3)}"
+                    + s[m_hoist.end() :]
+                )
+        s = re.sub(r"(?<!\$)(?<![\^{])\s*\\dagger[ \t]*\$(?!\$)", "$†", s)
     for key, text in notes:
         note = marks.footnote(text)
         call = _footnote_call(_blank_code(s), key, style)
         if call:
             clean_s = s[: call.start()] + s[call.end() :]
             pos = call.start()
-            for m in re.finditer(r"\$\$[\s\S]*?\$\$|(?<!\\)\$(?:[^$\n\\]|\\.)+\$", clean_s):
+            for m in re.finditer(
+                r"\$\$[\s\S]*?\$\$(?:[ \t]*<eq-[^>]+>)?|(?<!\\)\$(?:[^$\n\\]|\\.)+\$",
+                clean_s,
+            ):
                 if m.start() <= pos < m.end():
                     pos = m.end()
                     break
@@ -801,7 +1002,11 @@ class PageCleaner:
         md_text = normalize_html_tables(md_text)
         footnotes: list[tuple[str, str]] = []
         if spec.footnote_style:
-            md_text, footnotes = split_page_footnotes(md_text, spec.footnote_style, spec.folio_pattern)
+            md_text, footnotes = (
+                split_page_footnotes(md_text, spec.footnote_style, spec.folio_pattern, spec.footnote_marks)
+                if spec.footnote_marks
+                else split_page_footnotes(md_text, spec.footnote_style, spec.folio_pattern)
+            )
         body_lines: list[str] = []
         top_figs: list[Figure] = []
         bot_figs: list[Figure] = []
@@ -1008,7 +1213,15 @@ class PageCleaner:
                 if m.group(0).startswith("$"):
                     return m.group(0)
                 txt = m.group(0).replace("~", "～")
-                return re.sub(r"(?<=[，。；：\s（\[])\((\d{1,2})\)(?=[\s\u4e00-\u9fff，。；：])", r"（\1）", txt)
+                return re.sub(
+                    r"(?<=[，。；：\s（\[])\((\d{1,2})\)(?=[ \t\u4e00-\u9fff，。；：])",
+                    lambda pm: (
+                        pm.group(0)
+                        if re.search(r"(?:方程(?:组)?|条件|曲线|式)\s*$", txt[: pm.start()])
+                        else f"（{pm.group(1)}）"
+                    ),
+                    txt,
+                )
             s = re.sub(r"\$\$[\s\S]*?\$\$|(?<!\\)\$(?:[^$\n\\]|\\.)+\$|[^$]+", _replace_cjk_prose, s)
         s = style_statements(s, spec.statement_style or ("upright" if spec.lang in ("zh", "ja") else "italic"))
         for pattern, repl in spec.page_fixups.get(pno, ()):
@@ -1016,12 +1229,12 @@ class PageCleaner:
                 repl if re.search(r"\\[1-9]|\\g<", repl) else (lambda _, r=repl: r)
             )
             s = re.sub(pattern, rep_arg, s, flags=re.DOTALL)
-        if footnotes:
-            s = attach_footnotes(s, footnotes, spec.footnote_style)
         if spec.equation_numbering == "page":
             s = _label_page_equations(s, self._chapter_of(pno), pno)
         elif spec.equation_numbering == "section":
             s = _label_section_equations(s, pno, deep=spec.cross_references)
+        if footnotes:
+            s = attach_footnotes(s, footnotes, spec.footnote_style)
         bot_figs.extend(spec.extra_figures.get(pno, ()))
         bot_figs.extend(
             (fid.replace("-", "_", 1), f.caption)
