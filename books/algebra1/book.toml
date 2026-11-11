@@ -2,6 +2,7 @@ slug = "algebra1"
 title = "Algebra I: Basic Notions of Algebra"
 author = "A. I. Kostrikin, I. R. Shafarevich"
 domain = "math"
+commutative_diagrams = true
 source_pdf = "Algebra I Basic Notions Of Algebra (Kostrikin A I, Shafarevich I R).pdf"
 pdf_page_count = 260
 lang = "en"

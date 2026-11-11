@@ -2174,3 +2174,9 @@ S_0 & \xrightarrow{i} & S'''],
   # The transcript has \mathrm{Div}_X/S; the scan prints \mathbf{Div}_{X/S}.
   ['\\mathrm\{Div\}_X/S', '\mathbf{Div}_{X/S}'],
 ]
+
+[unread_diagram_boxes]
+"106_u001" = [785, 1035, 1230, 1280]
+"106_u002" = [680, 1400, 1335, 1695]
+"157_u001" = [635, 2232, 1478, 2425]
+"157_u002" = [383, 2490, 1735, 2695]

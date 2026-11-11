@@ -8,6 +8,7 @@ series = 'Graduate Texts in Mathematics'
 year = 1985
 publisher_key = 'springer'
 domain = 'math'
+commutative_diagrams = true
 chapters = [
   { number = 1, title = 'Examples of Manifolds', start_page = 17, end_page = 80 },
   { number = 2, title = 'Foundational Questions. Essential Facts Concerning Functions on a Manifold. Typical Smooth Mappings', start_page = 81, end_page = 114 },

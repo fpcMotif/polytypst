@@ -4,6 +4,7 @@ A diagram's vertical arrows join its rows of objects into one tall band of ink, 
 The NNN-th such band on page PPP is the page's NNN-th array diagram in the transcript, saved as `fig_PPP_NNN.png`."""
 
 import shutil
+from collections.abc import Mapping
 from itertools import combinations
 from pathlib import Path
 
@@ -11,7 +12,8 @@ import numpy as np
 from PIL import Image
 
 from ..book_state import transcripts
-from ..compiler.diagrams import page_diagrams, scan_diagram_id
+from ..compiler.diagrams import page_scan_diagrams, page_unread_diagrams
+from ..ocr.scan import SourceScan
 from ..ocr.transcripts import TranscriptStore
 
 Box = tuple[int, int, int, int]
@@ -103,20 +105,55 @@ def install_scan_diagrams(snippets: Path, out_dir: Path) -> list[Path]:
 
 
 def scan_diagram_boxes(out_dir: Path) -> dict[str, tuple[Path, Box]]:
-    """Each transcript array diagram's id `PPP_NNN`, with its page render and its box on that render."""
+    """Each transcript array or unread diagram's id, with its page render and its box on that render.
+
+    A page whose scan shows fewer diagrams than its transcript keeps boxes for its array diagrams alone when it can."""
     store = TranscriptStore(transcripts(out_dir))
     found: dict[str, tuple[Path, Box]] = {}
-    for render in sorted((out_dir / "page_renders").glob("p_*.png")):
+    for render in sorted(p for ext in ("png", "jpg") for p in (out_dir / "page_renders").glob(f"p_*.{ext}")):
         page = int(render.stem.removeprefix("p_"))
         text = store.text(page) or ""
-        places = [m.start() / len(text) for m in page_diagrams(text)]
-        if not places:
+        diagrams = page_scan_diagrams(text, page)
+        if not diagrams:
             continue
         with Image.open(render) as im:
-            boxes = match_boxes(diagram_boxes(im), places, im.size[1])
-        if boxes is None:
-            print(f"page {page}: the scan shows fewer diagrams than the transcript's {len(places)}; no crops")
+            boxes, height = diagram_boxes(im), im.size[1]
+        picked = match_boxes(boxes, [m.start() / len(text) for m, _ in diagrams], height)
+        if picked is None:
+            print(f"page {page}: the scan shows {len(boxes)} diagrams, the transcript {len(diagrams)}; array diagrams only")
+            diagrams = [(m, fig) for m, fig in diagrams if "_u" not in fig]
+            picked = match_boxes(boxes, [m.start() / len(text) for m, _ in diagrams], height) if diagrams else None
+        if picked is None:
             continue
-        for k, box in enumerate(boxes, 1):
-            found[scan_diagram_id(page, k)] = (render, box)
+        for (_, fig), box in zip(diagrams, picked, strict=True):
+            found[fig] = (render, box)
     return found
+
+
+def install_unread_diagrams(
+    out_dir: Path, scan: SourceScan, dpi: int, boxes: Mapping[str, tuple[int, ...]] = {}
+) -> list[Path]:
+    """Render the pages that hold unread diagrams at `dpi` and crop each one into `out_dir/figures/fig_PPP_uNNN.png`.
+
+    `boxes` overrides the box found for an id; an empty box keeps that diagram's transcript."""
+    fig_dir = out_dir / "figures"
+    for stale in fig_dir.glob("fig_*_u*.png"):
+        stale.unlink()
+    store = TranscriptStore(transcripts(out_dir))
+    pages = [p for p in store.pages() if page_unread_diagrams(store.text(p) or "")]
+    if not pages:
+        return []
+    renders = {r.number: r.path for r in scan.pages(out_dir / "page_renders", dpi=dpi, numbers=pages)}
+    crops = {fig: found for fig, found in scan_diagram_boxes(out_dir).items() if "_u" in fig}
+    for fig, box in boxes.items():
+        crops.pop(fig, None)
+        if box:
+            crops[fig] = (renders[int(fig.split("_")[0])], box)
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    for fig, (render, box) in crops.items():
+        path = fig_dir / f"fig_{fig}.png"
+        with Image.open(render) as im:
+            im.crop(box).save(path, dpi=(300, 300))
+        written.append(path)
+    return written

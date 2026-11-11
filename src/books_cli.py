@@ -113,7 +113,7 @@ def _build(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     recorded = read_baseline(BASELINE).get(args.book, {}).get(name, {})
     rose, _ = rises(audit_edition(book, name, frozenset({"source"})).counts, recorded)
     for line in rose:
-        print(f"numbering: {line}; run: polytypst audit {args.book} --edition {name}")
+        print(f"source: {line}; run: polytypst audit {args.book} --edition {name}")
     return 1 if rose else 0
 
 

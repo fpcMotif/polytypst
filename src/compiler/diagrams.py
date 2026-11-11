@@ -17,8 +17,13 @@ SCAN_DIAGRAM_LATEX = (
     r"{\usepackage[export]{adjustbox}\newcommand{\scandiagram}[1]{\includegraphics[max width=\linewidth,max height=0.45\textheight,keepaspectratio]{figures/fig_##1.png}}}"
     r"{\newcommand{\scandiagram}[1]{\includegraphics[width=\linewidth,height=0.45\textheight,keepaspectratio]{figures/fig_##1.png}}}"
 )
-SCAN_DIAGRAM_RE = re.compile(r"\\scandiagram\{(\d+_\d+)\}")
+SCAN_DIAGRAM_RE = re.compile(r"\\scandiagram\{(\d+_u?\d+)\}")
 DISPLAY_RE = re.compile(r"\$\$(.*?)\$\$", re.DOTALL)
+_DIAGRAM_ENV_RE = re.compile(
+    r"^(?:\\begin\{array\}\{(?:[^{}]|\{[^{}]*\})*\}(?P<body>.*)\\end\{array\}"
+    r"|\\begin\{(?P<env>[pbBvV]?matrix)\}(?P<mbody>.*)\\end\{(?P=env)\})\s*[.,;]?$",
+    re.DOTALL,
+)
 
 _ARRAY_RE = re.compile(r"^\\begin\{array\}\{[clr|\s]*\}(.*)\\end\{array\}$", re.DOTALL)
 _HORIZONTAL = {
@@ -72,6 +77,17 @@ def _split_top(s: str, sep: str) -> list[str]:
     return [*parts, s[start:]]
 
 
+def array_rows(body: str) -> list[list[str]]:
+    """The non-empty rows of an array or matrix body, each split into its stripped cells."""
+    rows = [[c.strip() for c in _split_top(r, "&")] for r in _split_top(body, r"\\")]
+    return [r for r in rows if any(r)]
+
+
+def is_arrow_cell(cell: str) -> bool:
+    """Whether a cell starts with a horizontal arrow or holds a vertical or slanted one."""
+    return bool(_HORIZONTAL_RE.match(cell) or _SLANTED_RE.search(cell))
+
+
 def _braced(s: str) -> str:
     s = s.strip().lstrip("^_").strip()
     return s[1:-1].strip() if s.startswith("{") and s.endswith("}") else s
@@ -88,8 +104,7 @@ def parse_array_diagram(latex: str) -> Diagram | None:
     m = _ARRAY_RE.match(latex.strip())
     if not m:
         return None
-    rows = [[c.strip() for c in _split_top(r, "&")] for r in _split_top(m.group(1), r"\\")]
-    rows = [r for r in rows if any(r)]
+    rows = array_rows(m.group(1))
     if len(rows) < 3 or any(len(_SLANTED_RE.findall(c)) > 1 for r in rows for c in r):
         return None
     width = max(map(len, rows))
@@ -169,15 +184,38 @@ def page_diagrams(text: str) -> list[re.Match[str]]:
     return [m for m in DISPLAY_RE.finditer(text) if parse_array_diagram(m.group(1).strip())]
 
 
-def scan_diagram_id(page: int, k: int) -> str:
-    return f"{page:03d}_{k:03d}"
+def is_unread_diagram(latex: str) -> bool:
+    """Whether `latex` is one array or matrix with a vertical or slanted arrow, two rows or more, that `parse_array_diagram` cannot read.
+
+    Rows of horizontal maps alone, such as `G/H -> Gal(M/K)` over `sigma |-> sigma|M`, are aligned maps, not a diagram."""
+    m = _DIAGRAM_ENV_RE.match(latex.strip())
+    if not m:
+        return False
+    rows = array_rows(m["body"] if m["body"] is not None else m["mbody"])
+    return len(rows) >= 2 and any(_SLANTED_RE.search(c) for r in rows for c in r) and parse_array_diagram(latex) is None
+
+
+def page_unread_diagrams(text: str) -> list[re.Match[str]]:
+    """The `$$` displays on one page that are unread diagrams, in reading order."""
+    return [m for m in DISPLAY_RE.finditer(text) if is_unread_diagram(m.group(1))]
+
+
+def scan_diagram_id(page: int, k: int, unread: bool = False) -> str:
+    """`PPP_NNN` for the page's NNN-th array diagram, `PPP_uNNN` for its NNN-th unread diagram."""
+    return f"{page:03d}_{'u' if unread else ''}{k:03d}"
+
+
+def page_scan_diagrams(text: str, page: int) -> list[tuple[re.Match[str], str]]:
+    """Each array diagram and unread diagram on a page with its scan diagram id, in reading order."""
+    found = [(m, scan_diagram_id(page, k)) for k, m in enumerate(page_diagrams(text), 1)]
+    found += [(m, scan_diagram_id(page, k, unread=True)) for k, m in enumerate(page_unread_diagrams(text), 1)]
+    return sorted(found, key=lambda f: f[0].start())
 
 
 def use_scan_diagrams(text: str, page: int, fig_dir: Path) -> str:
-    """Put `\\scandiagram{PPP_NNN}` in place of the page's NNN-th array diagram when its snippet or crop exists."""
+    """Put `\\scandiagram{ID}` in place of each array or unread diagram whose snippet or crop exists."""
     out, end = [], 0
-    for k, m in enumerate(page_diagrams(text), 1):
-        fig = scan_diagram_id(page, k)
+    for m, fig in page_scan_diagrams(text, page):
         if any((fig_dir / f"fig_{fig}.{ext}").exists() for ext in ("typ", "png")):
             out += [text[end : m.start()], f"$$\n\\scandiagram{{{fig}}}\n$$"]
             end = m.end()

@@ -15,6 +15,7 @@ from ..vision.figure_extractor import (
     manifest_figures,
 )
 from . import marks
+from .math_arrays import repair_arrays
 from .statements import style_statements
 
 if TYPE_CHECKING:
@@ -988,6 +989,7 @@ class PageCleaner:
             md_text = re.sub(pattern, rep_arg, md_text, flags=re.DOTALL)
         if spec.repair_math:
             md_text = repair_page_math(md_text)
+        md_text = repair_arrays(md_text)
         md_text = re.sub(r"<!--.*?-->", "", md_text, flags=re.DOTALL)
         md_text = SCANNER_WATERMARK_RE.sub("", md_text)
         md_text = re.sub(r"(?<!\\)\${3,}", "", md_text)

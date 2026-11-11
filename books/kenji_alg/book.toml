@@ -8,6 +8,7 @@ series = 'Translations of Mathematical Monographs, Volume 218'
 year = 2003
 publisher_key = 'ams'
 domain = 'math'
+commutative_diagrams = true
 preface_page = 10
 chapters = [
   { number = 7, title = 'Fundamental Properties of Scheme Theory', start_page = 10, end_page = 133, label = 'Chapter 7' },
@@ -75,6 +76,7 @@ running_header_regexes = [
 ]
 pdf_name_markers = ['algebraic geometry 2', 'sheaves and cohomology', 'ueno']
 pdf_page_count = 194
+source_pdf = 'Algebraic Geometry 2 Sheaves and Cohomology (Kenji Ueno, 上野 健爾).pdf'
 
 [editions.vol2.spec.sections]
 "4.1" = [9, 'Exact Sequence of Sheaves']
@@ -119,6 +121,7 @@ drop_line_regexes = [
 ]
 pdf_name_markers = ['algebraic geometry 1', 'kenji ueno', 'ueno']
 pdf_page_count = 178
+source_pdf = 'Algebraic Geometry 1 From Algebraic Varieties to Schemes (Kenji Ueno).pdf'
 
 [editions.vol1.spec.sections]
 "1.1" = [22, 'Algebraic Sets']
@@ -138,3 +141,19 @@ pdf_page_count = 178
 [editions.vol1.spec.figures]
 caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Figure\s*(?P<chapter>\d+)[\.\-](?P<number>\d+[a-z]?)\.?(?:\*\*)?\s*(?P<tail>.*)$'
 caption_format = 'Figure {chapter}.{number}'
+
+[editions.vol2.spec.unread_diagram_boxes]
+"043_u001" = [555, 1945, 2930, 2430]
+"083_u001" = [790, 2235, 2985, 3850]
+"085_u001" = [995, 2120, 2530, 2905]
+"125_u001" = [685, 865, 2925, 2190]
+"127_u001" = [735, 3360, 2710, 4690]
+"128_u001" = [530, 835, 3040, 2090]
+"128_u002" = [683, 2645, 2800, 4405]
+"132_u001" = [1010, 1435, 2438, 2740]
+"134_u001" = [883, 2488, 2890, 3315]
+"143_u001" = [880, 1435, 2655, 2770]
+
+[editions.vol1.spec.unread_diagram_boxes]
+"099_u001" = [1080, 3855, 2015, 4270]
+"144_u001" = [738, 1910, 2316, 2606]

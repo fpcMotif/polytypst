@@ -7,6 +7,7 @@ series = 'Princeton Mathematical Series, Volume 37'
 year = 1986
 publisher_key = 'princeton'
 domain = 'math'
+commutative_diagrams = true
 cross_references = true
 typst_front_matter = '''
 #set text(hyphenate: false)
@@ -102,3 +103,17 @@ caption_format = 'Figure {chapter}.{number}'
 
 [editions.monograph]
 summary = 'monograph'
+
+[unread_diagram_boxes]
+"021_u001" = [222, 856, 1582, 1046]
+"021_u002" = [359, 1505, 1482, 2086]
+"025_u001" = [341, 404, 1504, 604]
+"025_u002" = [544, 988, 1305, 1580]
+"054_u001" = [566, 396, 1263, 592]
+"054_u002" = [264, 683, 1561, 1024]
+"054_u003" = [285, 1188, 1550, 1625]
+"054_u004" = [250, 2008, 1575, 2212]
+"055_u002" = [277, 1991, 1570, 2441]
+"079_u001" = [280, 708, 1609, 908]
+"079_u002" = [534, 918, 1310, 1123]
+"119_u001" = [620, 1925, 1225, 2150]

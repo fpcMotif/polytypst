@@ -168,6 +168,7 @@ class MonographSpec:
     circled_items: bool = False
     citation_abbreviations: dict[str, str] = field(default_factory=dict)
     commutative_diagrams: bool = False
+    unread_diagram_boxes: dict[str, tuple[int, ...]] = field(default_factory=dict)
     page_fixups: dict[int, tuple[Rewrite, ...]] = field(default_factory=dict)
     transcript_fixups: dict[int, tuple[Rewrite, ...]] = field(default_factory=dict)
     heading_rewrites: tuple[Rewrite, ...] = ()

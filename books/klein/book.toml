@@ -9,6 +9,7 @@ series = 'Lie Groups: History, Frontiers and Applications, Volume IX'
 year = 1979
 publisher_key = 'springer'
 domain = 'math'
+commutative_diagrams = true
 preface_page = 4
 chapters = [
   { number = 0, title = 'Introduction', start_page = 10, end_page = 14 },
