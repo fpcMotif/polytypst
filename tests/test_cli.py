@@ -1,11 +1,12 @@
 import json
 import zipfile
+from types import SimpleNamespace
 
 import pymupdf
 import pytest
 
 from polytypst import books as books_module
-from polytypst import books_cli, cli
+from polytypst import books_cli, cli, edition_audit
 from polytypst.compiler.monograph import MonographSpec, build_source
 from polytypst.compiler.source_numbers import LATEX, TYPST
 from polytypst.edition import Book, Edition
@@ -71,6 +72,39 @@ def test_build_passes_the_footnote_numbering(monkeypatch, tmp_path):
     assert books_cli.main("build", ["probe"]) == 0
     assert books_cli.main("build", ["probe", "--footnotes", "running"]) == 0
     assert calls == ["original", "running"]
+
+
+def test_audit_after_a_running_build_checks_running_footnote_numbers(monkeypatch, tmp_path):
+    spec = MonographSpec(
+        domain="math", slug="x", title="X", author="A",
+        footnote_style="circled", footnote_numbering="①", footnote_reset="chapter",
+    )
+    edition = Edition(tmp_path / "x.pdf", lambda source, formats, footnotes: write_pdf(tmp_path / "x.pdf", [BODY]), spec=spec)
+    book = Book(spec, tmp_path, {"monograph": edition})
+    monkeypatch.setattr(books_cli, "books", lambda: {"probe": book})
+    monkeypatch.setattr(books_module, "books", lambda: {"probe": book})
+    monkeypatch.setattr(books_cli, "BASELINE", tmp_path / "baseline.json")
+    numbered, audited = [], []
+    monkeypatch.setattr(edition_audit, "edition_literal_hits", lambda rebuilt, spec: numbered.append(spec) or {})
+
+    class Checker:
+        def __init__(self, path, spec):
+            audited.append(spec)
+
+        def run_all_checks(self, tiers):
+            return SimpleNamespace(issues=[])
+
+        def type_profile(self):
+            return None
+
+    monkeypatch.setattr(edition_audit, "DocumentQualityChecker", Checker)
+    assert books_cli.main("build", ["probe", "--footnotes", "running"]) == 0
+    assert books_cli.main("audit", ["probe", "--baseline", str(tmp_path / "baseline.json")]) == 0
+    assert [(s.footnote_numbering, s.footnote_reset) for s in audited] == [("1", "book")]
+    assert [(s.footnote_numbering, s.footnote_reset) for s in numbered] == [("1", "book")] * 2
+    assert books_cli.main("build", ["probe"]) == 0
+    assert books_cli.main("audit", ["probe", "--baseline", str(tmp_path / "baseline.json")]) == 0
+    assert (audited[-1].footnote_numbering, audited[-1].footnote_reset) == ("①", "chapter")
 
 
 def test_build_fails_when_literal_numbers_rise_above_the_baseline(monkeypatch, tmp_path, capsys):

@@ -43,6 +43,8 @@ running_header_regexes = [
   '^(?:#+\s*|=+\s*)?作者简介(?:\s+\d{1,3})?$',
   '^(?:#+\s*|=+\s*)?目录(?:\s+\d{1,3})?$',
 ]
+footnote_style = 'circled'
+footnote_numbering = 'circled'
 footnote_reset = 'chapter'
 cross_references = true
 three_line_tables = true
