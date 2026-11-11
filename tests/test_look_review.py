@@ -274,6 +274,20 @@ def test_stock_writes_an_lr_that_runs_look_review_for_its_book_from_any_folder(
     ]
 
 
+@pytest.mark.slow
+@pytest.mark.parametrize("verb", ["status", "merge"])
+def test_status_and_merge_give_a_review_older_than_lr_its_lr(tmp_path: Path, verb: str) -> None:
+    review = tmp_path / "look_review" / "weil"
+    review.mkdir(parents=True)
+    write_groups(review, [(1, 1)])
+    (review / "look_pages.jsonl").write_text(json.dumps(asdict(PageEntry(1, [5], "", [], 0.0, ""))) + "\n")
+    env = {k: v for k, v in os.environ.items() if k != "POLYTYPST_BOOKS"} | {"POLYTYPST_OUTPUT": str(tmp_path)}
+    repo = Path(__file__).resolve().parent.parent
+    subprocess.run(["uv", "run", "-q", "python", str(repo / "scripts" / "look_review.py"), verb, "weil"], check=False, cwd=repo, env=env, capture_output=True)
+    assert (review / "lr").exists()
+    assert (review / "transcript").is_dir()
+
+
 def _argv(lr: Path, *args: str, fake: Path) -> list[str]:
     """What `lr ARGS` hands to mise, with `fake/mise` printing its arguments one per line."""
     fake.mkdir(exist_ok=True)

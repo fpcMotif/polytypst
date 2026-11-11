@@ -41,6 +41,7 @@ from polytypst.checker import AuditSpec
 from polytypst.corrections import causes
 from polytypst.evidence import zoom
 from polytypst.look_review import (
+    PAGES_FILE,
     append_findings,
     brief,
     close_workspace,
@@ -151,8 +152,15 @@ def _prepare(args: argparse.Namespace) -> int:
     return 0
 
 
+def _restock(args: argparse.Namespace, review: Path) -> None:
+    """Give a review that an older prepare made its `lr` and transcript copies."""
+    if (review / PAGES_FILE).exists() and not (review / "lr").exists():
+        stock(review, REPO, args.book, _stored_transcripts(books()[args.book]), args.sample)
+
+
 def _status(args: argparse.Namespace) -> int:
     review = _review(args)
+    _restock(args, review)
     todo = 0
     for group, (first, last) in enumerate(read_groups(review), 1):
         problems = group_problems(review, group, first, last)
@@ -278,6 +286,7 @@ def _spot(args: argparse.Namespace) -> int:
 
 def _merge(args: argparse.Namespace) -> int:
     review = _review(args)
+    _restock(args, review)
     missing = unaudited_pages(review)
     if missing:
         print(
