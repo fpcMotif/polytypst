@@ -559,3 +559,14 @@ def test_an_audit_that_exits_1_fails_with_its_last_line(
 ) -> None:
     monkeypatch.setattr(verify_module, "audit", lambda _check: (1, "glued_words rose from 3 to 9"))
     assert any("audit" in line and "glued_words rose from 3 to 9" in line for line in fails(run_gate(gated, tmp_path)))
+
+
+def test_the_cleaned_page_is_what_the_page_cleaner_makes_of_the_transcript(tmp_path: Path, scan: Path) -> None:
+    check = make_check(tmp_path, scan, {1: "甲<!-- 扫描注记 -->乙\n"})
+    assert "甲乙" in check.cleaned(1)
+    assert "扫描注记" not in check.cleaned(1)
+
+
+def test_grep_finds_each_matching_transcript_line_by_page_and_line(tmp_path: Path, scan: Path) -> None:
+    check = make_check(tmp_path, scan, {1: "alpha\nbeta 1", 2: "gamma beta 22", 3: "delta"})
+    assert check.grep(r"beta \d+") == [(1, 2, "beta 1"), (2, 1, "gamma beta 22")]
