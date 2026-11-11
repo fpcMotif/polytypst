@@ -1278,6 +1278,8 @@ class DocumentQualityChecker:
                 self._issue(report, "WARNING", "CHAPTER_OPENING_NO_FOLIO", pno + 1, "A page that opens a chapter prints no folio")
 
     def check_crowded_running_heads(self, report: CheckReport) -> None:
+        if 2 * sum(self._has_folio(pno) for pno in range(len(self.doc))) < len(self.doc):
+            return
         for pno in range(len(self.doc)):
             head, _ = self._band_lines(pno)
             folios = [r for r, text in head if text.isdigit()]

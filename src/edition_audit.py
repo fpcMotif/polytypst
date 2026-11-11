@@ -17,6 +17,8 @@ from .checker import (
     AuditSpec,
     DocumentQualityChecker,
 )
+from .compiler.math_arrays import array_misuses
+from .compiler.monograph import build_source
 from .edition import Book, Edition
 from .figure_leaks import FIGURE_TEXT_LEAK, figure_text_leaks
 from .literal_numbers import edition_literal_hits
@@ -119,6 +121,9 @@ def audit_edition(book: Book, name: str, stages: frozenset[str] = STAGES) -> Edi
     if built and "source" in stages:
         for rule, found in edition_literal_hits(edition.rebuilt, built).items():
             hits.setdefault(rule, []).extend(Hit("source", f"{path}:{hit.line}", hit.text) for path, hit in found)
+    if edition.spec and "source" in stages and (md := build_source(edition.rebuilt, "md")).exists():
+        for misuse in array_misuses(md.read_text(encoding="utf-8")):
+            hits.setdefault(misuse.rule, []).append(Hit("source", f"{md}:{misuse.line}", misuse.text))
     if edition.spec and "transcript" in stages and (leaks := figure_text_leaks(book)):
         hits[FIGURE_TEXT_LEAK] = [
             Hit("transcript", f"scan page {page} figure {figure}", text) for page, figure, _, _, text in leaks

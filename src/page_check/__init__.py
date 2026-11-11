@@ -11,6 +11,7 @@ from pathlib import Path
 import pymupdf
 
 from ..books import book_key, books
+from ..compiler.page_cleaner import PageCleaner
 from ..edition import Book
 from ..evidence import strip
 from ..figure_leaks import apply_page_fixups
@@ -175,6 +176,20 @@ class PageCheck:
 
     def transcript(self, page: int) -> str:
         return self.store.path(page).read_text(encoding="utf-8")
+
+    def cleaned(self, page: int) -> str:
+        """The page body the page cleaner makes of the transcript, as the build sets it."""
+        return PageCleaner.for_spec(self.book.spec, self.book.out_dir).clean(self.transcript(page), page).body
+
+    def grep(self, pattern: str) -> list[tuple[int, int, str]]:
+        """Each transcript line that matches the regex `pattern`, as (scan page, line number, line)."""
+        found = re.compile(pattern)
+        return [
+            (page, n, line)
+            for page in self.pages()
+            for n, line in enumerate(self.transcript(page).splitlines(), 1)
+            if found.search(line)
+        ]
 
     def fixups(self, page: int) -> tuple[tuple[str, str], ...]:
         spec = self.book.spec

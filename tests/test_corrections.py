@@ -4,10 +4,13 @@ from pathlib import Path
 import pytest
 
 from polytypst.corrections import (
+    QUALITY,
     Cause,
     Correction,
     Line,
     Verdict,
+    _check_scan_page,
+    _rows,
     causes,
     changed_lines,
     history,
@@ -136,6 +139,37 @@ def test_a_correction_with_an_unknown_kind_cause_or_finding_or_no_lines_is_refus
     )
     with pytest.raises(ValueError):
         record(replace(good, **bad), tmp_path)
+
+
+def test_a_page_past_the_end_of_the_scan_is_refused(tmp_path: Path) -> None:
+    # books/kashiwara/book.toml: pdf_page_count = 267
+    with pytest.raises(ValueError, match="267"):
+        record(replace(_verdict(), book="kashiwara", scan_page=277), tmp_path)
+    with pytest.raises(ValueError, match="267"):
+        record(
+            Correction(
+                book="kashiwara",
+                page=277,
+                kind="code",
+                lines=(GOURSAT_219,),
+                scan_reads="",
+                evidence="",
+                fixed_in="",
+            ),
+            tmp_path,
+        )
+    record(replace(_verdict(), book="kashiwara", scan_page=267), tmp_path)
+
+
+def test_every_recorded_page_is_a_page_of_its_scan() -> None:
+    entries = [(r["book"], r["scan_page"]) for r in _rows(QUALITY / "verdicts.jsonl")]
+    entries += [
+        (r["book"], r["page"])
+        for path in sorted((QUALITY / "corrections").glob("*.jsonl"))
+        for r in _rows(path)
+    ]
+    for book, page in entries:
+        _check_scan_page(book, page)
 
 
 def test_changed_lines_keeps_each_changed_line_whole_and_names_the_words_that_differ() -> (

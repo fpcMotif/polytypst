@@ -32,7 +32,13 @@ from .diagrams import (
     convert_diagrams,
     scan_diagram_typst,
 )
-from .page_cleaner import Figure, PageCleaner, has_circled_footnotes
+from .page_cleaner import (
+    _EQ_SUFFIX_RE,
+    Figure,
+    PageCleaner,
+    _normalize_eq_id,
+    has_circled_footnotes,
+)
 from .page_design import PageDesign, page_design
 from .presets import (
     CompositionConfig,
@@ -162,6 +168,7 @@ class MonographSpec:
     circled_items: bool = False
     citation_abbreviations: dict[str, str] = field(default_factory=dict)
     commutative_diagrams: bool = False
+    unread_diagram_boxes: dict[str, tuple[int, ...]] = field(default_factory=dict)
     page_fixups: dict[int, tuple[Rewrite, ...]] = field(default_factory=dict)
     transcript_fixups: dict[int, tuple[Rewrite, ...]] = field(default_factory=dict)
     heading_rewrites: tuple[Rewrite, ...] = ()
@@ -728,7 +735,7 @@ TYPST_HEADING_NOTES = (
 
 
 TYPST_NOTE_PARAGRAPH_COSTS = "#set text(costs: (widow: 0%, orphan: 0%))"
-NOTE_PARAGRAPH_SKIP_STARTS = ("=", "- ", "+ ", "/ ", "#figure", "#table", "#set", "#show", "@@")
+NOTE_PARAGRAPH_SKIP_STARTS = ("=", "$ ", "- ", "+ ", "/ ", "#figure", "#table", "#set", "#show", "@@")
 
 
 def keep_note_paragraph_lines(s: str) -> str:
@@ -873,8 +880,9 @@ def _merge_display_run(run: str, display_blocks: list[tuple[str, str]]) -> str:
         env = "gathered"
     merged = rf"\begin{{{env}}}" + " \\\\\n".join(rows) + rf"\end{{{env}}}"
     label = next((lbl for lbl in labels if lbl), "")
+    fn_marks = "".join(re.findall(r"[ \t]*@@FNSTART@@.*?@@FNEND@@", run, flags=re.DOTALL))
     display_blocks[ids[0]] = (merged, label)
-    return f"@@DISPLAYBLOCK{ids[0]}@@"
+    return f"@@DISPLAYBLOCK{ids[0]}@@{fn_marks}"
 
 
 _THM_HEAD = (
@@ -961,6 +969,11 @@ class MonographCompiler:
             if dom.equation_numbering == "none"
             else f'"{dom.equation_numbering}"'
         )
+        eq_disp_expr = (
+            "parts.last()"
+            if self.spec.equation_numbering == "page"
+            else 'parts.join(".")'
+        )
         heading_rules = self.composition.typst_heading_rules()
         caption_separator = "#h(1em)" if self.composition.language.code in ("zh", "ja") else ": "
         qed_filled = (
@@ -998,12 +1011,19 @@ class MonographCompiler:
 #let rot = math.op("rot")
 #let div = math.op("div")
 #let rank = math.op("rank")
+#let decode-eq-label(raw) = {{
+  let (base, sfx) = if raw.ends-with("-prime2") {{ (raw.slice(0, -7), "''") }}
+    else if raw.ends-with("-prime") {{ (raw.slice(0, -6), "'") }}
+    else if raw.ends-with("-star") {{ (raw.slice(0, -5), "*") }}
+    else {{ (raw, "") }}
+  let parts = base.split("-")
+  parts.slice(0, -1) + (parts.last() + sfx,)
+}}
 #show ref: it => {{
   let target = str(it.target)
   if target.starts-with("eq-") {{
-    let raw = target.trim("eq-", at: start)
-    let parts = raw.split("-")
-    let disp = if parts.len() >= 2 {{ parts.at(-2) + "." + parts.last() }} else {{ parts.last() }}
+    let parts = decode-eq-label(target.trim("eq-", at: start))
+    let disp = {eq_disp_expr}
     link(it.target)[(#disp)]
   }} else {{
     it
@@ -1082,9 +1102,8 @@ class MonographCompiler:
     if not it.has("label") {{
       align(center, fit-display(it.body, size.width))
     }} else {{
-      let lbl = str(it.label).trim("eq-", at: start)
-      let parts = lbl.split("-")
-      let disp = if parts.len() >= 2 {{ parts.at(-2) + "." + parts.last() }} else {{ parts.last() }}
+      let parts = decode-eq-label(str(it.label).trim("eq-", at: start))
+      let disp = {eq_disp_expr}
       let num-box = [(#disp)]
       let fitted = fit-display(it.body, size.width - measure(num-box).width - 12pt)
       grid(
@@ -1474,31 +1493,43 @@ class MonographCompiler:
             s = re.sub(pattern, repl, s)
 
         display_blocks: list[tuple[str, str]] = []
+        tag_re = re.compile(
+            rf"\\tag\*?\{{\(?\s*((?:[A-Z]\.\d+|\d+(?:\.\d+)*){_EQ_SUFFIX_RE}?\.?)\s*\)?\}}"
+        )
 
         def save_display(m: re.Match[str]) -> str:
-            display_blocks.append((m.group(1).strip(), m.group(2) or ""))
-            return f"\n\n@@DISPLAYBLOCK{len(display_blocks) - 1}@@\n\n"
+            raw_body = m.group(1).strip()
+            label = m.group(2) or ""
+            if spec.cross_references and not label and (m_tag := tag_re.search(raw_body)):
+                raw_body = (raw_body[: m_tag.start()] + raw_body[m_tag.end() :]).strip()
+                label = f"<eq-{_normalize_eq_id(m_tag.group(1))}>"
+            display_blocks.append((raw_body, label))
+            return f"\n\n@@DISPLAYBLOCK{len(display_blocks) - 1}@@{m.group(3) or ''}\n\n"
 
         def save_align(m: re.Match[str]) -> str:
-            label = f"<eq-align-{m.group(1)}>" if m.group(1) else ""
+            label = f"<eq-{m.group(1)}>" if m.group(1) else ""
             display_blocks.append((m.group(2).strip(), label))
-            return f"\n\n@@DISPLAYBLOCK{len(display_blocks) - 1}@@\n\n"
+            return f"\n\n@@DISPLAYBLOCK{len(display_blocks) - 1}@@{m.group(3) or ''}\n\n"
 
         s = re.sub(r"\\\[\s*(.*?)\s*\\\]", r"$$\n\1\n$$", s, flags=re.DOTALL)
         s = close_runaway_displays(s)
         s = re.sub(
-            r"\$\$\s*(.*?)\s*\$\$\s*(<eq-[^>]+>)?", save_display, s, flags=re.DOTALL
+            r"\$\$\s*(.*?)\s*\$\$(?:[ \t]*(<eq-[^>]+>))?((?:[ \t]*@@FNSTART@@.*?@@FNEND@@)*)",
+            save_display,
+            s,
+            flags=re.DOTALL,
         )
         s = re.sub(
-            r"(?:\((\d+)\)\s*)?\\begin\{align\*?\}(.*?)\\end\{align\*?\}",
+            r"(?:\((\d+)\)\s*)?\\begin\{align\*?\}(.*?)\\end\{align\*?\}((?:[ \t]*@@FNSTART@@.*?@@FNEND@@)*)",
             save_align,
             s,
             flags=re.DOTALL,
         )
         s = re.sub(
-            r"@@DISPLAYBLOCK(\d+)@@(?:\s*@@DISPLAYBLOCK\d+@@)+",
+            r"@@DISPLAYBLOCK\d+@@(?:[ \t]*@@FNSTART@@.*?@@FNEND@@)*(?:\s*@@DISPLAYBLOCK\d+@@(?:[ \t]*@@FNSTART@@.*?@@FNEND@@)*)+",
             lambda m: _merge_display_run(m.group(0), display_blocks),
             s,
+            flags=re.DOTALL,
         )
 
         if spec.stray_dollar_symbol:
@@ -1744,10 +1775,12 @@ class MonographCompiler:
         )
         def display(m: re.Match[str]) -> str:
             i = int(m.group(1))
+            fn_raw = (m.group(2) or "").strip()
+            fn_tail = f" {fn_raw}" if fn_raw else ""
             label = display_blocks[i][1]
             if scan := SCAN_DIAGRAM_RE.fullmatch(display_blocks[i][0].strip()):
                 fig = scan_diagram_typst(scan.group(1), self._out_dir / spec.figure_dir, spec.figure_dir)
-                return f"\n$ {fig} $ {label}\n"
+                return f"\n$ {fig}{fn_tail} $ {label}\n"
             disp_math = display_typst[i]
             qed_box = ""
             if spec.theorem_layout and self.composition.domain.proof_end_mark:
@@ -1757,12 +1790,21 @@ class MonographCompiler:
                     glyph = "square.filled.medium" if "filled" in m_end[1] else "square.stroked"
                     qed_box = f"\n#v(-0.4em, weak: true)\n#align(right)[${glyph}$]"
             if i not in diagrams:
-                body = f"\n$ {disp_math} $ {label}\n"
+                body = f"\n$ {disp_math}{fn_tail} $ {label}\n"
             else:
-                body = f"\n$ #{diagrams[i]} $ {label}\n" if label else f"\n#align(center, {diagrams[i]})\n"
+                body = (
+                    f"\n$ #{diagrams[i]}{fn_tail} $ {label}\n"
+                    if label or fn_tail
+                    else f"\n#align(center, {diagrams[i]})\n"
+                )
             return body + qed_box
 
-        s = re.sub(r"@@DISPLAYBLOCK(\d+)@@", display, s)
+        s = re.sub(
+            r"@@DISPLAYBLOCK(\d+)@@((?:[ \t]*@@FNSTART@@.*?@@FNEND@@)*)",
+            display,
+            s,
+            flags=re.DOTALL,
+        )
         indent = self.composition.language.first_line_indent
         s = re.sub(
             r"(\n\$ [^\n]*(?:\n[^\n$]*)*?\.\s*\$ (?:<eq-[^>]+>)?\n)\n+"
@@ -1809,7 +1851,7 @@ class MonographCompiler:
             return f"{heading}{tail}#heading-note[{body}]"
 
         s = re.sub(
-            r"^([#=]+[^\n@]*?)@@FNSTART@@(.*?)@@FNEND@@([^\n]*)$",
+            r"^((?:={1,6}\s+|#heading\b)[^\n@]*?)@@FNSTART@@(.*?)@@FNEND@@([^\n]*)$",
             _typst_hoist_heading_fn,
             s,
             flags=re.MULTILINE,

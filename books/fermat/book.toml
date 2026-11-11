@@ -8,6 +8,7 @@ series = 'Translations of Mathematical Monographs, Volume 242'
 year = 2012
 publisher_key = 'ams'
 domain = 'math'
+commutative_diagrams = true
 preface_page = 10
 chapters = [
   { number = 9, title = 'Modular Forms', start_page = 16, end_page = 101, label = 'Chapter 9' },
@@ -93,6 +94,7 @@ drop_line_regexes = [
 ]
 pdf_name_markers = ['number theory 2', 'class field theory']
 pdf_page_count = 250
+source_pdf = 'Number Theory 2 Introduction to Class Field Theory (Translations of Mathematical Monographs) (Kazuya Kato, Nobushige Kurokawa etc.).pdf'
 
 [editions.vol2.spec.sections]
 "5.1" = [10, 'Examples of class field theoretic phenomena']
@@ -300,3 +302,6 @@ $$''',
   '$$\text{right-hand side of (3.7)} = 1 - \left(\sum_{n=1}^{\infty} \frac{1}{n^2}\right) x^2 + \text{terms of degree 4 or higher}.$$',
 ],
 ]
+
+[editions.vol2.spec.unread_diagram_boxes]
+"217_u001" = [225, 710, 2675, 1250]

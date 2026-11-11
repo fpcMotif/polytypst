@@ -15,6 +15,8 @@ normalize_headings = false
 equation_numbering = 'none'
 cross_references = true
 repair_math = true
+footnote_style = 'symbol'
+footnote_marks = ['*', '†', '‡', '§']
 chapters = [
   { number = 0, title = "Author's Preface", start_page = 4, end_page = 5 },
   { number = 0, title = "Translator's Preface", start_page = 6, end_page = 6 },

@@ -90,6 +90,8 @@ def pixmap_png(pix: pymupdf.Pixmap) -> bytes:
 
 def zoom(scan: Path, ocr: Path, page: int, span: str, label: str, out: Path) -> Path:
     """Write the scan line holding `span` with the span boxed in red, a label, and a magnified inset."""
+    if not ocr.is_dir():
+        raise ValueError(f"{ocr} does not exist: this book has no local OCR lines to place a span; crop the page instead")
     lines = LineStore(ocr).lines(page) or ()
     line = next((ln for ln in lines if span in ln.text), None)
     if line is None:
@@ -143,9 +145,9 @@ def sweep(
     cut: list[tuple[str, str]] = []
 
     def recording(
-        md: str, style: str, folio_pattern: str
+        md: str, style: str, folio_pattern: str, marks: tuple[str, ...] = ()
     ) -> tuple[str, list[tuple[str, str]]]:
-        body, notes = split(md, style, folio_pattern)
+        body, notes = split(md, style, folio_pattern, marks)
         cut.extend(notes)
         return body, notes
 

@@ -21,6 +21,7 @@ The scan is the witness. Every claim about a defect rests on a _zoom_ of the sca
      --label "scan pN · what the scan prints · what the transcript has" --out "output/review_evidence/BOOK/NAME.png"
    ```
 
+   In a look review, `LB/lr zoom N "OCR TEXT"` fills in FOLDER, SCAN and `--out`. `LB/lr find TEXT` names the scan page N when you know only the text.
    Read the PNG. Read the mark in the inset, not in either OCR: on circled marks the jina backend writes `$P^\Omega$` or drops the mark, and the local OCR writes O or 0.
    Done when the red box sits on the span and you can state what the scan prints.
 

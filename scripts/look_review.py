@@ -5,10 +5,18 @@ Usage:
   uv run python scripts/look_review.py status BOOK [--sample]
   uv run python scripts/look_review.py brief BOOK GROUP [--sample]
   uv run python scripts/look_review.py check BOOK GROUP [--sample]
-  uv run python scripts/look_review.py crop BOOK PAGE:BOX[:SCANBOX] [PAGE:BOX ...] [--sample]
+  uv run python scripts/look_review.py crop BOOK PAGE:BOX[:SCANBOX] [PAGE:BOX ...] [--scan] [--sample]
+  uv run python scripts/look_review.py find BOOK TEXT [--sample]
+  uv run python scripts/look_review.py zoom BOOK SCAN_PAGE SPAN [--label TEXT] [--sample]
   uv run python scripts/look_review.py spot BOOK [--sample]
   uv run python scripts/look_review.py merge BOOK [--sample]
   uv run python scripts/look_review.py workspace | clean
+
+Pages: a page number means one of three things, and they differ in every book.
+  rebuilt page  1-based page of the rebuilt PDF: PAGE in crop, `page` in look_pages.jsonl
+  scan page     1-based page of the scan PDF: crop --scan, `scan_pages`, transcript/p_NNN.md, a verdict's scan_page
+  printed page  the folio printed on the paper; no command takes it, so turn it into the others with find
+To place a text, run find; to see a verdict's page, run crop --scan SCAN_PAGE:full.
 
 --sample reviews three groups (front, middle, back) in output/look_review/BOOK/sample/, so the causes
 that repeat through a book are found before every page is checked. Without it, files go to
@@ -17,6 +25,7 @@ template is docs/prompts/look-review-group.md.
 """
 
 import argparse
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -30,11 +39,14 @@ from polytypst.book_state import BookStateError
 from polytypst.books import books, newest_input
 from polytypst.checker import AuditSpec
 from polytypst.corrections import causes
+from polytypst.evidence import zoom
 from polytypst.look_review import (
+    PAGES_FILE,
     append_findings,
     brief,
     close_workspace,
     crop,
+    find_text,
     group_problems,
     group_ranges,
     missing_inputs,
@@ -50,6 +62,7 @@ from polytypst.look_review import (
     text_page_map,
     unaudited_pages,
 )
+from polytypst.ocr.lines import source_ocr_dir
 from polytypst.ocr.scan import SourceScanError
 from polytypst.parity.source import source_pdf
 from polytypst.paths import OUTPUT
@@ -139,8 +152,15 @@ def _prepare(args: argparse.Namespace) -> int:
     return 0
 
 
+def _restock(args: argparse.Namespace, review: Path) -> None:
+    """Give a review that an older prepare made its `lr` and transcript copies."""
+    if (review / PAGES_FILE).exists() and not (review / "lr").exists():
+        stock(review, REPO, args.book, _stored_transcripts(books()[args.book]), args.sample)
+
+
 def _status(args: argparse.Namespace) -> int:
     review = _review(args)
+    _restock(args, review)
     todo = 0
     for group, (first, last) in enumerate(read_groups(review), 1):
         problems = group_problems(review, group, first, last)
@@ -206,11 +226,34 @@ def _brief(args: argparse.Namespace) -> int:
 def _crop(args: argparse.Namespace) -> int:
     _, edition, scan = _edition(args.book)
     try:
-        out = crop(_review(args), edition.rebuilt, scan, args.region)
+        out = crop(_review(args), edition.rebuilt, scan, args.region, by_scan=args.scan)
     except ValueError as error:
         print(error)
         return 1
     print(out)
+    return 0
+
+
+def _find(args: argparse.Namespace) -> int:
+    _, edition, _ = _edition(args.book)
+    hits = find_text(_review(args), edition.rebuilt, args.text)
+    for hit in hits:
+        if hit.rebuilt is None:
+            print(f"transcript of scan p{hit.scan_pages[0]}: crop it with --scan {hit.scan_pages[0]}:full")
+        else:
+            print(f"rebuilt p{hit.rebuilt} (scan pages {hit.scan_pages or 'none'}): crop it with {hit.rebuilt}:full")
+    print(f"{len(hits)} pages hold {args.text!r}")
+    return 0 if hits else 1
+
+
+def _zoom(args: argparse.Namespace) -> int:
+    book, _, scan = _edition(args.book)
+    out = _review(args) / "crops" / f"zoom_p{args.page:03d}_{re.sub(r'[^\w.-]+', '-', args.span)[:40]}.png"
+    try:
+        print(zoom(scan, source_ocr_dir(book.out_dir), args.page, args.span, args.label or f"scan p{args.page}", out))
+    except ValueError as error:
+        print(error)
+        return 1
     return 0
 
 
@@ -243,6 +286,7 @@ def _spot(args: argparse.Namespace) -> int:
 
 def _merge(args: argparse.Namespace) -> int:
     review = _review(args)
+    _restock(args, review)
     missing = unaudited_pages(review)
     if missing:
         print(
@@ -296,6 +340,8 @@ def main() -> int:
         "brief": (_brief, "print the checking agent's prompt for a group"),
         "check": (_check, "check one group's two files"),
         "crop": (_crop, "put boxes of rebuilt pages beside the same boxes of their scan pages on one sheet"),
+        "find": (_find, "list the rebuilt pages and scan transcripts that hold a text, with their paired pages"),
+        "zoom": (_zoom, "box a span on a scan page with a magnified inset, as polytypst evidence zoom does"),
         "spot": (_spot, "pick and render 3 grave findings and 2 passed pages to judge"),
         "merge": (_merge, "number the findings and append them"),
     }
@@ -309,8 +355,20 @@ def main() -> int:
             p.add_argument(
                 "region",
                 nargs="+",
-                help="PAGE:BOX or PAGE:BOX:SCANBOX; BOX is top, middle, bottom, full, or L,T,R,B as shares of the page",
+                help="PAGE:BOX or PAGE:BOX:SCANBOX; PAGE is a rebuilt page (a scan page with --scan); "
+                "BOX is top, middle, bottom, full, or L,T,R,B as shares of the page",
             )
+            p.add_argument(
+                "--scan",
+                action="store_true",
+                help="read each PAGE as a scan page, as a verdict's scan_page is, and show its paired rebuilt pages",
+            )
+        if name == "find":
+            p.add_argument("text", help="the text to look for, such as an equation number or a phrase")
+        if name == "zoom":
+            p.add_argument("page", type=int, help="scan page")
+            p.add_argument("span", help="the span exactly as the local OCR read it")
+            p.add_argument("--label", help="one line printed under the strip; scan pPAGE by default")
         if name == "prepare":
             p.add_argument("--size", type=int, default=10)
             p.add_argument("--dpi", type=int, default=DPI)

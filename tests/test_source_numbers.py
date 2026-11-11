@@ -480,3 +480,30 @@ def test_section_zero_prints_zero_without_a_negative_counter():
     assert "== Suite" in numbered
     assert "update((..c) => (c.pos().at(0, default: 0), 0))" in numbered
 
+
+def test_code_blocks_and_inline_code_do_not_link_brackets_as_citations_or_refs():
+    code_sec = (
+        "See \\[1\\] and (1.2). Inline `C.shape[1]` and `(1.2)` stay literal.\n\n"
+        "```python\n"
+        "n = C.shape[1]\n\n"
+        "# [1 3]\n"
+        "arr = [[1], [2]]\n"
+        "ref_like = (1.2)\n"
+        "```"
+    )
+    bib_sec = "\\[1\\] Kähler.\n\n\\[2\\] Serre."
+    known = labels("<eq-c1-1-2>")
+    ref_typ = link_references(code_sec, 1, {}, known, TYPST)
+    linked_typ, _ = link_citations([ref_typ, bib_sec], {}, TYPST)
+    assert "See #link(<bib-1>)[\\[1\\]] and @eq-c1-1-2." in linked_typ
+    assert "`C.shape[1]` and `(1.2)`" in linked_typ
+    assert "n = C.shape[1]\n\n# [1 3]\narr = [[1], [2]]\nref_like = (1.2)" in linked_typ
+
+    code_tex = code_sec.replace("\\[", "[").replace("\\]", "]")
+    bib_tex = "[1] Kähler.\n\n[2] Serre."
+    ref_tex = link_references(code_tex, 1, {}, known, LATEX)
+    linked_tex, _ = link_citations([ref_tex, bib_tex], {}, LATEX)
+    assert "See \\hyperlink{bib-1}{[1]} and \\eqref{eq-c1-1-2}." in linked_tex
+    assert "`C.shape[1]` and `(1.2)`" in linked_tex
+    assert "n = C.shape[1]\n\n# [1 3]\narr = [[1], [2]]\nref_like = (1.2)" in linked_tex
+

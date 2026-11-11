@@ -11,6 +11,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
+from .page_cleaner import _EQ_SUFFIX_RE, _normalize_eq_id
 from .presets import ENGLISH_WORDS, NumberingWords
 
 TYPST_RULES = r"""
@@ -43,6 +44,19 @@ TYPST_RULES = r"""
   else { str(ch) + "-" + str(n) }
 }
 #let source-equation-number(n) = "(" + (counter(heading).get().slice(1) + (n,)).map(str).join(".") + ")"
+#let source-simple-eq(sfx) = n => "(" + str(n) + sfx + ")"
+#let source-suffixed-eq(sfx) = n => "(" + (counter(heading).get().slice(1) + (n,)).map(str).join(".") + sfx + ")"
+#let source-letter-eq(letter, sfx) = n => "(" + letter + "." + str(n) + sfx + ")"
+#let source-eq-suffix(target) = {
+  if target.ends-with("-prime2") { ("''", target.slice(0, -7)) }
+  else if target.ends-with("-prime") { ("'", target.slice(0, -6)) }
+  else if target.ends-with("-star") { ("*", target.slice(0, -5)) }
+  else {
+    let last = target.clusters().last()
+    if last >= "a" and last <= "z" { (last, target.slice(0, -1)) }
+    else { ("", target) }
+  }
+}
 #let source-digits(el) = {
   let nums = counter(heading).at(el.location()).slice(1)
   if el.func() == math.equation or (el.func() == metadata and el.value == "item") { nums += counter(math.equation).at(el.location()) }
@@ -93,8 +107,9 @@ TYPST_RULES = r"""
     return link(el.location())[#n]
   }
   if target.starts-with("eq-art-") {
+    let (sfx, _) = source-eq-suffix(target)
     let n = counter(math.equation).at(el.location()).first()
-    return link(el.location())[(#n)]
+    return link(el.location())[(#n#sfx)]
   }
   if el.func() == figure and el.numbering in (source-figure-number, source-figure-plain, source-figure-dotted) {
     let num = source-figure-ref-number(el)
@@ -103,6 +118,20 @@ TYPST_RULES = r"""
   }
   if not (target.starts-with("par-c") or target.starts-with("eq-c")) { return it }
   let chapter = if it.supplement in (auto, none) { [] } else { [#it.supplement, ] }
+  if target.starts-with("eq-c") {
+    let (sfx, base) = source-eq-suffix(target)
+    let rest = base.trim("eq-c", at: start).split("-").slice(1)
+    if rest.len() == 2 and rest.first() >= "A" and rest.first() <= "Z" {
+      let n = counter(math.equation).at(el.location()).first()
+      let letter = rest.first()
+      return link(el.location())[(#chapter#letter.#n#sfx)]
+    }
+    if rest.len() == 1 {
+      let n = counter(math.equation).at(el.location()).first()
+      return link(el.location())[(#chapter#n#sfx)]
+    }
+    return link(el.location())[(#chapter#source-digits(el)#sfx)]
+  }
   link(el.location())[(#chapter#source-digits(el))]
 }
 """
@@ -194,18 +223,52 @@ _ROMAN_VALUES = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6, "VII": 7, 
 _SECTION_RE = re.compile(r"^(?:§\s*)?(\d+)\.?\s+(\S.*)$")
 _SUBSECTION_RE = re.compile(r"^(\d+)\.(\d+)\.?\s+(.*)$")
 _SUBSUBSECTION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)\.?\s+(\S.*)$")
+_EQ_REF_SFX = r"(?:[a-z]|''|′′|'|′|\\?\*)?"
+_EQ_REF_NUM = rf"\d+{_EQ_REF_SFX}"
+_EQ_LABEL_SFX = r"(?:[a-z]|-prime2|-prime|-star)?"
+_EQ_EVENT_ID = rf"(?:[A-Z]-\d+|\d+(?:-\d+)*){_EQ_LABEL_SFX}"
+
+
+def _normalize_eq_ref(raw: str) -> str:
+    s = raw.replace(r"\*", "*").strip().rstrip(".")
+    s = re.sub(r"(?:''|′′)$", "-prime2", s)
+    s = re.sub(r"(?:'|′)$", "-prime", s)
+    s = re.sub(r"\*$", "-star", s)
+    return s.replace(".", "-")
+
+
+def _parse_eq_event(raw: str) -> tuple[str, tuple[int, ...], str, str]:
+    if raw.endswith("-prime2"):
+        base, sfx, id_sfx = raw[:-7], "''", "-prime2"
+    elif raw.endswith("-prime"):
+        base, sfx, id_sfx = raw[:-6], "'", "-prime"
+    elif raw.endswith("-star"):
+        base, sfx, id_sfx = raw[:-5], "*", "-star"
+    elif raw[-1].islower():
+        base, sfx, id_sfx = raw[:-1], raw[-1], raw[-1]
+    else:
+        base, sfx, id_sfx = raw, "", ""
+    if base[0].isupper():
+        letter, num_s = base.split("-", 1)
+        return letter, (int(num_s),), sfx, id_sfx
+    return "", tuple(int(n) for n in base.split("-")), sfx, id_sfx
+
+
 _SEC_ITEM_RE = re.compile(r"\b(?P<sec>\d+\.\d+)\((?P<item>\d+)\)")
 _PROSE_EQ_EN_RE = re.compile(
-    r"(?i)(?P<pre>\b(?:equations?|inequalit(?:y|ies)|relations?|formulas?|conditions?|identit(?:y|ies)|where|yields?|proves?|gives?|recall|see|in|of|to|for|from|with|between|and|as)\s+)\((?P<eq1>\d+)\)"
-    r"(?:(?P<mid>\s*(?:and|&|,)\s*)\((?P<eq2>\d+)\))?"
+    rf"(?i)(?P<pre>\b(?:equations?|inequalit(?:y|ies)|relations?|formulas?|conditions?|identit(?:y|ies)|where|yields?|proves?|gives?|recall|see|in|of|to|for|from|with|between|and|as)\s+)(?P<chain>\({_EQ_REF_NUM}\)(?:\s*(?:and|&|,)\s*\({_EQ_REF_NUM}\))*)"
 )
+_PROSE_EQ_EN_ITEM_RE = re.compile(rf"\((?P<eq>{_EQ_REF_NUM})\)")
 _PARAGRAPH_HEADING_RE = re.compile(rf"^\(({_NUMBER})\.?\)\s*(.*)$")
 _REF_RE = re.compile(rf"\((?:(?P<chapter>0|I{{1,3}}|IV|VI{{0,3}}|IX|X), ?)?(?P<number>{_NUMBER})\.?\)")
+_EXTRA_EQ_REF_RE = re.compile(
+    rf"\((?:(?P<chapter>0|I{{1,3}}|IV|VI{{0,3}}|IX|X), ?)?(?P<ref>(?:[A-Z]\.\d+|\d+(?:\.\d+)+){_EQ_REF_SFX})\)"
+)
 _FIG_REF_RE = re.compile(r"(?i)(?:\bFig(?:ure)?(?:\.|\b)|图)\s*(?P<fig>\d+(?:[.\-]\d+){0,2}[a-z]?)(?![\d\-]|\.\d)")
 _TBL_REF_RE = re.compile(r"(?i)(?:表|附表)\s*(?P<tbl>\d+(?:[.\-]\d+)?[a-z]?)(?![\d\-])")
 _TABLE_CALL_RE = re.compile(r"\btable\(")
 _ART_EQ_RE = re.compile(
-    r"(?<![(\w§\d\-])(?<!,\s)(?P<art>\d{1,3})(?P<sep>\s*(?:,\s*|\s+目的|\s+)?(?:公式\s*)?)\((?P<eq>\d+[a-z*]?)\)"
+    rf"(?<![(\w§\d\-])(?<!,\s)(?P<art>\d{{1,3}})(?P<sep>\s*(?:,\s*|\s+目的|\s+)?(?:公式\s*)?)\((?P<eq>{_EQ_REF_NUM})\)"
 )
 _BRACKET_REF_RE = {
     "typst": re.compile(r"\\\[(?:[^\[\]\\]|\\.|#strong\[\d+\])*\\\]|(?<![\w@>\]])\[[^\[\]\n]+\]"),
@@ -215,14 +278,14 @@ TYPST_CONTENT_ARGUMENT = re.compile(r"(?:\]\s*,|[(),]|\)\s*)\s*$")
 _BRACKET_ART_RE = re.compile(
     r"(?<![.\w§\d\-@\\{])(?<!定理 )(?<!例 )(?<!例题 )(?<!脚注 )(?<!图 )(?P<bold>#strong\[|\*\*)?(?P<art>\d{1,3})(?(bold)(?:\]|\*\*))(?![.\d°a-z*})])(?!\s*(?:倍|年|月|日|%|％|个|种|位|次|名|家|人))"
 )
-_BRACKET_EQ_RE = re.compile(r"\((?P<eq>\d+)\)")
+_BRACKET_EQ_RE = re.compile(rf"\((?P<eq>{_EQ_REF_NUM})\)")
 _PROSE_ART_RE = re.compile(
     r"(?P<pre>(?:在|由|依|据|按|见|看|同|如|照|对|比较|参阅|参看|第|推广)\s*)(?P<pbold>#strong\[|\*\*)?(?P<art>\d{1,3})(?(pbold)(?:\]|\*\*))(?=(?:\s*,\s*\d+[)°]|\s*(?:内|中|末|初|目|月|的|之)))"
 )
 _PROSE_EQ_RE = re.compile(
-    r"(?P<pre>(?:方程(?:组)?|公式|等式|不等式|关系式|展开式|条件|曲线|显式)\s*)\((?P<eq1>\d+)\)"
-    r"(?:(?P<mid>\s*(?:及|与|或|、|,)\s*)\((?P<eq2>\d+)\))?"
+    rf"(?P<pre>(?:方程(?:组)?|公式|等式|不等式|关系式|展开式|条件|曲线|显式)\s*)(?P<chain>\({_EQ_REF_NUM}\)(?:\s*(?:以及|及|与|或|、|,)\s*\({_EQ_REF_NUM}\))*)"
 )
+_PROSE_EQ_ITEM_RE = re.compile(rf"\((?P<eq>{_EQ_REF_NUM})\)")
 _TYPST_FIG_RE = re.compile(
     r"#figure\(\n(?P<img>  image\([^\n]+\),\n)"
     r"  caption: \[(?:#strong\[)?(?i:Fig(?:ure)?(?:\.|\b)|图)\s*(?P<fig>\d+(?:[.\-]\d+){0,2}[a-z]?)\.?(?:\])?[ \t]*(?P<cap>[^\n]*)\]"
@@ -233,7 +296,9 @@ _LATEX_FIG_RE = re.compile(
 )
 _PAGE_MARK = r"(?:#src-top\(\d+\);)?"
 _BIB_ENTRY_RE = re.compile(rf"(?m)^{_PAGE_MARK}\\?\[(?P<key>\d+(?: bis)?|[A-Z]{{2,4}})\\?\] ")
-_LABEL_RE = re.compile(r"(?:<|\\label\{)((?:eq|par)-c\d+(?:-\d+)+|art-\d+|eq-art-\d+-\d+|(?:fig|tbl|sec)-[\w-]+)")
+_LABEL_RE = re.compile(
+    rf"(?:<|\\label\{{)((?:eq|par)-c\d+(?:-[A-Z]-\d+|(?:-\d+)+){_EQ_LABEL_SFX}|art-\d+|eq-art-\d+-\d+{_EQ_LABEL_SFX}|(?:fig|tbl|sec)-[\w-]+)"
+)
 
 
 @dataclass(frozen=True)
@@ -286,7 +351,9 @@ class _Writer(Protocol):
     def roman_item(self, prefix: str) -> str: ...
     def set_circled(self, n: int) -> str: ...
     def circled_item(self) -> str: ...
-    def equation(self, body: str, label: str, simple: bool = False) -> str: ...
+    def equation(
+        self, body: str, label: str, simple: bool = False, suffix: str = "", letter: str = ""
+    ) -> str: ...
     def label(self, name: str) -> str: ...
     def ref(self, name: str, chapter: str | None) -> str: ...
     def target(self, name: str) -> str: ...
@@ -303,7 +370,8 @@ class TypstWriter:
         r"|^(?P<rtop>(?:#h\([^)]*\);)?(?:#src-top\(\d+\);)?)(?P<rprefix>#strong\[附注\.?\]\s+)?(?:#strong\[)?(?P<roman>I{1,3}|IV|VI{0,3}|IX|X)\.(?:\])?(?= )"
         r"|^(?P<ctop>(?:#h\([^)]*\);)?(?:#src-top\(\d+\);)?)(?P<circled>[①-⑳])(?=\S)"
         r"|\$ (?P<body>#fletcher\.diagram\((?s:.*?)\n\)"
-        r"|(?:[^$\\]|\\[\s\S])*?) \$ <eq-(?P<eq>\d+(?:-\d+)*)>"
+        r"|(?:[^$\\#]|\\[\s\S]|#footnote\[(?:[^\[\]]|\[(?:[^\[\]]|\[[^\]]*\])*\])*\]|#)*?)"
+        rf" \$ <eq-(?P<eq>{_EQ_EVENT_ID})>"
     )
     math = re.compile(r"(?<!\\)\$(?:[^$\\]|\\[\s\S])*\$")
     chapter_start = "#counter(heading).update((..c) => (c.pos().at(0, default: 0),))\n#counter(math.equation).update(0)\n"
@@ -358,8 +426,16 @@ class TypstWriter:
     def circled_item(self) -> str:
         return "#source-circled-item;"
 
-    def equation(self, body: str, label: str, simple: bool = False) -> str:
-        numbering = '"(1)"' if simple else "source-equation-number"
+    def equation(
+        self, body: str, label: str, simple: bool = False, suffix: str = "", letter: str = ""
+    ) -> str:
+        if letter:
+            numbering = f'source-letter-eq("{letter}", "{suffix}")'
+        elif suffix:
+            fn = "source-simple-eq" if simple else "source-suffixed-eq"
+            numbering = f'{fn}("{suffix}")'
+        else:
+            numbering = '"(1)"' if simple else "source-equation-number"
         return f"#math.equation(block: true, numbering: {numbering}, $ {body} $){label}"
 
     def label(self, name: str) -> str:
@@ -390,7 +466,8 @@ class LatexWriter:
         rf"|^\((?P<plain>{_NUMBER})\.?\)(?= )"
         r"|^(?P<rprefix>\*\*附注\.?\*\*\s+)?(?:\*\*)?(?P<roman>I{1,3}|IV|VI{0,3}|IX|X)\.(?:\*\*)?(?= )"
         r"|^(?P<circled>[①-⑳])(?=\S)"
-        r"|(?s:\$\$\n(?P<body>(?:(?!\$\$).)*?)\n\$\$) <eq-(?P<eq>\d+(?:-\d+)*)>"
+        rf"|(?s:\$\$\n(?P<body>(?:(?!\$\$).)*?)\n\$\$) <eq-(?P<eq>{_EQ_EVENT_ID})>"
+        rf"|(?s:\$\$\n(?P<tag_body>(?:(?!\$\$).)*?)\\tag\*?\{{\(?\s*(?P<eq_tag>(?:[A-Z]\.\d+|\d+(?:\.\d+)*){_EQ_SUFFIX_RE}?\.?)\s*\)?\}}[ \t]*\n\$\$)(?![ \t]*<eq-)"
     )
     math = re.compile(r"(?s:\\begin\{equation\}.*?\\end\{equation\}|\$\$.*?\$\$)|(?<!\\)\$(?:[^$\\]|\\.)*\$")
     chapter_start = "\\setcounter{sourcesection}{0}\\setcounter{equation}{0}\n\n"
@@ -428,7 +505,7 @@ class LatexWriter:
         return rf"\sourcearticle{{{title}}}{label}"
 
     def unnumbered(self, marks: str, title: str) -> str:
-        return f"{marks} {title}"
+        return f"\\setcounter{{equation}}{{0}}\n{marks} {title}"
 
     def paragraph(self, kind: str, label: str) -> str:
         return rf"\sourceparagraph{{{kind + ' ' if kind else ''}}}{label}"
@@ -445,8 +522,24 @@ class LatexWriter:
     def circled_item(self) -> str:
         return r"\sourcecircled{}"
 
-    def equation(self, body: str, label: str, simple: bool = False) -> str:
-        return f"\\begin{{equation}}\n{body}\n{label}\\end{{equation}}"
+    def equation(
+        self, body: str, label: str, simple: bool = False, suffix: str = "", letter: str = ""
+    ) -> str:
+        eq_env = f"\\begin{{equation}}\n{body}\n{label}\\end{{equation}}"
+        if not suffix and not letter:
+            return eq_env
+        tex_sfx = "$''$" if suffix == "''" else suffix
+        if letter:
+            fmt = rf"{letter}.\arabic{{equation}}{tex_sfx}"
+        elif simple:
+            fmt = rf"\arabic{{equation}}{tex_sfx}"
+        else:
+            fmt = (
+                r"\ifnum\value{sourceparagraph}>0 \thesourceparagraph.\arabic{equation}"
+                r"\else\ifnum\value{sourcesubsection}>0 \thesourcesubsection.\arabic{equation}"
+                rf"\else\arabic{{equation}}\fi\fi{tex_sfx}"
+            )
+        return f"{{\\renewcommand\\theequation{{{fmt}}}{eq_env}}}"
 
     def label(self, name: str) -> str:
         return rf"\label{{{name}}}"
@@ -539,6 +632,7 @@ class _Numbering:
         self.roman = 0
         self.circled = 0
         self.equation = 0
+        self.letter_eq: tuple[str, int] = ("", 0)
         self.figures = FigureCounter(chapter)
         self.resyncs: list[Resync] = []
         self.seen: set[str] = seen if seen is not None else set()
@@ -601,7 +695,11 @@ class _Numbering:
     def unnumbered_heading(self) -> None:
         self.equation = 0
 
-    def equation_number(self, scan: tuple[int, ...], kind: str = "equation") -> str:
+    def equation_number(
+        self, scan: tuple[int, ...], kind: str = "equation", suffix: str = ""
+    ) -> str:
+        if suffix and self.levels == scan[:-1] and self.equation == scan[-1]:
+            return self.writer.set_equation(scan[-1] - 1)
         computed = (*self.levels, self.equation + 1)
         update = ""
         if computed != scan:
@@ -612,22 +710,48 @@ class _Numbering:
         self.levels, self.equation = scan[:-1], scan[-1]
         return update
 
-    def simple_equation(self, n: int) -> tuple[str, str]:
-        computed = self.equation + 1
-        update = ""
-        if n != computed:
-            if n != 1:
-                self.resyncs.append(Resync(self.chapter, "equation", str(n), str(computed)))
+    def simple_equation(self, n: int, id_sfx: str = "") -> tuple[str, str]:
+        if id_sfx and n == self.equation:
             update = self.writer.set_equation(n - 1)
-        self.equation = n
-        name = f"eq-art-{self.article}-{n}" if self.article is not None else f"eq-c{self.chapter}-{n}"
+        else:
+            computed = self.equation + 1
+            update = ""
+            if n != computed:
+                if n != 1:
+                    self.resyncs.append(Resync(self.chapter, "equation", str(n), str(computed)))
+                update = self.writer.set_equation(n - 1)
+            self.equation = n
+        name = (
+            f"eq-art-{self.article}-{n}{id_sfx}"
+            if self.article is not None
+            else f"eq-c{self.chapter}-{n}{id_sfx}"
+        )
         if name in self.seen:
             return update, ""
         self.seen.add(name)
         return update, self.writer.label(name)
 
-    def label(self, kind: str, scan: tuple[int, ...]) -> str:
-        name = f"{kind}-c{self.chapter}-{'-'.join(map(str, scan))}"
+    def letter_equation(self, letter: str, n: int, id_sfx: str = "") -> tuple[str, str]:
+        if id_sfx and self.letter_eq == (letter, n):
+            update = self.writer.set_equation(n - 1)
+        else:
+            prev_letter, prev_n = self.letter_eq
+            computed = prev_n + 1 if prev_letter == letter else 1
+            if n != computed and n != 1:
+                self.resyncs.append(
+                    Resync(self.chapter, "equation", f"{letter}.{n}", f"{letter}.{computed}")
+                )
+            update = self.writer.set_equation(n - 1) if self.equation + 1 != n else ""
+            self.letter_eq = (letter, n)
+        self.equation = n
+        name = f"eq-c{self.chapter}-{letter}-{n}{id_sfx}"
+        if name in self.seen:
+            return update, ""
+        self.seen.add(name)
+        return update, self.writer.label(name)
+
+    def label(self, kind: str, scan: tuple[int, ...], id_sfx: str = "") -> str:
+        name = f"{kind}-c{self.chapter}-{'-'.join(map(str, scan))}{id_sfx}"
         if name in self.seen:
             return ""
         self.seen.add(name)
@@ -711,13 +835,19 @@ def number_chapter(
             if len(marks) == 1 and (not theorem_layout or _inside_math(m.string, m.start())):
                 return line
             return heading(marks, title)
-        if m.group("eq"):
-            scan = tuple(int(n) for n in m.group("eq").split("-"))
+        if raw_eq := (m.group("eq") or (m.groupdict().get("eq_tag") and _normalize_eq_id(m.group("eq_tag")))):
+            eq_body = m.group("body") if m.group("eq") else m.group("tag_body").rstrip()
+            letter, scan, sfx, id_sfx = _parse_eq_event(raw_eq)
+            if letter:
+                update, lbl = state.letter_equation(letter, scan[0], id_sfx)
+                return update + writer.equation(eq_body, lbl, suffix=sfx, letter=letter)
             if len(scan) == 1:
-                update, lbl = state.simple_equation(scan[0])
-                return update + writer.equation(m.group("body"), lbl, simple=True)
-            update = state.equation_number(scan)
-            return update + writer.equation(m.group("body"), state.label("eq", scan))
+                update, lbl = state.simple_equation(scan[0], id_sfx)
+                return update + writer.equation(eq_body, lbl, simple=True, suffix=sfx)
+            update = state.equation_number(scan, suffix=id_sfx)
+            return update + writer.equation(
+                eq_body, state.label("eq", scan, id_sfx), suffix=sfx
+            )
         if roman := m.groupdict().get("roman"):
             rtop = m.groupdict().get("rtop") or ""
             rprefix = m.groupdict().get("rprefix") or ""
@@ -788,7 +918,19 @@ def link_references(
             return rf"{prefix}\ref{{{name}}}"
         return _fmt_ref(name, None, m.string[m.end() : m.end() + 1])
 
+    def link_extra_eq(m: re.Match[str]) -> str:
+        roman = m.group("chapter")
+        if roman and roman not in chapters:
+            return m.group(0)
+        target = chapters[roman] if roman else chapter
+        digits = _normalize_eq_ref(m.group("ref"))
+        name = f"eq-c{target}-{digits}"
+        if name not in known:
+            return m.group(0)
+        return _fmt_ref(name, roman, m.string[m.end() : m.end() + 1])
+
     out = _sub_outside_math(_REF_RE, link, text, writer)
+    out = _sub_outside_math(_EXTRA_EQ_REF_RE, link_extra_eq, out, writer)
     out = _sub_outside_math(_FIG_REF_RE, link_fig, out, writer)
     def link_tbl(m: re.Match[str]) -> str:
         if writer is TYPST and "caption:" in m.string[max(0, m.start() - 32) : m.start()]:
@@ -839,18 +981,18 @@ def link_references(
         return writer.link(target, sec) + f"{stop}({m.group('item')})"
 
     def link_prose_eq_en(m: re.Match[str]) -> str:
-        eq1 = m.group("eq1")
-        name1 = f"eq-c{chapter}-{eq1}"
-        mid = m.group("mid") or ""
-        eq2 = m.group("eq2")
-        if name1 not in known:
+        chain = m.group("chain")
+        items = list(_PROSE_EQ_EN_ITEM_RE.finditer(chain))
+        first_norm = _normalize_eq_ref(items[0].group("eq"))
+        if f"eq-c{chapter}-{first_norm}" not in known:
             return m.group(0)
-        part1 = writer.link(name1, f"({eq1})")
-        if not eq2:
-            return m.group("pre") + part1
-        name2 = f"eq-c{chapter}-{eq2}"
-        part2 = writer.link(name2, f"({eq2})") if name2 in known else f"({eq2})"
-        return f"{m.group('pre')}{part1}{mid}{part2}"
+
+        def sub_en_item(im: re.Match[str]) -> str:
+            raw_eq = im.group("eq")
+            name = f"eq-c{chapter}-{_normalize_eq_ref(raw_eq)}"
+            return writer.link(name, f"({raw_eq})") if name in known else im.group(0)
+
+        return m.group("pre") + _PROSE_EQ_EN_ITEM_RE.sub(sub_en_item, chain)
 
     if theorem_layout:
         out = _sub_outside_math(_compound_reference_re(words), link_thm_compound, out, writer)
@@ -892,7 +1034,7 @@ def _link_article_chunk(
         if f"art-{art}" not in known:
             return m.group(0)
         after = m.string[m.end() : m.end() + 1]
-        eq_name = f"eq-art-{art}-{eq}"
+        eq_name = f"eq-art-{art}-{_normalize_eq_ref(eq)}"
         eq_part = fmt_ref(eq_name, None, after) if eq_name in known else f"({eq})"
         art_part = fmt_ref(f"art-{art}", None, (sep or eq_part)[:1])
         return f"{art_part}{sep}{eq_part}"
@@ -917,7 +1059,7 @@ def _link_article_chunk(
 
             def sub_eq(em: re.Match[str]) -> str:
                 eq = em.group("eq")
-                eq_name = f"eq-art-{current_art}-{eq}"
+                eq_name = f"eq-art-{current_art}-{_normalize_eq_ref(eq)}"
                 if eq_name not in known:
                     return em.group(0)
                 return fmt_ref(eq_name, None, em.string[em.end() : em.end() + 1])
@@ -935,17 +1077,18 @@ def _link_article_chunk(
     def link_prose_eq(m: re.Match[str]) -> str:
         if current_art is None:
             return m.group(0)
-        eq1 = m.group("eq1")
-        name1 = f"eq-art-{current_art}-{eq1}"
-        mid = m.group("mid") or ""
-        eq2 = m.group("eq2")
-        after1 = mid[:1] if mid else m.string[m.end() : m.end() + 1]
-        part1 = fmt_ref(name1, None, after1) if name1 in known else f"({eq1})"
-        if not eq2:
-            return m.group("pre") + part1
-        name2 = f"eq-art-{current_art}-{eq2}"
-        part2 = fmt_ref(name2, None, m.string[m.end() : m.end() + 1]) if name2 in known else f"({eq2})"
-        return f"{m.group('pre')}{part1}{mid}{part2}"
+        chain = m.group("chain")
+        tail_after = m.string[m.end() : m.end() + 1]
+
+        def sub_item(im: re.Match[str]) -> str:
+            raw_eq = im.group("eq")
+            name = f"eq-art-{current_art}-{_normalize_eq_ref(raw_eq)}"
+            if name not in known:
+                return im.group(0)
+            after = chain[im.end() : im.end() + 1] or tail_after
+            return fmt_ref(name, None, after)
+
+        return m.group("pre") + _PROSE_EQ_ITEM_RE.sub(sub_item, chain)
 
     out = _sub_outside_math(_ART_EQ_RE, link_art_eq, text, writer)
     out = _sub_outside_math(_BRACKET_REF_RE[kind], link_bracket, out, writer)
@@ -1004,18 +1147,33 @@ def link_citations(
     return out
 
 
+_FENCED_CODE_RE = re.compile(r"(?ms)^[ \t]*(?:```|~~~).*?^[ \t]*(?:```|~~~)[^\n]*")
+_INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
+
+
 def _sub_outside_math(
     pattern: re.Pattern[str], repl: Callable[[re.Match[str]], str], text: str, writer: _Writer
 ) -> str:
+    skip = re.compile(rf"{_INLINE_CODE_RE.pattern}|{writer.math.pattern}")
+
     def sub_paragraph(para: str) -> str:
         if _TABLE_CALL_RE.search(para):
             return para
         out: list[str] = []
         pos = 0
-        for m in writer.math.finditer(para):
+        for m in skip.finditer(para):
             out += [pattern.sub(repl, para[pos : m.start()]), m.group(0)]
             pos = m.end()
         out.append(pattern.sub(repl, para[pos:]))
         return "".join(out)
 
-    return "\n\n".join(map(sub_paragraph, text.split("\n\n")))
+    def sub_non_code(chunk: str) -> str:
+        return "\n\n".join(map(sub_paragraph, chunk.split("\n\n")))
+
+    chunks: list[str] = []
+    last = 0
+    for m in _FENCED_CODE_RE.finditer(text):
+        chunks += [sub_non_code(text[last : m.start()]), m.group(0)]
+        last = m.end()
+    chunks.append(sub_non_code(text[last:]))
+    return "".join(chunks)

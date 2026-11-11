@@ -7,6 +7,7 @@ series = '岩波講座 基礎数学'
 year = 1981
 lang = 'ja'
 domain = 'math'
+commutative_diagrams = true
 chapters = [
   { number = 0, title = 'はじめに', start_page = 5, end_page = 5 },
   { number = 1, title = '第1章 正則関数', start_page = 7, end_page = 36 },
@@ -84,3 +85,9 @@ ocr_languages = ['ja-JP', 'en-US']
 
 [editions.monograph]
 summary = 'monograph'
+
+[unread_diagram_boxes]
+"159_u001" = [740, 553, 2600, 990]
+"159_u002" = [1070, 1822, 2200, 2220]
+"159_u003" = [1070, 2710, 2200, 3118]
+"159_u004" = [660, 3300, 2925, 4195]

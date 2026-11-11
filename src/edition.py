@@ -20,12 +20,13 @@ from .compiler.monograph import (
 )
 from .facsimile import FacsimileStyle, build_facsimile
 from .ocr.backend import Backend
-from .ocr.scan import SourceScan
+from .ocr.scan import SourceScan, SourceScanError
 from .ocr.transcripts import ROUNDS, TranscriptStore
 from .parity.diagrams import DiagramText
 from .parity.report import FACSIMILE, Tolerance
 from .parity.source import source_ocr_dir, source_pdf
 from .paths import OUTPUT
+from .vision.diagram_crops import install_unread_diagrams
 from .vision.figure_extractor import extract_book_figures
 
 RENDER_DPI = 200
@@ -196,6 +197,13 @@ def monograph_edition(
     def build(source: Path | None, formats: frozenset[str], footnotes: str) -> None:
         if prepare is not None:
             prepare(source)
+        if spec.commutative_diagrams:
+            try:
+                scan = SourceScan(source_pdf(spec, source))
+            except SourceScanError as error:
+                print(f"unread diagrams keep their transcript: {error}")
+            else:
+                _ = install_unread_diagrams(out_dir, scan, RENDER_DPI, spec.unread_diagram_boxes)
         built = running_footnotes(spec) if footnotes == "running" else spec
         report_build(MonographCompiler(built).build_all(out_dir, formats, rebuilt))
 

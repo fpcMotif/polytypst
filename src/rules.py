@@ -109,10 +109,15 @@ def ocr_rules() -> list[Rule]:
     return sorted(out, key=lambda r: r.line)
 
 
+def array_rules() -> list[Rule]:
+    names = [s for s in _strings(_tree("compiler/math_arrays.py")) if s.value.startswith("MATH_") and " " not in s.value]
+    return [Rule("source", s.value, "count", "build,audit", "src/compiler/math_arrays.py", s.lineno) for s in names]
+
+
 def transcript_rules() -> list[Rule]:
     (name,) = [s for s in _strings(_tree("figure_leaks.py")) if s.value == "FIGURE_TEXT_LEAK"]
     return [Rule("transcript", str(name.value), "count", "audit", "src/figure_leaks.py", name.lineno)]
 
 
 def all_rules() -> list[Rule]:
-    return checker_rules() + design_rules() + literal_rules() + transcript_rules() + parity_rules() + ocr_rules()
+    return checker_rules() + design_rules() + literal_rules() + array_rules() + transcript_rules() + parity_rules() + ocr_rules()

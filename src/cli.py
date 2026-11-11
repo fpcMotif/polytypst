@@ -24,6 +24,9 @@ book commands (see `polytypst COMMAND --help`):
   polytypst profile BOOK --step S         time a step by owner (Python, native libraries) and Typst cold/edited/repeat
   polytypst evidence zoom|sweep|diff|report   box a span on the scan, sweep the cleaner, render findings as HTML
   polytypst page-check COMMAND BOOK ...   check transcripts page by page against the scan; triage and verify issues
+  polytypst page-check text|clean BOOK PAGE   a scan page's transcript, or the page as the cleaner sets it (--diff)
+  polytypst page-check grep REGEX [BOOK ...]  transcript lines that match, across every book by default
+  polytypst findings [ID ...] [--cause C]  review findings by id, book, cause, severity, status or text, with verdicts
   polytypst corrections show BOOK         list a book's corrections with their verdicts and causes, and its open verdicts
   polytypst charts KEY [IDS] [--check]    redraw a book's charts from books/KEY/charts; --check lists stale SVGs
 """
@@ -42,6 +45,10 @@ def main() -> None:
         from .corrections import main as corrections_main
 
         sys.exit(corrections_main(sys.argv[2:]))
+    if sys.argv[1:2] == ["findings"]:
+        from .findings import main as findings_main
+
+        sys.exit(findings_main(sys.argv[2:]))
     if sys.argv[1:2] == ["charts"]:
         from .charts.redraw import main as charts_main
 

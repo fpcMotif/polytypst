@@ -422,9 +422,10 @@ def parse_box(text: str) -> tuple[float, float, float, float]:
     return left, top, right, bottom
 
 
-def crop(review: Path, rebuilt: Path, scan: Path, regions: list[str]) -> Path:
+def crop(review: Path, rebuilt: Path, scan: Path, regions: list[str], by_scan: bool = False) -> Path:
     """One sheet under `review/crops/` with a row per region `PAGE:BOX[:SCANBOX]`: the scan pages' box, then the rebuilt page's.
 
+    PAGE is a rebuilt page, or with `by_scan` a scan page, which brings every rebuilt page paired with it.
     Each row zooms as far as its box allows within the sheet width, so a narrow box reads small marks."""
     scans = {e.page: e.scan_pages for e in read_pages(review)}
     rows = []
@@ -433,14 +434,52 @@ def crop(review: Path, rebuilt: Path, scan: Path, regions: list[str]) -> Path:
         if not page.isdigit() or not boxes:
             raise ValueError(f"region {region!r} is not PAGE:BOX or PAGE:BOX:SCANBOX, such as 41:middle or 41:0,0.2,0.5,0.4:bottom")
         box, _, scan_box = boxes.partition(":")
-        if int(page) not in scans:
-            raise ValueError(f"page {page} is not in this review; its pages are {min(scans)} to {max(scans)}")
+        if by_scan:
+            pages = [r for r, s in scans.items() if int(page) in s]
+            if not pages:
+                paired = sorted({s for pair in scans.values() for s in pair})
+                raise ValueError(
+                    f"scan page {page} pairs with no rebuilt page of this review; its scan pages are {paired[0]} to {paired[-1]}"
+                    if paired
+                    else "this review pairs no scan pages"
+                )
+            row_scans = [int(page)]
+        else:
+            if int(page) not in scans:
+                raise ValueError(f"rebuilt page {page} is not in this review; its pages are {min(scans)} to {max(scans)}")
+            pages, row_scans = [int(page)], scans[int(page)]
         rows.append(
-            [Panel(f"scan p{s} {scan_box or box}", scan, s, parse_box(scan_box or box)) for s in scans[int(page)]]
-            + [Panel(f"rebuilt p{page} {box}", rebuilt, int(page), parse_box(box))]
+            [Panel(f"scan p{s} {scan_box or box}", scan, s, parse_box(scan_box or box)) for s in row_scans]
+            + [Panel(f"rebuilt p{p} {box}", rebuilt, p, parse_box(box)) for p in pages]
         )
+    prefix = "scan_" if by_scan else ""
     name = "_".join(re.sub(r"[^\w.-]+", "-", r) for r in regions)[:120]
-    return write_sheet(rows, review / "crops" / f"sheet_{name}.png")
+    return write_sheet(rows, review / "crops" / f"sheet_{prefix}{name}.png")
+
+
+@dataclass(frozen=True)
+class TextHit:
+    """A page that holds the searched text: a `rebuilt` page with its paired `scan_pages`, or a scan page's transcript."""
+
+    rebuilt: int | None
+    scan_pages: list[int]
+
+
+def find_text(review: Path, rebuilt: Path, text: str) -> list[TextHit]:
+    """Every rebuilt page of the review whose text holds `text`, then every scan page whose transcript holds it.
+
+    Whitespace runs match any whitespace run. The scan side reads `review/transcript/`, as a scan has no text layer."""
+    scans = {e.page: e.scan_pages for e in read_pages(review)}
+
+    def holds(page_text: str) -> bool:
+        return " ".join(text.split()) in " ".join(page_text.split())
+
+    with pymupdf.open(rebuilt) as doc:
+        hits = [TextHit(p, scans[p]) for p in sorted(scans) if p <= doc.page_count and holds(doc[p - 1].get_text())]
+    for path in sorted((review / "transcript").glob("p_*.md")):
+        if holds(path.read_text(encoding="utf-8")):
+            hits.append(TextHit(None, [int(path.stem[2:])]))
+    return hits
 
 
 def stock(review: Path, repo: Path, book: str, transcripts: Path | None, sample: bool) -> None:

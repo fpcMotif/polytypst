@@ -78,3 +78,6 @@ transcripts = true
 font = 'STIX Two Text'
 size = 9.5
 weight = 400
+
+[unread_diagram_boxes]
+"025_u001" = [118, 1618, 1465, 2032]

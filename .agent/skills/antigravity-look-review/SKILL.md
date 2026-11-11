@@ -72,11 +72,17 @@ check: test the two files of one page group.
    ./lr check BOOK NN SAMPLE
    Done: the line "ok", and exit code 0.
    Otherwise each line names one problem, such as "group_NN.audit.jsonl is missing", "group_NN.jsonl line 4: missing field 'evidence'", "cause 'book.toml' is not one of transcript, build, unknown" or "group_NN.audit.jsonl has no line for pages 41, 42".
-crop: put boxes of rebuilt pages beside the same boxes of their scan pages on one sheet. REGION is PAGE:BOX or PAGE:BOX:SCANBOX, with BOX top, middle, bottom, full, or L,T,R,B in page shares.
-   ./lr crop BOOK REGION [REGION …] SAMPLE
+crop: put boxes of rebuilt pages beside the same boxes of their scan pages on one sheet. REGION is PAGE:BOX or PAGE:BOX:SCANBOX, with BOX top, middle, bottom, full, or L,T,R,B in page shares. PAGE is a rebuilt page. With --scan, PAGE is a scan page, such as a verdict's scan_page, and the row brings its paired rebuilt pages.
+   ./lr crop BOOK REGION [REGION …] [--scan] SAMPLE
    Subagents run LB/lr crop REGION instead, which already knows BOOK and SAMPLE.
    Done: one path, LB/crops/sheet_….png.
    A line naming the box or the page instead: fix the REGION and run it again.
+find: list the rebuilt pages and the scan transcripts that hold a text, each with its paired pages and the crop region to show it. Run it before crop whenever you know a text but not its page.
+   ./lr find BOOK TEXT SAMPLE
+   Done: one line per page, then "N pages hold 'TEXT'". Exit code 1 means no page holds it: shorten the text.
+zoom: box a span on a scan page with a magnified inset, for a finding's evidence PNG.
+   ./lr zoom BOOK SCAN_PAGE "OCR TEXT" [--label TEXT] SAMPLE
+   Done: one path, LB/crops/zoom_….png. "… does not exist: this book has no local OCR lines": use crop --scan instead.
 spot: pick 3 findings of severity P0 or P1 and 2 pages that the audit marks PASS, and render each as one sheet: its scan pages beside its rebuilt page.
    ./lr spot BOOK SAMPLE
    Done: one line per item with the path of its sheet under it, then "N items; write one line per item to LB/spot_check.jsonl".

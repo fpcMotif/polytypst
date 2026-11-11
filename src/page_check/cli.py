@@ -1,9 +1,13 @@
 import argparse
+import re
 import sys
 from collections import Counter
 from collections.abc import Iterable
+from difflib import unified_diff
 from pathlib import Path
 
+from ..book_state import BookStateError
+from ..books import book_key, books
 from . import RESULTS, PageCheck, cell_text, ranges, table_diff
 from .check import MODEL as CHECK_MODEL
 from .check import run
@@ -37,13 +41,16 @@ def _parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     for name, help_text in (
         ("text", "the transcript of a page, with line numbers and its receipt"),
+        ("clean", "the page as the page cleaner sets it, with line numbers; --diff shows what it changed"),
         ("suspects", "where the transcript and the local OCR disagree"),
         ("cells", "each transcript table on the page, as rows"),
         ("tablediff", "transcript table K against the scan's reading"),
     ):
         p = sub.add_parser(name, help=help_text)
         p.add_argument("book", help=BOOK_HELP)
-        p.add_argument("page", type=int)
+        p.add_argument("page", type=int, help="scan page: the 1-based page of the scan PDF, as in p_NNN.md")
+        if name == "clean":
+            p.add_argument("--diff", action="store_true", help="a unified diff from the transcript to the cleaned page")
         if name == "tablediff":
             p.add_argument("table", type=int, help="table number on the page, from 1, as `cells` prints it")
             p.add_argument("scan_tsv", type=Path, help="the scan's table, one row per line, cells split by tabs")
@@ -60,6 +67,9 @@ def _parser() -> argparse.ArgumentParser:
         if name == "run":
             p.add_argument("--jobs", type=int, default=8, help="agents at once")
             p.add_argument("--model", default=CHECK_MODEL)
+    p = sub.add_parser("grep", help="transcript lines that match a regex, as KEY p_NNN:LINE: text")
+    p.add_argument("pattern", help="a Python regex, matched against each transcript line")
+    p.add_argument("books", nargs="*", help=f"{BOOK_HELP}; by default every book with transcripts")
     p = sub.add_parser("lint", help="known-error rules over the transcript and the built .typ")
     p.add_argument("book", help=BOOK_HELP)
     p = sub.add_parser("triage", help="settle width-only issues, cut a scan zoom for each other one")
@@ -109,6 +119,14 @@ def _page(args: argparse.Namespace) -> int:
         print("\n".join(f"{n:4d}  {line}" for n, line in enumerate(lines, 1)))
         proof = check.receipt(args.page)
         print(f"receipt: {proof}" if proof else f"receipt: none; render {check.page_png(args.page)} first")
+    elif args.command == "clean":
+        cleaned = check.cleaned(args.page).splitlines()
+        if args.diff:
+            raw = check.transcript(args.page).splitlines()
+            name = check.store.path(args.page).name
+            print("\n".join(unified_diff(raw, cleaned, name, f"{name} cleaned", lineterm="")) or "the cleaner changed nothing")
+        else:
+            print("\n".join(f"{n:4d}  {line}" for n, line in enumerate(cleaned, 1)))
     elif args.command == "suspects":
         print("\n".join(check.suspects(args.page)) or "none")
     elif args.command == "cells":
@@ -121,6 +139,30 @@ def _page(args: argparse.Namespace) -> int:
         lines = args.scan_tsv.read_text(encoding="utf-8").splitlines()
         scan = [[cell_text(c) for c in line.split("\t")] for line in lines if line.strip()]
         print("\n".join(table_diff(check.tables(args.page)[args.table - 1], scan)))
+    return 0
+
+
+def _grep(args: argparse.Namespace) -> int:
+    try:
+        re.compile(args.pattern)
+    except re.error as error:
+        print(f"{args.pattern!r} is not a Python regex: {error}")
+        return 1
+    hits, searched, missing = 0, 0, None
+    for key in [book_key(name) for name in args.books] or list(books()):
+        try:
+            found = PageCheck.named(key).grep(args.pattern)
+        except BookStateError as error:
+            if args.books:
+                raise
+            missing = error
+            continue
+        searched += 1
+        _print(f"{key} p_{page:03d}:{n}: {line}" for page, n, line in found)
+        hits += len(found)
+    if not searched and missing:
+        raise missing
+    print(f"{hits} lines in {searched} books")
     return 0
 
 
@@ -176,8 +218,18 @@ def _sheet(args: argparse.Namespace) -> int:
 
 def main(argv: list[str]) -> int:
     args = _parser().parse_args(argv)
-    if args.command in ("text", "suspects", "cells", "tablediff"):
+    try:
+        return _command(args)
+    except BookStateError as error:
+        print(error)
+        return 1
+
+
+def _command(args: argparse.Namespace) -> int:
+    if args.command in ("text", "clean", "suspects", "cells", "tablediff"):
         return _page(args)
+    if args.command == "grep":
+        return _grep(args)
     if args.command in ("summary", "chunks", "run", "status"):
         checks = _checks(args.books)
         if args.command == "run":
