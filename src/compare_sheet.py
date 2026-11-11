@@ -31,6 +31,14 @@ class Panel:
     page: int
     shares: Box = (0.0, 0.0, 1.0, 1.0)
 
+    def __post_init__(self) -> None:
+        with pymupdf.open(self.pdf) as doc:
+            count = doc.page_count
+        if not 1 <= self.page <= count:
+            raise ValueError(
+                f"{self.label}: page {self.page} does not exist; {self.pdf.name} has {count} pages (1-based)"
+            )
+
 
 @dataclass(frozen=True)
 class _Drawn:

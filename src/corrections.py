@@ -100,7 +100,10 @@ class BookHistory:
 def record(entry: Verdict | Cause | Correction, root: Path = QUALITY) -> None:
     """Append `entry`; a verdict or cause with the id of an earlier one replaces it.
 
-    Raises ValueError for a kind outside KINDS, a correction with no lines, or a link to an unknown verdict or cause."""
+    Raises ValueError for a kind outside KINDS, a correction with no lines, a link to an unknown verdict or cause,
+    or a scan page outside the book's scan."""
+    if not isinstance(entry, Cause):
+        _check_scan_page(entry.book, entry.scan_page if isinstance(entry, Verdict) else entry.page)
     if isinstance(entry, Correction):
         if entry.kind not in KINDS:
             raise ValueError(f"kind {entry.kind!r} is not one of {KINDS}")
@@ -191,6 +194,23 @@ def main(argv: list[str]) -> int:
         )
     print(f"{len(got.corrections)} corrections, {len(got.open_verdicts)} open verdicts")
     return 0
+
+
+def _check_scan_page(book: str, page: int | None) -> None:
+    """Raise ValueError when `page` is not a 1-based page of `book`'s scan, as its `pdf_page_count` states."""
+    if page is None:
+        return
+    from .books import book_by_key
+
+    try:
+        count = book_by_key(book).spec.pdf_page_count
+    except KeyError:
+        count = None
+    if page < 1 or (count is not None and page > count):
+        raise ValueError(
+            f"{book} scan page {page} does not exist: the scan has {count or 'an unknown number of'} pages. "
+            "A scan page is the 1-based page of the scan PDF, not a printed page number or a rebuilt page."
+        )
 
 
 def _row(entry: Verdict | Cause | Correction) -> dict[str, object]:

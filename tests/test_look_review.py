@@ -9,14 +9,16 @@ import pymupdf
 import pytest
 from PIL import Image
 
-from polytypst.compare_sheet import SHEET_LIMIT
+from polytypst.compare_sheet import SHEET_LIMIT, Panel
 from polytypst.look_review import (
     GroupResult,
     PageEntry,
+    TextHit,
     append_findings,
     brief,
     close_workspace,
     crop,
+    find_text,
     group_problems,
     group_ranges,
     missing_inputs,
@@ -328,6 +330,14 @@ def test_pair_sheet_puts_scan_beside_rebuilt_without_the_white_margins(
         assert pair.height < page.height
 
 
+def test_a_panel_of_a_page_the_pdf_lacks_names_the_pdf_and_its_page_count(tmp_path: Path) -> None:
+    scan = _pdf(tmp_path / "scan.pdf", ["one", "two", "three"])
+    for page in (0, 4):
+        with pytest.raises(ValueError, match=r"scan\.pdf has 3 pages"):
+            Panel("scan", scan, page)
+    assert Panel("scan", scan, 3).page == 3
+
+
 def test_crop_puts_every_region_of_one_call_on_one_sheet_within_the_image_limit(
     tmp_path: Path,
 ) -> None:
@@ -343,6 +353,30 @@ def test_crop_puts_every_region_of_one_call_on_one_sheet_within_the_image_limit(
         crop(review, rebuilt, scan, ["9:top"])
     with pytest.raises(ValueError, match="PAGE:BOX"):
         crop(review, rebuilt, scan, ["top"])
+
+
+def test_crop_by_scan_page_brings_the_rebuilt_pages_paired_with_it(tmp_path: Path) -> None:
+    rebuilt = _pdf(tmp_path / "book.pdf", ["one", "two"])
+    scan = _pdf(tmp_path / "scan.pdf", ["one", "two", "two again"])
+    review = tmp_path / "look"
+    prepare(rebuilt, scan, {1: [1], 2: [2], 3: [2]}, review, [(1, 2)], 40)
+    out = crop(review, rebuilt, scan, ["3:top"], by_scan=True)
+    assert out.name == "sheet_scan_3-top.png"
+    with pytest.raises(ValueError, match="scan page 9 pairs with no rebuilt page"):
+        crop(review, rebuilt, scan, ["9:top"], by_scan=True)
+
+
+def test_find_text_names_rebuilt_pages_with_their_scan_pages_and_matching_transcripts(
+    tmp_path: Path,
+) -> None:
+    rebuilt = _pdf(tmp_path / "book.pdf", ["one", "see (4.3.60) here"])
+    scan = _pdf(tmp_path / "scan.pdf", ["one", "two", "three"])
+    review = tmp_path / "look"
+    prepare(rebuilt, scan, {1: [1], 2: [2], 3: [2]}, review, [(1, 2)], 40)
+    (review / "transcript").mkdir(exist_ok=True)
+    (review / "transcript" / "p_003.md").write_text("$$ x \\tag{4.3.60} $$", encoding="utf-8")
+    assert find_text(review, rebuilt, "4.3.60") == [TextHit(2, [2, 3]), TextHit(None, [3])]
+    assert find_text(review, rebuilt, "absent") == []
 
 
 def test_brief_lists_one_pair_sheet_per_page(tmp_path: Path) -> None:
