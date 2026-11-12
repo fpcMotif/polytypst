@@ -20,6 +20,7 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
 - Write transcripts only in STORE. `/Users/martinfan/devv/polytypst-books` holds checked work, so only read it.
 - Stay on KEY. Fix pages in `STORE/KEY/` and files in `books/KEY/`, and read `output/KEY/`. Learn a command from its `--help` and the docs named here. When a cause lies in `src/`, record the rule, page and scan evidence, and report it. Leave `src/` closed: the one source you read is `MonographSpec` in `src/compiler/monograph.py`, for `book.toml` fields, beside the model books that `docs/scanned-books.md` names. Read no other book, workspace, store, log or finding, and skip `recall` hits about other books. Filter shared files to KEY, for example `jq --arg k "KEY" '.[$k] // "no entry"' "quality/baseline.json"`.
 - Run Python as `uv run`, never bare `python` or `python3`. Put every path in double quotes.
+- Start every `mise exec` and `uv run` command with `POLYTYPST_BUILD="ROOT/build"`, as the commands below show. Each build then writes its `.md`, `.typ` and `.tex` to `ROOT/build/KEY/`, and every check reads them there. PDFs stay in `output/KEY/`. `polytypst` and `scripts/one_book.py` also take the same folder as `--build-dir`.
 - Take API keys from the environment or Varlock only. Never type, print or paste a key.
 - Pass BACKEND to `--backend` exactly as written.
 - Use VERIFY_MODEL only. When it fails, for example with "No API key", stop and report the error. Never switch to another model or provider.
@@ -51,7 +52,7 @@ Gate 1: you wrote down the balance, the GPU and the model.
 Skip this step when TRIAL is `no`.
 
 1. Run in the background, with its output in `ROOT/ocr_trial.log`:
-   `mise exec -- uv run polytypst "SCAN" --backend "BACKEND" --pages 1-10 --formats typst,latex,pdf`
+   `POLYTYPST_BUILD="ROOT/build" mise exec -- uv run polytypst "SCAN" --backend "BACKEND" --pages 1-10 --formats typst,latex,pdf`
    Add `--lang` and `--domain` only for a new book.
 2. Wait for the command to exit. Read the log once at the end.
 3. Open 3 pages from `STORE/KEY/markdown_pages/` next to the same pages in `output/KEY/page_renders/`. Compare words, numbers, tables, math and line order.
@@ -61,7 +62,7 @@ Gate 2: the command exited 0, pages 1 to 10 each have a Markdown page, and your 
 ## STEP 3. The whole book
 
 1. Run once in the background, with its output in `ROOT/ocr_full.log`:
-   `mise exec -- uv run polytypst "SCAN" --backend "BACKEND" --formats typst,latex,pdf`
+   `POLYTYPST_BUILD="ROOT/build" mise exec -- uv run polytypst "SCAN" --backend "BACKEND" --formats typst,latex,pdf`
    Add `--lang` and `--domain` only for a new book. After a trial, the trial pages stay as they are.
 2. When it exits 1 with "N pages still pending", run the same command again. It transcribes only those pages. Repeat until it exits 0, at most 3 times.
 3. For a Colab BACKEND, run `uv run polytypst-colab usage`. When it shows an active VM whose name your log printed, stop that VM with the colab CLI. Never stop a VM that another run started.
@@ -74,9 +75,9 @@ Gate 3:
 
 ## STEP 4. Build and compile
 
-1. Run: `mise exec -- uv run python scripts/one_book.py KEY build`
-2. Run: `mise exec -- typst compile --root / "output/KEY/FILE.typ"`. It must exit 0.
-3. Run: `tectonic -X compile --keep-logs -o "output/KEY/latex" "output/KEY/FILE.tex"`. It writes its PDF and its log to `output/KEY/latex/`, apart from Typst's PDF. It must exit 0. Search the log for "Undefined control sequence", "Missing $", and overfull boxes wider than 10pt. Never run `xelatex`. When `tectonic` is not on PATH, report Gate 4's LaTeX part as blocked.
+1. Run: `POLYTYPST_BUILD="ROOT/build" mise exec -- uv run python scripts/one_book.py KEY build --formats pdf,tex`
+2. Run: `mise exec -- typst compile --root / "ROOT/build/KEY/FILE.typ" "output/KEY/FILE.pdf"`. It must exit 0.
+3. Run: `tectonic -X compile --keep-logs -o "output/KEY/latex" "ROOT/build/KEY/FILE.tex"`. It writes its PDF and its log to `output/KEY/latex/`, apart from Typst's PDF. It must exit 0. Search the log for "Undefined control sequence", "Missing $", and overfull boxes wider than 10pt. Never run `xelatex`. When `tectonic` is not on PATH, report Gate 4's LaTeX part as blocked.
 
 Gate 4: both compile with exit 0, and you listed each LaTeX warning that you could not fix.
 
@@ -93,8 +94,8 @@ Gate 5: `uv run polytypst page-check status KEY` shows every page checked and 0 
 ## STEP 6. Check the PDF
 
 1. Follow Step 7 of `docs/page-check-review.md`. Run `polytypst page-check render --run` in the background: it takes about 50 minutes for 121 pairs.
-2. Search the `.typ` and `.tex` sources for these faults: inline math with spaces inside, like `$ x $`; an orphaned `{A}{B}` left from `\frac`; a single letter as a display equation; brackets that do not balance within a section; bullets in the bibliography.
-3. Run: `uv run polytypst page-check gate KEY`
+2. Search the `.typ` and `.tex` sources in `ROOT/build/KEY/` for these faults: inline math with spaces inside, like `$ x $`; an orphaned `{A}{B}` left from `\frac`; a single letter as a display equation; brackets that do not balance within a section; bullets in the bibliography.
+3. Run: `POLYTYPST_BUILD="ROOT/build" uv run polytypst page-check gate KEY`
 
 Gate 6: the last line of `gate` is `PASS`, and the source search finds 0 faults, or you list each remaining one.
 

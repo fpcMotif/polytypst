@@ -4,10 +4,12 @@ import argparse
 import sys
 from pathlib import Path
 
+from .books_cli import build_dir_option
 from .books_cli import parse_pages as page_set
 from .compiler.presets import DOMAIN_PROFILES
 from .ocr.backend import DEFAULT_BACKEND, KINDS, Backend, backend_argument
 from .ocr.transcripts import ROUNDS
+from .paths import set_build_root
 
 BOOK_COMMANDS = """\
 book commands (see `polytypst COMMAND --help`):
@@ -60,6 +62,7 @@ def main() -> None:
         description="polytypst: Universal tool to turn complex PDFs into beautiful Typst, LaTeX, and EPUB.",
         epilog=BOOK_COMMANDS,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[build_dir_option()],
     )
     parser.add_argument(
         "source", type=Path, nargs="?", help="The source scan: a PDF, a folder of page images, or one image"
@@ -133,6 +136,8 @@ def main() -> None:
         help="Skip macOS Apple Vision OCR cross-verification",
     )
     args = parser.parse_args()
+    if args.build_dir:
+        set_build_root(args.build_dir)
     if args.rounds < 1:
         parser.error("--rounds must be 1 or more")
     args.backend = args.backend or Backend.parse(DEFAULT_BACKEND)

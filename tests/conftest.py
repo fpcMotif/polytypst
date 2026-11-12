@@ -36,6 +36,11 @@ def book_state_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return root
 
 
+@pytest.fixture(autouse=True)
+def default_build_folder(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("POLYTYPST_BUILD", "")
+
+
 @pytest.fixture
 def page_render(tmp_path: Path) -> PageRender:
     renders = tmp_path / "page_renders"

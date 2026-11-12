@@ -11,7 +11,8 @@ books. This script loads `books/KEY/` alone. `cli` runs any `polytypst` command,
 `polytypst audit`. `--issues` prints each issue of the named checker rules with its page.
 `--save` writes the counts, and `--against` prints each rule whose count rose or fell since a save,
 so a book with no entry in quality/baseline.json still gets a before-and-after check.
-Run through `mise exec` so that POLYTYPST_BOOKS names the transcript store.
+Run through `mise exec` so that POLYTYPST_BOOKS names the transcript store. `--build-dir DIR`
+writes and reads the .md, .typ and .tex in DIR/KEY/; the PDF stays in the book's output folder.
 """
 
 import argparse
@@ -22,6 +23,7 @@ from pathlib import Path
 
 from polytypst.books import book_by_key
 from polytypst.edition_audit import EditionNotBuilt, audit_edition
+from polytypst.paths import set_build_root
 
 
 def audit(book, name: str, issue_rules: set[str]) -> Counter[str]:
@@ -46,8 +48,11 @@ def main() -> None:
     parser.add_argument("--issues", default="", help="audit: comma-separated rule names to print in full")
     parser.add_argument("--save", type=Path, help="audit: write the counts to this JSON file")
     parser.add_argument("--against", type=Path, help="audit: compare with counts saved earlier")
+    parser.add_argument("--build-dir", type=Path, help="build, audit: the .md, .typ and .tex go in DIR/KEY/ (as `polytypst build --build-dir`)")
     split = 3 if sys.argv[2:3] == ["cli"] else len(sys.argv)
     args = parser.parse_args(sys.argv[1:split])
+    if args.build_dir:
+        set_build_root(args.build_dir)
 
     book = book_by_key(args.key)
     if args.command == "cli":

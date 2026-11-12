@@ -24,7 +24,7 @@ from PIL import Image, ImageFont
 
 from .book_state import transcripts as transcript_store
 from .compiler.diagrams import page_diagrams
-from .compiler.monograph import BUILD_DIR
+from .compiler.monograph import build_folder
 from .compiler.typst_math import compile_typst, convert_math_batch
 from .facsimile_figures import (
     FigureArt,
@@ -1812,8 +1812,8 @@ def build_facsimile(
             flush=True,
         )
     pdf = pdf or out_dir / f"{style.slug}.pdf"
-    typ = out_dir / BUILD_DIR / f"{pdf.stem}.typ"
-    typ.parent.mkdir(exist_ok=True)
+    typ = build_folder(out_dir) / f"{pdf.stem}.typ"
+    typ.parent.mkdir(parents=True, exist_ok=True)
     typ.write_text(preamble(style) + "\n".join(pages) + "\n", encoding="utf-8")
     compile_facsimile(typ, pdf)
     return pdf

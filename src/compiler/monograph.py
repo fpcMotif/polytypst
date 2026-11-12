@@ -21,6 +21,7 @@ from PIL import Image
 from ..book_state import book_state
 from ..ocr.lines import DEFAULT_OCR_LANGUAGES
 from ..ocr.transcripts import TranscriptStore
+from ..paths import build_root
 from ..vision.figure_extractor import FIGURES_MANIFEST_NAME, load_figures_manifest
 from . import marks
 from .chapter_assembly import FigureWriter, assemble_chapters
@@ -223,21 +224,28 @@ class MonographOutputs:
 BUILD_DIR = "build"
 
 
+def build_folder(out_dir: Path) -> Path:
+    """Where a build of `out_dir` writes its Markdown, Typst and LaTeX sources:
+    `$POLYTYPST_BUILD/<book>/` when that is set, else `<book>/build/` beside the PDF."""
+    root = build_root()
+    return root / out_dir.name if root else out_dir / BUILD_DIR
+
+
 def build_dir(out_dir: Path) -> Path:
-    """`<book>/build/`, where a build writes its Markdown, Typst and LaTeX sources and intermediates.
-    It links each `figures*` folder of the book, so the sources' relative `figures/...` paths still resolve."""
-    build = out_dir / BUILD_DIR
+    """Make `build_folder(out_dir)`, and link each `figures*` folder of the book into it,
+    so the sources' relative `figures/...` paths still resolve."""
+    build = build_folder(out_dir)
     build.mkdir(parents=True, exist_ok=True)
     for folder in out_dir.glob("figures*"):
         link = build / folder.name
         if folder.is_dir() and not link.is_symlink() and not link.exists():
-            link.symlink_to(Path("..") / folder.name)
+            link.symlink_to(Path("..") / folder.name if build.parent == out_dir else folder.resolve())
     return build
 
 
 def build_source(rebuilt: Path, ext: str) -> Path:
-    """The `ext` source, such as `typ`, `tex` or `md`, that the build of the `rebuilt` PDF wrote into `build/`."""
-    return rebuilt.parent / BUILD_DIR / f"{rebuilt.stem}.{ext}"
+    """The `ext` source, such as `typ`, `tex` or `md`, that the build of the `rebuilt` PDF wrote into its build folder."""
+    return build_folder(rebuilt.parent) / f"{rebuilt.stem}.{ext}"
 
 
 def run_formats(writers: Mapping[str, tuple[Path, Callable[[], object]]], formats: frozenset[str]) -> dict[str, Path]:

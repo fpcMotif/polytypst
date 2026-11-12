@@ -30,6 +30,7 @@ from .parity.visual import (
     write_visual_report,
 )
 from .parity.words import page_ink
+from .paths import BUILD_ENV, set_build_root
 from .review import (
     default_running_heads,
     lowest_pages,
@@ -355,9 +356,29 @@ def _profile(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     return profile.exit_code
 
 
+def build_dir_option() -> argparse.ArgumentParser:
+    """A parent parser with `--build-dir`, which sets $POLYTYPST_BUILD for the rest of the run."""
+    option = argparse.ArgumentParser(add_help=False)
+    option.add_argument(
+        "--build-dir", type=Path, metavar="DIR",
+        help=f"write and read each book's .md, .typ and .tex in DIR/<book>/ (default: ${BUILD_ENV}, "
+        "else build/ beside the PDF); the PDF stays in the book's output folder",
+    )
+    return option
+
+
+def apply_build_dir(option: argparse.ArgumentParser, argv: list[str]) -> None:
+    found, _ = option.parse_known_args(argv)
+    if found.build_dir:
+        set_build_root(found.build_dir)
+
+
 def main(command: str, argv: list[str]) -> int:
+    option = build_dir_option()
+    apply_build_dir(option, argv)
     parser = argparse.ArgumentParser(
         prog=f"polytypst {command}", epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[option],
         description={
             "books": "List every book and its editions; [parity] marks editions you can check against the scan.",
             "build": "Build one edition of a book. The default edition is the first one `polytypst books` lists. "
