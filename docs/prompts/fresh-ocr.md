@@ -5,7 +5,7 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
 ## VALUES
 
 - SCAN: the absolute path of the scan PDF, in double quotes.
-- KEY: the folder name under `books/`, such as `analysis_elliott_h_lieb_michael_loss_2001`. For a new book, the slug that the run will create. Use the real key, never an example key such as `book4`.
+- KEY: the folder name under `books/`, such as `analysis_elliott_h_lieb_michael_loss_2001`. For a new book, the key is the scan's file name, lowercased, with each run of other characters than `a-z` and `0-9` turned into one `_`. Print it with `uv run python -c 'import re, sys, pathlib; print(re.sub(r"[^a-z0-9]+", "_", pathlib.Path(sys.argv[1]).stem.lower()).strip("_"))' "SCAN"`. For example, `Lectures on the orbit method (Kirillov A.A.).pdf` gives `lectures_on_the_orbit_method_kirillov_a_a`. Use the real key, never a short name such as `book4`.
 - ROOT: the code checkout, `/Users/martinfan/devv/polytypst`. Only when another run works in it at the same time, a workspace with a short name, such as `/Users/martinfan/devv/polytypst.kirillov`.
 - STORE: the transcript store, `/Users/martinfan/devv/polytypst-store-NAME` with a short NAME, such as `polytypst-store-kirillov`. Every run gets its own store. Never share it with another run.
 - OUT: the book's output folder, `/Users/martinfan/devv/polytypst-output/KEY`. It holds the PDFs, `build/` with the `.md`, `.typ` and `.tex`, `figures/`, `page_renders/` and `logs/`.
@@ -76,9 +76,10 @@ Gate 3:
 
 ## STEP 4. Build and compile
 
-1. Run: `mise exec -- uv run python scripts/one_book.py KEY build --formats pdf,tex`
-2. Run: `mise exec -- typst compile --root / "OUT/build/FILE.typ" "OUT/FILE.pdf"`. It must exit 0.
-3. Run: `tectonic -X compile --keep-logs -o "OUT/latex" "OUT/build/FILE.tex"`. It writes its PDF and its log to `OUT/latex/`, apart from Typst's PDF. It must exit 0. Search the log for "Undefined control sequence", "Missing $", and overfull boxes wider than 10pt. Never run `xelatex`. When `tectonic` is not on PATH, report Gate 4's LaTeX part as blocked.
+1. For a new book, first write its spec: run `uv run polytypst new-book KEY --title "TITLE" --author "AUTHOR" --source "SCAN FILE NAME" --pages N --domain DOMAIN`, then fill in its chapters in `books/KEY/book.toml` from the scan's contents page.
+2. Run: `mise exec -- uv run python scripts/one_book.py KEY build --formats pdf,tex`
+3. Run: `mise exec -- typst compile --root / "OUT/build/FILE.typ" "OUT/FILE.pdf"`. It must exit 0.
+4. Run: `tectonic -X compile --keep-logs -o "OUT/latex" "OUT/build/FILE.tex"`. It writes its PDF and its log to `OUT/latex/`, apart from Typst's PDF. It must exit 0. Search the log for "Undefined control sequence", "Missing $", and overfull boxes wider than 10pt. Never run `xelatex`. When `tectonic` is not on PATH, report Gate 4's LaTeX part as blocked.
 
 Gate 4: both compile with exit 0, and you listed each LaTeX warning that you could not fix.
 
