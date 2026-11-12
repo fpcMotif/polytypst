@@ -6,8 +6,9 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
 
 - SCAN: the absolute path of the scan PDF, in double quotes.
 - KEY: the folder name under `books/`, such as `analysis_elliott_h_lieb_michael_loss_2001`. For a new book, the slug that the run will create. Use the real key, never an example key such as `book4`.
-- ROOT: `/Users/martinfan/devv/polytypst.fresh-KEY`. Every run gets its own workspace.
-- STORE: `/Users/martinfan/devv/polytypst-store-fresh-KEY`. Every run gets its own transcript store. Never share it with another run.
+- ROOT: the code checkout, `/Users/martinfan/devv/polytypst`. Only when another run works in it at the same time, a workspace with a short name, such as `/Users/martinfan/devv/polytypst.kirillov`.
+- STORE: the transcript store, `/Users/martinfan/devv/polytypst-store-NAME` with a short NAME, such as `polytypst-store-kirillov`. Every run gets its own store. Never share it with another run.
+- OUT: the book's output folder, `/Users/martinfan/devv/polytypst-output/KEY`. It holds the PDFs, `build/` with the `.md`, `.typ` and `.tex`, `figures/`, `page_renders/` and `logs/`.
 - BACKEND: one literal backend string. Examples:
   - `colab:jina-ocr-v1?gpu=G4&workers=2&shards=3` for the self-hosted model on Colab GPUs.
   - `jina` for the Jina API.
@@ -16,27 +17,27 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
 
 ## RULES
 
-- Work in ROOT. When a runbook names `/Users/martinfan/devv/polytypst`, use ROOT.
+- Work in ROOT. When a runbook names `/Users/martinfan/devv/polytypst`, use ROOT. When it names a path under `output/`, use the same path under `/Users/martinfan/devv/polytypst-output/`.
 - Write transcripts only in STORE. `/Users/martinfan/devv/polytypst-books` holds checked work, so only read it.
-- Stay on KEY. Fix pages in `STORE/KEY/` and files in `books/KEY/`, and read `output/KEY/`. Learn a command from its `--help` and the docs named here. When a cause lies in `src/`, record the rule, page and scan evidence, and report it. Leave `src/` closed: the one source you read is `MonographSpec` in `src/compiler/monograph.py`, for `book.toml` fields, beside the model books that `docs/scanned-books.md` names. Read no other book, workspace, store, log or finding, and skip `recall` hits about other books. Filter shared files to KEY, for example `jq --arg k "KEY" '.[$k] // "no entry"' "quality/baseline.json"`.
+- Stay on KEY. Fix pages in `STORE/KEY/` and files in `books/KEY/`, and read OUT. Learn a command from its `--help` and the docs named here. When a cause lies in `src/`, record the rule, page and scan evidence, and report it. Leave `src/` closed: the one source you read is `MonographSpec` in `src/compiler/monograph.py`, for `book.toml` fields, beside the model books that `docs/scanned-books.md` names. Read no other book, workspace, store, log or finding, and skip `recall` hits about other books. Filter shared files to KEY, for example `jq --arg k "KEY" '.[$k] // "no entry"' "quality/baseline.json"`.
 - Run Python as `uv run`, never bare `python` or `python3`. Put every path in double quotes.
-- Start every `mise exec` and `uv run` command with `POLYTYPST_BUILD="ROOT/build"`, as the commands below show. Each build then writes its `.md`, `.typ` and `.tex` to `ROOT/build/KEY/`, and every check reads them there. PDFs stay in `output/KEY/`. `polytypst` and `scripts/one_book.py` also take the same folder as `--build-dir`.
+- Keep ROOT as code: the only files you add there are in `books/KEY/`. Transcripts go to STORE, and logs, sources, PDFs and every other file you make go to OUT.
 - Take API keys from the environment or Varlock only. Never type, print or paste a key.
 - Pass BACKEND to `--backend` exactly as written.
 - Use VERIFY_MODEL only. When it fails, for example with "No API key", stop and report the error. Never switch to another model or provider.
 - Keep checks as they are. Leave `src/checker.py`, every existing test, `tests/fixtures/book_snapshots.json` and `quality/baseline.json` unchanged, and never run `audit --update` or `--allow-rise`. When a check fails, fix the cause in the book's files, or report it.
 - Report a check as passed only when you ran it in this session. Quote the last lines of its output.
-- Long jobs: start each OCR run, build and check once, in the background, with its output in a log in ROOT. Report its expected end time and its log path, and for a Colab BACKEND the compute units per hour. Then wait for it to exit, or read the log every 15 to 30 minutes.
+- Long jobs: start each OCR run, build and check once, in the background, with its output in a log in `OUT/logs/`. Report its expected end time and its log path, and for a Colab BACKEND the compute units per hour. Then wait for it to exit, or read the log every 15 to 30 minutes.
 - Leave version control alone after Step 0: no commit, no push, no pull request.
 
 ## STEP 0. Set up
 
-1. From `/Users/martinfan/devv/polytypst`, run: `jj workspace add --name fresh-KEY -r main "ROOT"`
-2. Copy `mise.local.toml` from `/Users/martinfan/devv/polytypst` to ROOT as it is, and create `STORE/KEY/`. Every tool finds the book's state in whichever `polytypst-store-*` folder holds KEY, so `mise.local.toml` stays exactly as copied, here and in every other workspace.
+1. When ROOT is a workspace, run from `/Users/martinfan/devv/polytypst`: `jj workspace add --name NAME -r main "ROOT"`, then copy `mise.local.toml` from `/Users/martinfan/devv/polytypst` to ROOT as it is. When ROOT is `/Users/martinfan/devv/polytypst`, skip this item.
+2. Create `STORE/KEY/` and `OUT/logs/`. Every tool finds the book's state in whichever `polytypst-store-*` folder holds KEY, so `mise.local.toml` stays as it is in every checkout.
 3. Read `AGENTS.md`, `GLOSSARY.md`, and the sections "Before you start" and "Transcribe the scan" of `docs/scanned-books.md`.
 4. Run: `mise exec -- printenv POLYTYPST_BOOKS ; mise exec -- typst --version ; uv run polytypst --help ; uv run polytypst books`
 
-Gate 0: `eza -d /Users/martinfan/devv/polytypst-store-*/KEY` lists `STORE/KEY` and no other folder. You know whether KEY is a known book in `books/KEY/` or a new one. A known book writes to `output/KEY/`. A new book needs `--lang` and `--domain`.
+Gate 0: `eza -d /Users/martinfan/devv/polytypst-store-*/KEY` lists `STORE/KEY` and no other folder. You know whether KEY is a known book in `books/KEY/` or a new one. A known book writes to OUT. A new book needs `--lang` and `--domain`.
 
 ## STEP 1. Check Colab before you spend compute
 
@@ -51,18 +52,18 @@ Gate 1: you wrote down the balance, the GPU and the model.
 
 Skip this step when TRIAL is `no`.
 
-1. Run in the background, with its output in `ROOT/ocr_trial.log`:
-   `POLYTYPST_BUILD="ROOT/build" mise exec -- uv run polytypst "SCAN" --backend "BACKEND" --pages 1-10 --formats typst,latex,pdf`
+1. Run in the background, with its output in `OUT/logs/ocr_trial.log`:
+   `mise exec -- uv run polytypst "SCAN" --backend "BACKEND" --pages 1-10 --formats typst,latex,pdf`
    Add `--lang` and `--domain` only for a new book.
 2. Wait for the command to exit. Read the log once at the end.
-3. Open 3 pages from `STORE/KEY/markdown_pages/` next to the same pages in `output/KEY/page_renders/`. Compare words, numbers, tables, math and line order.
+3. Open 3 pages from `STORE/KEY/markdown_pages/` next to the same pages in `OUT/page_renders/`. Compare words, numbers, tables, math and line order.
 
 Gate 2: the command exited 0, pages 1 to 10 each have a Markdown page, and your 3 samples match their renders. If not, stop and report the bad pages.
 
 ## STEP 3. The whole book
 
-1. Run once in the background, with its output in `ROOT/ocr_full.log`:
-   `POLYTYPST_BUILD="ROOT/build" mise exec -- uv run polytypst "SCAN" --backend "BACKEND" --formats typst,latex,pdf`
+1. Run once in the background, with its output in `OUT/logs/ocr_full.log`:
+   `mise exec -- uv run polytypst "SCAN" --backend "BACKEND" --formats typst,latex,pdf`
    Add `--lang` and `--domain` only for a new book. After a trial, the trial pages stay as they are.
 2. When it exits 1 with "N pages still pending", run the same command again. It transcribes only those pages. Repeat until it exits 0, at most 3 times.
 3. For a Colab BACKEND, run `uv run polytypst-colab usage`. When it shows an active VM whose name your log printed, stop that VM with the colab CLI. Never stop a VM that another run started.
@@ -75,9 +76,9 @@ Gate 3:
 
 ## STEP 4. Build and compile
 
-1. Run: `POLYTYPST_BUILD="ROOT/build" mise exec -- uv run python scripts/one_book.py KEY build --formats pdf,tex`
-2. Run: `mise exec -- typst compile --root / "ROOT/build/KEY/FILE.typ" "output/KEY/FILE.pdf"`. It must exit 0.
-3. Run: `tectonic -X compile --keep-logs -o "output/KEY/latex" "ROOT/build/KEY/FILE.tex"`. It writes its PDF and its log to `output/KEY/latex/`, apart from Typst's PDF. It must exit 0. Search the log for "Undefined control sequence", "Missing $", and overfull boxes wider than 10pt. Never run `xelatex`. When `tectonic` is not on PATH, report Gate 4's LaTeX part as blocked.
+1. Run: `mise exec -- uv run python scripts/one_book.py KEY build --formats pdf,tex`
+2. Run: `mise exec -- typst compile --root / "OUT/build/FILE.typ" "OUT/FILE.pdf"`. It must exit 0.
+3. Run: `tectonic -X compile --keep-logs -o "OUT/latex" "OUT/build/FILE.tex"`. It writes its PDF and its log to `OUT/latex/`, apart from Typst's PDF. It must exit 0. Search the log for "Undefined control sequence", "Missing $", and overfull boxes wider than 10pt. Never run `xelatex`. When `tectonic` is not on PATH, report Gate 4's LaTeX part as blocked.
 
 Gate 4: both compile with exit 0, and you listed each LaTeX warning that you could not fix.
 
@@ -94,8 +95,8 @@ Gate 5: `uv run polytypst page-check status KEY` shows every page checked and 0 
 ## STEP 6. Check the PDF
 
 1. Follow Step 7 of `docs/page-check-review.md`. Run `polytypst page-check render --run` in the background: it takes about 50 minutes for 121 pairs.
-2. Search the `.typ` and `.tex` sources in `ROOT/build/KEY/` for these faults: inline math with spaces inside, like `$ x $`; an orphaned `{A}{B}` left from `\frac`; a single letter as a display equation; brackets that do not balance within a section; bullets in the bibliography.
-3. Run: `POLYTYPST_BUILD="ROOT/build" uv run polytypst page-check gate KEY`
+2. Search the `.typ` and `.tex` sources in `OUT/build/` for these faults: inline math with spaces inside, like `$ x $`; an orphaned `{A}{B}` left from `\frac`; a single letter as a display equation; brackets that do not balance within a section; bullets in the bibliography.
+3. Run: `uv run polytypst page-check gate KEY`
 
 Gate 6: the last line of `gate` is `PASS`, and the source search finds 0 faults, or you list each remaining one.
 
