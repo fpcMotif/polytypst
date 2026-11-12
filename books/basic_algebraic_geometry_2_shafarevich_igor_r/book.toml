@@ -1,0 +1,456 @@
+slug = 'basic_algebraic_geometry_2_shafarevich_igor_r'
+name = 'shafarevich2013-schemes'
+aliases = ['shafarevich2']
+title = 'Basic Algebraic Geometry 2: Schemes and Complex Manifolds'
+author = 'Igor R. Shafarevich'
+translator = 'Miles Reid'
+publisher = 'Springer-Verlag'
+year = 2013
+domain = 'math'
+lang = 'en'
+source_pdf = 'Basic Algebraic Geometry 2 (Shafarevich, Igor R).pdf'
+pdf_name_markers = ['Basic Algebraic Geometry 2', 'Shafarevich']
+pdf_page_count = 271
+cross_references = true
+footnote_style = 'superscript'
+footnote_reset = 'book'
+typst_front_matter = '''
+@ENGINE_TITLE_PAGE@
+#show figure.where(kind: image): set figure(supplement: [Figure], numbering: source-figure-number)
+#show figure.where(kind: table): set figure(supplement: [Table])
+'''
+unnumbered_titles = [
+  'Preface to Books 2–3',
+  'Historical Sketch',
+  'References',
+  'Index',
+]
+chapters = [
+  { number = 0, title = 'Preface to Books 2–3', start_page = 5, end_page = 6 },
+  { number = 5, label = '5', title = 'Schemes', start_page = 16, end_page = 60 },
+  { number = 6, label = '6', title = 'Varieties', start_page = 61, end_page = 123 },
+  { number = 7, label = '7', title = 'The Topology of Algebraic Varieties', start_page = 125, end_page = 158 },
+  { number = 8, label = '8', title = 'Complex Manifolds', start_page = 159, end_page = 209 },
+  { number = 9, label = '9', title = 'Uniformisation', start_page = 210, end_page = 237 },
+  { number = 0, title = 'Historical Sketch', start_page = 238, end_page = 255 },
+  { number = 0, title = 'References', start_page = 256, end_page = 261 },
+  { number = 0, title = 'Index', start_page = 262, end_page = 271 },
+]
+header_zone_lines = 2
+running_header_regexes = [
+  '''^(?:[IVXLCDM]+\s+|\d{1,3}\s+)?(?:Preface to Books 2[–-]3|Contents|Historical Sketch|References|References for the Historical Sketch|Index)(?:\s+(?:[IVXLCDM]+|\d{1,3}))?$''',
+  '''^(?:\d{1,3}\s+)?\d\s+(?:Schemes|The Spec of a Ring|Sheaves|Products of Schemes|Varieties|De[fﬁ]nitions and Examples|Abstract and Quasiprojective Varieties|Coherent Sheaves|Classi[fﬁ]cation of Geometric Objects and Universal Schemes|The Topology of Algebraic Varieties|The Complex Topology|Connectedness|The Topology of Algebraic Curves|Real Algebraic Curves|Complex Manifolds|Divisors and Meromorphic Functions|Algebraic Varieties and Complex Manifolds|K[äa]hler Manifolds|Uniformisation|The Universal Cover|Curves of Parabolic Type|Curves of Hyperbolic Type|Uniformising Higher Dimensional Varieties|Elliptic Integrals|Elliptic Functions|Abelian Integrals|Riemann Surfaces|The Inversion of Abelian Integrals|The Geometry of Algebraic Curves|Higher Dimensional Geometry|The Analytic Theory of Complex Manifolds|Algebraic Varieties over Arbitrary Fields and Schemes)(?:\s+\d{1,3})?$''',
+  '''^(?-i:[IVXLCDM]+|\d{1,3})$''',
+]
+drop_line_regexes = [
+  '''^I\.R\.\s*Shafarevich,.*DOI\s+10\.1007/.*$''',
+  '''^©\s*Springer-Verlag Berlin Heidelberg 2013$''',
+]
+pre_math_rewrites = [
+  ['''(?<!\n) (\[\d{1,3}\] [A-Z])''', "\n\n\\1"],
+  ['''\*\*(\d+(?:\s+\d+)?)\*\*''', "**\u200b\\1**"],
+]
+latex_preamble = '''
+\pagestyle{plain}
+\ifPDFTeX
+  \DeclareUnicodeCharacter{25A1}{\ensuremath{\square}}
+\fi
+\makeatletter
+\AtBeginDocument{%
+  \pdfstringdefDisableCommands{%
+    \def\S{Section }%
+    \def\,{ }%
+    \def\alpha{alpha}%
+    \def\beta{beta}%
+    \def\gamma{gamma}%
+    \def\pi{pi}%
+    \def\sigma{sigma}%
+    \def\phi{phi}%
+    \def\mathbb#1{#1}%
+    \def\mathcal#1{#1}%
+    \def\mathfrak#1{#1}%
+    \def\widetilde#1{#1}%
+    \def\overline#1{#1}%
+  }%
+}
+\makeatother
+'''
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Fig(?:ure)?\.?\s*(?P<number>\d+[a-z]?)\.?(?:\*\*)?(?:\s+(?P<tail>.*))?\s*$'
+caption_format = 'Figure {number}'
+pair_figures = false
+png_single_divisor = 2750
+png_single_range = [35, 100]
+png_max_height_ratio = 1.3
+
+[hooks]
+heading_hook = 'heading_hook'
+figures = 'draw_figures'
+
+[editions.monograph]
+summary = 'monograph'
+
+[transcript_fixups]
+25 = [
+  # The transcript has \subseteqneq; the scan prints \subsetneqq.
+  ['''\\subseteqneq''', '''\subsetneqq'''],
+]
+42 = [
+  # The transcript omits the top commutative triangle; the scan prints Y \xrightarrow{\varphi} X over \operatorname{Spec} A.
+  [
+    '''\Ais commutative;''',
+    '''$$
+\begin{array}{ccccc}
+Y & & \xrightarrow{\varphi} & & X \\
+& \searrow & & \swarrow & \\
+& & \operatorname{Spec} A & &
+\end{array}
+$$
+
+is commutative;''',
+  ],
+]
+45 = [
+  # The transcript has \downarrow u in a 3-column array; the scan prints u \searrow in the triangular diagram.
+  [
+    '''\\begin\{array\}\{ccc\}\s*Y\s*&\s*\\xrightarrow\{\\varphi\}\s*&\s*X\s*\\\\\s*\\downarrow\s*u\s*&\s*&\s*\\nearrow\s*v\s*\\\\\s*&\s*\\operatorname\{Spec\}\(A/\\mathfrak\{a\}\)\s*&\s*\\end\{array\}''',
+    '''\begin{array}{ccccc}
+Y & & \xrightarrow{\varphi} & & X \\
+& u \searrow & & \nearrow v & \\
+& & \operatorname{Spec}(A/\mathfrak{a}) & &
+\end{array}''',
+  ],
+]
+55 = [
+  # The transcript omits (5.21); the scan prints (5.21).
+  ['''= \\text\{id\}_X,\$\$''', '''= \text{id}_X, \quad (5.21)$$'''],
+  # The transcript omits (5.22); the scan prints (5.22).
+  ['''= \\varepsilon \\circ \\varphi\.\$\$''', '''= \varepsilon \circ \varphi. \quad (5.22)$$'''],
+  # The transcript omits (5.23); the scan prints (5.23).
+  ['''= \\mu \\circ \(\\text\{id\}_X, \\mu\)\.\$\$''', '''= \mu \circ (\text{id}_X, \mu). \quad (5.23)$$'''],
+]
+57 = [
+  # The transcript omits (5.24); the scan prints (5.24).
+  ['''\\lambda \\circ u = \\text\{id\}, \\qquad \\lambda \\circ v = \\text\{id\},''', '''\lambda \circ u = \text{id}, \qquad \lambda \circ v = \text{id}, \quad (5.24)'''],
+]
+64 = [
+  # The transcript has ^\vee; the scan prints ^\nu.
+  ['''X_K\^\\vee''', '''X_K^\nu'''],
+  # The transcript has A_i^\vee; the scan prints A_i^\nu.
+  ['''A_i\^\\vee''', '''A_i^\nu'''],
+  # The transcript has U_{i,K}^\vee; the scan prints U_{i,K}^\nu.
+  ['''U_\{i,K\}\^\\vee''', '''U_{i,K}^\nu'''],
+]
+65 = [
+  # The transcript omits the top commutative triangle; the scan prints W \xrightarrow{\delta^\nu} V over U.
+  [
+    '''\Ain which \$\\delta\^v\$''',
+    '''$$
+\begin{array}{ccccc}
+W & & \xrightarrow{\delta^\nu} & & V \\
+& \delta \circ \nu \searrow & & \swarrow \nu \times \nu & \\
+& & U & &
+\end{array}
+$$
+
+in which $\delta^\nu$''',
+  ],
+  # The transcript has \delta^v, \delta \circ v, X_K^v; the scan prints \delta^\nu, \delta \circ \nu, X_K^\nu.
+  ['''\\delta\^v''', '''\delta^\nu'''],
+  ['''\\delta \\circ v''', '''\delta \circ \nu'''],
+  ['''X_K\^v''', '''X_K^\nu'''],
+]
+70 = [
+  # The transcript has \mathcal{F}_|_U; the scan prints \mathcal{F}_{|U}.
+  ['''\\mathcal\{F\}_\|_U''', '''\mathcal{F}_{|U}'''],
+  # The transcript has \mathcal{O}_{U_\alpha}^{n_\alpha} \cap U_\beta; the scan prints \mathcal{O}_{U_\alpha \cap U_\beta}^{n_\alpha}.
+  [
+    '''\\mathcal\{O\}_\{U_\\alpha\}\^\{n_\\alpha\} \\cap U_\\beta \\to \\mathcal\{O\}_\{U_\\alpha\}\^\{n_\\beta\} \\cap U_\\beta''',
+    '''\mathcal{O}_{U_\alpha \cap U_\beta}^{n_\alpha} \to \mathcal{O}_{U_\alpha \cap U_\beta}^{n_\beta}''',
+  ],
+]
+71 = [
+  # The transcript omits subscript \mathcal{O}; the scan prints \bigwedge_{\mathcal{O}}^p \mathcal{L}_E.
+  ['''\$\\mathcal\{L\}_E\^\*\$, \$\\bigwedge\^p \\mathcal\{L\}_E\$''', '''$\mathcal{L}_E^*$, $\bigwedge_{\mathcal{O}}^p \mathcal{L}_E$'''],
+  # The transcript omits (6.5); the scan prints (6.5).
+  ['''\\bigwedge\^p C_\{\\alpha\\beta\}\n\$\$''', "\\bigwedge^p C_{\\alpha\\beta} \\quad (6.5)\n$$"],
+  # The transcript omits (6.6); the scan prints (6.6).
+  ['''\\cong \\mathfrak\{m\}_x/\\mathfrak\{m\}_x\^2\.\n\$\$''', "\\cong \\mathfrak{m}_x/\\mathfrak{m}_x^2. \\quad (6.6)\n$$"],
+]
+78 = [
+  # The transcript has (Adjuncton formula); the scan prints (Adjunction formula).
+  ['''\(Adjuncton formula\)''', '''(Adjunction formula)'''],
+  # The transcript has \mathcal{O}_X', \mathcal{O}_X, \mathcal{O}_Y; the scan prints \Theta'_X, \Theta_X, \Theta_Y.
+  ["\\\\mathcal\\{O\\}_X'", "\\Theta'_X"],
+  ['''\\det \\mathcal\{O\}_X''', '''\det \Theta_X'''],
+  ['''\\det \\mathcal\{O\}_Y''', '''\det \Theta_Y'''],
+  ['''Since \$\\mathcal\{O\}_X\$''', '''Since $\Theta_X$'''],
+  ['''and \$\\mathcal\{O\}_Y\$''', '''and $\Theta_Y$'''],
+  # The transcript has c(\Omega^n_Y); the scan prints c(\Omega^m_Y).
+  ['''c\(\\Omega\^n_Y\)''', '''c(\Omega^m_Y)'''],
+]
+100 = [
+  # The transcript has \mathcal{O}_Y and \mathcal{O}_X; the scan prints \Theta_Y and \Theta_X.
+  [
+    '''0 \\to \\mathcal\{O\}_Y \\to j\^\* \\mathcal\{O\}_X \\to N_\{X/Y\} \\to 0''',
+    '''0 \to \Theta_Y \to j^* \Theta_X \to N_{X/Y} \to 0''',
+  ],
+  # The transcript has 3.3 Dévisage; the scan prints 3.3 Dévissage.
+  ['''3\.3 Dévisage''', '''3.3 Dévissage'''],
+  # The transcript has \mathcal{F}_|_W; the scan prints \mathcal{F}_{|W}.
+  ['''\\mathcal\{F\}_\|_W''', '''\mathcal{F}_{|W}'''],
+]
+128 = [
+  # The transcript omits (7.1); the scan prints (7.1).
+  ['''\\det \\widetilde\{\\varphi\} = \|\\det \\varphi\|\^2\.''', '''\det \widetilde{\varphi} = |\det \varphi|^2. \quad (7.1)'''],
+  # The transcript omits (7.2); the scan prints (7.2).
+  ['''\\text\{ and \} \\alpha \\in \\mathbb\{C\}\.''', '''\text{ and } \alpha \in \mathbb{C}. \quad (7.2)'''],
+  # The transcript omits (7.3); the scan prints (7.3).
+  ['''\\psi: f\^\{-1\}\(U\) \\cong U \\times F''', '''\psi: f^{-1}(U) \cong U \times F \quad (7.3)'''],
+]
+140 = [
+  # False negative (the page check missed it): Scan typo: the scan prints V \xrightarrow{v} v; meant V \xrightarrow{v} \mathbb{C}.
+  ['''V & \\xrightarrow\{v\} & v''', '''V & \xrightarrow{v} & \mathbb{C}'''],
+]
+145 = [
+  # The transcript omits (7.14); the scan prints (7.14).
+  ['''f\^\{-1\}\(E\) = \\bigcup E_i,''', '''f^{-1}(E) = \bigcup E_i, \quad (7.14)'''],
+  # The transcript omits (7.15); the scan prints (7.15).
+  ['''f\^\*\(\\overline\{y\}\) = \\sum_\{i=1\}\^r k_i \\overline\{x\}_i\.''', '''f^*(\overline{y}) = \sum_{i=1}^r k_i \overline{x}_i. \quad (7.15)'''],
+  # The transcript omits (7.16); the scan prints (7.16).
+  ['''= 2n - \\sum \(k_i - 1\)\.''', '''= 2n - \sum (k_i - 1). \quad (7.16)'''],
+]
+155 = [
+  # The transcript puts display equation (7.24) inline; the scan prints a display equation.
+  [
+    '''either \$\\quad S \+ \\tau\(S\) = S \+ \\overline\{S\}, \\quad \\text\{so that \} \\overline\{S\} = \\tau\(S\), \\quad \(7\.24\)\$''',
+    '''$$\text{either} \quad S + \tau(S) = S + \overline{S}, \quad \text{so that } \overline{S} = \tau(S), \quad (7.24)$$''',
+  ],
+  # The transcript puts display equation (7.25) inline; the scan prints a display equation.
+  [
+    '''or \$\\quad S \+ \\tau\(S\) = 0, \\quad \\text\{so that \} S = \\tau\(S\), \\quad \(7\.25\)\$''',
+    '''$$\text{or} \quad S + \tau(S) = 0, \quad \text{so that } S = \tau(S), \quad (7.25)$$''',
+  ],
+]
+162 = [
+  # The transcript has (\mathrm{d}''Quote)^2; the scan prints (\mathrm{d}'')^2.
+  ['''\(\\mathrm\{d\}''Quote\)\^2''', '''(\mathrm{d}'')^2'''],
+]
+172 = [
+  # The transcript has (\bar{\lambda}_1 \mathrm{d}z_1 + \lambda_2 \mathrm{d}z_2); the scan prints \overline{(\lambda_1 \mathrm{d}z_1 + \lambda_2 \mathrm{d}z_2)}.
+  [
+    '''\(\\bar\{\\lambda\}_1 \\mathrm\{d\}z_1 \+ \\lambda_2 \\mathrm\{d\}z_2\)''',
+    '''\overline{(\lambda_1 \mathrm{d}z_1 + \lambda_2 \mathrm{d}z_2)}''',
+  ],
+]
+180 = [
+  # The transcript wraps the opening inline prose line in $$...$$; the scan prints inline math and prose.
+  [
+    '''\$\$\\sum \|z_i\|\^2 < 1, \\text\{ and that the isomorphism \} f: U \\to V \\text\{ satisfies \} f\(x_0\) = 0 = \(0, \\ldots, 0\)\.\$\$''',
+    '''$\sum |z_i|^2 < 1$, and that the isomorphism $f: U \to V$ satisfies $f(x_0) = 0 = (0, \ldots, 0)$.''',
+  ],
+]
+190 = [
+  # The transcript omits (8.26); the scan prints (8.26).
+  ['''y\^2 = x\^3 \+ ax \+ b,''', '''y^2 = x^3 + ax + b, \quad (8.26)'''],
+  # The transcript omits (8.27); the scan prints (8.27).
+  ['''\\text\{with \} f, g \\in \\mathcal\{O\}_Q\.''', '''\text{with } f, g \in \mathcal{O}_Q. \quad (8.27)'''],
+  # The transcript omits (8.28); the scan prints (8.28).
+  ['''\\text\{with \} n \\in \\mathbb\{Z\},''', '''\text{with } n \in \mathbb{Z}, \quad (8.28)'''],
+]
+208 = [
+  # The transcript has \mathrm{d}z#\alpha_p; the scan prints \mathrm{d}z_{\alpha_p}.
+  ['''\\mathrm\{d\}z#\\alpha_p''', '''\mathrm{d}z_{\alpha_p}'''],
+]
+256 = [
+  # The transcript has Böcher; the scan prints Bôcher.
+  ['''Böcher''', '''Bôcher'''],
+  # Format numbered reference entries as citation targets [N].
+  ['''(?m)^(\d{1,3})\.\s+''', "\n[\\1] "],
+]
+257 = [
+  # Format numbered reference entries as citation targets [N].
+  ['''(?m)^(\d{1,3})\.\s+''', "\n[\\1] "],
+]
+258 = [
+  # Format numbered reference entries as citation targets [N].
+  ['''(?m)^(\d{1,3})\.\s+''', "\n[\\1] "],
+]
+259 = [
+  # The transcript has kähleriennes; the scan prints kählériennes.
+  ['''kähleriennes''', '''kählériennes'''],
+  # The transcript has Lausanne; the scan prints Lausannae.
+  ['''Lausanne''', '''Lausannae'''],
+  # Format numbered reference entries as citation targets [N].
+  ['''(?m)^(\d{1,3})\.\s+''', "\n[\\1] "],
+]
+260 = [
+  # Format numbered reference entries as citation targets [N].
+  ['''(?m)^(\d{1,3})\.\s+''', "\n[\\1] "],
+]
+261 = [
+  # Format numbered reference entries as citation targets [N].
+  ['''(?m)^(\d{1,3})\.\s+''', "\n[\\1] "],
+]
+262 = [
+  # Move footnote 6 mark to the first subheading so note 6 binds.
+  ['''(?m)^# Index(\$\^\{?6\}?\$)\n+## Symbols$''', "# Index\n\n## Symbols\\1"],
+]
+263 = [
+  # Separate single-newline index entries into distinct lines.
+  ['''\n(?!\n)''', "\n\n"],
+]
+264 = [
+  # The transcript has \mathbb{C}[z]; the scan prints \mathbb{C}\{z\}.
+  ['''series ring \$\\mathbb\{C\}\[z\]\$, 166''', '''series ring $\mathbb{C}\{z\}$, 166'''],
+  # Format bare index letter heading D and separate index entries.
+  ['''(?m)^D$''', '''## D'''],
+  ['''\n(?!\n)''', "\n\n"],
+]
+265 = [
+  # The transcript has \bigwedge_G^p \mathcal{F}; the scan prints \bigwedge_{\mathcal{G}}^p \mathcal{F}.
+  ['''\\bigwedge_G\^p \\mathcal\{F\}''', '''\bigwedge_{\mathcal{G}}^p \mathcal{F}'''],
+  # The transcript has \widehat{\mathcal{O}}_X; the scan prints \widehat{\mathcal{O}}_x.
+  ['''completion \$\\widehat\{\\mathcal\{O\}\}_X\$, 112''', '''completion $\widehat{\mathcal{O}}_x$, 112'''],
+  # Format bare index letter headings E, F, G and separate index entries.
+  ['''(?m)^([EFG])$''', "## \\1"],
+  ['''\n(?!\n)''', "\n\n"],
+]
+266 = [
+  # Separate single-newline index entries into distinct lines.
+  ['''\n(?!\n)''', "\n\n"],
+]
+267 = [
+  # Separate single-newline index entries into distinct lines.
+  ['''\n(?!\n)''', "\n\n"],
+]
+268 = [
+  # Format bare index letter headings N, O, P and separate index entries.
+  ['''(?m)^([NOP])$''', "## \\1"],
+  ['''\n(?!\n)''', "\n\n"],
+]
+269 = [
+  # The transcript has over $S \times_S Y$; the scan prints over $S$ $X \times_S Y$.
+  ['''of schemes over \$S \\times_S Y\$, 40''', '''of schemes over $S$ $X \times_S Y$, 40'''],
+  # The transcript has \lim E_\alpha; the scan prints \varprojlim E_\alpha.
+  ['''limit \$\\lim E_\\alpha\$, 18''', '''limit $\varprojlim E_\alpha$, 18'''],
+  # The transcript has \widehat{2II}; the scan prints 211.
+  ['''line, \$\\widehat\{2II\}\$''', '''line, 211'''],
+  ['''\n(?!\n)''', "\n\n"],
+]
+270 = [
+  # The transcript has \mathcal{F}_X; the scan prints \mathcal{F}_x.
+  ['''Stalk of \(pre-\)sheaf \$\\mathcal\{F\}_X\$''', '''Stalk of (pre-)sheaf $\mathcal{F}_x$'''],
+  # Format bare index letter heading S and separate index entries.
+  ['''(?m)^S$''', '''## S'''],
+  ['''\n(?!\n)''', "\n\n"],
+]
+271 = [
+  # The transcript has \mathcal{F} \otimes_G \mathcal{F}'; the scan prints \mathcal{F} \otimes_{\mathcal{G}} \mathcal{F}'.
+  ["\\\\mathcal\\{F\\} \\\\otimes_G \\\\mathcal\\{F\\}'", "\\mathcal{F} \\otimes_{\\mathcal{G}} \\mathcal{F}'"],
+  ['''\n(?!\n)''', "\n\n"],
+]
+
+[page_fixups]
+22 = [
+  # The transcript has \mathcal{O}_x = \mathrm{Hom}; the scan prints \Theta_x = \mathrm{Hom}.
+  ['''\\mathcal\{O\}_x = \\mathrm\{Hom\}''', '''\Theta_x = \mathrm{Hom}'''],
+]
+37 = [
+  # The transcript has sheafification; the scan prints sheafication.
+  ['''sheafification''', '''sheafication'''],
+]
+41 = [
+  # The transcript has tangent space $\mathcal{O}_x$; the scan prints tangent space $\Theta_x$.
+  ['''tangent space \$\\mathcal\{O\}_x\$''', '''tangent space $\Theta_x$'''],
+]
+50 = [
+  # The transcript has \rho_X^X and \mathcal{O}_X; the scan prints \rho_x^X and \mathcal{O}_x.
+  [
+    '''\\rho_X\^X\(\\mathfrak\{a\}_\{n\+1\}\)\\mathcal\{O\}_X = \\rho_X\^X\(\\mathfrak\{a\}_n\)\\mathcal\{O\}_X''',
+    '''\rho_x^X(\mathfrak{a}_{n+1})\mathcal{O}_x = \rho_x^X(\mathfrak{a}_n)\mathcal{O}_x''',
+  ],
+]
+67 = [
+  # Scan typo: the scan prints f: X \hookrightarrow \mathbb{P}^1; meant f: X \hookrightarrow \mathbb{P}^n.
+  ['''f: X \\hookrightarrow \\mathbb\{P\}\^1''', '''f: X \hookrightarrow \mathbb{P}^n'''],
+]
+73 = [
+  # The transcript has \mathcal{O}_X', \mathcal{O}_X, \mathcal{O}_Y in Example 6.9; the scan prints \Theta'_X, \Theta_X, \Theta_Y.
+  ["\\\\mathcal\\{O\\}_X'", "\\Theta'_X"],
+  ['''tangent bundle \$\\mathcal\{O\}_X\$''', '''tangent bundle $\Theta_X$'''],
+  ['''j\^\*\\mathcal\{O\}_X''', '''j^*\Theta_X'''],
+  ['''\\mathcal\{O\}_Y''', '''\Theta_Y'''],
+]
+76 = [
+  # The transcript has transition matrices; the scan prints transition matrixes.
+  ['''transition matrices''', '''transition matrixes'''],
+]
+99 = [
+  # The transcript has sheafification; the scan prints sheafication.
+  ['''sheafification''', '''sheafication'''],
+]
+105 = [
+  # The transcript has t_x \in \mathcal{O}_x; the scan prints t_x \in \Theta_x.
+  ['''t_x \\in \\mathcal\{O\}_x''', '''t_x \in \Theta_x'''],
+]
+117 = [
+  # The transcript has S^{\vee}, \mathcal{O}_S, \bar{A}; the scan prints S^\nu, \mathcal{O}_s, A.
+  ['''S\^\{\\vee\}''', '''S^\nu'''],
+  ['''We set \$A = \\mathcal\{O\}_S\$''', '''We set $A = \mathcal{O}_s$'''],
+  ['''fractions of \$\\bar\{A\}\$''', '''fractions of $A$'''],
+]
+120 = [
+  # The transcript omits tildes on b, B, b; the scan prints \widetilde{b} \in \widetilde{B}, we have \varepsilon \widetilde{b} = 0.
+  [
+    '''for \$b \\in B\$, we have \$\\varepsilon b = 0''',
+    '''for $\widetilde{b} \in \widetilde{B}$, we have $\varepsilon \widetilde{b} = 0''',
+  ],
+]
+130 = [
+  # The transcript has \mathcal{O}_{*,x} for tangent spaces; the scan prints \Theta_{*,x}.
+  ['''\\mathcal\{O\}_\{(M|V|W|X|Y|Z),x\}''', '''\\Theta_{\1,x}'''],
+]
+132 = [
+  # The transcript has v^{-1}(Y), X^v, Since $v$; the scan prints \nu^{-1}(Y), X^\nu, Since $\nu$.
+  ['''Y' = v\^\{-1\}\(Y\)''', '''Y' = \nu^{-1}(Y)'''],
+  ['''X\^v''', '''X^\nu'''],
+  ['''Since \$v\$''', '''Since $\nu$'''],
+]
+133 = [
+  # The transcript has \partial_{U,x} \to \partial_{V,f(x)}; the scan prints \Theta_{U,x} \to \Theta_{V,f(x)}.
+  ['''\\partial_\{U,x\} \\to \\partial_\{V,f\(x\)\}''', '''\Theta_{U,x} \to \Theta_{V,f(x)}'''],
+]
+134 = [
+  # The transcript has \partial_{U,x} \to \partial_{V,f(x)}; the scan prints \Theta_{U,x} \to \Theta_{V,f(x)}.
+  ['''\\partial_\{U,x\} \\to \\partial_\{V,f\(x\)\}''', '''\Theta_{U,x} \to \Theta_{V,f(x)}'''],
+]
+147 = [
+  # The transcript has v instead of \nu; the scan prints \nu in all four places.
+  [
+    '''c_1\(\\Theta\) = v\\varphi\$ for some \$v \\in \\mathbb\{Z\}\$, and thus determines an integer \$v\$\. In our case \$c_1\$ is the Euler class, and hence \$v = e''',
+    '''c_1(\Theta) = \nu\varphi$ for some $\nu \in \mathbb{Z}$, and thus determines an integer $\nu$. In our case $c_1$ is the Euler class, and hence $\nu = e''',
+  ],
+]
+173 = [
+  # The transcript has [C^\vee], C^\vee, v_*([C^\vee]); the scan prints [C^\nu], C^\nu, \nu_*([C^\nu]).
+  ['''C\^\\vee''', '''C^\nu'''],
+  ['''v_\*\(\[C\^\\nu\]\)''', '''\nu_*([C^\nu])'''],
+]
+175 = [
+  # The transcript has \widehat{\mathcal{O}}; the scan prints \widetilde{\mathcal{O}}.
+  ['''\\widehat\{\\mathcal\{O\}\}''', '''\widetilde{\mathcal{O}}'''],
+]
+210 = [
+  # The transcript has sheafification; the scan prints sheafication.
+  ['''sheafification''', '''sheafication'''],
+]
+233 = [
+  # The transcript has Böcher; the scan prints Bôcher.
+  ['''Böcher''', '''Bôcher'''],
+]
+242 = [
+  # The transcript has 2\overline{\delta}\mathbb{Z}; the scan prints 2\widetilde{\omega}\mathbb{Z}.
+  ['''2\\overline\{\\delta\}\\mathbb\{Z\}''', '''2\widetilde{\omega}\mathbb{Z}'''],
+]
