@@ -9,6 +9,7 @@ from typing import cast
 
 import pymupdf
 
+from ..corrections import QUALITY, history
 from ..edition_audit import EditionNotBuilt, audit_edition, read_baseline, rises
 from ..vision.figure_extractor import load_figures_manifest
 from . import PageCheck, norm, ranges
@@ -179,6 +180,18 @@ def gate(check: PageCheck, pdf: Path | None = None, manifest: Path | None = None
         + (f", missing {ranges(missing)}" if missing else ""),
     )
     passes(not t.bad_lines, f"result files: {len(t.bad_lines)} unreadable lines" + "".join(f"\n  {b}" for b in t.bad_lines[:5]))
+    edited = check.store.edited()
+    recorded = {linked.correction.page for linked in history(check.key, QUALITY).corrections}
+    bare = [page for page in edited if page not in recorded]
+    passes(
+        not bare,
+        f"transcripts: {len(edited)} pages edited after the OCR"
+        + (
+            f", no correction for {ranges(bare)}; record each with record() in src/corrections.py"
+            if bare
+            else ", each with a correction" * bool(edited)
+        ),
+    )
     issues = len(check.results.page_issues())
     if not issues and len(t.pages) > 100:
         lines.append(f"WARN page check: 0 issues from {len(t.pages)} pages; open five pages beside their scans and compare them")

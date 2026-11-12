@@ -2,7 +2,7 @@
 
 You check one book for transcript errors and scan typos. Then you fix the real ones in the book, and record each verdict. Two sources make claims. `lint` matches error classes that earlier books confirmed, in seconds. The checking agents follow `docs/page-check.md`, one agent for each range of pages. Each claim reaches the book only after a verifier read its zoom: in the first Book 4 run, 40 of 177 agent issues were false.
 
-Run every command from `/Users/martinfan/devv/polytypst.mixed`. `KEY` is the book key, the folder name under `books/`, such as `4_不良债权与金融危机`. `BOOK` is the key, an alias, or a start of the key that names one book, such as `4`. `CHECK` is `output/page_check/KEY/`.
+Run every command from `/Users/martinfan/devv/polytypst`. `KEY` is the book key, the folder name under `books/`, such as `4_不良债权与金融危机`. `BOOK` is the key, an alias, or a start of the key that names one book, such as `4`. `CHECK` is `output/page_check/KEY/`.
 
 Long jobs: `page-check run`, `page-check verify` and `page-check render --run` take tens of minutes. `render --run` takes about 50 minutes for 121 pairs. Start each one once, in the background, and report its expected end time and its log path. Then wait for it to exit, or read its log every 15 to 30 minutes. A tool timeout stops a foreground job before it ends.
 
@@ -161,6 +161,6 @@ Done when every caption has a line in `output/render_check/KEY/`, and the review
 uv run polytypst page-check gate BOOK
 ```
 
-`gate` checks the page-check receipts, the lint run and the verdicts. It also checks that each figure caption in the scan is in `figures_manifest.json` and in the rebuilt PDF, and that `polytypst audit` exits 0. It prints one `PASS`, `WARN` or `FAIL` line for each check. The last line is `PASS` only when no check failed. Otherwise the command exits 1. A `WARN` line for 0 issues from more than 100 pages means that you open five pages beside their scans and compare them.
+`gate` checks the page-check receipts, the lint run and the verdicts. It checks that each transcript page edited after the OCR has a correction: record one with `record()` in `src/corrections.py` for each page that the `transcripts` line names. It also checks that each figure caption in the scan is in `figures_manifest.json` and in the rebuilt PDF, and that `polytypst audit` exits 0. It prints one `PASS`, `WARN` or `FAIL` line for each check. The last line is `PASS` only when no check failed. Otherwise the command exits 1. A `WARN` line for 0 issues from more than 100 pages means that you open five pages beside their scans and compare them.
 
 Done when the last line is `PASS`. Quote the whole output in your report.

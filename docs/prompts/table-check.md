@@ -12,7 +12,7 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent reb
 ## RULES
 
 - Work in ROOT. Run Python as `uv run`, never bare `python` or `python3`. Put every path in double quotes.
-- Build Typst PDFs only: `mise exec -- uv run python scripts/one_book.py KEY build --formats pdf`. TeX Live is not installed. Never run `xelatex`, `tlmgr`, `latexmk` or `--formats latex`.
+- Build Typst PDFs only: `mise exec -- uv run python scripts/one_book.py KEY build --formats pdf`. Never run `xelatex`, `tlmgr`, `latexmk` or `--formats latex`.
 - Fix a rule, never a page. A change goes in `src/compiler/tables.py` (or the shared code that produces the defect) and holds for every book. Never edit a generated `.typ` file in `output/`, and never add a per-table exception.
 - A transcript defect is not a layout defect. When the cells of a row do not match the header (a row with more cells than the header, two numbers in one cell, a note row inside the table), report the book, the page and the table. Do not fix it in the compiler.
 - Keep checks as they are. Leave every existing test unchanged unless your rule change is meant to change that output; then update the expectation and say why. Never weaken an assertion to pass.

@@ -3,6 +3,7 @@ import json
 import re
 import unicodedata
 from collections import Counter
+from collections.abc import Iterator
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from functools import cached_property
@@ -10,6 +11,7 @@ from pathlib import Path
 
 import pymupdf
 
+from ..book_state import BookStateError
 from ..books import book_key, books
 from ..compiler.page_cleaner import PageCleaner
 from ..edition import Book
@@ -132,6 +134,13 @@ def ranges(pages: list[int]) -> str:
     return ",".join(f"{a}" if a == b else f"{a}-{b}" for a, b in spans)
 
 
+def _line_page(line: str) -> int | None:
+    try:
+        return int(json.loads(line)["page"])
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
 @dataclass(frozen=True)
 class PageCheck:
     key: str
@@ -248,6 +257,44 @@ class PageCheck:
         if not png.is_file():
             return None
         return hashlib.sha256(png.read_bytes() + self.store.path(page).read_bytes()).hexdigest()[:12]
+
+    def text_lines(self, page: int) -> list[str]:
+        proof = self.receipt(page)
+        return [
+            *(f"{n:4d}  {line}" for n, line in enumerate(self.transcript(page).splitlines(), 1)),
+            f"receipt: {proof}" if proof else f"receipt: none; render {self.page_png(page)} first",
+        ]
+
+    def cells_lines(self, page: int) -> list[str]:
+        tables = self.tables(page)
+        lines = [line for k, rows in enumerate(tables, 1) for line in (f"table {k}: {len(rows)} rows", *("\t".join(r) for r in rows))]
+        return [*lines, f"{len(tables)} tables" if tables else "no tables"]
+
+    def batch(self, first: int, last: int) -> Iterator[str]:
+        """Write the text, suspects and cells of each page to text/pN.txt, and give one line for each page."""
+        folder = self.results.folder / "text"
+        folder.mkdir(parents=True, exist_ok=True)
+        for page in range(first, last + 1):
+            if not self.has(page):
+                yield f"p{page}: no transcript; skip it"
+                continue
+            suspects = self.suspects(page)
+            parts = ["=== text", *self.text_lines(page), "=== suspects", *suspects, "=== cells", *self.cells_lines(page)]
+            path = folder / f"p{page}.txt"
+            path.write_text("\n".join(parts) + "\n", encoding="utf-8")
+            yield f"p{page}: receipt {self.receipt(page) or 'none'}, {len(suspects)} suspects, {len(self.tables(page))} tables -> {path}"
+
+    def record(self, out: Path, page: int, receipt: str, issues: list[dict]) -> None:
+        """Set the line of page PAGE in the result file OUT, when RECEIPT is the one `text` prints for the page now."""
+        if out.resolve().parent != self.results.folder.resolve() or not out.match("p*.jsonl"):
+            raise BookStateError(f"{out} is not a result file; name it {self.results.folder}/p*.jsonl")
+        if receipt != self.receipt(page):
+            raise BookStateError(f"receipt {receipt} is not page {page}'s; copy it from `page-check text {self.key} {page}`")
+        if unknown := sorted({i["kind"] for i in issues} - KINDS):
+            raise BookStateError(f"unknown kind {unknown}; use one of {sorted(KINDS)}")
+        kept = [line for line in (out.read_text(encoding="utf-8").splitlines() if out.exists() else []) if _line_page(line) != page]
+        record = {"book": self.key, "page": page, "receipt": receipt, "issues": issues}
+        out.write_text("".join(f"{line}\n" for line in (*kept, json.dumps(record, ensure_ascii=False))), encoding="utf-8")
 
     def legacy_files(self) -> dict[str, str]:
         """Result files checked before receipts existed, by name, with the sha256 they had then."""

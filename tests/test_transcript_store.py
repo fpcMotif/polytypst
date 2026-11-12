@@ -86,6 +86,30 @@ def test_transcribe_writes_every_page_and_records_who_made_it(
     }
 
 
+def test_the_store_names_the_pages_edited_since_the_ocr_wrote_them(
+    tmp_path: Path, page_render: PageRender
+) -> None:
+    pages = [page_render(n) for n in (1, 2, 3)]
+    store = TranscriptStore(tmp_path / "md")
+    _ = store.transcribe(pages, FakeTranscriber())
+    assert store.edited() == []
+    _ = store.path(2).write_text("Page 2 body, corrected by hand.\n", encoding="utf-8")
+    assert store.edited() == [2]
+    _ = store.transcribe(pages, FakeTranscriber("other:model"), retranscribe=True)
+    assert store.edited() == []
+    assert provenance(tmp_path / "md")["2"] == "other:model"
+
+
+def test_a_store_written_before_page_hashes_existed_names_no_edited_page(
+    tmp_path: Path,
+) -> None:
+    store = TranscriptStore(tmp_path / "md")
+    store.directory.mkdir()
+    _ = store.path(1).write_text("Page 1 body.\n", encoding="utf-8")
+    _ = (store.directory / "transcripts.json").write_text('{"pages": {"1": "fake:model"}}', encoding="utf-8")
+    assert store.edited() == []
+
+
 def test_transcribe_resumes_and_redoes_short_transcripts(
     tmp_path: Path, page_render: PageRender
 ) -> None:

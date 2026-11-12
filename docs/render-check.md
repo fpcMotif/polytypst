@@ -13,7 +13,7 @@ When `polytypst page-check render --run` starts you, the prompt gives these valu
 - `ITEMS`: the labels to check, such as `表1-1,图6-4`
 - `OUT`: your result file
 
-The pairs already exist, so go straight to "Check each item". Run every command from `/Users/martinfan/devv/polytypst.mixed`, and put each path in double quotes. When a pair shows a page without its item, say so in that item's line.
+The pairs already exist, so go straight to "Check each item". Run every command from `/Users/martinfan/devv/polytypst`, and put each path in double quotes. When a pair shows a page without its item, say so in that item's line.
 
 ## Make the pairs
 
