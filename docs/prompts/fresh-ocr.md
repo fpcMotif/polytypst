@@ -7,7 +7,7 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
 - SCAN: the absolute path of the scan PDF, in double quotes.
 - KEY: the folder name under `books/`, such as `analysis_elliott_h_lieb_michael_loss_2001`. For a new book, the key is the scan's file name, lowercased, with each run of other characters than `a-z` and `0-9` turned into one `_`. Print it with `uv run python -c 'import re, sys, pathlib; print(re.sub(r"[^a-z0-9]+", "_", pathlib.Path(sys.argv[1]).stem.lower()).strip("_"))' "SCAN"`. For example, `Lectures on the orbit method (Kirillov A.A.).pdf` gives `lectures_on_the_orbit_method_kirillov_a_a`. Use the real key, never a short name such as `book4`.
 - ROOT: the code checkout, `/Users/martinfan/devv/polytypst`. Only when another run works in it at the same time, a workspace with a short name, such as `/Users/martinfan/devv/polytypst.kirillov`.
-- STORE: the transcript store, `/Users/martinfan/devv/polytypst-store-NAME` with a short NAME, such as `polytypst-store-kirillov`. Every run gets its own store. Never share it with another run.
+- STORE: the folder that holds the book's transcripts. For a new book, `/Users/martinfan/devv/polytypst-books`, the store of every checked book. Only for a re-OCR of a book that `polytypst-books` already holds, a store of its own, `/Users/martinfan/devv/polytypst-store-NAME`, so the checked pages stay as they are. A re-OCR runs in a workspace.
 - OUT: the book's output folder, `/Users/martinfan/devv/polytypst-output/KEY`. It holds the PDFs, `build/` with the `.md`, `.typ` and `.tex`, `figures/`, `page_renders/` and `logs/`.
 - BACKEND: one literal backend string. Examples:
   - `colab:jina-ocr-v1?gpu=G4&workers=2&shards=3` for the self-hosted model on Colab GPUs.
@@ -18,7 +18,7 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
 ## RULES
 
 - Work in ROOT. When a runbook names `/Users/martinfan/devv/polytypst`, use ROOT. When it names a path under `output/`, use the same path under `/Users/martinfan/devv/polytypst-output/`.
-- Write transcripts only in STORE. `/Users/martinfan/devv/polytypst-books` holds checked work, so only read it.
+- Write transcripts only in `STORE/KEY/`. Every other book's folder holds checked work.
 - Stay on KEY. Fix pages in `STORE/KEY/` and files in `books/KEY/`, and read OUT. Learn a command from its `--help` and the docs named here. When a cause lies in `src/`, record the rule, page and scan evidence, and report it. Leave `src/` closed: the one source you read is `MonographSpec` in `src/compiler/monograph.py`, for `book.toml` fields, beside the model books that `docs/scanned-books.md` names. Read no other book, workspace, store, log or finding, and skip `recall` hits about other books. Filter shared files to KEY, for example `jq --arg k "KEY" '.[$k] // "no entry"' "quality/baseline.json"`.
 - Run Python as `uv run`, never bare `python` or `python3`. Put every path in double quotes.
 - Keep ROOT as code: the only files you add there are in `books/KEY/`. Transcripts go to STORE, and logs, sources, PDFs and every other file you make go to OUT.
@@ -32,12 +32,12 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
 
 ## STEP 0. Set up
 
-1. When ROOT is a workspace, run from `/Users/martinfan/devv/polytypst`: `jj workspace add --name NAME -r main "ROOT"`, then copy `mise.local.toml` from `/Users/martinfan/devv/polytypst` to ROOT as it is. When ROOT is `/Users/martinfan/devv/polytypst`, skip this item.
-2. Create `STORE/KEY/` and `OUT/logs/`. Every tool finds the book's state in whichever `polytypst-store-*` folder holds KEY, so `mise.local.toml` stays as it is in every checkout.
+1. When ROOT is a workspace, run from `/Users/martinfan/devv/polytypst`: `jj workspace add --name NAME -r main "ROOT"`, then copy `mise.local.toml` from `/Users/martinfan/devv/polytypst` to ROOT. For a re-OCR, set `POLYTYPST_BOOKS` in that copy to STORE: it is the one `mise.local.toml` you edit. When ROOT is `/Users/martinfan/devv/polytypst`, skip this item: its `mise.local.toml` stays as it is.
+2. Create `STORE/KEY/` and `OUT/logs/`.
 3. Read `AGENTS.md`, `GLOSSARY.md`, and the sections "Before you start" and "Transcribe the scan" of `docs/scanned-books.md`.
 4. Run: `mise exec -- printenv POLYTYPST_BOOKS ; mise exec -- typst --version ; uv run polytypst --help ; uv run polytypst books`
 
-Gate 0: `eza -d /Users/martinfan/devv/polytypst-store-*/KEY` lists `STORE/KEY` and no other folder. You know whether KEY is a known book in `books/KEY/` or a new one. A known book writes to OUT. A new book needs `--lang` and `--domain`.
+Gate 0: `mise exec -- printenv POLYTYPST_BOOKS` prints STORE. You know whether KEY is a known book in `books/KEY/` or a new one. A known book writes to OUT. A new book needs `--lang` and `--domain`.
 
 ## STEP 1. Check Colab before you spend compute
 
