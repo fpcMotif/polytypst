@@ -16,8 +16,9 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
 
 ## RULES
 
-- Work in ROOT. When a runbook names `/Users/martinfan/devv/polytypst.mixed`, use ROOT.
+- Work in ROOT. When a runbook names `/Users/martinfan/devv/polytypst`, use ROOT.
 - Write transcripts only in STORE. `/Users/martinfan/devv/polytypst-books` holds checked work, so only read it.
+- Stay on KEY. Fix pages in `STORE/KEY/` and files in `books/KEY/`, and read `output/KEY/`. Learn a command from its `--help` and the docs named here. When a cause lies in `src/`, record the rule, page and scan evidence, and report it. Leave `src/` closed: the one source you read is `MonographSpec` in `src/compiler/monograph.py`, for `book.toml` fields, beside the model books that `docs/scanned-books.md` names. Read no other book, workspace, store, log or finding, and skip `recall` hits about other books. Filter shared files to KEY, for example `jq --arg k "KEY" '.[$k] // "no entry"' "quality/baseline.json"`.
 - Run Python as `uv run`, never bare `python` or `python3`. Put every path in double quotes.
 - Take API keys from the environment or Varlock only. Never type, print or paste a key.
 - Pass BACKEND to `--backend` exactly as written.
@@ -30,11 +31,11 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
 ## STEP 0. Set up
 
 1. From `/Users/martinfan/devv/polytypst`, run: `jj workspace add --name fresh-KEY -r main "ROOT"`
-2. Copy `mise.local.toml` from `/Users/martinfan/devv/polytypst.mixed` to ROOT. Set its `POLYTYPST_BOOKS` to STORE, and create STORE.
+2. Copy `mise.local.toml` from `/Users/martinfan/devv/polytypst` to ROOT as it is, and create `STORE/KEY/`. Every tool finds the book's state in whichever `polytypst-store-*` folder holds KEY, so `mise.local.toml` stays exactly as copied, here and in every other workspace.
 3. Read `AGENTS.md`, `GLOSSARY.md`, and the sections "Before you start" and "Transcribe the scan" of `docs/scanned-books.md`.
 4. Run: `mise exec -- printenv POLYTYPST_BOOKS ; mise exec -- typst --version ; uv run polytypst --help ; uv run polytypst books`
 
-Gate 0: `printenv` prints STORE. You know whether KEY is a known book in `books/KEY/` or a new one. A known book writes to `output/KEY/`. A new book needs `--lang` and `--domain`.
+Gate 0: `eza -d /Users/martinfan/devv/polytypst-store-*/KEY` lists `STORE/KEY` and no other folder. You know whether KEY is a known book in `books/KEY/` or a new one. A known book writes to `output/KEY/`. A new book needs `--lang` and `--domain`.
 
 ## STEP 1. Check Colab before you spend compute
 
@@ -68,14 +69,14 @@ Gate 2: the command exited 0, pages 1 to 10 each have a Markdown page, and your 
 Gate 3:
 - `markdown_pages` holds one file for each PNG in `page_renders`, and no page is empty.
 - The log ends with "Verified N pages. Discrepancies found on M pages."
-- You compared each flagged page with its render, and fixed each real error in STORE or listed it with its page number. On a Chinese or Japanese book, the cross-check flags many false pages, so treat its flags as hints.
+- You compared each flagged page with its render, and fixed each real error in STORE or listed it with its page number. For each page that you fixed in STORE, you recorded a correction with `record()` in `src/corrections.py`: `gate` in Step 6 fails for an edited page with no correction. On a Chinese or Japanese book, the cross-check flags many false pages, so treat its flags as hints.
 - For a Colab BACKEND, usage shows 0 active VMs of this run.
 
 ## STEP 4. Build and compile
 
 1. Run: `mise exec -- uv run python scripts/one_book.py KEY build`
 2. Run: `mise exec -- typst compile --root / "output/KEY/FILE.typ"`. It must exit 0.
-3. Compile the `.tex` file with the engine that its first lines name, with `-jobname KEY_latex`, so that it writes a separate PDF from Typst's. It must exit 0. Search its log for "Undefined control sequence", "Missing $", and overfull boxes wider than 10pt. When that engine is not on PATH, report Gate 4's LaTeX part as blocked.
+3. Run: `tectonic -X compile --keep-logs -o "output/KEY/latex" "output/KEY/FILE.tex"`. It writes its PDF and its log to `output/KEY/latex/`, apart from Typst's PDF. It must exit 0. Search the log for "Undefined control sequence", "Missing $", and overfull boxes wider than 10pt. Never run `xelatex`. When `tectonic` is not on PATH, report Gate 4's LaTeX part as blocked.
 
 Gate 4: both compile with exit 0, and you listed each LaTeX warning that you could not fix.
 
@@ -83,7 +84,7 @@ Gate 4: both compile with exit 0, and you listed each LaTeX warning that you cou
 
 Follow `docs/page-check-review.md` from Step 1 to Step 6.
 
-- Run `uv run polytypst page-check chunks KEY --size 10`. For each range, follow `docs/page-check.md` yourself. Each page record needs the `receipt` that `polytypst page-check text` prints.
+- Run `uv run polytypst page-check chunks KEY --size 10`. For each range, follow `docs/page-check.md` yourself. Write each page record with `polytypst page-check record`, never by hand.
 - With VERIFY_MODEL `none`, decide each queued claim yourself by following `docs/page-verify.md`. Otherwise run `uv run polytypst page-check verify KEY --model VERIFY_MODEL` in the background.
 - Fix each real and scan_typo verdict as Step 4 of `docs/page-check-review.md` says.
 
