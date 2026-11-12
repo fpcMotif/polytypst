@@ -1,0 +1,55 @@
+slug = 'knuth_taocp_4a'
+name = 'knuth2011-taocp-4a'
+aliases = ['knuth4a', 'taocp4a']
+title = 'The Art of Computer Programming'
+subtitle = 'Volume 4A: Combinatorial Algorithms, Part 1'
+author = 'Donald E. Knuth'
+publisher = 'Addison-Wesley'
+series = ''
+year = 2011
+domain = 'math'
+lang = 'en'
+source_pdf = 'The art of computer programming. 4A  Part 1. Combinatorial algorithms (Donald Ervin Knuth).pdf'
+pdf_name_markers = ['art of computer programming', '4A', 'Combinatorial algorithms', 'Knuth']
+pdf_page_count = 898
+cross_references = true
+skip_page_markers = []
+index_pages = [848, 897]
+index_title = 'Index and Glossary'
+index_subentries = true
+typst_front_matter = '''
+@ENGINE_TITLE_PAGE@
+#show figure.where(kind: image): set figure(supplement: [Fig.], numbering: source-figure-number)
+#show figure.where(kind: table): set figure(supplement: [Table])
+'''
+unnumbered_titles = [
+  'Preface',
+  'Notes on the Exercises',
+  'Answers to Exercises',
+  'Appendix A — Tables of Numerical Quantities',
+  'Appendix B — Index to Notations',
+  'Appendix C — Index to Algorithms and Theorems',
+  'Appendix D — Index to Combinatorial Problems',
+  'Index and Glossary',
+  'ASCII Characters and MMIX Operation Codes',
+]
+chapters = [
+  { number = 0, title = 'Preface', start_page = 3, end_page = 8 },
+  { number = 0, title = 'Notes on the Exercises', start_page = 9, end_page = 12 },
+  { number = 7, label = '7', title = 'Combinatorial Searching', start_page = 15, end_page = 527 },
+  { number = 0, title = 'Answers to Exercises', start_page = 528, end_page = 831 },
+  { number = 0, title = 'Appendix A — Tables of Numerical Quantities', start_page = 832, end_page = 835 },
+  { number = 0, title = 'Appendix B — Index to Notations', start_page = 836, end_page = 841 },
+  { number = 0, title = 'Appendix C — Index to Algorithms and Theorems', start_page = 842, end_page = 843 },
+  { number = 0, title = 'Appendix D — Index to Combinatorial Problems', start_page = 844, end_page = 847 },
+  { number = 0, title = 'ASCII Characters and MMIX Operation Codes', start_page = 898, end_page = 898 },
+]
+header_zone_lines = 2
+running_header_regexes = [
+  '''^(?:[ivxlcdm]+\s+|\d{1,3}\s+)?(?:PREFACE|NOTES ON THE EXERCISES|CONTENTS|COMBINATORIAL SEARCHING|ZEROS AND ONES|BOOLEAN BASICS|BOOLEAN EVALUATION|BITWISE TRICKS AND TECHNIQUES|BINARY DECISION DIAGRAMS|GENERATING ALL POSSIBILITIES|GENERATING BASIC COMBINATORIAL PATTERNS|GENERATING ALL [nN]-TUPLES|GENERATING ALL PERMUTATIONS|GENERATING ALL COMBINATIONS|GENERATING ALL PARTITIONS|GENERATING ALL SET PARTITIONS|GENERATING ALL TREES|HISTORY AND FURTHER REFERENCES|ANSWERS TO EXERCISES|TABLES OF NUMERICAL QUANTITIES|INDEX TO NOTATIONS|INDEX TO ALGORITHMS AND THEOREMS|INDEX TO COMBINATORIAL PROBLEMS|INDEX AND GLOSSARY)(?:\s+(?:[ivxlcdm]+|\d{1,3}|7(?:\.\d+)*|A|B|C|D))?$''',
+  '''^(?:7(?:\.\d+)*|A|B|C|D)\s+(?:COMBINATORIAL SEARCHING|ZEROS AND ONES|BOOLEAN BASICS|BOOLEAN EVALUATION|BITWISE TRICKS AND TECHNIQUES|BINARY DECISION DIAGRAMS|GENERATING ALL POSSIBILITIES|GENERATING BASIC COMBINATORIAL PATTERNS|GENERATING ALL [nN]-TUPLES|GENERATING ALL PERMUTATIONS|GENERATING ALL COMBINATIONS|GENERATING ALL PARTITIONS|GENERATING ALL SET PARTITIONS|GENERATING ALL TREES|HISTORY AND FURTHER REFERENCES|ANSWERS TO EXERCISES|TABLES OF NUMERICAL QUANTITIES|INDEX TO NOTATIONS|INDEX TO ALGORITHMS AND THEOREMS|INDEX TO COMBINATORIAL PROBLEMS)\s+\d{1,3}$''',
+  '''^(?-i:[ivxlcdm]+|\d{1,3})$''',
+]
+
+[editions.monograph]
+summary = 'monograph'
