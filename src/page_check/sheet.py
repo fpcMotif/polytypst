@@ -9,9 +9,10 @@ from pathlib import Path
 from threading import BoundedSemaphore
 
 import pymupdf
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 from polytypst_native import encode_png
 
+from ..compare_sheet import Panel, write_sheets
 from . import STRIP_PAD, Band, PageCheck, strip_png
 from .results import Verdict, issue_key
 
@@ -170,41 +171,10 @@ def scan_sheet(check: PageCheck, cases: list[Case], title: str, intro: str, dpi:
     return page_html(title, intro, cards), missed
 
 
-def contact_sheet(
-    cards: list[tuple[str, Path]], out: Path, width: int = 1200, max_crop_h: int = 260
-) -> Path:
-    header_h, pad = 28, 6
-    inner_w = width - 2 * pad
-    font = ImageFont.load_default(size=14)
-    loaded: list[tuple[str, Image.Image]] = []
-    for label, img_path in cards:
-        with Image.open(img_path) as raw:
-            img = raw.convert("RGB")
-        if img.width > inner_w:
-            scale = inner_w / img.width
-            img = img.resize((inner_w, max(1, round(img.height * scale))), Image.Resampling.LANCZOS)
-        if img.height > max_crop_h:
-            img = img.crop((0, 0, img.width, max_crop_h))
-        loaded.append((label, img))
-    total_h = sum(header_h + img.height + pad for _, img in loaded) + pad
-    canvas = Image.new("RGB", (width, total_h), (245, 245, 245))
-    draw = ImageDraw.Draw(canvas)
-    y = pad
-    for label, img in loaded:
-        draw.rectangle([pad, y, width - pad, y + header_h - 2], fill=(35, 40, 50))
-        draw.text((pad + 6, y + 6), label[:140], fill=(255, 255, 255), font=font)
-        y += header_h
-        canvas.paste(img, (pad, y))
-        y += img.height + pad
-    out.parent.mkdir(parents=True, exist_ok=True)
-    canvas.save(out)
-    return out
-
-
 def sheets(check: PageCheck, size: int = 30) -> list[Path]:
     results = check.results
     done = results.verdict_keys()
-    cards: list[tuple[str, Path]] = []
+    cards: list[list[Panel]] = []
     for idx, q in enumerate(results.queue()):
         key = issue_key(q)
         if key in done:
@@ -218,9 +188,10 @@ def sheets(check: PageCheck, size: int = 30) -> list[Path]:
         label = (
             f"#{idx} p{q['page']} L{q.get('line', 1)} [{q['kind']}] | T: {t} | S: {s}"
         )
-        cards.append((label, img_path))
+        cards.append([Panel(label, img_path, 1)])
     out_dir = results.verify_folder / "sheets"
     return [
-        contact_sheet(cards[start : start + size], out_dir / f"sheet_{n:02d}.png")
+        path
         for n, start in enumerate(range(0, len(cards), size), 1)
+        for path in write_sheets(cards[start : start + size], out_dir / f"sheet_{n:02d}.png")
     ]

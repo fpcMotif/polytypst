@@ -12,6 +12,7 @@ from PIL import Image, ImageFilter
 
 import polytypst.page_check.verify as verify_module
 from polytypst.book_state import BookStateError
+from polytypst.compare_sheet import SHEET_LIMIT
 from polytypst.corrections import Correction, Line, record
 from polytypst.edition import Book
 from polytypst.ocr.pages import OcrLine
@@ -454,7 +455,7 @@ def test_sheets_tile_the_queued_zooms_into_contact_sheets(tmp_path: Path, scan: 
     written = sheets(check, size=2)
     assert [path.name for path in written] == ["sheet_01.png", "sheet_02.png"]
     with Image.open(written[0]) as sheet:
-        assert sheet.width == 1200
+        assert max(sheet.size) <= SHEET_LIMIT
 
 
 def test_an_english_caption_keeps_an_english_label() -> None:

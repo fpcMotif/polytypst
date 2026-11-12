@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pymupdf
 
+from polytypst.compare_sheet import share_rect
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -27,11 +29,7 @@ def main() -> None:
     doc = pymupdf.open(args.pdf)
     for n in (int(p) for p in args.pages.split(",") if p):
         page = doc[n - 1]
-        clip = None
-        if args.clip:
-            left, top, right, bottom = (float(v) for v in args.clip.split(","))
-            r = page.rect
-            clip = pymupdf.Rect(r.x0 + left * r.width, r.y0 + top * r.height, r.x0 + right * r.width, r.y0 + bottom * r.height)
+        clip = share_rect(page.rect, tuple(float(v) for v in args.clip.split(","))) if args.clip else None
         out = f"{args.prefix}p{n}.png"
         zoom = args.dpi / 72
         page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom).prerotate(args.rotate), clip=clip).save(out)
