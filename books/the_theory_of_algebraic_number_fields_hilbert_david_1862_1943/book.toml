@@ -1,0 +1,155 @@
+slug = 'the_theory_of_algebraic_number_fields_hilbert_david_1862_1943'
+aliases = ['hilbert']
+title = 'The Theory of Algebraic Number Fields'
+author = 'David Hilbert'
+translator = 'Iain T. Adamson'
+publisher = 'Springer-Verlag'
+year = 1998
+domain = 'math'
+cross_references = true
+unnumbered_titles = [
+  "Translator's Preface",
+  "Hilbert's Preface",
+  'Introduction to the English Edition',
+  'References',
+  'List of Theorems and Lemmas',
+  'Index',
+]
+chapters = [
+  { number = 0, title = "Translator's Preface", start_page = 6, end_page = 7 },
+  { number = 0, title = "Hilbert's Preface", start_page = 8, end_page = 12 },
+  { number = 0, title = 'Introduction to the English Edition', start_page = 22, end_page = 35 },
+  { number = 1, label = '1', title = 'Algebraic Numbers and Number Fields', start_page = 37, end_page = 41 },
+  { number = 2, label = '2', title = 'Ideals of Number Fields', start_page = 42, end_page = 49 },
+  { number = 3, label = '3', title = 'Congruences with Respect to Ideals', start_page = 50, end_page = 56 },
+  { number = 4, label = '4', title = 'The Discriminant of a Field and its Divisors', start_page = 57, end_page = 64 },
+  { number = 5, label = '5', title = 'Extension Fields', start_page = 65, end_page = 71 },
+  { number = 6, label = '6', title = 'Units of a Field', start_page = 72, end_page = 83 },
+  { number = 7, label = '7', title = 'Ideal Classes of a Field', start_page = 84, end_page = 95 },
+  { number = 8, label = '8', title = 'Reducible Forms of a Field', start_page = 96, end_page = 97 },
+  { number = 9, label = '9', title = 'Orders in a Field', start_page = 98, end_page = 106 },
+  { number = 10, label = '10', title = 'Prime Ideals of a Galois Number Field and its Subfields', start_page = 108, end_page = 117 },
+  { number = 11, label = '11', title = 'The Differents and Discriminants of a Galois Number Field and its Subfields', start_page = 118, end_page = 120 },
+  { number = 12, label = '12', title = 'Connexion Between the Arithmetic and Algebraic Properties of a Galois Number Field', start_page = 121, end_page = 124 },
+  { number = 13, label = '13', title = 'Composition of Number Fields', start_page = 125, end_page = 127 },
+  { number = 14, label = '14', title = 'The Prime Ideals of Degree 1 and the Class Concept', start_page = 128, end_page = 130 },
+  { number = 15, label = '15', title = 'Cyclic Extension Fields of Prime Degree', start_page = 131, end_page = 137 },
+  { number = 16, label = '16', title = 'Factorisation of Numbers in Quadratic Fields', start_page = 139, end_page = 143 },
+  { number = 17, label = '17', title = 'Genera in Quadratic Fields and Their Character Sets', start_page = 144, end_page = 155 },
+  { number = 18, label = '18', title = 'Existence of Genera in Quadratic Fields', start_page = 156, end_page = 170 },
+  { number = 19, label = '19', title = 'Determination of the Number of Ideal Classes of a Quadratic Field', start_page = 171, end_page = 175 },
+  { number = 20, label = '20', title = 'Orders and Modules of Quadratic Fields', start_page = 176, end_page = 178 },
+  { number = 21, label = '21', title = 'The Roots of Unity with Prime Number Exponent $l$ and the Cyclotomic Field They Generate', start_page = 180, end_page = 184 },
+  { number = 22, label = '22', title = 'The Roots of Unity for a Composite Exponent $m$ and the Cyclotomic Field They Generate', start_page = 185, end_page = 191 },
+  { number = 23, label = '23', title = 'Cyclotomic Fields as Abelian Fields', start_page = 192, end_page = 202 },
+  { number = 24, label = '24', title = 'The Root Numbers of the Cyclotomic Field of the $l$-th Roots of Unity', start_page = 203, end_page = 213 },
+  { number = 25, label = '25', title = 'The Reciprocity Law for $l$-th Power Residues Between a Rational Number and a Number in the Field of $l$-th Roots of Unity', start_page = 214, end_page = 220 },
+  { number = 26, label = '26', title = 'Determination of the Number of Ideal Classes in the Cyclotomic Field of the $m$-th Roots of Unity', start_page = 221, end_page = 229 },
+  { number = 27, label = '27', title = 'Applications of the Theory of Cyclotomic Fields to Quadratic Fields', start_page = 230, end_page = 235 },
+  { number = 28, label = '28', title = 'Factorisation of the Numbers of the Cyclotomic Field in a Kummer Field', start_page = 237, end_page = 244 },
+  { number = 29, label = '29', title = 'Norm Residues and Non-residues of a Kummer Field', start_page = 245, end_page = 263 },
+  { number = 30, label = '30', title = 'Existence of Infinitely Many Prime Ideals with Prescribed Power Characters in a Kummer Field', start_page = 264, end_page = 267 },
+  { number = 31, label = '31', title = 'Regular Cyclotomic Fields', start_page = 268, end_page = 279 },
+  { number = 32, label = '32', title = 'Ambig Ideal Classes and Genera in Regular Kummer Fields', start_page = 280, end_page = 299 },
+  { number = 33, label = '33', title = 'The $l$-th Power Reciprocity Law in Regular Cyclotomic Fields', start_page = 300, end_page = 315 },
+  { number = 34, label = '34', title = 'The Number of Genera in a Regular Kummer Field', start_page = 316, end_page = 323 },
+  { number = 35, label = '35', title = 'New Foundation of the Theory of Regular Kummer Fields', start_page = 324, end_page = 337 },
+  { number = 36, label = '36', title = 'The Diophantine Equation $\alpha^m + \beta^m + \gamma^m = 0$', start_page = 338, end_page = 344 },
+  { number = 0, title = 'References', start_page = 345, end_page = 353 },
+  { number = 0, title = 'List of Theorems and Lemmas', start_page = 354, end_page = 355 },
+  { number = 0, title = 'Index', start_page = 356, end_page = 359 },
+]
+header_zone_lines = 2
+running_header_regexes = [
+  '''^§\d+\.\s+.+$''',
+  '''^\d{1,3}\s+\d{1,2}\.\s+.+$''',
+  '''^(?:[IVXLCDM]+\s+)?(?:Translator's Preface|Hilbert's Preface|Table of Contents|Introduction to the English Edition|References|List of Theorems and Lemmas|Index)(?:\s+(?:[IVXLCDM]+|\d{1,3}))?$''',
+  '''^\d{1,3}\s+(?:Translator's Preface|Hilbert's Preface|Table of Contents|Introduction to the English Edition|References|List of Theorems and Lemmas|Index)$''',
+]
+drop_line_regexes = [
+  '''^#\s+(?:\d{1,2}\.\s+.+|Translator's Preface|Hilbert's Preface|Introduction to the English Edition|References|List of Theorems and Lemmas|Index)\s*$''',
+]
+footnote_style = 'superscript'
+footnote_reset = 'chapter'
+latex_preamble = '''
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE]{\small\thepage\quad\textsc{David Hilbert}}
+\fancyhead[RO]{\small\textsc{The Theory of Algebraic Number Fields}\quad\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\makeatletter
+\AtBeginDocument{%
+  \pdfstringdefDisableCommands{%
+    \def\alpha{alpha}%
+    \def\beta{beta}%
+    \def\gamma{gamma}%
+    \def\zeta{zeta}%
+    \def\varphi{phi}%
+    \def\mu{mu}%
+    \def\nu{nu}%
+    \def\pi{pi}%
+    \def\mathfrak#1{#1}%
+    \def\left{}%
+    \def\right{}%
+    \def\frac#1#2{#1/#2}%
+    \def\prod{prod}%
+  }%
+}
+\makeatother'''
+pdf_name_markers = ['hilbert', 'algebraic number fields']
+pdf_page_count = 359
+source_pdf = 'The theory of algebraic number fields (Hilbert, David, 1862-1943).pdf'
+
+[editions.monograph]
+summary = 'monograph'
+
+[transcript_fixups]
+28 = [
+  # The transcript has Primzahlenpotenten; the scan prints Primzahlexponenten.
+  ['Primzahlenpotenten', 'Primzahlexponenten'],
+]
+117 = [
+  # The transcript has \frac{r_{\bar{\bar{v}}}}{r_{\bar{v}}}; the scan prints \frac{r_{\bar{v}}}{r_{\bar{\bar{v}}}}.
+  ['''p\^\{\\bar\{\\bar\{e\}\}\} = \\frac\{r_\{\\bar\{\\bar\{v\}\}\}\}\{r_\{\\bar\{v\}\}\}''', '''p^{\bar{\bar{e}}} = \frac{r_{\bar{v}}}{r_{\bar{\bar{v}}}}'''],
+  # The transcript has p^{\frac{\bar{\bar{e}}}{\bar{\bar{v}}}} = r_{\bar{\bar{v}}}; the scan prints p^{\bar{\bar{\bar{e}}}} = r_{\bar{\bar{v}}}.
+  ['''p\^\{\\frac\{\\bar\{\\bar\{e\}\}\}\{\\bar\{\\bar\{v\}\}\}\} = r_\{\\bar\{\\bar\{v\}\}\}''', '''p^{\bar{\bar{\bar{e}}}} = r_{\bar{\bar{v}}}'''],
+  # The transcript has 4 cells in row 5; the scan prints 5 cells including \mathfrak{P} in column 6.
+  ['''<th>\$p = p_v\^h\$<br>\$= \\mathfrak\{P\}\^\{r_t\}\$</th>\s*<th>\$p_v = p_v\^\{p\^\{\\bar\{e\}\}\}\$<br>\$\\quad = \\mathfrak\{P\}\^\{r_v\}\$</th>\s*<th>\$p_\{\\bar\{v\}\} = p_\{\\bar\{\\bar\{v\}\}\}\^\{p\^\{\\bar\{e\}\}\}\$<br>\$\\quad = \\mathfrak\{P\}\^\{r_\{\\bar\{v\}\}\}\$</th>\s*<th>\$p_\{\\bar\{\\bar\{v\}\}\} = p_\{\\bar\{\\bar\{v\}\}\}\^\{p\^\{\\bar\{e\}\}\}\$<br>\$\\quad = \\mathfrak\{P\}\^\{r_\{\\bar\{v\}\}\}\$</th>''', '''<th>$\mathfrak{p} = \mathfrak{p}_v^h$</th><th></th><th>$\mathfrak{p}_v = \mathfrak{p}_{\bar{v}}^{p^{\bar{e}}}$</th><th>$\mathfrak{p}_{\bar{v}} = \mathfrak{p}_{\bar{\bar{v}}}^{p^{\bar{\bar{e}}}}$</th><th>$\mathfrak{p}_{\bar{\bar{v}}} = \mathfrak{P}^{p^{\bar{\bar{\bar{e}}}}}$</th><th>$\mathfrak{P}$</th></tr><tr class="row-even"><th>$= \mathfrak{P}^{r_t}$</th><th></th><th>$= \mathfrak{P}^{r_v}$</th><th>$= \mathfrak{P}^{r_{\bar{v}}}$</th><th>$= \mathfrak{P}^{r_{\bar{\bar{v}}}}$</th><th></th>'''],
+]
+
+[page_fixups]
+1 = [
+  # The transcript has Zahbericht; the scan prints Zahlbericht.
+  ['Zahbericht', 'Zahlbericht'],
+]
+5 = [
+  # The transcript has Typeset in LITeX; the scan prints Typeset in LaTeX.
+  ['Typeset in LITeX', 'Typeset in LaTeX'],
+]
+136 = [
+  # Scan typo: the scan prints called an *ambig prime ideal*; meant called an *ambig prime ideal*.
+  ['''called an \*ambig prime ideal\*(?!\.)''', 'called an *ambig prime ideal*.'],
+  # The transcript has prime ideal $\mathfrak{p}$ in $k$ and; the scan prints prime ideal $\mathfrak{p}$ in $K$ and.
+  ['''prime ideal \$\\mathfrak\{p\}\$ in \$k\$ and''', 'prime ideal $\mathfrak{p}$ in $K$ and'],
+]
+174 = [
+  # The transcript has *Minningerode* (1); the scan prints *Minnigerode* (1).
+  ['''\*Minningerode\* \(1\)''', '*Minnigerode* (1)'],
+]
+213 = [
+  # The transcript has *Wolfskéhl* (1); the scan prints *Wolfskehl* (1).
+  ['''\*Wolfskéhl\* \(1\)''', '*Wolfskehl* (1)'],
+]
+349 = [
+  # The transcript has Reusche's Tafeln; the scan prints Reuschle's Tafeln.
+  ["Reusche's Tafeln", "Reuschle's Tafeln"],
+]
+351 = [
+  # The transcript has (Euvres 2 (1868); the scan prints (Œuvres 2 (1868).
+  ['''\(Euvres 2 \(1868\)''', '(Œuvres 2 (1868)'],
+]
+352 = [
+  # The transcript has welche von Jacob $\psi(\alpha)$; the scan prints welche von Jacobi $\psi(\alpha)$.
+  ['''welche von Jacob \$\\psi\(\\alpha\)\$''', 'welche von Jacobi $\psi(\alpha)$'],
+]

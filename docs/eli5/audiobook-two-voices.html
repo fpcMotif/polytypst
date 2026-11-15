@@ -1,0 +1,73 @@
+<title>Two Voices Audiobook</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* layout: one idea per screen, a big picture over three or four words */
+:root{--bg:#f6f4ee;--fg:#1d2330;--muted:#5d6577;--ink:#2b4a8a;--serre:#2f6f6a;--groth:#9a4620;--edit:#62528f;--card:#ffffff;--line:#d9d5c8;--head:"Fraunces",Georgia,serif;--body:"Nunito",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151a26;--fg:#eceff6;--muted:#9aa3b8;--ink:#8fb0f0;--serre:#6fc2b8;--groth:#f0a27a;--edit:#b6a8e6;--card:#1e2536;--line:#303852;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#151a26;--fg:#eceff6;--muted:#9aa3b8;--ink:#8fb0f0;--serre:#6fc2b8;--groth:#f0a27a;--edit:#b6a8e6;--card:#1e2536;--line:#303852;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:20px;line-height:1.4;padding-block:32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1{font-family:var(--head);font-size:clamp(34px,8vw,52px);line-height:1.05;margin:0;text-wrap:balance}
+.lede{color:var(--muted);margin:0}
+section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+section svg{width:100%;height:auto;max-height:230px}
+h2{font-family:var(--head);font-size:26px;margin:0}
+p{margin:0}
+.key{background:var(--ink);color:var(--bg);border-radius:14px;padding:20px;font-family:var(--head);font-size:26px;text-wrap:balance}
+.small{font-size:16px;color:var(--muted)}
+text{font-family:var(--body);font-weight:700}
+</style>
+<main>
+<header><h1>Two letter-writers. Two voices.</h1><p class="lede">A book of letters, read out loud.</p></header>
+
+<section><h2>1. The book</h2>
+<svg viewBox="0 0 400 150" role="img" aria-label="Two people sending letters to each other">
+<circle cx="60" cy="60" r="34" fill="var(--serre)"/><text x="60" y="68" text-anchor="middle" font-size="26" fill="var(--bg)">S</text>
+<circle cx="340" cy="60" r="34" fill="var(--groth)"/><text x="340" y="68" text-anchor="middle" font-size="26" fill="var(--bg)">G</text>
+<rect x="150" y="35" width="100" height="64" rx="6" fill="none" stroke="var(--ink)" stroke-width="4"/><path d="M150 38 L200 72 L250 38" fill="none" stroke="var(--ink)" stroke-width="4"/>
+<path d="M100 60 H146 M254 60 H300" stroke="var(--muted)" stroke-width="4" stroke-dasharray="8 8"/>
+<text x="200" y="135" text-anchor="middle" font-size="20" fill="var(--muted)">480 pages of letters</text></svg>
+<p>Serre and Grothendieck wrote letters. Someone printed them.</p></section>
+
+<section><h2>2. The script</h2>
+<svg viewBox="0 0 400 170" role="img" aria-label="A script marks which lines belong to whom">
+<rect x="20" y="15" width="360" height="42" rx="8" fill="var(--serre)"/><text x="36" y="43" font-size="20" fill="var(--bg)">S: Cher Grothendieck…</text>
+<rect x="20" y="64" width="360" height="42" rx="8" fill="var(--groth)"/><text x="36" y="92" font-size="20" fill="var(--bg)">G: Cher Serre…</text>
+<rect x="20" y="113" width="360" height="42" rx="8" fill="var(--edit)"/><text x="36" y="141" font-size="20" fill="var(--bg)">Note: letter of 1955</text></svg>
+<p>A script says who talks. A third voice reads the notes.</p></section>
+
+<section><h2>3. The math</h2>
+<svg viewBox="0 0 400 140" role="img" aria-label="A formula turns into spoken words">
+<text x="60" y="70" font-size="44" fill="var(--ink)" text-anchor="middle">x²</text>
+<path d="M120 62 H250 M236 48 L252 62 L236 76" fill="none" stroke="var(--muted)" stroke-width="5" stroke-linecap="round"/>
+<path d="M290 40 q40 0 40 26 q0 26 -40 26 l-14 16 v-18 q-30 -6 -30 -24 q0 -26 44 -26z" fill="var(--ink)"/>
+<text x="200" y="128" text-anchor="middle" font-size="19" fill="var(--muted)">“x squared”</text></svg>
+<p>Formulas become words. Hard ones point to the page.</p></section>
+
+<section><h2>4. The voices</h2>
+<svg viewBox="0 0 400 150" role="img" aria-label="Three speakers with different voices">
+<g fill="none" stroke-width="5" stroke-linecap="round">
+<path d="M70 60 q22 -26 0 -52" stroke="var(--serre)"/><path d="M92 74 q40 -40 0 -80" stroke="var(--serre)"/>
+<path d="M190 60 q22 -26 0 -52" stroke="var(--groth)"/><path d="M212 74 q40 -40 0 -80" stroke="var(--groth)"/>
+<path d="M310 60 q22 -26 0 -52" stroke="var(--edit)"/><path d="M332 74 q40 -40 0 -80" stroke="var(--edit)"/></g>
+<circle cx="50" cy="100" r="26" fill="var(--serre)"/><circle cx="170" cy="100" r="26" fill="var(--groth)"/><circle cx="290" cy="100" r="26" fill="var(--edit)"/>
+<text x="200" y="146" text-anchor="middle" font-size="18" fill="var(--muted)">made-up voices, not copies</text></svg>
+<p>Each person gets their own voice. It is not their real voice.</p></section>
+
+<section><h2>5. Ask first</h2>
+<svg viewBox="0 0 400 140" role="img" aria-label="A padlock over a microphone">
+<rect x="150" y="62" width="100" height="70" rx="10" fill="var(--ink)"/>
+<path d="M172 62 v-18 a28 28 0 0 1 56 0 v18" fill="none" stroke="var(--ink)" stroke-width="10"/>
+<circle cx="200" cy="92" r="9" fill="var(--bg)"/><rect x="196" y="96" width="8" height="18" rx="3" fill="var(--bg)"/></svg>
+<p>Copying a real voice needs a yes. Serre is alive, so we ask him.</p></section>
+
+<section><h2>6. The audiobook</h2>
+<svg viewBox="0 0 400 130" role="img" aria-label="A headphone and chapter marks">
+<path d="M70 90 v-24 a62 62 0 0 1 124 0 v24" fill="none" stroke="var(--ink)" stroke-width="12" stroke-linecap="round"/>
+<rect x="54" y="82" width="26" height="40" rx="8" fill="var(--ink)"/><rect x="184" y="82" width="26" height="40" rx="8" fill="var(--ink)"/>
+<g fill="var(--muted)"><rect x="250" y="40" width="120" height="12" rx="6"/><rect x="250" y="64" width="90" height="12" rx="6"/><rect x="250" y="88" width="110" height="12" rx="6"/></g></svg>
+<p>One file. One chapter per letter. Jump back to the scan page.</p></section>
+
+<div class="key">One idea: a script says who talks, and a voice reads each part.</div>
+<p class="small">Spec: Audiobook edition of the Grothendieck-Serre correspondence.</p>
+</main>

@@ -11,6 +11,8 @@ domain = "math"
 source_pdf = "深度学习入门 5 生成模型 ([日] 斋藤康毅, 郑明智).pdf"
 pdf_page_count = 304
 cross_references = true
+footnote_style = 'circled'
+footnote_numbering = 'circled'
 chapter_openings = false
 
 typst_front_matter = '''

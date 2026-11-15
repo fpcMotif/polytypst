@@ -54,6 +54,23 @@ def _parser() -> argparse.ArgumentParser:
         if name == "tablediff":
             p.add_argument("table", type=int, help="table number on the page, from 1, as `cells` prints it")
             p.add_argument("scan_tsv", type=Path, help="the scan's table, one row per line, cells split by tabs")
+    p = sub.add_parser("batch", help="write the text, suspects and cells of each page to a file, and print one line for each page")
+    p.add_argument("book", help=BOOK_HELP)
+    p.add_argument("first", type=int, help="first scan page")
+    p.add_argument("last", type=int, help="last scan page")
+    p = sub.add_parser("record", help="set a page's line in a result file, checked against its receipt")
+    p.add_argument("book", help=BOOK_HELP)
+    p.add_argument("page", type=int, help="scan page")
+    p.add_argument("receipt", help="the receipt that `text` or `batch` gives for the page")
+    p.add_argument("out", type=Path, help="the result file, pFIRST-LAST.jsonl in the book's page check folder")
+    p.add_argument(
+        "--issue",
+        nargs=5,
+        action="append",
+        default=[],
+        metavar=("KIND", "LINE", "TRANSCRIPT", "SCAN", "NOTE"),
+        help="one issue, each field as it reads, in single quotes; LINE is a number or -, and NOTE can be ''",
+    )
     for name, help_text in (
         ("summary", "pages checked, issues by kind, gaps"),
         ("chunks", "the chunks of unchecked pages"),
@@ -102,7 +119,7 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--title", default="", help="the page title")
     p.add_argument("--intro", default="Each strip is cut straight from the scan PDF.", help="the line under the title")
     p.add_argument("--dpi", type=int, default=300)
-    p = sub.add_parser("gate", help="PASS only when the receipts, lint, verdicts, figures and audit all pass")
+    p = sub.add_parser("gate", help="PASS only when the receipts, transcript edits, lint, verdicts, figures and audit all pass")
     p.add_argument("book", help=BOOK_HELP)
     p.add_argument("--pdf", type=Path, help="the rebuilt PDF, by default the first edition's")
     p.add_argument("--manifest", type=Path, help="the figure manifest, by default figures_manifest.json in the book's output folder")
@@ -115,10 +132,7 @@ def _page(args: argparse.Namespace) -> int:
         print(f"page {args.page} has no transcript; skip it")
         return 0
     if args.command == "text":
-        lines = check.transcript(args.page).splitlines()
-        print("\n".join(f"{n:4d}  {line}" for n, line in enumerate(lines, 1)))
-        proof = check.receipt(args.page)
-        print(f"receipt: {proof}" if proof else f"receipt: none; render {check.page_png(args.page)} first")
+        print("\n".join(check.text_lines(args.page)))
     elif args.command == "clean":
         cleaned = check.cleaned(args.page).splitlines()
         if args.diff:
@@ -130,15 +144,23 @@ def _page(args: argparse.Namespace) -> int:
     elif args.command == "suspects":
         print("\n".join(check.suspects(args.page)) or "none")
     elif args.command == "cells":
-        tables = check.tables(args.page)
-        for k, rows in enumerate(tables, 1):
-            print(f"table {k}: {len(rows)} rows")
-            print("\n".join("\t".join(r) for r in rows))
-        print(f"{len(tables)} tables" if tables else "no tables")
+        print("\n".join(check.cells_lines(args.page)))
     else:
         lines = args.scan_tsv.read_text(encoding="utf-8").splitlines()
         scan = [[cell_text(c) for c in line.split("\t")] for line in lines if line.strip()]
         print("\n".join(table_diff(check.tables(args.page)[args.table - 1], scan)))
+    return 0
+
+
+def _record(args: argparse.Namespace) -> int:
+    issues = []
+    for kind, line, transcript, scan, note in args.issue:
+        if line != "-" and not line.isdecimal():
+            print(f"LINE {line!r} is not a line number or -")
+            return 1
+        issues.append({"kind": kind, "line": None if line == "-" else int(line), "transcript": transcript, "scan": scan, "note": note})
+    PageCheck.named(args.book).record(args.out, args.page, args.receipt, issues)
+    print(f"p{args.page}: {len(issues)} issue{'' if len(issues) == 1 else 's'} -> {args.out}")
     return 0
 
 
@@ -228,6 +250,11 @@ def main(argv: list[str]) -> int:
 def _command(args: argparse.Namespace) -> int:
     if args.command in ("text", "clean", "suspects", "cells", "tablediff"):
         return _page(args)
+    if args.command == "batch":
+        _print(PageCheck.named(args.book).batch(args.first, args.last))
+        return 0
+    if args.command == "record":
+        return _record(args)
     if args.command == "grep":
         return _grep(args)
     if args.command in ("summary", "chunks", "run", "status"):

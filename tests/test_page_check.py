@@ -1,3 +1,4 @@
+import hashlib
 import io
 import json
 import re
@@ -10,10 +11,13 @@ import pytest
 from PIL import Image, ImageFilter
 
 import polytypst.page_check.verify as verify_module
+from polytypst.book_state import BookStateError
+from polytypst.corrections import Correction, Line, record
 from polytypst.edition import Book
 from polytypst.ocr.pages import OcrLine
 from polytypst.page_check import PageCheck, strip_png
 from polytypst.page_check.check import run
+from polytypst.page_check.cli import main as page_check_main
 from polytypst.page_check.lint import lint, lint_fixups
 from polytypst.page_check.render import RenderCheck, caption_label
 from polytypst.page_check.results import write_jsonl
@@ -286,6 +290,80 @@ def test_a_record_with_an_unknown_issue_kind_does_not_check_its_page(tmp_path: P
     assert tally.bad_lines
 
 
+def rendered(tmp_path: Path, scan: Path, pages: dict[int, str]) -> PageCheck:
+    check = make_check(tmp_path, scan, pages)
+    check.page_png(1).parent.mkdir(parents=True, exist_ok=True)
+    for n in pages:
+        check.page_png(n).write_bytes(f"png {n}".encode())
+    return check
+
+
+def test_the_record_command_writes_latex_backslashes_as_a_line_that_checks_the_page(
+    tmp_path: Path, scan: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    check = rendered(tmp_path, scan, {1: r"$\frac{1}{2}$"})
+    monkeypatch.setattr(PageCheck, "named", classmethod(lambda cls, name, scan=None: check))
+    out = check.results.folder / "p1-1.jsonl"
+    code = page_check_main([
+        "record", "probe", "1", check.receipt(1), str(out), "--issue", "math", "1", r"\frac{1}{2}", r"\frac{1}{3}", "",
+    ])
+    assert code == 0
+    assert capsys.readouterr().out.strip() == f"p1: 1 issue -> {out}"
+    assert json.loads(out.read_text(encoding="utf-8")) == {
+        "book": "probe",
+        "page": 1,
+        "receipt": check.receipt(1),
+        "issues": [{"kind": "math", "line": 1, "transcript": r"\frac{1}{2}", "scan": r"\frac{1}{3}", "note": ""}],
+    }
+    tally = check.tally()
+    assert (tally.checked, tally.bad_lines, dict(tally.kinds)) == ({1}, [], {"math": 1})
+
+
+def test_record_refuses_a_receipt_that_is_not_the_page_s_and_writes_nothing(tmp_path: Path, scan: Path) -> None:
+    check = rendered(tmp_path, scan, {1: "page 1"})
+    out = check.results.folder / "p1-1.jsonl"
+    with pytest.raises(BookStateError, match="receipt"):
+        check.record(out, 1, "000000000000", [])
+    assert not out.exists()
+
+
+def test_record_refuses_an_unknown_kind_and_a_file_that_summary_does_not_read(tmp_path: Path, scan: Path) -> None:
+    check = rendered(tmp_path, scan, {1: "page 1"})
+    out = check.results.folder / "p1-1.jsonl"
+    with pytest.raises(BookStateError, match="wrod"):
+        check.record(out, 1, check.receipt(1), [issue("wrod", "a", "b")])
+    with pytest.raises(BookStateError, match=r"p\*\.jsonl"):
+        check.record(tmp_path / "elsewhere.jsonl", 1, check.receipt(1), [])
+    assert not out.exists()
+
+
+def test_recording_a_page_again_replaces_its_line_and_keeps_the_other_pages(tmp_path: Path, scan: Path) -> None:
+    check = rendered(tmp_path, scan, {1: "page 1", 2: "page 2"})
+    out = check.results.folder / "p1-2.jsonl"
+    check.record(out, 1, check.receipt(1), [issue("word", "a", "b")])
+    check.record(out, 2, check.receipt(2), [])
+    check.record(out, 1, check.receipt(1), [])
+    assert [(r["page"], r["issues"]) for r in map(json.loads, out.read_text(encoding="utf-8").splitlines())] == [(2, []), (1, [])]
+    assert check.tally().kinds == {}
+
+
+def test_batch_writes_each_page_to_a_file_and_prints_one_short_line_for_it(tmp_path: Path, scan: Path) -> None:
+    long_page = "\n".join(f"line {n} " + "x" * 200 for n in range(1, 41)) + "\n\n| a | b |\n|---|---|\n| 1 | 2 |"
+    check = rendered(tmp_path, scan, {1: long_page, 3: "page 3"})
+    lines = list(check.batch(1, 3))
+    file_1 = check.results.folder / "text" / "p1.txt"
+    assert lines == [
+        f"p1: receipt {check.receipt(1)}, 1 suspects, 1 tables -> {file_1}",
+        "p2: no transcript; skip it",
+        f"p3: receipt {check.receipt(3)}, 1 suspects, 0 tables -> {check.results.folder / 'text' / 'p3.txt'}",
+    ]
+    written = file_1.read_text(encoding="utf-8")
+    assert "  40  line 40 " + "x" * 200 in written
+    assert f"receipt: {check.receipt(1)}" in written
+    assert "=== suspects\nno local OCR for this page" in written
+    assert "=== cells\ntable 1: 2 rows\na\tb\n1\t2\n1 tables" in written
+
+
 def test_run_starts_one_agent_for_each_chunk_of_unchecked_pages(tmp_path: Path, scan: Path) -> None:
     check = make_check(tmp_path, scan, {n: f"page {n}" for n in range(1, 6)}, key="4_banks")
     agents = FakeAgents()
@@ -516,6 +594,33 @@ def test_a_page_without_a_valid_receipt_fails_the_gate(gated: PageCheck, tmp_pat
     lines = run_gate(gated, tmp_path)
     assert any("page check" in line and "2" in line for line in fails(lines))
     assert lines[-1].startswith("FAIL")
+
+
+def edit_page_after_ocr(check: PageCheck, page: int, text: str) -> None:
+    """Mark every page as written by the OCR as it reads now, then change PAGE by hand and check the pages again."""
+    written = {str(n): hashlib.sha256(check.store.path(n).read_bytes()).hexdigest()[:12] for n in check.pages()}
+    provenance = {"pages": {n: "fake:model" for n in written}, "written": written}
+    (check.store.directory / "transcripts.json").write_text(json.dumps(provenance), encoding="utf-8")
+    check.store.path(page).write_text(text, encoding="utf-8")
+    check_pages(check, [issue("word", "甲", "乙")])
+
+
+def test_a_transcript_page_edited_with_no_correction_fails_the_gate_until_one_is_recorded(
+    gated: PageCheck, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(verify_module, "QUALITY", tmp_path / "quality")
+    assert any(line == "PASS transcripts: 0 pages edited after the OCR" for line in run_gate(gated, tmp_path))
+    edit_page_after_ocr(gated, 2, "第2页，改过。\n")
+    failed = fails(run_gate(gated, tmp_path))
+    assert len(failed) == 2
+    assert failed[0].startswith("FAIL transcripts: 1 pages edited after the OCR, no correction for 2;")
+    record(
+        Correction("x", 2, "ocr", (Line("第2页。", "第2页，改过。"),), "第2页，改过。", "zoom", "transcript p_002.md"),
+        root=tmp_path / "quality",
+    )
+    lines = run_gate(gated, tmp_path)
+    assert "PASS transcripts: 1 pages edited after the OCR, each with a correction" in lines
+    assert lines[-1] == "PASS"
 
 
 def test_a_book_whose_lint_has_not_run_fails(gated: PageCheck, tmp_path: Path) -> None:

@@ -7,6 +7,8 @@ lang = "zh"
 source_pdf = "深度学习进阶：自然语言处理 (斋藤康毅).pdf"
 pdf_page_count = 427
 cross_references = true
+footnote_style = 'circled'
+footnote_numbering = 'circled'
 latex_preamble = '''
 \let\bm\symbfit
 \setCJKmainfont[Path=@FONTS@/,BoldFont=NotoSerifSC-Bold.otf]{NotoSerifSC-Regular.otf}

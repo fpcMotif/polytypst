@@ -4,8 +4,10 @@ You check a range of scan pages of one book. For each page you compare the trans
 
 You only read the books. Write only these files:
 
-- `OUT`, your result file
+- `OUT`, your result file, through `polytypst page-check record`
 - PNG and TSV files in `output/page_check/BOOK/png/`
+
+The batch of Turn 1 also writes the files in `TEXT`.
 
 ## Your values
 
@@ -21,46 +23,50 @@ The prompt gives `BOOK`, `FIRST` and `LAST`. `BOOK` is the book key, the folder 
 | `6_劳动力市场与收入分配` | `/Users/martinfan/Downloads/6 劳动力市场与收入分配.pdf` |
 
 - `PNG` is `output/page_check/BOOK/png/`.
+- `TEXT` is `output/page_check/BOOK/text/`.
 - `OUT` is `output/page_check/BOOK/pFIRST-LAST.jsonl`, such as `output/page_check/4_不良债权与金融危机/p51-60.jsonl`.
 
 Obey these rules:
 
-1. Run every command from `/Users/martinfan/devv/polytypst.mixed`.
+1. Run every command from `/Users/martinfan/devv/polytypst`.
 2. Put each path in double quotes. The names contain spaces and Chinese characters.
 3. Run Python as `uv run python`.
-4. Read the transcript only through `polytypst page-check text`. Its line numbers are the ones to record.
+4. Read the transcript only in `TEXT/pN.txt`, with your file-reading tool. Its line numbers are the ones to record. Your shell tool cuts long output short, so print no transcript text in the shell.
 5. When `polytypst page-check` says a page has no transcript, skip the page.
 6. Copy the scan exactly, typos included. When the scan prints a typo and the transcript copies it, record a `scan_typo` issue. For example, the scan prints `零食` where `零售` makes sense, and the transcript also has `零食`. The build corrects scan typos later, so the transcript keeps the scan's text.
 
 ## Turn 1: run the batch
 
-In your first turn, run this one command and nothing else. Replace `BOOK`, `FIRST`, `LAST` and `SCAN` with your values first. The command prints the transcript, the suspects and the tables of every page in your range. It also renders each page at 200 dpi and each suspect band at 300 dpi. A range of 10 pages takes about 20 seconds.
+In your first turn, run this one command and nothing else. Replace `BOOK`, `FIRST`, `LAST` and `SCAN` with your values first. The command renders each page at 200 dpi. It writes the transcript, the suspects and the tables of each page to a file, and prints one line for each page. It also renders each suspect band at 300 dpi. A range of 10 pages takes about 20 seconds.
 
 ```bash
-cd "/Users/martinfan/devv/polytypst.mixed"
+cd "/Users/martinfan/devv/polytypst"
 SCAN="SCAN" BOOK=BOOK FIRST=FIRST LAST=LAST
 PNG="output/page_check/$BOOK/png/"
+TEXT="output/page_check/$BOOK/text"
 uv run python scripts/page_png.py "$SCAN" "$PNG" --pages "$(seq -s, "$FIRST" "$LAST")" --dpi 200
+uv run polytypst page-check batch "$BOOK" "$FIRST" "$LAST"
 for N in $(seq "$FIRST" "$LAST"); do
-  echo "=== page $N: text"
-  uv run polytypst page-check text "$BOOK" "$N"
-  echo "=== page $N: suspects"
-  SUSPECTS=$(uv run polytypst page-check suspects "$BOOK" "$N")
-  echo "$SUSPECTS"
-  echo "$SUSPECTS" | awk '$3 == "band" {print NR, $4}' | while read -r K BAND; do
+  [ -f "$TEXT/p$N.txt" ] || continue
+  awk '/^=== suspects/ {on = 1; k = 0; next} /^=== cells/ {on = 0} on {k++; if ($3 == "band") print k, $4}' "$TEXT/p$N.txt" | while read -r K BAND; do
     uv run python scripts/page_png.py "$SCAN" "${PNG}z${N}_${K}_" --pages "$N" --dpi 300 --clip "0,${BAND%,*},1,${BAND#*,}" >/dev/null
   done
-  echo "=== page $N: cells"
-  uv run polytypst page-check cells "$BOOK" "$N"
 done
+```
+
+The batch prints one line for each page:
+
+```text
+p57: receipt 7541ffa3fa67, 3 suspects, 1 tables -> output/page_check/4_不良债权与金融危机/text/p57.txt
 ```
 
 The batch makes these files:
 
 - `PNG/pN.png`: page `N` at 200 dpi.
 - `PNG/zN_K_pN.png`: the zoom for suspect `K` of page `N`. `K` counts the suspect lines of the page from 1.
+- `TEXT/pN.txt`: page `N` in three parts. `=== text` holds the transcript with line numbers, and ends with `receipt: R`. `=== suspects` holds the suspect lines. `=== cells` holds the tables.
 
-Steps 1, 2 and 4 read this output. Render a new zoom only for a place that the batch did not zoom, such as a table, a footnote or a rotated page:
+Steps 1, 2 and 4 read `TEXT/pN.txt`. Render a new zoom only for a place that the batch did not zoom, such as a table, a footnote or a rotated page:
 
 ```bash
 uv run python scripts/page_png.py "SCAN" "PNG/zN_" --pages N --dpi 300 --clip 0,TOP,1,BOTTOM
@@ -74,13 +80,13 @@ Do steps 1 to 5 for each page `N` from `FIRST` to `LAST`, one page at a time. Th
 
 ### Step 1. Read the scan page and the transcript
 
-Read `PNG/pN.png` and the page's `text` output from the batch. The last line of `text` is `receipt: R`, a hash of the page PNG and the transcript. Step 5 records `R`.
+Read `PNG/pN.png` and the `=== text` part of `TEXT/pN.txt`. The last line of that part is `receipt: R`, a hash of the page PNG and the transcript. Step 5 records `R`.
 
 Done when you know what the page holds: headings, paragraphs, tables, equations, figures and footnotes.
 
 ### Step 2. Check each suspect
 
-The page's `suspects` output has one line for each place where the transcript and the local OCR disagree:
+The `=== suspects` part of `TEXT/pN.txt` has one line for each place where the transcript and the local OCR disagree:
 
 ```text
 line 9 band 0.35,0.41 | transcript: 会对土地[使]用造成影 | ocr: [便]
@@ -110,7 +116,7 @@ Done when you compared each of these parts.
 
 ### Step 4. Check every table
 
-The page's `cells` output prints each transcript table as rows, with tabs between the cells, and the count of tables. For each table `K` on the page:
+The `=== cells` part of `TEXT/pN.txt` prints each transcript table as rows, with tabs between the cells, and the count of tables. For each table `K` on the page:
 
 1. Zoom on the table at 300 dpi. When the table is printed sideways, add `--rotate 90` or `--rotate -90`, so that the text reads upright.
 2. Copy the table from the zoom into `PNG/tN_K.tsv`: one line for each printed row, from top to bottom, and a tab between the cells, from left to right. Write a header box that spans columns as one cell. Copy each number exactly, with its decimal point and sign.
@@ -131,23 +137,33 @@ Before you add an issue, confirm that it is a real difference. In the first Book
 
 | Check | Example of a false issue |
 |---|---|
-| Copy `transcript` from the `text` output, and `scan` from the zoom, character for character. The OCR line gives neither field. | The zoom prints `市场价格`, and the issue gives the OCR's `市场地价` as the scan. |
+| Copy `transcript` from `TEXT/pN.txt`, and `scan` from the zoom, character for character. The OCR line gives neither field. | The zoom prints `市场价格`, and the issue gives the OCR's `市场地价` as the scan. |
 | Compare characters, and skip spacing and the width of a mark. `）` and `)`, `？` and `?`, `（ * ）` and `（*）` are the same mark. | `监管当局②)` against `监管当局②）` |
-| Before you record `missing_text`, search the page's `text` output for the text. A long line holds a whole paragraph, and your shell tool can cut a long line short. | `取得长足发展。`, which the transcript has at the end of a long line |
+| Before you record `missing_text`, search `TEXT/pN.txt` for the text. A long line holds a whole paragraph. | `取得长足发展。`, which the transcript has at the end of a long line |
 | Record nothing for the labels inside a chart. The build draws each chart again from the book's figure script, so its labels are not in the transcript. | The shares of a pie chart, recorded as `missing_text` |
 
-Add one line to `OUT` for the page. Each line is one JSON object:
+Record the page with one command. The command writes the page's line in `OUT`, so never write `OUT` yourself. Give one `--issue` for each issue, with its five fields in this order: `KIND LINE TRANSCRIPT SCAN NOTE`.
 
-```json
-{"book": "4_不良债权与金融危机", "page": 57, "receipt": "7541ffa3fa67", "issues": [{"kind": "word", "line": 9, "transcript": "使用", "scan": "便用", "note": ""}]}
+```bash
+uv run polytypst page-check record BOOK N R "OUT" --issue word 9 '使用' '便用' '' --issue math 14 '\frac{1}{2}' '\frac{1}{3}' ''
 ```
 
-`receipt` is the `R` from the page's `text` output. `summary` counts a page as checked only when its receipt matches the current PNG and transcript. A line with a missing or wrong receipt leaves the page unchecked. When `text` prints `receipt: none`, render the page PNG and run `text` again. A page with no differences gets `"issues": []`. Each issue has these fields:
+Obey these rules for the command:
+
+1. Put each field in single quotes, and type it as it reads. A backslash needs no second backslash.
+2. When a field holds a single quote, write that quote as `'\''`.
+3. Give `-` as `LINE` when the transcript has no such line.
+4. Give `''` for an empty field.
+5. For a page with no differences, give no `--issue`.
+
+`R` is the receipt from `TEXT/pN.txt`. The command refuses a receipt that does not match the current PNG and transcript, and it refuses an unknown `kind`. A refused command writes nothing: correct the value that the message names, and run the command again. When the receipt is `none`, run the batch of Turn 1 again for the page. To correct a page that you recorded, record it again. The new line replaces the old one.
+
+The command prints one line, such as `p57: 2 issues -> OUT`. Each issue has these fields:
 
 | Field | Value |
 |---|---|
 | `kind` | One of the kinds in the next table |
-| `line` | The transcript line number, or `null` when the transcript has no such line |
+| `line` | The transcript line number, or `-` when the transcript has no such line |
 | `transcript` | The transcript text, copied exactly, at most 40 characters. Empty for `missing_text` |
 | `scan` | What the scan prints, at most 40 characters. Empty for `extra_text` |
 | `note` | For a table: `table K`, and the row and the column labels. For a `scan_typo`: `meant: ` and the text that makes sense. Otherwise empty |
@@ -166,7 +182,7 @@ Add one line to `OUT` for the page. Each line is one JSON object:
 | `sum` | The scan's own numbers do not add up |
 | `scan_typo` | The scan prints a typo, and the transcript copies it. `transcript` and `scan` hold the same text |
 
-Done when `OUT` has the line for page `N`.
+Done when the command printed its line for page `N`.
 
 ### Step 6. Check your file
 

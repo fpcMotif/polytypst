@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 import unicodedata
@@ -150,6 +151,10 @@ def _page_ranges(numbers: list[int]) -> str:
     return ", ".join(spans)
 
 
+def _digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()[:12]
+
+
 class TranscriptStore:
     def __init__(self, directory: Path) -> None:
         self.directory = Path(directory)
@@ -175,13 +180,32 @@ class TranscriptStore:
         pages = json.loads(path.read_text(encoding="utf-8"))["pages"]
         return {int(n): source for n, source in pages.items()}
 
-    def _save_made_by(self, made_by: dict[int, str]) -> None:
-        pages = {str(n): made_by[n] for n in sorted(made_by)}
+    def _written(self) -> dict[int, str]:
+        path = self.directory / PROVENANCE_NAME
+        if not path.exists():
+            return {}
+        written = json.loads(path.read_text(encoding="utf-8")).get("written", {})
+        return {int(n): digest for n, digest in written.items()}
+
+    def edited(self) -> list[int]:
+        """The pages whose file differs from what the OCR wrote. A page that an older store wrote has no hash, and is never named."""
+        return sorted(
+            n
+            for n, digest in self._written().items()
+            if self.path(n).exists() and _digest(self.path(n).read_bytes()) != digest
+        )
+
+    def _save_made_by(
+        self, made_by: dict[int, str], written: dict[int, str] | None = None
+    ) -> None:
+        written = self._written() if written is None else written
+        provenance = {
+            "pages": {str(n): made_by[n] for n in sorted(made_by)},
+            "written": {str(n): written[n] for n in sorted(written)},
+        }
         path = self.directory / PROVENANCE_NAME
         draft = path.with_suffix(".json.tmp")
-        _ = draft.write_text(
-            json.dumps({"pages": pages}, indent=1) + "\n", encoding="utf-8"
-        )
+        _ = draft.write_text(json.dumps(provenance, indent=1) + "\n", encoding="utf-8")
         _ = draft.replace(path)
 
     def _write(
@@ -189,7 +213,9 @@ class TranscriptStore:
     ) -> None:
         _ = self.path(number).write_text(text, encoding="utf-8")
         made_by[number] = source
-        self._save_made_by(made_by)
+        self._save_made_by(
+            made_by, {**self._written(), number: _digest(text.encode("utf-8"))}
+        )
 
     def _pending(
         self,
