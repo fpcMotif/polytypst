@@ -18,6 +18,7 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
 
 - Work in ROOT. When a runbook names `/Users/martinfan/devv/polytypst.mixed`, use ROOT.
 - Write transcripts only in STORE. `/Users/martinfan/devv/polytypst-books` holds checked work, so only read it.
+- Stay on KEY. Fix pages in `STORE/KEY/` and files in `books/KEY/`, and read `output/KEY/`. Learn a command from its `--help` and the docs named here. When a cause lies in `src/`, record the rule, page and scan evidence, and report it. Leave `src/` closed: the one source you read is `MonographSpec` in `src/compiler/monograph.py`, for `book.toml` fields, beside the model books that `docs/scanned-books.md` names. Read no other book, workspace, store, log or finding, and skip `recall` hits about other books. Filter shared files to KEY, for example `jq --arg k "KEY" '.[$k] // "no entry"' "quality/baseline.json"`.
 - Run Python as `uv run`, never bare `python` or `python3`. Put every path in double quotes.
 - Take API keys from the environment or Varlock only. Never type, print or paste a key.
 - Pass BACKEND to `--backend` exactly as written.
@@ -30,11 +31,11 @@ Paste this prompt into an agent session, and fill in VALUES first. The agent mak
 ## STEP 0. Set up
 
 1. From `/Users/martinfan/devv/polytypst`, run: `jj workspace add --name fresh-KEY -r main "ROOT"`
-2. Copy `mise.local.toml` from `/Users/martinfan/devv/polytypst.mixed` to ROOT. Set its `POLYTYPST_BOOKS` to STORE, and create STORE.
+2. Copy `mise.local.toml` from `/Users/martinfan/devv/polytypst` to ROOT as it is, and create `STORE/KEY/`. Every tool finds the book's state in whichever `polytypst-store-*` folder holds KEY, so `mise.local.toml` stays exactly as copied, here and in every other workspace.
 3. Read `AGENTS.md`, `GLOSSARY.md`, and the sections "Before you start" and "Transcribe the scan" of `docs/scanned-books.md`.
 4. Run: `mise exec -- printenv POLYTYPST_BOOKS ; mise exec -- typst --version ; uv run polytypst --help ; uv run polytypst books`
 
-Gate 0: `printenv` prints STORE. You know whether KEY is a known book in `books/KEY/` or a new one. A known book writes to `output/KEY/`. A new book needs `--lang` and `--domain`.
+Gate 0: `eza -d /Users/martinfan/devv/polytypst-store-*/KEY` lists `STORE/KEY` and no other folder. You know whether KEY is a known book in `books/KEY/` or a new one. A known book writes to `output/KEY/`. A new book needs `--lang` and `--domain`.
 
 ## STEP 1. Check Colab before you spend compute
 

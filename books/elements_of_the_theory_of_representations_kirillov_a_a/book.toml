@@ -1,0 +1,2985 @@
+slug = 'elements_of_the_theory_of_representations_kirillov_a_a'
+name = 'kirillov1976-elements'
+aliases = ['kirillov']
+title = 'Elements of the Theory of Representations'
+author = 'A. A. Kirillov'
+translator = 'Edwin Hewitt'
+publisher = 'Springer-Verlag'
+series = 'Die Grundlehren der mathematischen Wissenschaften 220'
+year = 1976
+publisher_key = 'springer'
+domain = 'math'
+lang = 'en'
+source_pdf = 'Elements of the theory of representations (Kirillov, A. A.).pdf'
+pdf_name_markers = ['Elements of the theory of representations', 'Kirillov']
+pdf_page_count = 325
+cross_references = true
+commutative_diagrams = true
+footnote_style = 'superscript'
+footnote_reset = 'page'
+
+typst_preamble = '''
+@ENGINE_PREAMBLE@
+#show heading.where(level: 1): set par(leading: 0.38em)
+#show math.equation: it => { show "*": sym.ast.op; it }
+'''
+
+typst_front_matter = '''
+#set text(hyphenate: false)
+@ENGINE_TITLE_PAGE@
+#set text(hyphenate: auto)
+#show figure.where(kind: image): set figure(supplement: [Fig.], numbering: source-figure-number)
+#show figure.where(kind: table): set figure(supplement: [Table])
+'''
+
+latex_preamble = '''
+\pagestyle{plain}
+\ifPDFTeX\else
+  \setmainfont{SourceSerif4-Regular.otf}[Path=@FONTS@/,BoldFont=SourceSerif4-Bold.otf,ItalicFont=SourceSerif4-It.otf,BoldItalicFont=SourceSerif4-BoldIt.otf]
+\fi
+\usepackage{mathrsfs}
+\usepackage{newunicodechar}
+\newunicodechar{⊕}{\ensuremath{\oplus}}
+\newunicodechar{−}{\ensuremath{-}}
+\newunicodechar{Φ}{\ensuremath{\Phi}}
+\ifPDFTeX\else
+  \newunicodechar{^^^^2060}{}
+  \newunicodechar{ĭ}{ı^^^^0306}
+\fi
+\DeclareMathOperator{\arctg}{arctg}
+\setlength{\emergencystretch}{2em}
+\makeatletter
+\AtBeginDocument{%
+  \renewcommand{\setminus}{\mathbin{\backslash}}%
+  \pdfstringdefDisableCommands{%
+    \def\S{Section }%
+    \def\,{ }%
+    \def\oplus{+}%
+    \def\alpha{alpha}%
+    \def\beta{beta}%
+    \def\gamma{gamma}%
+    \def\lambda{lambda}%
+    \def\phi{phi}%
+    \def\psi{psi}%
+    \def\sigma{sigma}%
+    \def\mathbb#1{#1}%
+    \def\mathcal#1{#1}%
+    \def\mathfrak#1{#1}%
+    \def\mathbf#1{#1}%
+    \def\mathrm#1{#1}%
+    \def\operatorname#1{#1}%
+  }%
+}
+\makeatother
+'''
+
+unnumbered_titles = [
+  "Translator's Preface",
+  'Preface',
+  'A Short Historical Sketch and a Guide to the Literature',
+  'Bibliography',
+  'Subject Index',
+]
+
+chapters = [
+  { number = 0, title = "Translator's Preface", start_page = 3, end_page = 3 },
+  { number = 0, title = 'Preface', start_page = 5, end_page = 6 },
+  { number = 1, label = 'I', title = 'First Part. Preliminary Facts', start_page = 11, end_page = 117 },
+  { number = 2, label = 'II', title = 'Second Part. Basic Concepts and Methods of the Theory of Representations', start_page = 118, end_page = 268 },
+  { number = 3, label = 'III', title = 'Third Part. Various Examples', start_page = 269, end_page = 306 },
+  { number = 0, title = 'A Short Historical Sketch and a Guide to the Literature', start_page = 307, end_page = 311 },
+  { number = 0, title = 'Bibliography', start_page = 312, end_page = 319 },
+  { number = 0, title = 'Subject Index', start_page = 320, end_page = 325 },
+]
+
+header_zone_lines = 2
+running_header_regexes = [
+  '^§\s*\d+\.\s+.*$',
+  '^First Part\.\s+Preliminary Facts$',
+  '^Second Part\.\s+Basic Concepts and Methods.*$',
+  '^Third Part\.\s+Various Examples$',
+  '^Table of Contents(?:\s+[IVXLCDM]+)?$',
+  '^A Short Historical Sketch and a Guide to the Literature$',
+  '^Bibliography$',
+  '^Subject Index$',
+  '^(?-i:[IVXLCDM]+|\d{1,3})$',
+]
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Fig(?:ure)?\.?\s*(?P<number>\d+[a-z]?)\.?(?:\*\*)?(?:\s+(?P<tail>.*))?\s*$'
+caption_format = 'Fig. {number}'
+pair_figures = false
+
+[hooks]
+heading_hook = 'heading_hook'
+figures = 'draw_figures'
+
+[transcript_fixups]
+2 = [
+  # The transcript has 'Predstavlenii'; the scan prints 'Predstavleniĭ'.
+  ['Predstavlenii', 'Predstavleniĭ'],
+  # The transcript has 'Zechernesche'; the scan prints 'Zechnersche'.
+  ['Zechernesche', 'Zechnersche'],
+]
+6 = [
+  # Scan typo: Vilenkin
+  ['Vikenkin', 'Vilenkin'],
+]
+9 = [
+  # The transcript has '$U(g)$'; the scan prints '$U(\\mathfrak{g})$'.
+  ['\$U\(g\)\$', '$U(\mathfrak{g})$'],
+  # The transcript has '$g = \\mathfrak{sl}'; the scan prints '$\\mathfrak{g} = \\mathfrak{sl}'.
+  ['\$g\ =\ \\mathfrak\{sl\}', '$\mathfrak{g} = \mathfrak{sl}'],
+]
+11 = [
+  # The transcript has shifted rows and duplicated 'or'; the scan prints two 3-row braced blocks followed by $X^Y$.
+  ['<table>\n<thead>\n\ \ <tr\ class="row\-odd">\n\ \ \ \ <th>\$\\emptyset\$</th>\n\ \ \ \ <th>denotes\ the\ void\ set;</th>\n\ \ </tr>\n\ \ <tr\ class="row\-even">\n\ \ \ \ <th>\$x\ \\in\ X\$</th>\n\ \ \ \ <th>means\ that\ the\ element\ \$x\$\ belongs\ to\ the\ set\ \$X\$;</th>\n\ \ </tr>\n\ \ <tr\ class="row\-odd">\n\ \ \ \ <th>\$x\ \\notin\ X\$</th>\n\ \ \ \ <th>means\ that\ the\ element\ \$x\$\ does\ not\ belong\ to\ the\ set\ \$X\$;</th>\n\ \ </tr>\n\ \ <tr\ class="row\-even">\n\ \ \ \ <th>\$X\ \\subset\ Y\$</th>\n\ \ \ \ <th>means\ that\ the\ set\ \$X\$\ is\ contained\ in\ the\ set\ \$Y\$\ \(and\ possibly\ coincides\ with\ it\);</th>\n\ \ </tr>\n</thead>\n<tbody>\n\ \ <tr\ class="row\-odd">\n\ \ \ \ <th>\$\\bigcup_\{\\alpha\ \\in\ A\}\ X_\\alpha\$</th>\n\ \ \ \ <th>denotes\ the\ union\ of\ the\ system\ of\ sets\ \$X_\\alpha\$,\ which\ are\ indexed\ by\ the\ set\ \$A\$;\ if\ \$A\$\ is\ finite,\ then\ we\ also\ use\ the\ notation\ \$X\ \\cup\ Y\ \\cup\ \\cdots\ \\cup\ Z\$;</th>\n\ \ </tr>\n\ \ <tr\ class="row\-even">\n\ \ \ \ <th>\$\\bigcap_\{\\alpha\ \\in\ A\}\ X_\\alpha\$</th>\n\ \ \ \ <th>denotes\ the\ intersection\ of\ the\ system\ of\ sets\ \$X_\\alpha\$;</th>\n\ \ </tr>\n\ \ <tr\ class="row\-odd">\n\ \ \ \ <th>\$X\ \\setminus\ Y\$</th>\n\ \ \ \ <th>denotes\ the\ complement\ of\ the\ set\ \$X\$\ in\ the\ set\ \$Y\$;</th>\n\ \ </tr>\n\ \ <tr\ class="row\-even">\n\ \ \ \ <th>\$\\prod_\{\\alpha\ \\in\ A\}\ X_\\alpha\$</th>\n\ \ \ \ <th>denotes\ the\ Cartesian\ product\ of\ the\ sets\ \$X_\\alpha\$,\ that\ is,\ the\ collection\ of\ all\ functions\ \$\\\{x_\\alpha\\\}_\{\\alpha\ \\in\ A\}\$,\ where\ \$x_\\alpha\ \\in\ X_\\alpha\$;</th>\n\ \ </tr>\n\ \ <tr\ class="row\-odd">\n\ \ \ \ <th>\$f\\colon\ X\ \\to\ Y\$</th>\n\ \ \ \ <th\ rowspan="2">denotes\ the\ mapping\ \$f\$\ of\ the\ set\ \$X\$\ into\ the\ set\ \$Y\$;</th>\n\ \ </tr>\n\ \ <tr\ class="row\-even">\n\ \ \ \ <th>or</th>\n\ \ \ \ <th>or</th>\n\ \ </tr>\n\ \ <tr\ class="row\-odd">\n\ \ \ \ <th>\$X\ \\xrightarrow\{f\}\ Y\$</th>\n\ \ \ \ <th>means\ that\ the\ mapping\ \$f\$\ carries\ the\ element\ \$x\$\ into\ the\ element\ \$y\$;</th>\n\ \ </tr>\n\ \ <tr\ class="row\-even">\n\ \ \ \ <th>\$f\\colon\ x\ \\mapsto\ y\$</th>\n\ \ \ \ <th\ rowspan="2">is\ the\ set\ of\ all\ mappings\ of\ the\ set\ \$Y\$\ into\ the\ set\ \$X\$;</th>\n\ \ </tr>\n\ \ <tr\ class="row\-odd">\n\ \ \ \ <th>or</th>\n\ \ \ \ <th>or</th>\n\ \ </tr>\n\ \ <tr\ class="row\-even">\n\ \ \ \ <th>\$x\ \\xrightarrow\{f\}\ y\$</th>\n\ \ \ \ <th>means\ that\ the\ mapping\ \$f\$\ carries\ the\ element\ \$x\$\ into\ the\ element\ \$y\$;</th>\n\ \ </tr>\n</tbody>\n</table>\n\n\$X\^Y\$', '''<table>
+<tbody>
+  <tr class="row-odd">
+    <td>$\emptyset$</td>
+    <td>denotes the void set;</td>
+  </tr>
+  <tr class="row-even">
+    <td>$x \in X$</td>
+    <td>means that the element $x$ belongs to the set $X$;</td>
+  </tr>
+  <tr class="row-odd">
+    <td>$x \notin X$</td>
+    <td>means that the element $x$ does not belong to the set $X$;</td>
+  </tr>
+  <tr class="row-even">
+    <td>$X \subset Y$</td>
+    <td>means that the set $X$ is contained in the set $Y$ (and possibly coincides with it);</td>
+  </tr>
+  <tr class="row-odd">
+    <td>$\bigcup_{\alpha \in A} X_\alpha$</td>
+    <td>denotes the union of the system of sets $X_\alpha$, which are indexed by the set $A$; if $A$ is finite, then we also use the notation $X \cup Y \cup \cdots \cup Z$;</td>
+  </tr>
+  <tr class="row-even">
+    <td>$\bigcap_{\alpha \in A} X_\alpha$</td>
+    <td>denotes the intersection of the system of sets $X_\alpha$;</td>
+  </tr>
+  <tr class="row-odd">
+    <td>$X \setminus Y$</td>
+    <td>denotes the complement of the set $X$ in the set $Y$;</td>
+  </tr>
+  <tr class="row-even">
+    <td>$\prod_{\alpha \in A} X_\alpha$</td>
+    <td>denotes the Cartesian product of the sets $X_\alpha$, that is, the collection of all functions $\{x_\alpha\}_{\alpha \in A}$, where $x_\alpha \in X_\alpha$;</td>
+  </tr>
+  <tr class="row-odd">
+    <td>$f\colon X \to Y$</td>
+    <td rowspan="3">denotes the mapping $f$ of the set $X$ into the set $Y$;</td>
+  </tr>
+  <tr class="row-even">
+    <td>or</td>
+  </tr>
+  <tr class="row-odd">
+    <td>$X \xrightarrow{f} Y$</td>
+  </tr>
+  <tr class="row-even">
+    <td>$f\colon x \mapsto y$</td>
+    <td rowspan="3">means that the mapping $f$ carries the element $x$ into the element $y$;</td>
+  </tr>
+  <tr class="row-odd">
+    <td>or</td>
+  </tr>
+  <tr class="row-even">
+    <td>$x \xrightarrow{f} y$</td>
+  </tr>
+  <tr class="row-odd">
+    <td>$X^Y$</td>
+    <td>is the set of all mappings of the set $Y$ into the set $X$;</td>
+  </tr>
+</tbody>
+</table>'''],
+  # The transcript has '$x \\xrightarrow{f} y$'; the scan prints '$x \\overset{f}{\\mapsto} y$'.
+  ['\$x\ \\xrightarrow\{f\}\ y\$', '$x \overset{f}{\mapsto} y$'],
+]
+12 = [
+  # The scan prints diagonal arrows to centered X_{(R)}.
+  ['\\downarrow\ p\ \&\ \&\ \\downarrow\ g\ \\\\', '\searrow_{p} & & \swarrow^{g} \\'],
+  # The transcript has '$x >_Y$'; the scan prints '$x \\succ y$'.
+  ['hat\ \$x\ >_Y\$\ for', 'hat $x \succ y$ for'],
+  # The transcript has '$x >_x x_0$'; the scan prints '$x \\succ x_0$'.
+  ['\$x\ >_x\ x_0\$', '$x \succ x_0$'],
+  # The transcript has '$x_0 >_X$'; the scan prints '$x_0 \\succ x$'.
+  ['\$x_0\ >_X\$', '$x_0 \succ x$'],
+]
+13 = [
+  # The transcript has '$\\alpha < \\gamma$, $\\beta < \\gamma$'; the scan prints '$\\alpha \\prec \\gamma$, $\\beta \\prec \\gamma$'.
+  ['\$\\alpha\ <\ \\gamma\$,\ \$\\beta\ <\ \\gamma\$', '$\alpha \prec \gamma$, $\beta \prec \gamma$'],
+  # The transcript has '$(2)^{2^X}$'; the scan prints '$(2)^{(2)^X}$'.
+  ['\$\(2\)\^\{2\^X\}\$', '$(2)^{(2)^X}$'],
+  # The transcript has '$\\mathrm{Mor}(A, B) = B^4$'; the scan prints '$\\mathrm{Mor}(A, B) = B^A$'.
+  ['\$\\mathrm\{Mor\}\(A,\ B\)\ =\ B\^4\$', '$\mathrm{Mor}(A, B) = B^A$'],
+]
+14 = [
+  # The scan prints the commutative triangle diagram X_\alpha -> Y, Z -> Z.
+  ['diagram\ is\ commutative²:', '''diagram is commutative²:
+
+$$
+\begin{array}{ccc}
+& X_\alpha & \\
+\swarrow_{f_\alpha} & & \searrow^{g_\alpha} \\
+Y & \xrightarrow{h} & Z
+\end{array}
+$$'''],
+]
+15 = [
+  # The scan prints \prec and \gamma in the directed-set condition.
+  ['\\alpha\ <\ \\beta\ <\ \\nu', '\alpha \prec \beta \prec \gamma'],
+  # The scan prints \prec on both occurrences in the directed-set paragraph.
+  ['\\alpha\ <\ \\beta', '\alpha \prec \beta'],
+  # The scan prints the commutative triangle diagram for inductive limit.
+  ['the\ following\ diagrams\ commute:\n\nThe\ morphisms', '''the following diagrams commute:
+
+$$
+\begin{array}{ccc}
+X_\alpha & \xrightarrow{f_{\alpha\beta}} & X_\beta \\
+\searrow_{f_\alpha} & & \swarrow^{f_\beta} \\
+& Y &
+\end{array}
+$$
+
+The morphisms'''],
+  # The scan prints the second commutative triangle diagram for morphisms.
+  ['for\ all\ \$\\alpha\ \\in\ A\$,\ the\ following\ diagrams\ commute:\n\nA\ universally', '''for all $\alpha \in A$, the following diagrams commute:
+
+$$
+\begin{array}{ccc}
+& X_\alpha & \\
+\swarrow_{f_\alpha} & & \searrow^{g_\alpha} \\
+Y & \xrightarrow{h} & Z
+\end{array}
+$$
+
+A universally'''],
+  # The transcript has '$m < n$'; the scan prints '$m \\prec n$'.
+  ['\$m\ <\ n\$', '$m \prec n$'],
+]
+17 = [
+  # The transcript has '$\\beta > \\alpha$'; the scan prints '$\\beta \\succ \\alpha$'.
+  ['\$\\beta\ >\ \\alpha\$', '$\beta \succ \alpha$'],
+  # The transcript has '$x_\\alpha \\to^A x$'; the scan prints '$x_\\alpha \\underset{A}{\\to} x$'.
+  ['ion\ \$x_\\alpha\ \\to\^A\ x\$\ imp', 'ion $x_\alpha \underset{A}{\to} x$ imp'],
+  # The transcript has '$f(x_\\alpha) \\to^A f(x)$'; the scan prints '$f(x_\\alpha) \\underset{A}{\\to} f(x)$'.
+  ['\$f\(x_\\alpha\)\ \\to\^A\ f\(x\)\$', '$f(x_\alpha) \underset{A}{\to} f(x)$'],
+]
+19 = [
+  # Scan typo: functors
+  ['funtors', 'functors'],
+]
+20 = [
+  # The scan prints subscript Greek \Pi, not H.
+  ['F_H\^n\ \\circ\ G', 'F_\Pi^n \circ G'],
+  # The scan prints subscript Greek \Pi, not H.
+  ['\$F_H\^n\ =', '$F_\Pi^n ='],
+  # Scan typo: of the cochain
+  ['of\ the\ the\ cochain', 'of the cochain'],
+]
+21 = [
+  # The transcript has '$\\mathcal{U} = \\{U_\\alpha\\}$'; the scan prints '$\\mathfrak{U} = \\{U_\\alpha\\}$'.
+  ['\$\\mathcal\{U\}\ =\ \\\{U_\\alpha\\\}\$', '$\mathfrak{U} = \{U_\alpha\}$'],
+  # The transcript has 'H^n(\\mathcal{U}, \\Pi)'; the scan prints 'H^n(\\mathfrak{U}, \\Pi)'.
+  ['H\^n\(\\mathcal\{U\},\ \\Pi\)', 'H^n(\mathfrak{U}, \Pi)'],
+]
+23 = [
+  # The transcript has H<br>G, ', <th>Q*</th>', plain Roman symbols, 4 Q summands, and <th> in tbody; match the scan.
+  ['<table>\n<thead>\n\ \ <tr\ class="table\-header">\n\ \ \ \ <th>H<br>G</th>\n\ \ \ \ <th>Z</th>\n\ \ \ \ <th>Z<sub>m</sub></th>\n\ \ \ \ <th>Q</th>\n\ \ \ \ <th>Q\*</th>\n\ \ </tr>\n</thead>\n<tbody>\n\ \ <tr\ class="table\-row">\n\ \ \ \ <th>Z</th>\n\ \ \ \ <th>Z</th>\n\ \ \ \ <th>Z<sub>m</sub></th>\n\ \ \ \ <th>Q</th>\n\ \ \ ,\ <th>Q\*</th>\n\ \ </tr>\n\ \ <tr\ class="table\-row">\n\ \ \ \ <th>Z<sub>n</sub></th>\n\ \ \ \ <th>0</th>\n\ \ \ \ <th>Z<sub>\(m,n\)</sub></th>\n\ \ \ \ <th>0</th>\n\ \ \ \ <th>Z<sub>\(n,2\)</sub></th>\n\ \ </tr>\n\ \ <tr\ class="table\-row">\n\ \ \ \ <th>Q</th>\n\ \ \ \ <th>0</th>\n\ \ \ \ <th>0</th>\n\ \ \ \ <th>Q</th>\n\ \ \ \ <th>0</th>\n\ \ </tr>\n\ \ <tr\ class="table\-row">\n\ \ \ \ <th>Q\*</th>\n\ \ \ \ <th>Z\ ⊕\ Z<br>⊕\ Z\ ⊕\ \.\.\.</th>\n\ \ \ \ <th>Z<sub>\(m,2\)</sub>\ ⊕\ Z<sub>m</sub><br>⊕\ Z<sub>m</sub>\ ⊕\ Z<sub>m</sub>\ ⊕\ \.\.\.</th>\n\ \ \ \ <th>Q\ ⊕\ Q\ ⊕\ Q\ ⊕\ Q\ ⊕\ \.\.\.</th>\n\ \ \ \ <th>Z<sub>2</sub>\ ⊕\ Z<sub>2</sub>\ ⊕\ \.\.\.<br>⊕\ Z\ ⊕\ Z\ ⊕\ \.\.\.</th>\n\ \ </tr>\n</tbody>\n</table>', '''<table>
+<thead>
+  <tr class="table-header">
+    <th>$H / G$</th>
+    <th>$\textbf{Z}$</th>
+    <th>$\textbf{Z}_m$</th>
+    <th>$\textbf{Q}$</th>
+    <th>$\textbf{Q}^*$</th>
+  </tr>
+</thead>
+<tbody>
+  <tr class="table-row">
+    <td>$\textbf{Z}$</td>
+    <td>$\textbf{Z}$</td>
+    <td>$\textbf{Z}_m$</td>
+    <td>$\textbf{Q}$</td>
+    <td>$\textbf{Q}^*$</td>
+  </tr>
+  <tr class="table-row">
+    <td>$\textbf{Z}_n$</td>
+    <td>$0$</td>
+    <td>$\textbf{Z}_{(m,n)}$</td>
+    <td>$0$</td>
+    <td>$\textbf{Z}_{(n,2)}$</td>
+  </tr>
+  <tr class="table-row">
+    <td>$\textbf{Q}$</td>
+    <td>$0$</td>
+    <td>$0$</td>
+    <td>$\textbf{Q}$</td>
+    <td>$0$</td>
+  </tr>
+  <tr class="table-row">
+    <td>$\textbf{Q}^*$</td>
+    <td>$\textbf{Z} \oplus \textbf{Z}$<br>$\oplus \textbf{Z} \oplus \dots$</td>
+    <td>$\textbf{Z}_{(m,2)} \oplus \textbf{Z}_m$<br>$\oplus \textbf{Z}_m \oplus \textbf{Z}_m \oplus \dots$</td>
+    <td>$\textbf{Q} \oplus \textbf{Q}$<br>$\oplus \textbf{Q} \oplus \dots$</td>
+    <td>$\textbf{Z}_2 \oplus \textbf{Z}_2 \oplus \dots$<br>$\oplus \textbf{Z} \oplus \textbf{Z} \oplus \dots$</td>
+  </tr>
+</tbody>
+</table>'''],
+]
+24 = [
+  # The transcript has '$X \\times_Y Y$'; the scan prints '$X \\underset{G}{\\times} Y$'.
+  ['\$X\ \\times_Y\ Y\$', '$X \underset{G}{\times} Y$'],
+]
+29 = [
+  # The scan prints 9-column diagram with parallel equalities and vertical arrow \varepsilon from G to G'.
+  ['''\$\$\n\\begin\{array\}\{ccc\}\n1\ \\to\ G_0\ \\to\ G\ \\to\ G_1\ \\to\ 1\ \\\\\n\\downarrow\ \\quad\ \\downarrow\ \\\\\n1\ \\to\ G_0\ \\to\ G'\ \\to\ G_1\ \\to\ 1\.\n\\end\{array\}\n\$\$''', '''$$
+\begin{array}{ccccccccc}
+1 & \to & G_0 & \to & G & \to & G_1 & \to & 1 \\
+\parallel & & \parallel & & \downarrow^{\varepsilon} & & \parallel & & \parallel \\
+1 & \to & G_0 & \to & G' & \to & G_1 & \to & 1.
+\end{array}
+$$'''],
+]
+30 = [
+  # The scan prints right-margin equation number (2).
+  ['\\beta\(g_1\ g_2,\ g_3\)\ \\beta\(g_1,\ g_2\)\ \\beta\(g_2,\ g_3\)\^\{\-1\}\ \\beta\(g_1,\ g_2\ g_3\)\^\{\-1\},', '\beta(g_1 g_2, g_3) \beta(g_1, g_2) \beta(g_2, g_3)^{-1} \beta(g_1, g_2 g_3)^{-1}, \quad (2)'],
+  # The transcript has '\\omega(g_1, g_2, g_3, g_4)^{-1}'; the scan prints '\\omega(g_1 g_2, g_3, g_4)^{-1}'.
+  ['\\omega\(g_1,\ g_2,\ g_3,\ g_4\)\^\{\-1\}', '\omega(g_1 g_2, g_3, g_4)^{-1}'],
+  # The scan prints right-margin equation number (3).
+  ['=\ \\omega\(g_2,\ g_3,\ g_4\)\ \\omega\(g_1\ g_2,\ g_3,\ g_4\)\^\{\-1\}\.', '= \omega(g_2, g_3, g_4) \omega(g_1 g_2, g_3, g_4)^{-1}. \quad (3)'],
+  # Scan typo: groups $G_1$ and $G_0$
+  ['groups\ \$G_1\$\ and\ \$G_2\$', 'groups $G_1$ and $G_0$'],
+]
+31 = [
+  # The transcript has '\\widehat{d c}'; the scan prints '\\widetilde{dc}'.
+  ['\\widehat\{d\ c\}', '\widetilde{dc}'],
+]
+32 = [
+  # The transcript has '\\widehat{d}\\tilde{c}(h)'; the scan prints '\\widetilde{dc}(h)'.
+  ['\\widehat\{d\}\\tilde\{c\}\(h\)', '\widetilde{dc}(h)'],
+  # The transcript has '\\widehat{d}\\tilde{c}(h_1, h_2)'; the scan prints '\\widetilde{dc}(h_1, h_2)'.
+  ['\\widehat\{d\}\\tilde\{c\}\(h_1,\ h_2\)', '\widetilde{dc}(h_1, h_2)'],
+  # The transcript has '\\widehat{d}\\tilde{c}(h_1, h_2, h_3)'; the scan prints '\\widetilde{dc}(h_1, h_2, h_3)'.
+  ['\\widehat\{d\}\\tilde\{c\}\(h_1,\ h_2,\ h_3\)', '\widetilde{dc}(h_1, h_2, h_3)'],
+  # Scan typo: - \tilde{c}(h_1 h_2, h_3)
+  ['\-\ c\(h_1\ h_2,\ h_3\)', '- \tilde{c}(h_1 h_2, h_3)'],
+  # Scan typo: + \tilde{c}(h_1, h_2 h_3)
+  ['\+\ c\(h_1,\ h_2\ h_3\)', '+ \tilde{c}(h_1, h_2 h_3)'],
+  # Scan typo: - \tilde{c}(h_1, h_2)
+  ['\-\ c\(h_1,\ h_2\)', '- \tilde{c}(h_1, h_2)'],
+  # The transcript has '\\widehat{d}\\tilde{c}(h_1, h_2, h_3, h_4)'; the scan prints '\\widetilde{dc}(h_1, h_2, h_3, h_4)'.
+  ['\\widehat\{d\}\\tilde\{c\}\(h_1,\ h_2,\ h_3,\ h_4\)', '\widetilde{dc}(h_1, h_2, h_3, h_4)'],
+]
+33 = [
+  # Replace 2-row array with aligned and eq (1) matching the scan.
+  ['\$\$\n\\begin\{array\}\{l\}\n\\text\{for\ every\ fundamental\ net\ \}\ \\\{x_\{\\alpha\}\\\}_\{\\alpha\ \\in\ A\},\ \\\\\n\\text\{the\ net\ \}\ \\\{x_\{\\alpha\}\^\{\-1\}\\\}_\{\\alpha\ \\in\ A\}\ \\text\{\ is\ also\ fundamental\.\}\n\\end\{array\}\n\\quad\ \(1\)\n\$\$', '''$$
+\begin{aligned}
+& \text{for every fundamental net } \{x_{\alpha}\}_{\alpha \in A}, \\
+& \text{the net } \{x_{\alpha}^{-1}\}_{\alpha \in A} \text{ is also fundamental.}
+\end{aligned} \quad (1)
+$$'''],
+]
+35 = [
+  # Scan typo: right or left
+  ['right\ of\ left', 'right or left'],
+  # Scan typo: $x \in K$
+  ['\$x\ \\in\ X\$', '$x \in K$'],
+]
+36 = [
+  # The scan prints Greek \alpha, \beta superscripts throughout Problem/definition on L15.
+  ['of\ groups\ \$K\^a\$,\ where\ \$\\alpha\$\ runs\ through\ \$A\$,\ with\ the\ property\ that\ \$K\^a\ K\^b\ \\subset\ K\^\{a\ \+\ b\}\$,\ which\ is\ to\ say\ that\ the\ product\ of\ an\ element\ of\ \$K\^a\$\ with\ an\ element\ of\ \$K\^b\$\ belongs\ to\ \$K\^\{a\ \+\ b\}\$\.', 'of groups $K^\alpha$, where $\alpha$ runs through $A$, with the property that $K^\alpha K^\beta \subset K^{\alpha + \beta}$, which is to say that the product of an element of $K^\alpha$ with an element of $K^\beta$ belongs to $K^{\alpha + \beta}$.'],
+]
+39 = [
+  # Scan typo: for $\mathrm{Hom}_K(M, M)$
+  ['for\ \$\\mathrm\{Hom\}_K\(M,\ N\)\$', 'for $\mathrm{Hom}_K(M, M)$'],
+  # The transcript has '$M \\odot N$'; the scan prints '$M \\bigcirc N$'.
+  ['\$M\ \\odot\ N\$', '$M \bigcirc N$'],
+]
+40 = [
+  # Scan typo: diagram vertical arrow prints \phi for \psi; format commutative triangle.
+  ['''\$\$\nM_1\ \\times\ \\cdots\ \\times\ M_n\ \\xrightarrow\{\\phi\}\ \\begin\{array\}\{c\}\ M\ \\\\\ \\downarrow\ \\\\\ M'\ \\end\{array\},\n\$\$''', '''$$
+\begin{array}{ccc}
+M_1 \times \cdots \times M_n & \xrightarrow{\phi} & M \\
+\searrow_{\phi'} & & \downarrow^{\psi} \\
+& & M',
+\end{array}
+$$'''],
+  # The scan prints K centered beneath \otimes.
+  ['define\ \$M\ \\otimes\ N', 'define $M \underset{K}{\otimes} N'],
+  # The transcript has 'M \\odot N'; the scan prints 'M \\bigcirc N'.
+  ['M\ \\odot\ N', 'M \bigcirc N'],
+  # The transcript has 'in $M \\otimes N$'; the scan prints 'in $M \\underset{K}{\\otimes} N$'.
+  ['in\ \$M\ \\otimes\ N\$', 'in $M \underset{K}{\otimes} N$'],
+  # The transcript has 'by $m \\otimes n$'; the scan prints 'by $m \\underset{K}{\\otimes} n$'.
+  ['by\ \$m\ \\otimes\ n\$', 'by $m \underset{K}{\otimes} n$'],
+  # The transcript has 'hence $M \\otimes N$'; the scan prints 'hence $M \\underset{K}{\\otimes} N$'.
+  ['hence\ \$M\ \\otimes\ N\$', 'hence $M \underset{K}{\otimes} N$'],
+  # The transcript has 'into $\\underset{K}{\\bigotimes} M_2$'; the scan prints 'into $M_1 \\underset{K}{\\otimes} M_2$'.
+  ['into\ \$\\underset\{K\}\{\\bigotimes\}\ M_2\$', 'into $M_1 \underset{K}{\otimes} M_2$'],
+]
+41 = [
+  # The scan prints right-margin equation number (1).
+  ['A\ x_\\alpha\ =\ \\sum_\\beta\ a_\{\\alpha\\beta\}\ y_\\beta\.', 'A x_\alpha = \sum_\beta a_{\alpha\beta} y_\beta. \quad (1)'],
+]
+42 = [
+  # The transcript has 'a_{x\\gamma; \\beta\\delta}'; the scan prints 'a_{\\alpha\\gamma; \\beta\\delta}'.
+  ['a_\{x\\gamma;\ \\beta\\delta\}', 'a_{\alpha\gamma; \beta\delta}'],
+  # The transcript has 'a_{\\lambda\\beta}^{(1)}'; the scan prints 'a_{\\alpha\\beta}^{(1)}'.
+  ['a_\{\\lambda\\beta\}\^\{\(1\)\}', 'a_{\alpha\beta}^{(1)}'],
+  # Scan typo: a_{\gamma\delta}^{(2)}
+  ['\\alpha_\{\\gamma\\delta\}\^\{\(2\)\}', 'a_{\gamma\delta}^{(2)}'],
+  # The transcript has 'a_{1n}^{(2)} a^{(1)}'; the scan prints 'a_{1m}^{(2)} a^{(1)}'.
+  ['a_\{1n\}\^\{\(2\)\}\ a\^\{\(1\)\}', 'a_{1m}^{(2)} a^{(1)}'],
+]
+43 = [
+  # The scan prints \underset{\mathbf{R}}{\otimes} between bold algebras; fixes unclosed brace from raw auto-verdict.
+  ['\$\$\ \\bigoplus_\{\\mathbf\{R\}\}\ \\mathbf\{C\}\ \\otimes\ \\mathbf\{C\}\ =\ \\mathbf\{C\}\ \\oplus\ \\mathbf\{C\},\ \\quad\ \\bigoplus_\{\\mathbf\{R\}\}\ \\mathbf\{H\}\ =\ \\operatorname\{Mat\}_2\(\\mathbf\{C\}\),\ \\quad\ \\bigoplus_\{\\mathbf\{R\}\}\ \\mathbf\{H\}\ \\otimes\ \\mathbf\{H\}\ =\ \\operatorname\{Mat\}_4\(\\mathbf\{R\}\)\.\ \$\$', '$$ \mathbf{C} \underset{\mathbf{R}}{\otimes} \mathbf{C} = \mathbf{C} \oplus \mathbf{C}, \quad \mathbf{C} \underset{\mathbf{R}}{\otimes} \mathbf{H} = \operatorname{Mat}_2(\mathbf{C}), \quad \mathbf{H} \underset{\mathbf{R}}{\otimes} \mathbf{H} = \operatorname{Mat}_4(\mathbf{R}). $$'],
+  # The transcript has 'A \\otimes \\operatorname{Mat}'; the scan prints 'A \\underset{K}{\\otimes} \\operatorname{Mat}'.
+  ['A\ \\otimes\ \\operatorname\{Mat\}', 'A \underset{K}{\otimes} \operatorname{Mat}'],
+  # The transcript has '(K) \\otimes \\operatorname{Mat}_m(K)'; the scan prints '(K) \\otimes_K \\operatorname{Mat}_m(K)'.
+  ['\(K\)\ \\otimes\ \\operatorname\{Mat\}_m\(K\)', '(K) \otimes_K \operatorname{Mat}_m(K)'],
+  # The transcript has 'subspace $\\mathcal{F}^l(n, K)$'; the scan prints 'subspace $\\mathcal{F}^1(n, K)$'.
+  ['subspace\ \$\\mathcal\{F\}\^l\(n,\ K\)\$', 'subspace $\mathcal{F}^1(n, K)$'],
+  # The transcript has '\\wedge (V) = \\bigoplus_{k=0}^{\\infty}'; the scan prints '\\Lambda(V) = \\bigoplus_{k=0}^{\\infty}'.
+  ['\\wedge\ \(V\)\ =\ \\bigoplus_\{k=0\}\^\{\\infty\}', '\Lambda(V) = \bigoplus_{k=0}^{\infty}'],
+  # The transcript has '\\wedge^k (V)'; the scan prints '\\Lambda^k(V)'.
+  ['\\wedge\^k\ \(V\)', '\Lambda^k(V)'],
+  # The transcript has '\\wedge (V) \\oplus J'; the scan prints '\\Lambda(V) \\oplus J'.
+  ['\\wedge\ \(V\)\ \\oplus\ J', '\Lambda(V) \oplus J'],
+]
+45 = [
+  # The transcript has '\\otimes \\underbrace{R_{n_2, k_2}(K)}_{K}'; the scan prints '\\underset{K}{\\otimes} R_{n_2, k_2}(K)'.
+  ['\\otimes\ \\underbrace\{R_\{n_2,\ k_2\}\(K\)\}_\{K\}', '\underset{K}{\otimes} R_{n_2, k_2}(K)'],
+]
+47 = [
+  # The transcript has '$L^2[-1, 1]$'; the scan prints '$L^\\alpha[-1, 1]$'.
+  ['ace\ \$L\^2\[\-1,\ 1\]\$\ adm', 'ace $L^\alpha[-1, 1]$ adm'],
+]
+48 = [
+  # The transcript has '$L^2$'; the scan prints '$L^\\alpha$'.
+  ['\$L\^2\$', '$L^\alpha$'],
+  # The transcript has '|f|^2'; the scan prints '|f|^\\alpha'.
+  ['\|f\|\^2', '|f|^\alpha'],
+  # The transcript has '|f_i|^2'; the scan prints '|f_i|^\\alpha'.
+  ['\|f_i\|\^2', '|f_i|^\alpha'],
+]
+49 = [
+  # The transcript has 'U \\subset \\mathbb{C}'; the scan prints 'U \\subset \\mathbf{C}'.
+  ['U\ \\subset\ \\mathbb\{C\}', 'U \subset \mathbf{C}'],
+]
+50 = [
+  # The transcript has '\\mu_1 < \\mu_2'; the scan prints '\\mu_1 \\prec \\mu_2'.
+  ['\\mu_1\ <\ \\mu_2', '\mu_1 \prec \mu_2'],
+  # Scan typo: if $|\mu_2|(E) = 0$
+  ['if\ the\ \$\|\\mu_2\|\(E\)\ =\ 0\$', 'if $|\mu_2|(E) = 0$'],
+  # The transcript has '\\mu_1 > \\mu'; the scan prints '\\mu_1 \\succ \\mu'.
+  ['\\mu_1\ >\ \\mu', '\mu_1 \succ \mu'],
+  # The transcript has '\\mu_2 > \\mu'; the scan prints '\\mu_2 \\succ \\mu'.
+  ['\\mu_2\ >\ \\mu', '\mu_2 \succ \mu'],
+]
+51 = [
+  # Scan typo: set $E \subset L_1$
+  ['ded\ set\ \$E\ \\subset\ L\$,\ th', 'ded set $E \subset L_1$, th'],
+  # Scan typo: \{A_\alpha x\}
+  ['\ the\ direction\ \$\\\{f\(A_\\alpha\ x\)\\\}\$\ converges\ to\ \$', ' the direction $\{A_\alpha x\}$ converges to $'],
+]
+52 = [
+  # The transcript has 'f_1 \\in L_1,'; the scan prints "f_1 \\in L_1',".
+  ['f_1\ \\in\ L_1,', '''f_1 \in L_1','''],
+  # The transcript has 'f_2 \\in L_2.'; the scan prints "f_2 \\in L_2'.".
+  ['f_2\ \\in\ L_2\.', '''f_2 \in L_2'.'''],
+]
+53 = [
+  # The scan prints \smile beneath \otimes.
+  ['''\\to\ L\ \\otimes\ L'\$\.''', '''\to L \underset{\smile}{\otimes} L'$.'''],
+  # The transcript has 'p_1 \\otimes p_2'; the scan prints 'p_1 \\underset{\\smile}{\\otimes} p_2'.
+  ['\(p_1\ \\otimes\ p_2\)\(z\)', '(p_1 \underset{\smile}{\otimes} p_2)(z)'],
+  # The transcript has 'f_i \\in L_i'; the scan prints "f_i \\in L_i'".
+  ['f_i\ \\in\ L_i', "f_i \\in L_i'"],
+  # The transcript has 'and $L_1 \\otimes L_2$'; the scan prints 'and $L_1 \\underset{\\smile}{\\otimes} L_2$'.
+  ['_2\$\ and\ \$L_1\ \\otimes\ L_2\$,\ an', '_2$ and $L_1 \underset{\smile}{\otimes} L_2$, an'],
+  # The transcript has "p \\otimes p'"; the scan prints "p \\underset{\\smile}{\\otimes} p'".
+  ["p\\ \\\\otimes\\ p'", "p \\underset{\\smile}{\\otimes} p'"],
+  # The transcript has "space $L \\otimes L'$"; the scan prints "space $L \\underset{\\smile}{\\otimes} L'$".
+  ['''space\ \$L\ \\otimes\ L'\$''', '''space $L \underset{\smile}{\otimes} L'$'''],
+  # The transcript has "\\alpha: L \\otimes L' \\to"; the scan prints "\\alpha: L \\widehat{\\otimes} L' \\to".
+  ['''\\alpha:\ L\ \\otimes\ L'\ \\to''', '''\alpha: L \widehat{\otimes} L' \to'''],
+  # The transcript has '$L^p$, $L^p$, and $C$'; the scan prints '$L^p$, $l^p$, and $C$'.
+  ['\$L\^p\$,\ \$L\^p\$,\ and\ \$C\$', '$L^p$, $l^p$, and $C$'],
+  # The transcript has '\\sum_i'; the scan prints '\\sum_\\alpha'.
+  ['es\ \$\\sum_i\ \(A\ ', 'es $\sum_\alpha (A '],
+  # The transcript has '(A x_\\alpha x_\\alpha)'; the scan prints '(A x_\\alpha, x_\\alpha)'.
+  ['\(A\ x_\\alpha\ x_\\alpha\)', '(A x_\alpha, x_\alpha)'],
+  # Scan typo: seminorms $q_\beta$
+  ['seminorms\ \$p_\\beta\$', 'seminorms $q_\beta$'],
+  # The transcript has 'p_z \\widehat{\\otimes} q_\\beta'; the scan prints 'p_\\alpha \\widehat{\\otimes} q_\\beta'.
+  ['p_z\ \\widehat\{\\otimes\}\ q_\\beta', 'p_\alpha \widehat{\otimes} q_\beta'],
+  # The transcript has 'p_z \\otimes'; the scan prints 'p_\\alpha \\underset{\\smile}{\\otimes}'.
+  ['p_z\ \\otimes', 'p_\alpha \underset{\smile}{\otimes}'],
+  # The transcript has 'and $L \\otimes M$'; the scan prints 'and $L \\underset{\\smile}{\\otimes} M$'.
+  ['and\ \$L\ \\otimes\ M\$', 'and $L \underset{\smile}{\otimes} M$'],
+]
+55 = [
+  # Scan typo: topology on $\mathfrak{A}$
+  ['topology\ on\ \$A\$', 'topology on $\mathfrak{A}$'],
+]
+56 = [
+  # Scan typo: x^n \in \mathfrak{A}
+  ['x\^n\ \\in\ A', 'x^n \in \mathfrak{A}'],
+]
+58 = [
+  # Scan typo: If $\mathfrak{A}$ is
+  ['If\ \$A\$\ is', 'If $\mathfrak{A}$ is'],
+  # The transcript has 'term *representation*'; the scan prints 'term * representation'.
+  ['term\ \*representation\*', 'term * representation'],
+  # The transcript has 'Naimark'; the scan prints 'Naĭmark'.
+  ['Naimark', 'Naĭmark'],
+]
+59 = [
+  # The transcript has '\\|x*x\\|'; the scan prints '\\|x^*x\\|'.
+  ['\\\|x\*x\\\|', '\|x^*x\|'],
+  # The transcript has 'Naimark'; the scan prints 'Naĭmark'.
+  ['Naimark', 'Naĭmark'],
+  # The transcript has '\\|x^{2n}\\| = \\|x\\|^{2n}'; the scan prints '\\|x^{2^n}\\| = \\|x\\|^{2^n}'.
+  ['\\\|x\^\{2n\}\\\|\ =\ \\\|x\\\|\^\{2n\}', '\|x^{2^n}\| = \|x\|^{2^n}'],
+]
+60 = [
+  # The scan prints right-margin equation number (1).
+  ['\$\$\n\(x,\ y\)\ =\ f\(y\^\*x\)\.\n\$\$', '''$$
+(x, y) = f(y^*x). \quad (1)
+$$'''],
+  # The transcript has 'Cauchy-Bunjakovskii'; the scan prints 'Cauchy-Bunjakovskiĭ'.
+  ['Cauchy\-Bunjakovskii', 'Cauchy-Bunjakovskiĭ'],
+]
+61 = [
+  # Scan typo: \subset \mathbf{R}^+
+  ['\\subset\ R\^\+', '\subset \mathbf{R}^+'],
+  # Scan typo: algebra $\mathfrak{A}$
+  ['algebra\ \$A\$', 'algebra $\mathfrak{A}$'],
+  # The transcript has 'Naimark'; the scan prints 'Naĭmark'.
+  ['Naimark', 'Naĭmark'],
+]
+62 = [
+  # Scan typo: $\chi \in \mathfrak{M}(\mathfrak{A})$
+  ['\$x\ \\in\ \\mathfrak\{M\}\(\\mathfrak\{A\}\)\$', '$\chi \in \mathfrak{M}(\mathfrak{A})$'],
+  # Scan typo: \overline{\hat{x}(\chi)}
+  ['\\overline\{x\(\\chi\)\}', '\overline{\hat{x}(\chi)}'],
+  # The transcript has 'into $C$'; the scan prints 'into $\\mathbf{C}$'.
+  ['into\ \$C\$', 'into $\mathbf{C}$'],
+  # Scan typo: that is, $\mathfrak{A}$ contains
+  ['that\ is,\ \$A\$\ contains', 'that is, $\mathfrak{A}$ contains'],
+  # The transcript has 'field $C$'; the scan prints 'field $\\mathbf{C}$'.
+  ['field\ \$C\$', 'field $\mathbf{C}$'],
+]
+63 = [
+  # The transcript has 'measures $\\mu$ and $v$'; the scan prints 'measures $\\mu$ and $\\nu$'.
+  ['the\ measures\ \$\\mu\$\ and\ \$v\$\ are', 'the measures $\mu$ and $\nu$ are'],
+  # The transcript has '$(d\\mu/dv)^{1/2}$'; the scan prints '$(d\\mu/d\\nu)^{1/2}$'.
+  ['\$\(d\\mu/dv\)\^\{1/2\}\$', '$(d\mu/d\nu)^{1/2}$'],
+  # The transcript has '$\\phi_\\mu$ and $\\phi_v$.'; the scan prints '$\\phi_\\mu$ and $\\phi_\\nu$.'.
+  ['\$\\phi_\\mu\$\ and\ \$\\phi_v\$\.', '$\phi_\mu$ and $\phi_\nu$.'],
+  # The transcript has '$\\phi_\\mu$ and $\\phi_v$'; the scan prints '$\\phi_\\mu$ and $\\phi_\\nu$'.
+  ['\$\\phi_\\mu\$\ and\ \$\\phi_v\$', '$\phi_\mu$ and $\phi_\nu$'],
+  # The transcript has '\\to L^2(X, v)$'; the scan prints '\\to L^2(X, \\nu)$'.
+  ['\\to\ L\^2\(X,\ v\)\$', '\to L^2(X, \nu)$'],
+  # The transcript has '\\phi_v(f) \\tau f_0'; the scan prints '\\phi_\\nu(f) \\tau f_0'.
+  ['\\phi_v\(f\)\ \\tau\ f_0', '\phi_\nu(f) \tau f_0'],
+  # The transcript has '\\phi_v(f) \\alpha'; the scan prints '\\phi_\\nu(f) \\alpha'.
+  ['\\phi_v\(f\)\ \\alpha', '\phi_\nu(f) \alpha'],
+  # The transcript has '$d\\mu = |\\alpha|^2 dv$'; the scan prints '$d\\mu = |\\alpha|^2 d\\nu$'.
+  ['\$d\\mu\ =\ \|\\alpha\|\^2\ dv\$', '$d\mu = |\alpha|^2 d\nu$'],
+  # The transcript has 'to the measure $v$ and'; the scan prints 'to the measure $\\nu$ and'.
+  ['to\ the\ measure\ \$v\$\ and', 'to the measure $\nu$ and'],
+  # The transcript has '$d\\mu/dv = |\\alpha|^2$.'; the scan prints '$d\\mu/d\\nu = |\\alpha|^2$.'.
+  ['\$d\\mu/dv\ =\ \|\\alpha\|\^2\$\.', '$d\mu/d\nu = |\alpha|^2$.'],
+  # The transcript has 'L^2(X, v) \\to L^2'; the scan prints 'L^2(X, \\nu) \\to L^2'.
+  ['L\^2\(X,\ v\)\ \\to\ L\^2', 'L^2(X, \nu) \to L^2'],
+  # The transcript has 'that $v$ is'; the scan prints 'that $\\nu$ is'.
+  ['that\ \$v\$\ is', 'that $\nu$ is'],
+]
+64 = [
+  # Scan typo: \alpha \in A
+  ['\\alpha\ \\in\ \\mathfrak\{A\}', '\alpha \in A'],
+  # The transcript has 'direct sum $\\underset'; the scan prints 'direct sum $H = \\bigoplus'.
+  ['direct\ sum\ \$\\underset', 'direct sum $H = \bigoplus'],
+  # The transcript has '\\overset{\\infty}{\\bigoplus}'; the scan prints '\\bigoplus_{k=1}^{k=\\infty}'.
+  ['\\overset\{\\infty\}\{\\bigoplus\}', '\bigoplus_{k=1}^{k=\infty}'],
+]
+65 = [
+  # The transcript has 'X = \\mathfrak{B}(\\mathfrak{A})'; the scan prints 'X = \\mathfrak{M}(\\mathfrak{A})'.
+  ['X\ =\ \\mathfrak\{B\}\(\\mathfrak\{A\}\)', 'X = \mathfrak{M}(\mathfrak{A})'],
+  # The transcript has '\\mu_\\xi > \\mu_\\eta'; the scan prints '\\mu_\\xi \\succ \\mu_\\eta'.
+  ['\\mu_\\xi\ >\ \\mu_\\eta', '\mu_\xi \succ \mu_\eta'],
+  # Scan typo: \bigoplus_{i=1}^k H_{\xi_i}
+  ['\\bigoplus_\{i=1\}\^k\ H_\{\\xi_k\}', '\bigoplus_{i=1}^k H_{\xi_i}'],
+  # The transcript has '|\\alpha|^2 \\nu < \\mu'; the scan prints '|\\alpha|^2 \\nu \\prec \\mu'.
+  ['\|\\alpha\|\^2\ \\nu\ <\ \\mu', '|\alpha|^2 \nu \prec \mu'],
+]
+66 = [
+  # Scan typo: \bigoplus_{i=1}^{k-1} H_{\xi_i}
+  ['\\bigoplus_\{k=1\}\^\{k\-1\}\ H_\{\\xi_k\}', '\bigoplus_{i=1}^{k-1} H_{\xi_i}'],
+  # The transcript has '\\mu_{\\eta} > \\mu_k'; the scan prints '\\mu_{\\eta} \\succ \\mu_k'.
+  ['\\mu_\{\\eta\}\ >\ \\mu_k', '\mu_{\eta} \succ \mu_k'],
+]
+68 = [
+  # The transcript has 'the set $\\mathfrak{A}$ of'; the scan prints 'the set $\\mathfrak{A}^!$ of'.
+  ['the\ set\ \$\\mathfrak\{A\}\$\ of', 'the set $\mathfrak{A}^!$ of'],
+  # The transcript has '$\\mathfrak{A}^\\dagger = ('; the scan prints '$\\mathfrak{A}^{!!} = ('.
+  ['\$\\mathfrak\{A\}\^\\dagger\ =\ \(', '$\mathfrak{A}^{!!} = ('],
+  # The transcript has "(\\mathfrak{A}^\\dagger)'$"; the scan prints '(\\mathfrak{A}^!)^!$'.
+  ['''\(\\mathfrak\{A\}\^\\dagger\)'\$''', '(\mathfrak{A}^!)^!$'],
+  # The transcript has 'A \\in \\mathfrak{A}^\\dagger'; the scan prints 'A \\in \\mathfrak{A}^{!!}'.
+  ['A\ \\in\ \\mathfrak\{A\}\^\\dagger', 'A \in \mathfrak{A}^{!!}'],
+  # The transcript has 'commutant $\\mathfrak{A}^\\dagger$ is'; the scan prints 'commutant $\\mathfrak{A}^!$ is'.
+  ['commutant\ \$\\mathfrak\{A\}\^\\dagger\$\ is', 'commutant $\mathfrak{A}^!$ is'],
+  # The transcript has 'written as $\\mathfrak{A}^\\dagger$.'; the scan prints "written as $\\mathfrak{A}'$.".
+  ['written\ as\ \$\\mathfrak\{A\}\^\\dagger\$\.', '''written as $\mathfrak{A}'$.'''],
+  # The transcript has 'symbol $\\mathfrak{A}^\\dagger$ in'; the scan prints 'symbol $\\mathfrak{A}^!$ in'.
+  ['symbol\ \$\\mathfrak\{A\}\^\\dagger\$\ in', 'symbol $\mathfrak{A}^!$ in'],
+]
+69 = [
+  # The transcript has "lies in $\\mathfrak{A}'$"; the scan prints 'lies in $\\mathfrak{A}^!$'.
+  ['''lies\ in\ \$\\mathfrak\{A\}'\$''', 'lies in $\mathfrak{A}^!$'],
+  # The transcript has "$A \\in \\mathfrak{A}''$."; the scan prints '$A \\in \\mathfrak{A}^{!!}$.'.
+  ['''\$A\ \\in\ \\mathfrak\{A\}''\$\.''', '$A \in \mathfrak{A}^{!!}$.'],
+  # Scan typo: A P\xi = P A\xi
+  ['A\ P_\\xi\ =\ P\ A_\\xi', 'A P\xi = P A\xi'],
+  # The transcript has "1_{H_2})' \\supset \\mathfrak{A}'"; the scan prints '1_{H_2})^! \\supset \\mathfrak{A}^!'.
+  ["1_\\{H_2\\}\\)'\\ \\\\supset\\ \\\\mathfrak\\{A\\}'", '1_{H_2})^! \supset \mathfrak{A}^!'],
+  # The transcript has "\\mathfrak{B}(H_2))' = \\mathfrak{A}'"; the scan prints '\\mathfrak{B}(H_2))^! = \\mathfrak{A}^!'.
+  ["\\\\mathfrak\\{B\\}\\(H_2\\)\\)'\\ =\\ \\\\mathfrak\\{A\\}'", '\mathfrak{B}(H_2))^! = \mathfrak{A}^!'],
+  # The transcript has "(\\tilde{\\mathfrak{A}})' ="; the scan prints '(\\tilde{\\mathfrak{A}})^{!!} ='.
+  ['''\(\\tilde\{\\mathfrak\{A\}\}\)'\ =''', '(\tilde{\mathfrak{A}})^{!!} ='],
+  # The transcript has "= \\mathfrak{A}'' \\otimes"; the scan prints '= \\mathfrak{A}^{!!} \\otimes'.
+  ['''=\ \\mathfrak\{A\}''\ \\otimes''', '= \mathfrak{A}^{!!} \otimes'],
+  # The transcript has "center $Z(\\mathfrak{A}')$"; the scan prints 'center $Z(\\mathfrak{A}^!)$'.
+  ['''center\ \$Z\(\\mathfrak\{A\}'\)\$''', 'center $Z(\mathfrak{A}^!)$'],
+  # The transcript has "algebra $\\mathfrak{A}'$"; the scan prints 'algebra $\\mathfrak{A}^!$'.
+  ['''algebra\ \$\\mathfrak\{A\}'\$''', 'algebra $\mathfrak{A}^!$'],
+  # The transcript has "$\\mathfrak{A} \\cap \\mathfrak{A}'$."; the scan prints '$\\mathfrak{A} \\cap \\mathfrak{A}^!$.'.
+  ['''\$\\mathfrak\{A\}\ \\cap\ \\mathfrak\{A\}'\$\.''', '$\mathfrak{A} \cap \mathfrak{A}^!$.'],
+  # The transcript has "\\mathcal{R} = \\mathcal{D}_0',"; the scan prints '\\mathcal{R} = \\mathcal{D}_0^!,'.
+  ['''\\mathcal\{R\}\ =\ \\mathcal\{D\}_0',''', '\mathcal{R} = \mathcal{D}_0^!,'],
+  # The transcript has "\\mathcal{D} = \\mathcal{D}_0''$."; the scan prints '\\mathcal{D} = \\mathcal{D}_0^{!!}$.'.
+  ['''\\mathcal\{D\}\ =\ \\mathcal\{D\}_0''\$\.''', '\mathcal{D} = \mathcal{D}_0^{!!}$.'],
+  # The transcript has "A \\in \\mathcal{D}_0'"; the scan prints 'A \\in \\mathcal{D}_0^!'.
+  ["A\\ \\\\in\\ \\\\mathcal\\{D\\}_0'", 'A \in \mathcal{D}_0^!'],
+]
+70 = [
+  # The transcript has '\subset \mathcal{D}_0^i$,'; the scan prints '\subset \mathcal{D}_0^!$,'.
+  ['\\subset\ \\mathcal\{D\}_0\^i\$,', '\subset \mathcal{D}_0^!$,'],
+  # Escape asterisk in C*-algebra so Pandoc does not pair it with *continuous product*.
+  ['\(as\ a\ C\*\-algebra\)', '(as a C\*-algebra)'],
+  # The transcript has '\\supset \\mathcal{D}_0^i$'; the scan prints '\\supset \\mathcal{D}_0^!$'.
+  ['\\supset\ \\mathcal\{D\}_0\^i\$', '\supset \mathcal{D}_0^!$'],
+  # The transcript has '\\mathcal{R} = \\mathcal{D}_0^i$.'; the scan prints '\\mathcal{R} = \\mathcal{D}_0^!$.'.
+  ['\\mathcal\{R\}\ =\ \\mathcal\{D\}_0\^i\$\.', '\mathcal{R} = \mathcal{D}_0^!$.'],
+  # The transcript has '\\mathcal{D}_0^{ii} = \\mathcal{R}^i$.'; the scan prints '\\mathcal{D}_0^{!!} = \\mathcal{R}^!$.'.
+  ['\\mathcal\{D\}_0\^\{ii\}\ =\ \\mathcal\{R\}\^i\$\.', '\mathcal{D}_0^{!!} = \mathcal{R}^!$.'],
+  # The transcript has '_0^{ii} \\subset \\mathcal{D}_0^i'; the scan prints '_0^{!!} \\subset \\mathcal{D}_0^!'.
+  ['_0\^\{ii\}\ \\subset\ \\mathcal\{D\}_0\^i', '_0^{!!} \subset \mathcal{D}_0^!'],
+  # The transcript has '$A \\in \\mathcal{R}^i$'; the scan prints '$A \\in \\mathcal{R}^!$'.
+  ['\$A\ \\in\ \\mathcal\{R\}\^i\$', '$A \in \mathcal{R}^!$'],
+  # The transcript has '\\mathcal{D}_0^{ii} = \\mathcal{D}'; the scan prints '\\mathcal{D}_0^{!!} = \\mathcal{D}'.
+  ['\\mathcal\{D\}_0\^\{ii\}\ =\ \\mathcal\{D\}', '\mathcal{D}_0^{!!} = \mathcal{D}'],
+  # Scan typo: An algebra $\mathfrak{A}$
+  ['An\ algebra\ \$\\mathcal\{A\}\$', 'An algebra $\mathfrak{A}$'],
+]
+71 = [
+  # Escape asterisk in C*-algebra inside Theorem 2 emphasis.
+  ['isomorphic\ as\ a\ C\*\-algebra', 'isomorphic as a C\*-algebra'],
+]
+72 = [
+  # The transcript has "\\right)' ="; the scan prints '\\right)^! ='.
+  ['''\\right\)'\ =''', '\right)^! ='],
+  # The transcript has "\\mathfrak{A}'"; the scan prints '\\mathfrak{A}^!'.
+  ["\\\\mathfrak\\{A\\}'", '\mathfrak{A}^!'],
+]
+73 = [
+  # Scan typo: u = \frac{2x}{1-z},
+  ['\\frac\{2x\}\{1\-z\},', 'u = \frac{2x}{1-z},'],
+  # Scan typo: \infty, \omega$, if
+  ['\\infty,\ \\omega\$\.\ if', '\infty, \omega$, if'],
+]
+74 = [
+  # The transcript has '$S^n = \\mathbf{R}^{n+1}$'; the scan prints '$S^n \\subset \\mathbf{R}^{n+1}$'.
+  ['\$S\^n\ =\ \\mathbf\{R\}\^\{n\+1\}\$', '$S^n \subset \mathbf{R}^{n+1}$'],
+  # The transcript has '$\\mathbf{T}^n = \\mathbf{C}^n$'; the scan prints '$\\mathbf{T}^n \\subset \\mathbf{C}^n$'.
+  ['\$\\mathbf\{T\}\^n\ =\ \\mathbf\{C\}\^n\$', '$\mathbf{T}^n \subset \mathbf{C}^n$'],
+]
+75 = [
+  # The transcript has '\\mathbf{G}_{n,k}^c'; the scan prints '\\mathbf{G}_{n,k}^{\\mathbf{C}}'.
+  ['\\mathbf\{G\}_\{n,k\}\^c', '\mathbf{G}_{n,k}^{\mathbf{C}}'],
+]
+77 = [
+  # Scan typo: $(U, \alpha)$ and $(V, \beta)$
+  ['\$\(U,\ \\alpha\)\$\ und\ \$\(V,\ \\beta\)\$', '$(U, \alpha)$ and $(V, \beta)$'],
+  # Scan typo: subset $U \subset M$
+  ['subset\ \$U\ \\subset\ X\$', 'subset $U \subset M$'],
+  # Scan typo: class $C^k$
+  ['class\ \$C\^n\$', 'class $C^k$'],
+]
+78 = [
+  # Scan typo: manifolds is the notion
+  ['manifolds\ in\ the\ notion', 'manifolds is the notion'],
+  # Scan typo: point $x_0 = x(0)$
+  ['point\ \$x_0\ =\ x_0\(t\)\$', 'point $x_0 = x(0)$'],
+]
+80 = [
+  # The transcript has 'a^j_i = \\frac{\\partial x^i}'; the scan prints 'a^i_j = \\frac{\\partial x^i}'.
+  ['a\^j_i\ =\ \\frac\{\\partial\ x\^i\}', 'a^i_j = \frac{\partial x^i}'],
+  # The transcript has '\\xi^i(V).'; the scan prints '\\xi^j(V).'.
+  ['\\xi\^i\(V\)\.', '\xi^j(V).'],
+  # The transcript has '\\{\\partial/\\partial y^i\\}'; the scan prints '\\{\\partial/\\partial y^j\\}'.
+  ['nd\ \$\\\{\\partial/\\partial\ y\^i\\\}\$\ in', 'nd $\{\partial/\partial y^j\}$ in'],
+]
+81 = [
+  # The transcript has 'tangent vector $x(0)$.'; the scan prints "tangent vector $x'(0)$.".
+  ['tangent\ vector\ \$x\(0\)\$\.', '''tangent vector $x'(0)$.'''],
+]
+82 = [
+  # Scan typo: satisfies (6)
+  ['satisfies\ \(4\)', 'satisfies (6)'],
+]
+83 = [
+  # Scan typo and missing closing parenthesis around 'that is, ...'.
+  ['\(that\ is\.\ \$\[F_1\(\\phi\)\ \\eta\]\(x\)\ =\ \\phi_\*\(x\)\^\{\-1\}\ \\eta\(\\phi\(x\)\)\$\.', '(that is, $[F_1(\phi) \eta](x) = \phi_*(x)^{-1} \eta(\phi(x))$).'],
+  # Scan typo L_\xi(\eta f) - \eta(L_\xi f) and move eq (8) to the display equation.
+  ['\(L_\\xi\(\\eta\)\)\(f\)\ =\ L_\\xi\ L\(\\eta\)\ f\ \+\ \\eta\(L_\\xi\ f\),\n\$\$\n\nwhich\ follows\ from\ it\.\n\n\(8\)', '''(L_\xi(\eta))(f) = L_\xi(\eta f) - \eta(L_\xi f), \quad (8)
+$$
+
+which follows from it.'''],
+  # The transcript has '\\xi^i(x) \\frac{\\partial \\eta^i'; the scan prints '\\xi^j(x) \\frac{\\partial \\eta^i'.
+  ['\\xi\^i\(x\)\ \\frac\{\\partial\ \\eta\^i', '\xi^j(x) \frac{\partial \eta^i'],
+  # The transcript has '- \\eta^i(x) \\frac{\\partial \\xi^i'; the scan prints '- \\eta^j(x) \\frac{\\partial \\xi^i'.
+  ['\-\ \\eta\^i\(x\)\ \\frac\{\\partial\ \\xi\^i', '- \eta^j(x) \frac{\partial \xi^i'],
+]
+84 = [
+  # The scan prints right-margin equation number (1) on condition b).
+  ['b\)\ \$d\(\\omega_1\ \\wedge\ \\omega_2\)\ =\ d\\omega_1\ \\wedge\ \\omega_2\ \+\ \(\-1\)\^k\ \\,\ \\omega_1\ \\wedge\ d\\omega_2\$,', '''b)
+
+$$d(\omega_1 \wedge \omega_2) = d\omega_1 \wedge \omega_2 + (-1)^k \, \omega_1 \wedge d\omega_2, \quad (1)$$'''],
+  # Scan typo: to $M$ at the point $x$.
+  ['to\ \$M\$\ and\ the\ point\ \$x\$\.', 'to $M$ at the point $x$.'],
+]
+85 = [
+  # Scan typo: by one the degree
+  ['by\ one\ the\ the\ degree', 'by one the degree'],
+]
+86 = [
+  # The transcript has 'I = \\int_D \\int'; the scan prints 'I = \\int \\ldots_D \\int'.
+  ['I\ =\ \\int_D\ \\int', 'I = \int \ldots_D \int'],
+  # The transcript has '\\{U_x, \\phi_x\\}'; the scan prints '\\{U_\\alpha, \\phi_\\alpha\\}'.
+  ['\\\{U_x,\ \\phi_x\\\}', '\{U_\alpha, \phi_\alpha\}'],
+  # The transcript has '\\{U_x\\}_{x \\in A}'; the scan prints '\\{U_\\alpha\\}_{\\alpha \\in A}'.
+  ['\\\{U_x\\\}_\{x\ \\in\ A\}', '\{U_\alpha\}_{\alpha \in A}'],
+  # The transcript has '\\{f_x\\}_{x \\in A}'; the scan prints '\\{f_\\alpha\\}_{\\alpha \\in A}'.
+  ['\\\{f_x\\\}_\{x\ \\in\ A\}', '\{f_\alpha\}_{\alpha \in A}'],
+]
+87 = [
+  # The transcript has '1) $f_x = 0$ outside of $U_x$;'; the scan prints '1) $f_\\alpha = 0$ outside of $U_\\alpha$;'.
+  ['1\)\ \$f_x\ =\ 0\$\ outside\ of\ \$U_x\$;', '1) $f_\alpha = 0$ outside of $U_\alpha$;'],
+  # The transcript has '\\leqslant f_x \\leqslant 1'; the scan prints '\\leqslant f_\\alpha \\leqslant 1'.
+  ['\\leqslant\ f_x\ \\leqslant\ 1', '\leqslant f_\alpha \leqslant 1'],
+  # The transcript has '\\sum_{x \\in A} f_x'; the scan prints '\\sum_{\\alpha \\in A} f_\\alpha'.
+  ['\\sum_\{x\ \\in\ A\}\ f_x', '\sum_{\alpha \in A} f_\alpha'],
+  # The transcript has 'forms $\\omega_x$ such'; the scan prints 'forms $\\omega_\\alpha$ such'.
+  ['forms\ \$\\omega_x\$\ such', 'forms $\omega_\alpha$ such'],
+  # The transcript has 'that $\\omega_x = 0$ outside'; the scan prints 'that $\\omega_\\alpha = 0$ outside'.
+  ['that\ \$\\omega_x\ =\ 0\$\ outside', 'that $\omega_\alpha = 0$ outside'],
+  # The transcript has 'outside of $U_x$.'; the scan prints 'outside of $U_\\alpha$.'.
+  ['outside\ of\ \$U_x\$\.', 'outside of $U_\alpha$.'],
+  # The transcript has '\\sum_{x \\in A}'; the scan prints '\\sum_{\\alpha \\in A}'.
+  ['\\sum_\{x\ \\in\ A\}', '\sum_{\alpha \in A}'],
+  # The transcript has '\\int_{U_x} \\omega_x.'; the scan prints '\\int_{U_\\alpha} \\omega_\\alpha.'.
+  ['\\int_\{U_x\}\ \\omega_x\.', '\int_{U_\alpha} \omega_\alpha.'],
+  # The transcript has 'covering $U_x$ and'; the scan prints 'covering $U_\\alpha$ and'.
+  ['covering\ \$U_x\$\ and', 'covering $U_\alpha$ and'],
+  # The transcript has 'sum of the $\\omega_x$.'; the scan prints 'sum of the $\\omega_\\alpha$.'.
+  ['sum\ of\ the\ \$\\omega_x\$\.', 'sum of the $\omega_\alpha$.'],
+]
+88 = [
+  # The scan prints diagonal arrows p_1 and p_2 to a single centered M.
+  ['\\downarrow\{p_1\}\ \&\ \&\ \\downarrow\{p_2\}\ \\\\\nM\ \&\ \&\ M', '''\searrow_{p_1} & & \swarrow^{p_2} \\
+& M &'''],
+  # The scan prints closing right brace and equation number (1).
+  ['\\end\{aligned\}\n\$\$', '''\end{aligned} \quad (1)
+$$'''],
+  # Scan typo: $\mathcal{E}_1$ and $\mathcal{E}_2$
+  ['\$\\mathcal\{E\}\$\ and\ \$\\mathcal\{E\}\$', '$\mathcal{E}_1$ and $\mathcal{E}_2$'],
+]
+89 = [
+  # The scan prints subscript \alpha.
+  ['\$\(f\ \\cdot\ s\)_x\ =\ f\ \\cdot\ s_x\$', '$(f \cdot s)_\alpha = f \cdot s_\alpha$'],
+  # The transcript has '\\tilde{\\phi}(x_x, y_x)'; the scan prints '\\tilde{\\phi}(x_\\alpha, y_\\alpha)'.
+  ['\\tilde\{\\phi\}\(x_x,\ y_x\)', '\tilde{\phi}(x_\alpha, y_\alpha)'],
+  # The transcript has '(x_x, f_x(x_x) y_x)'; the scan prints '(x_\\alpha, f_\\alpha(x_\\alpha) y_\\alpha)'.
+  ['\(x_x,\ f_x\(x_x\)\ y_x\)', '(x_\alpha, f_\alpha(x_\alpha) y_\alpha)'],
+  # The transcript has 'functions $g_{x\\beta}$'; the scan prints 'functions $g_{\\alpha\\beta}$'.
+  ['functions\ \$g_\{x\\beta\}\$', 'functions $g_{\alpha\beta}$'],
+  # The transcript has 's_x: U \\cap U_x \\to K^n'; the scan prints 's_\\alpha: U \\cap U_\\alpha \\to K^n'.
+  ['s_x:\ U\ \\cap\ U_x\ \\to\ K\^n', 's_\alpha: U \cap U_\alpha \to K^n'],
+  # The scan prints right-margin equation number (2).
+  ['s_\\alpha:\ U\ \\cap\ U_\\alpha\ \\to\ K\^n,', 's_\alpha: U \cap U_\alpha \to K^n, \quad (2)'],
+  # The transcript has 's_x(x) = g_{x\\beta}(x)'; the scan prints 's_\\alpha(x) = g_{\\alpha\\beta}(x)'.
+  ['s_x\(x\)\ =\ g_\{x\\beta\}\(x\)', 's_\alpha(x) = g_{\alpha\beta}(x)'],
+  # The transcript has 'U \\cap U_x \\cap U_\\beta'; the scan prints 'U \\cap U_\\alpha \\cap U_\\beta'.
+  ['U\ \\cap\ U_x\ \\cap\ U_\\beta', 'U \cap U_\alpha \cap U_\beta'],
+  # The scan prints right-margin equation number (3).
+  ['s_\\alpha\(x\)\ =\ g_\{\\alpha\\beta\}\(x\)\ s_\\beta\(x\),\ \\quad\ x\ \\in\ U\ \\cap\ U_\\alpha\ \\cap\ U_\\beta\.', 's_\alpha(x) = g_{\alpha\beta}(x) s_\beta(x), \quad x \in U \cap U_\alpha \cap U_\beta. \quad (3)'],
+  # The transcript has '$\\check{\\epsilon} \\in T_x M$'; the scan prints '$\\xi \\in T_x M$'.
+  ['\$\\check\{\\epsilon\}\ \\in\ T_x\ M\$', '$\xi \in T_x M$'],
+  # The transcript has '$\\{(U_x, \\phi_x)\\}$'; the scan prints '$\\{(U_\\alpha, \\phi_\\alpha)\\}$'.
+  ['\$\\\{\(U_x,\ \\phi_x\)\\\}\$', '$\{(U_\alpha, \phi_\alpha)\}$'],
+  # The transcript has 'covering $\\{U_x\\}$'; the scan prints 'covering $\\{U_\\alpha\\}$'.
+  ['covering\ \$\\\{U_x\\\}\$', 'covering $\{U_\alpha\}$'],
+  # The transcript has '$g_{x\\beta} = (\\phi_x'; the scan prints '$g_{\\alpha\\beta} = (\\phi_\\alpha'.
+  ['\$g_\{x\\beta\}\ =\ \(\\phi_x', '$g_{\alpha\beta} = (\phi_\alpha'],
+]
+90 = [
+  # The transcript has '$pos = 1$'; the scan prints '$p \\circ s = 1$'.
+  ['\$pos\ =\ 1\$', '$p \circ s = 1$'],
+  # The transcript has '$s_x: U_x \\to'; the scan prints '$s_\\alpha: U_\\alpha \\to'.
+  ['\$s_x:\ U_x\ \\to', '$s_\alpha: U_\alpha \to'],
+  # Scan typo: $a(z) \frac{d}{dz}$
+  ['\$\\alpha\(z\)\ \\frac\{d\}\{dz\}\$', '$a(z) \frac{d}{dz}$'],
+]
+91 = [
+  # The scan prints \alpha subscripts and \otimes over \mathbf{C} on p91 L16.
+  ['g_\{x\\beta\}\ \\in\ \\mathcal\{O\}\\left\(U_x\ \\cap\ U_\\beta\\right\)\ \\otimes\ \\operatorname\{Aut\}\ \\mathbf\{C\}\^n,\ \\quad\ s_x\ \\in\ \\mathcal\{O\}\\left\(U_x\\right\)\ \\otimes\ \\mathbf\{C\}\^n\.', 'g_{\alpha\beta} \in \mathcal{O}\left(U_\alpha \cap U_\beta\right) \underset{\mathbf{C}}{\otimes} \operatorname{Aut} \mathbf{C}^n, \quad s_\alpha \in \mathcal{O}\left(U_\alpha\right) \underset{\mathbf{C}}{\otimes} \mathbf{C}^n.'],
+  # The transcript has '$g_{x\\beta}$ and $s_x$'; the scan prints '$g_{\\alpha\\beta}$ and $s_\\alpha$'.
+  ['\$g_\{x\\beta\}\$\ and\ \$s_x\$', '$g_{\alpha\beta}$ and $s_\alpha$'],
+  # The transcript has '= \\{U_x\\}_{x \\in A}$'; the scan prints '= \\{U_\\alpha\\}_{\\alpha \\in A}$'.
+  ['=\ \\\{U_x\\\}_\{x\ \\in\ A\}\$', '= \{U_\alpha\}_{\alpha \in A}$'],
+  # Scan typo: \ldots \cap \hat{U}_{\alpha_i} \cap \ldots
+  ['\\ldots\ U_\{\\alpha_i\}\ \\ldots', '\ldots \cap \hat{U}_{\alpha_i} \cap \ldots'],
+]
+92 = [
+  # Scan typo: $v_l(z_j = u_j + i v_j)$
+  ['\$v_i\(z_j\ =\ u_j\ \+\ i\ v_j\)\$', '$v_l(z_j = u_j + i v_j)$'],
+  # Scan typo: d\overline{z}_j$
+  ['\\partial\ \\overline\{z\}_j\$', 'd\overline{z}_j$'],
+  # Scan typo: $H^0(M, \Gamma_{\mathcal{E}})$
+  ['\$H\^0\(M,\ \\Gamma\)\$', '$H^0(M, \Gamma_{\mathcal{E}})$'],
+]
+93 = [
+  # The transcript has 'O(\\rho^{|m \\cdot 1|})'; the scan prints 'O(\\rho^{|m - 1|})'.
+  ['O\(\\rho\^\{\|m\ \\cdot\ 1\|\}\)', 'O(\rho^{|m - 1|})'],
+  # The transcript has 'O(\\rho^{k \\cdot |k \\cdot m + 1|})'; the scan prints 'O(\\rho^{k - |k - m + 1|})'.
+  ['O\(\\rho\^\{k\ \\cdot\ \|k\ \\cdot\ m\ \+\ 1\|\}\)', 'O(\rho^{k - |k - m + 1|})'],
+  # The transcript has 'G \\times G \\xrightarrow{\\psi} G'; the scan prints 'G \\times G \\xrightarrow{\\phi} G'.
+  ['ng\ \$G\ \\times\ G\ \\xrightarrow\{\\psi\}\ G\$\ ,\ ', 'ng $G \times G \xrightarrow{\phi} G$ , '],
+  # Scan typo: affine transformations of
+  ['affine\ transformation\ of', 'affine transformations of'],
+]
+95 = [
+  # The transcript has '$x \\mapsto ax$'; the scan prints '$x \\to ax$'.
+  ['\$x\ \\mapsto\ ax\$', '$x \to ax$'],
+  # The transcript has '$x \\mapsto e^{i\\lambda x}$'; the scan prints '$x \\to e^{i\\lambda x}$'.
+  ['\$x\ \\mapsto\ e\^\{i\\lambda\ x\}\$', '$x \to e^{i\lambda x}$'],
+  # The transcript has '$z \\mapsto 0$'; the scan prints '$z \\to 0$'.
+  ['\$z\ \\mapsto\ 0\$', '$z \to 0$'],
+  # The transcript has '$z \\mapsto z^n$'; the scan prints '$z \\to z^n$'.
+  ['\$z\ \\mapsto\ z\^n\$', '$z \to z^n$'],
+  # The transcript has '\\times [0,1] \\to G'; the scan prints '\\times [0,1] \\mapsto G'.
+  ['\\times\ \[0,1\]\ \\to\ G', '\times [0,1] \mapsto G'],
+  # The transcript has '(t,x) \\mapsto \\phi_t(x)'; the scan prints '(t,x) \\to \\phi_t(x)'.
+  ['\(t,x\)\ \\mapsto\ \\phi_t\(x\)', '(t,x) \to \phi_t(x)'],
+]
+97 = [
+  # Scan typo: algebra, it suffices to
+  ['algebra,\ if\ suffices\ to', 'algebra, it suffices to'],
+  # Scan typo: for all $x, y \in L_1$.
+  ['for\ all\ \$x,\ y\ \\in\ L\$\.', 'for all $x, y \in L_1$.'],
+]
+98 = [
+  # Scan typo: a Lie algebra $L$
+  ['a\ Lie\ algebras\ \$L\$', 'a Lie algebra $L$'],
+]
+100 = [
+  # False negative (the page check missed it): align vertical inclusion symbols directly beneath subspaces L_2, L_3, L_n.
+  ['\$\$\n\\begin\{array\}\{c\}\nL_1\ \\supset\ L_2\ \\supset\ L_3\ \\supset\ \\ldots\ \\supset\ L_n\ \\supset\ \\ldots\ \\\\\n\\parallel\ \\quad\ \\cup\ \\quad\ \\cup\ \\quad\ \\cup\ \\\\\nL\^1\ \\supset\ L\^2\ \\supset\ L\^3\ \\supset\ \\ldots\ \\supset\ L\^n\ \\supset\ \\ldots\n\\end\{array\}\n\$\$', '''$$
+\begin{array}{ccccccccccc}
+L_1 & \supset & L_2 & \supset & L_3 & \supset & \ldots & \supset & L_n & \supset & \ldots \\
+\parallel & & \cup & & \cup & & & & \cup & & \\
+L^1 & \supset & L^2 & \supset & L^3 & \supset & \ldots & \supset & L^n & \supset & \ldots
+\end{array}
+$$'''],
+  # The transcript has '(or $T_n(n, K)$)'; the scan prints '(or $T_o(n, K)$)'.
+  ['\(or\ \$T_n\(n,\ K\)\$\)', '(or $T_o(n, K)$)'],
+  # Scan typo: \det(A_1 - \lambda \cdot 1) = 0
+  ['\\det\(A\ \-\ \\lambda\ \\cdot\ 1\)\ =\ 0', '\det(A_1 - \lambda \cdot 1) = 0'],
+  # Scan typo: finite solvable groups are
+  ['finite\ solvable\ group\ are', 'finite solvable groups are'],
+]
+101 = [
+  # The scan prints a single \cap beneath M^1, M^2, M^n.
+  ['\$\$\\begin\{array\}\{ccc\}\nM\^1\ \\subset\ M\^2\ \\subset\ \\ldots\ \\subset\ M\^n\ \\subset,\ \\\\\n\\underset\{\\cap\}\{\\cap\}\ \&\ \\underset\{\\cap\}\{\\cap\}\ \&\ \\underset\{\\cap\}\{\\cap\}\ \\\\\nM_1\ \\subset\ M_2\ \\subset\ \\ldots\ \\subset\ M_n\ \\subset\.\n\\end\{array\}\$\$', '''$$
+\begin{array}{cccccccc}
+M^1 & \subset & M^2 & \subset & \ldots & \subset & M^n & \subset, \\
+\cap & & \cap & & & & \cap & \\
+M_1 & \subset & M_2 & \subset & \ldots & \subset & M_n & \subset.
+\end{array}
+$$'''],
+  # Scan typo: $(ad x)^n = 0$
+  ['\$\(ad\ x\)_n\ =\ 0\$', '$(ad x)^n = 0$'],
+  # Scan typo: ($M^\infty = L$).
+  ['\(\$M\^x\ =\ L\$\)\.', '($M^\infty = L$).'],
+]
+102 = [
+  # The transcript has 'L_C = L \\otimes \\mathbf{C}'; the scan prints 'L_C = L \\otimes_{\\mathbf{R}} \\mathbf{C}'.
+  ['L_C\ =\ L\ \\otimes\ \\mathbf\{C\}', 'L_C = L \otimes_{\mathbf{R}} \mathbf{C}'],
+]
+103 = [
+  # The transcript has 'all $x, y \\in \\Sigma$.'; the scan prints 'all $x, y \\in \\Sigma$,'.
+  ['Z\}\$\ for\ all\ \$x,\ y\ \\in\ \\Sigma\$\.', 'Z}$ for all $x, y \in \Sigma$,'],
+]
+104 = [
+  # Scan typo: numbers $i$ for which the
+  ['numbers\ \$l\$\ for\ which\ the', 'numbers $i$ for which the'],
+]
+105 = [
+  # The transcript has '+ \\dots.$$'; the scan prints '+ \\dots,$$'.
+  ['\+\ \\dots\.\$\$', '+ \dots,$$'],
+]
+107 = [
+  # Scan typo: called *inner automorphisms*).
+  ['called\ \*inner\ automorphisms\*\.', 'called *inner automorphisms*).'],
+]
+108 = [
+  # The transcript has 'see that $dBA = BA - AB$,'; the scan prints 'see that $\\mathrm{ad} B A = BA - AB$,'.
+  ['see\ that\ \$dBA\ =\ BA\ \-\ AB\$,', 'see that $\mathrm{ad} B A = BA - AB$,'],
+  # The scan prints right-margin equation number (9).
+  ['\[B,\ A\]\ =\ BA\ \-\ AB\.', '[B, A] = BA - AB. \quad (9)'],
+  # The transcript has '$\\lceil L(g)f \\rceil(h) = f(g^{-1}h)$.'; the scan prints '$[L(g)f](h) = f(g^{-1}h)$.'.
+  ['\$\\lceil\ L\(g\)f\ \\rceil\(h\)\ =\ f\(g\^\{\-1\}h\)\$\.', '$[L(g)f](h) = f(g^{-1}h)$.'],
+  # The transcript has 'all products $xy$.'; the scan prints 'all products $xy$,'.
+  ['all\ products\ \$xy\$\.', 'all products $xy$,'],
+]
+109 = [
+  # The transcript has '$\\alpha(x) = x^{-1}$'; the scan prints '$\\varepsilon(x) = x^{-1}$'.
+  ['\$\\alpha\(x\)\ =\ x\^\{\-1\}\$', '$\varepsilon(x) = x^{-1}$'],
+  # Scan typo: Lie algebra $\mathfrak{g}$ there
+  ['Lie\ algebra\ \$g\$\ there', 'Lie algebra $\mathfrak{g}$ there'],
+  # The transcript has 'for which $g$ is its'; the scan prints 'for which $\\mathfrak{g}$ is its'.
+  ['for\ which\ \$g\$\ is\ its', 'for which $\mathfrak{g}$ is its'],
+  # The transcript has 'with Lie algebra $g$ ('; the scan prints 'with Lie algebra $\\mathfrak{g}$ ('.
+  ['with\ Lie\ algebra\ \$g\$\ \(', 'with Lie algebra $\mathfrak{g}$ ('],
+]
+110 = [
+  # The transcript has Roman g; the scan prints Fraktur \mathfrak{g}.
+  ['c\)\ \$\\dim\ \[g,\ g\]\ =\ \\dim\ \[g,\ \[g,\ g\]\]\ =\ 1\$,', 'c) $\dim [\mathfrak{g}, \mathfrak{g}] = \dim [\mathfrak{g}, [\mathfrak{g}, \mathfrak{g}]] = 1$,'],
+  # The transcript has 'having $g$ for its'; the scan prints 'having $\\mathfrak{g}$ for its'.
+  ['having\ \$g\$\ for\ its', 'having $\mathfrak{g}$ for its'],
+  # The transcript has '$\\dim [g, g] = 0$'; the scan prints '$\\dim [\\mathfrak{g}, \\mathfrak{g}] = 0$'.
+  ['\$\\dim\ \[g,\ g\]\ =\ 0\$', '$\dim [\mathfrak{g}, \mathfrak{g}] = 0$'],
+  # The transcript has '$\\dim [g, g] = 1$'; the scan prints '$\\dim [\\mathfrak{g}, \\mathfrak{g}] = 1$'.
+  ['\$\\dim\ \[g,\ g\]\ =\ 1\$', '$\dim [\mathfrak{g}, \mathfrak{g}] = 1$'],
+  # The transcript has '[g, [g'; the scan prints '[\\mathfrak{g}, [\\mathfrak{g}'.
+  ['\[g,\ \[g', '[\mathfrak{g}, [\mathfrak{g}'],
+  # The transcript has ', g]] = \\{0\\}'; the scan prints ', \\mathfrak{g}]] = \\{0\\}'.
+  [',\ g\]\]\ =\ \\\{0\\\}', ', \mathfrak{g}]] = \{0\}'],
+  # The transcript has '\\dim [g, g] = 2'; the scan prints '\\dim [\\mathfrak{g}, \\mathfrak{g}] = 2'.
+  ['\\dim\ \[g,\ g\]\ =\ 2', '\dim [\mathfrak{g}, \mathfrak{g}] = 2'],
+  # The transcript has 'defines $g$ according'; the scan prints 'defines $\\mathfrak{g}$ according'.
+  ['defines\ \$g\$\ according', 'defines $\mathfrak{g}$ according'],
+]
+111 = [
+  # The scan prints vertical bar delimiters around the 3x3 matrix, not square brackets.
+  ['b\)\ \$Z\(G\)\ =\ \\left\\\{\ \\begin\{bmatrix\}\ 1\ \&\ 0\ \&\ z\ \\\\\ 0\ \&\ 1\ \&\ 0\ \\\\\ 0\ \&\ 0\ \&\ 1\ \\end\{bmatrix\}\ \\right\\\},\ \\quad\ z\ \\in\ \\mathbf\{R\}\$,', 'b) $Z(G) = \left\{ \begin{vmatrix} 1 & 0 & z \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{vmatrix} \right\}, \quad z \in \mathbf{R}$,'],
+  # The scan prints negated tilde and case system.
+  ['d\)\ \$Z\(G\)\ =\ \\left\\\{\ \\begin\{aligned\}\ \\\{e\\\},\ \&\ \\text\{if\ \}\ A\ \\neq\ \\begin\{pmatrix\}\ 0\ \&\ a\ \\\\\ \-a\ \&\ 0\ \\end\{pmatrix\},\ \&\ a\ \\in\ \\mathbf\{R\}\^\*\.\ \\\\\ \\left\\\{\ \\left\(\ 0,\ 0,\ \\frac\{2\\pi\ n\}\{a\}\ \\right\)\ \\right\\\},\ \&\ n\ \\in\ \\mathbf\{Z\},\ \&\ \\text\{if\ \}\ A\ \\sim\ \\begin\{pmatrix\}\ 0\ \&\ a\ \\\\\ \-a\ \&\ 0\ \\end\{pmatrix\},\ \&\ a\ \\in\ \\mathbf\{R\}\^\*;\ \\end\{aligned\}\ \\right\.\$', 'd) $Z(G) = \begin{cases} \{e\}, & \text{if } A \not\sim \begin{pmatrix} 0 & a \\ -a & 0 \end{pmatrix}, \quad a \in \mathbf{R}^*. \\ \left\{ \left( 0, 0, \frac{2\pi n}{a} \right) \right\}, & n \in \mathbf{Z}, \text{ if } A \sim \begin{pmatrix} 0 & a \\ -a & 0 \end{pmatrix}, \quad a \in \mathbf{R}^*; \end{cases}$'],
+  # The transcript has '[g, g] = g'; the scan prints '[\\mathfrak{g}, \\mathfrak{g}] = \\mathfrak{g}'.
+  ['\[g,\ g\]\ =\ g', '[\mathfrak{g}, \mathfrak{g}] = \mathfrak{g}'],
+  # The transcript has '$g = \\mathbf{R}^3$'; the scan prints '$\\mathfrak{g} = \\mathbf{R}^3$'.
+  ['\$g\ =\ \\mathbf\{R\}\^3\$', '$\mathfrak{g} = \mathbf{R}^3$'],
+  # The transcript has '$g = [g, g]$'; the scan prints '$\\mathfrak{g} = [\\mathfrak{g}, \\mathfrak{g}]$'.
+  ['\$g\ =\ \[g,\ g\]\$', '$\mathfrak{g} = [\mathfrak{g}, \mathfrak{g}]$'],
+]
+112 = [
+  # The transcript has '= A dg \\xi,'; the scan prints '= Ad\\,g\\,\\xi,'.
+  ['=\ A\ dg\ \\xi,', '= Ad\,g\,\xi,'],
+]
+113 = [
+  # The scan prints \exp vertical arrows, Fraktur \mathfrak{g}_1, \mathfrak{g}_2, and \phi_*(e).
+  ['\$\$\n\\begin\{array\}\{ccc\}\nG_1\ \&\ \\xrightarrow\{\\phi\}\ \&\ G_2\ \\\\\n\\exp\ \\downarrow\ \&\ \&\ \\downarrow\^\{\\exp\}\ \\\\\ng_1\ \&\ \\xrightarrow\{\\phi_\*\(c\)\}\ \&\ g_2\n\\end\{array\}\n\$\$', '''$$
+\begin{array}{ccc}
+G_1 & \xrightarrow{\phi} & G_2 \\
+\uparrow_{\exp} & & \uparrow^{\exp} \\
+\mathfrak{g}_1 & \xrightarrow{\phi_*(e)} & \mathfrak{g}_2
+\end{array}
+$$'''],
+  # The transcript has 'and $g$ its Lie algebra'; the scan prints 'and $\\mathfrak{g}$ its Lie algebra'.
+  ['and\ \$g\$\ its\ Lie\ algebra', 'and $\mathfrak{g}$ its Lie algebra'],
+  # The transcript has '$\\exp: g \\to G$'; the scan prints '$\\exp: \\mathfrak{g} \\to G$'.
+  ['\$\\exp:\ g\ \\to\ G\$', '$\exp: \mathfrak{g} \to G$'],
+  # The transcript has 'the algebra $g$ coincides'; the scan prints 'the algebra $\\mathfrak{g}$ coincides'.
+  ['the\ algebra\ \$g\$\ coincides', 'the algebra $\mathfrak{g}$ coincides'],
+]
+114 = [
+  # Scan typos: skew-symmetric entry 0 (not b) and denominator r^2 (not r), wrapped cleanly.
+  ['\$\$\\exp\ \\begin\{pmatrix\}\ 0\ \&\ a\ \&\ c\ \\\\\ \-a\ \&\ b\ \&\ b\ \\\\\ \-c\ \&\ \-b\ \&\ 0\ \\end\{pmatrix\}\$\$\n\n\$\$=\ \\cos\ r\ \\begin\{pmatrix\}\ 1\ \&\ 0\ \&\ 0\ \\\\\ 0\ \&\ 1\ \&\ 0\ \\\\\ 0\ \&\ 0\ \&\ 1\ \\end\{pmatrix\}\ \+\ \\frac\{\\sin\ r\}\{r\}\ \\begin\{pmatrix\}\ 0\ \&\ a\ \&\ c\ \\\\\ \-a\ \&\ 0\ \&\ b\ \\\\\ \-c\ \&\ \-b\ \&\ 0\ \\end\{pmatrix\}\ \+\ \\frac\{1\ \-\ \\cos\ r\}\{r\}\ \\begin\{pmatrix\}\ b\^2\ \&\ \-bc\ \&\ ab\ \\\\\ \-bc\ \&\ c\^2\ \&\ \-ac\ \\\\\ ab\ \&\ \-ac\ \&\ a\^2\ \\end\{pmatrix\},\$\$', '''$$
+\begin{aligned}
+\exp \begin{pmatrix} 0 & a & c \\ -a & 0 & b \\ -c & -b & 0 \end{pmatrix}
+&= \cos r \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{pmatrix} + \frac{\sin r}{r} \begin{pmatrix} 0 & a & c \\ -a & 0 & b \\ -c & -b & 0 \end{pmatrix} \\
+&\quad + \frac{1 - \cos r}{r^2} \begin{pmatrix} b^2 & -bc & ab \\ -bc & c^2 & -ac \\ ab & -ac & a^2 \end{pmatrix},
+\end{aligned}
+$$'''],
+  # The transcript has '\\dots \\frac{e^\\lambda}{(n-1)!}'; the scan prints '\\dots & \\frac{e^\\lambda}{(n-1)!}'.
+  ['\\dots\ \\frac\{e\^\\lambda\}\{\(n\-1\)!\}', '\dots & \frac{e^\lambda}{(n-1)!}'],
+  # The transcript has '0 & 0 & 0 \\dots & e^\\lambda'; the scan prints '\\dots \\\\ 0 & 0 & 0 \\dots & e^\\lambda'.
+  ['0\ \&\ 0\ \&\ 0\ \\dots\ \&\ e\^\\lambda', '\dots \\ 0 & 0 & 0 \dots & e^\lambda'],
+  # Scan typo: x_{tX}(s) = x_X(ts). (page114 prints s_X(ts))
+  ['x_\{tX\}\(s\)\ =\ s_X\(ts\)\.', 'x_{tX}(s) = x_X(ts).'],
+]
+115 = [
+  # The transcript has '\\exp_*(0) \\colon X \\to X,'; the scan prints '\\exp_*(0) \\colon X \\mapsto X,'.
+  ['\\exp_\*\(0\)\ \\colon\ X\ \\to\ X,', '\exp_*(0) \colon X \mapsto X,'],
+  # Scan typo: \psi(x, y) = x + y + (page115 eq (7) prints \phi(x,y) while subsequent lines refer to \psi(x,y))
+  ['\\phi\(x,\ y\)\ =\ x\ \+\ y\ \+', '\psi(x, y) = x + y +'],
+  # The scan prints right-margin equation number (7).
+  ['\\psi\(x,\ y\)\ =\ x\ \+\ y\ \+\ \\frac\{1\}\{2\}\ \[x,\ y\]\ \+\ \\ldots,', '\psi(x, y) = x + y + \frac{1}{2} [x, y] + \ldots, \quad (7)'],
+  # The scan prints right-margin equation number (8).
+  ['\\psi\(x,\ y\)\ =\ \\sum_\{m=1\}\^\{\\infty\}\ \\frac\{\(\-1\)\^\{m\-1\}\}\{m\}\ \\sum_\{\\substack\{k_i\ \+\ l_i\ \\geq\ 1\ \\\\\ k_i\ \\geq\ 0,\ l_i\ \\geq\ 0\}\}\ \\frac\{\[x\^\{k_1\}\ y\^\{l_1\}\ \\ldots\ x\^\{k_m\}\ y\^\{l_m\}\]\}\{k_1!\ l_1!\ \\ldots\ k_m!\ l_m!\},', '\psi(x, y) = \sum_{m=1}^{\infty} \frac{(-1)^{m-1}}{m} \sum_{\substack{k_i + l_i \geq 1 \\ k_i \geq 0, l_i \geq 0}} \frac{[x^{k_1} y^{l_1} \ldots x^{k_m} y^{l_m}]}{k_1! l_1! \ldots k_m! l_m!}, \quad (8)'],
+]
+116 = [
+  # Scan typo: \frac{z}{e^z - 1} (p116_157 prints uppercase Z in e^Z - 1)
+  ['\\frac\{z\}\{e\^Z\ \-\ 1\}', '\frac{z}{e^z - 1}'],
+  # Scan typo: \rho_l(X) dX (page116 prints dotted \rho_i as a typo for left-invariant \rho_l; transcript has \rho_t)
+  ['\\rho_t\(X\)\ dX', '\rho_l(X) dX'],
+  # Scan typo: functions $\rho_l$ and (p116_159 prints dotted \rho_i as typo for \rho_l; transcript has \rho_t)
+  ['functions\ \$\\rho_t\$\ and', 'functions $\rho_l$ and'],
+  # Scan typo: \rho_l(X) = \det[\alpha( (page116 eq (11) prints dotted \rho_i as typo for \rho_l; transcript has \rho_t)
+  ['\\rho_t\(X\)\ =\ \\det\[\\alpha\(', '\rho_l(X) = \det[\alpha('],
+  # Scan typo: \rho_r(X)/\rho_l(X) (page116 prints dotted \rho_i as typo for \rho_l; transcript has \rho_t)
+  ['\\rho_r\(X\)/\\rho_t\(X\)', '\rho_r(X)/\rho_l(X)'],
+]
+117 = [
+  # Strip running section header duplicated as top heading.
+  ['^# § 6\. Lie Groups and Lie Algebras\n*', ''],
+]
+118 = [
+  # Scan typo: see [85]). (p118_163 actually prints 'see [85].' omitting closing ')' for '(as a sheaf...'; transcript also omits ')')
+  ['see\ \[85\]\.', 'see [85]).'],
+]
+120 = [
+  # The transcript has '\\bigvee_k \\otimes V_2'; the scan prints 'V_1 \\underset{K}{\\otimes} V_2'.
+  ['\\bigvee_k\ \\otimes\ V_2', 'V_1 \underset{K}{\otimes} V_2'],
+]
+121 = [
+  # The transcript has 'V_L = V \\otimes_L L'; the scan prints 'V_L = V \\underset{K}{\\otimes} L'.
+  ['V_L\ =\ V\ \\otimes_L\ L', 'V_L = V \underset{K}{\otimes} L'],
+]
+122 = [
+  # The transcript has 'the operation $\\otimes$,'; the scan prints 'the operation $\\widehat{\\otimes}$,'.
+  ['the\ operation\ \$\\otimes\$,', 'the operation $\widehat{\otimes}$,'],
+  # The transcript has 'subspace in $V \\otimes W$'; the scan prints 'subspace in $V \\widehat{\\otimes} W$'.
+  ['subspace\ in\ \$V\ \\otimes\ W\$', 'subspace in $V \widehat{\otimes} W$'],
+  # The transcript has 'the form $V \\otimes W_1$,'; the scan prints 'the form $V \\widehat{\\otimes} W_1$,'.
+  ['the\ form\ \$V\ \\otimes\ W_1\$,', 'the form $V \widehat{\otimes} W_1$,'],
+]
+123 = [
+  # Scan typo: be an irreducible (p123_169 prints 'be a irreducible')
+  ['be\ a\ irreducible', 'be an irreducible'],
+  # Scan typo: of functions on $G$ (p123_170 prints 'of function on G')
+  ['of\ function\ on\ \$G\$', 'of functions on $G$'],
+]
+124 = [
+  # The scan prints a comma after c_i T(g_i).
+  ['c_i\ T\(g_i\)\$\.', 'c_i T(g_i)$,'],
+  # Scan typo: A \in \mathcal{C}(T) (p124_172 prints A \subset \mathcal{C}(T) for an operator belonging to \mathcal{C}(T))
+  ['A\ \\subset\ \\mathcal\{C\}\(T\)', 'A \in \mathcal{C}(T)'],
+]
+126 = [
+  # The transcript has "W_i''/W_{i-1}''"; the scan prints "W_i'/W_{i-1}'".
+  ['''in\ \$W_i''/W_\{i\-1\}''\$\ fo''', '''in $W_i'/W_{i-1}'$ fo'''],
+  # The transcript has "W_j''/W_{j-1}''"; the scan prints "W_j'/W_{j-1}'".
+  ["W_j''/W_\\{j\\-1\\}''", "W_j'/W_{j-1}'"],
+]
+127 = [
+  # Scan typo: operator $\Lambda$ (page127 prints 'image of the operator A', where V_1' is graph of \Lambda)
+  ['operator\ \$A\$', 'operator $\Lambda$'],
+]
+128 = [
+  # The scan prints a comma after Hom(V_2, V_1).
+  ['\\text\{Hom\}\(V_2,\ V_1\)\$\.\ on\ which', '\text{Hom}(V_2, V_1)$, on which'],
+  # The transcript has 'Funktionalanlyž'; the scan prints 'Funktionalanlyĭ'.
+  ['Funktionalanlyž', 'Funktionalanlyĭ'],
+]
+129 = [
+  # Scan typo: skew field $\mathcal{C}(T)$ contains (page129 prints plain italic C(T) as a font typo for calligraphic \mathcal{C}(T); transcript has $C(T)$)
+  ['skew\ field\ \$C\(T\)\$\ contains', 'skew field $\mathcal{C}(T)$ contains'],
+]
+130 = [
+  # The transcript has '\\otimes \\mathbf{C}'; the scan prints '\\otimes_{\\mathbf{R}} \\mathbf{C}'.
+  ['\\otimes\ \\mathbf\{C\}', '\otimes_{\mathbf{R}} \mathbf{C}'],
+]
+131 = [
+  # The scan prints (1) in the right margin opposite the brace for a)-d).
+  ['a\)\ \$P_i\^2\ =\ P_i\$;\n\nb\)\ \$P_i\ P_j\ =\ P_j\ P_i\ =\ 0\ \\quad\ \\text\{for\}\ \\quad\ i\ \\neq\ j\$;\n\nc\)\ \$\\sum_\{i=1\}\^n\ P_i\ =\ 1\$;\n\nd\)\ \$P_i\ \\in\ \\mathcal\{C\}\(T\)\$\.', '''$$
+\begin{aligned}
+\text{a) } & P_i^2 = P_i; \\
+\text{b) } & P_i P_j = P_j P_i = 0 \quad \text{for} \quad i \neq j; \\
+\text{c) } & \sum_{i=1}^n P_i = 1; \\
+\text{d) } & P_i \in \mathcal{C}(T).
+\end{aligned} \quad (1)
+$$'''],
+  # The transcript has 'in $V_c \\approx V \\oplus V$.'; the scan prints 'in $V_{\\mathbf{C}} \\approx V \\oplus V$.'.
+  ['in\ \$V_c\ \\approx\ V\ \\oplus\ V\$\.', 'in $V_{\mathbf{C}} \approx V \oplus V$.'],
+  # The transcript has 'in $V_c$ are'; the scan prints 'in $V_{\\mathbf{C}}$ are'.
+  ['in\ \$V_c\$\ are', 'in $V_{\mathbf{C}}$ are'],
+  # The transcript has 'in $V_c$ if and'; the scan prints 'in $V_{\\mathbf{C}}$ if and'.
+  ['in\ \$V_c\$\ if\ and', 'in $V_{\mathbf{C}}$ if and'],
+  # The transcript has 'by $i$ in $V_c$.'; the scan prints 'by $i$ in $V_{\\mathbf{C}}$.'.
+  ['by\ \$i\$\ in\ \$V_c\$\.', 'by $i$ in $V_{\mathbf{C}}$.'],
+  # The transcript has 'space $V_c$ is'; the scan prints 'space $V_{\\mathbf{C}}$ is'.
+  ['space\ \$V_c\$\ is', 'space $V_{\mathbf{C}}$ is'],
+  # The transcript has 'Thus $V_c$ in'; the scan prints 'Thus $V_{\\mathbf{C}}$ in'.
+  ['Thus\ \$V_c\$\ in', 'Thus $V_{\mathbf{C}}$ in'],
+]
+133 = [
+  # The transcript has '= P_{i1} A P_i$'; the scan prints '= P_i A P_i$'.
+  ['=\ P_\{i1\}\ A\ P_i\$', '= P_i A P_i$'],
+  # Scan typo: this complement exists (p133_189 prints 'this complements exists')
+  ['this\ complements\ exists', 'this complement exists'],
+]
+134 = [
+  # The transcript has "= W' \\otimes W_i'$."; the scan prints "= W' \\otimes W_i''$.".
+  ['''=\ W'\ \\otimes\ W_i'\$\.''', '''= W' \otimes W_i''$.'''],
+  # The transcript has "form $W' \\otimes W_0'$,"; the scan prints "form $W' \\otimes W_0''$,".
+  ['''form\ \$W'\ \\otimes\ W_0'\$,''', '''form $W' \otimes W_0''$,'''],
+  # The transcript has "where $W_0'$ is"; the scan prints "where $W_0''$ is".
+  ['''where\ \$W_0'\$\ is''', '''where $W_0''$ is'''],
+]
+136 = [
+  # The transcript has 'to $\\mathcal{D}^\\dagger \\cap'; the scan prints 'to $\\mathcal{D}^! \\cap'.
+  ['to\ \$\\mathcal\{D\}\^\\dagger\ \\cap', 'to $\mathcal{D}^! \cap'],
+  # The transcript has 'Since $\\mathcal{D}^\\dagger ='; the scan prints 'Since $\\mathcal{D}^! ='.
+  ['Since\ \$\\mathcal\{D\}\^\\dagger\ =', 'Since $\mathcal{D}^! ='],
+]
+137 = [
+  # The transcript has 'of M. A. Naimark [42]).'; the scan prints 'of M. A. Naĭmark [42]).'.
+  ['of\ M\.\ A\.\ Naimark\ \[42\]\)\.', 'of M. A. Naĭmark [42]).'],
+  # The transcript has '4.5. $k = \\infty$'; the scan prints ''.
+  ['4\.5\.\ \$k\ =\ \\infty\$', ''],
+  # The transcript has '\\sum_{k=1}^{\\infty} U_k'; the scan prints '\\sum_{k=1}^{k=\\infty} U_k'.
+  ['\\sum_\{k=1\}\^\{\\infty\}\ U_k', '\sum_{k=1}^{k=\infty} U_k'],
+]
+138 = [
+  # The transcript has '$T_\\lambda \\otimes S_\\lambda$. $T_\\lambda$'; the scan prints '$T_\\lambda \\otimes S_\\lambda$, $T_\\lambda$'.
+  ['\$T_\\lambda\ \\otimes\ S_\\lambda\$\.\ \$T_\\lambda\$', '$T_\lambda \otimes S_\lambda$, $T_\lambda$'],
+]
+139 = [
+  # The transcript has 'algebra $\\mathcal{C}(T)^i$ is'; the scan prints 'algebra $\\mathcal{C}(T)^!$ is'.
+  ['algebra\ \$\\mathcal\{C\}\(T\)\^i\$\ is', 'algebra $\mathcal{C}(T)^!$ is'],
+  # Scan typo: there exist functions (page139 prints 'there exists functions')
+  ['there\ exists\ functions', 'there exist functions'],
+]
+140 = [
+  # The scan prints right-margin equation number (2).
+  ['d_r\(xy\)\ =\ \\Delta_G\(x\)\ d_r\ y,\ \\quad\ d_l\(xy\)\ =\ \\Delta_G\(y\)\^\{\-1\}\ d_l\ x,', 'd_r(xy) = \Delta_G(x) d_r y, \quad d_l(xy) = \Delta_G(y)^{-1} d_l x, \quad (2)'],
+  # The scan prints right-margin equation number (3).
+  ['d_r\ x\ =\ \\text\{const\}\ \\cdot\ \\Delta_G\(x\)\ d_l\ x,\ \\quad\ d_l\(x\)\ =\ \\text\{const\}\ \\cdot\ \\Delta_G\(x\)\^\{\-1\}\ d_r\ x,', 'd_r x = \text{const} \cdot \Delta_G(x) d_l x, \quad d_l(x) = \text{const} \cdot \Delta_G(x)^{-1} d_r x, \quad (3)'],
+  # The scan prints right-margin equation number (4).
+  ['d_r\(x\^\{\-1\}\)\ =\ \\Delta_G\(x\)\^\{\-1\}\ d_r\ x\ =\ \\text\{const\}\ \\cdot\ d_l\ x,\ \\quad\ d_l\(x\^\{\-1\}\)\ =\ \\Delta_G\(x\)\ d_l\ x\.', 'd_r(x^{-1}) = \Delta_G(x)^{-1} d_r x = \text{const} \cdot d_l x, \quad d_l(x^{-1}) = \Delta_G(x) d_l x. \quad (4)'],
+]
+141 = [
+  # The transcript has 'such that $pos = 1$.'; the scan prints 'such that $p \\circ s = 1$.'.
+  ['such\ that\ \$pos\ =\ 1\$\.', 'such that $p \circ s = 1$.'],
+]
+142 = [
+  # The scan prints right-margin equation number (5).
+  ['g\ =\ s\(x\)h,\ \\quad\ x\ \\in\ X,\ \\quad\ h\ \\in\ H,', 'g = s(x)h, \quad x \in X, \quad h \in H, \quad (5)'],
+  # The scan prints right-margin equation number (6).
+  ['d_l\ g\ =\ \\frac\{\\Delta_H\(h\)\}\{\\Delta_G\(h\)\}\ d\\mu_s\(x\)\ d_l\ h', 'd_l g = \frac{\Delta_H(h)}{\Delta_G(h)} d\mu_s(x) d_l h \quad (6)'],
+  # The scan prints right-margin equation number (7).
+  ['\\frac\{d\\mu_s\(g\ x\)\}\{d\\mu_s\(x\)\}\ =\ \\frac\{\\Delta_G\(h\(g,\ x\)\)\}\{\\Delta_H\(h\(g,\ x\)\)\},', '\frac{d\mu_s(g x)}{d\mu_s(x)} = \frac{\Delta_G(h(g, x))}{\Delta_H(h(g, x))}, \quad (7)'],
+  # The scan prints right-margin equation number (8).
+  ['g\ s\(x\)\ =\ s\(g\ x\)\ h\(g,\ x\)\.', 'g s(x) = s(g x) h(g, x). \quad (8)'],
+  # Scan typo: space $X = G/H$ if (p142_209 prints lowercase x = G/H)
+  ['space\ \$x\ =\ G/H\$\ if', 'space $X = G/H$ if'],
+  # The scan prints right-margin equation number (9).
+  ['\\Delta_G\(h\)\ =\ \\Delta_H\(h\)\ \\quad\ \\text\{for\ all\}\ \\quad\ h\ \\in\ H\.', '\Delta_G(h) = \Delta_H(h) \quad \text{for all} \quad h \in H. \quad (9)'],
+  # The scan prints right-margin equation number (5').
+  ['g\ =\ h\ s\(y\),\ \\quad\ h\ \\in\ H,\ \\quad\ y\ \\in\ Y,', '''g = h s(y), \quad h \in H, \quad y \in Y, \quad (5')'''],
+]
+143 = [
+  # The transcript has 'd v_s(y) d_r h'; the scan prints 'd \\nu_s(y) d_r h'.
+  ['d\ v_s\(y\)\ d_r\ h', 'd \nu_s(y) d_r h'],
+  # The transcript has '\\frac{d v_s(y g)}{'; the scan prints '\\frac{d \\nu_s(y g)}{'.
+  ['\\frac\{d\ v_s\(y\ g\)\}\{', '\frac{d \nu_s(y g)}{'],
+  # The transcript has '}{d v_s(y)} ='; the scan prints '}{d \\nu_s(y)} ='.
+  ['\}\{d\ v_s\(y\)\}\ =', '}{d \nu_s(y)} ='],
+]
+144 = [
+  # The scan prints T(g) \xi \rangle dg.
+  ['T\(g\)\ \\bar\{\\varepsilon\}\ \\rangle\ \\,\ dg\$\.', 'T(g) \xi \rangle \, dg$.'],
+  # False negative (the page check missed it): replace OCR \bar{\varepsilon} with \xi in Problem 1.
+  ['=\ \\int_G\ T\(g\)\ \\bar\{\\varepsilon\}\ \\,\ dg', '= \int_G T(g) \xi \, dg'],
+  # False negative (the page check missed it): replace OCR \bar{\varepsilon} with \xi in Problem 1 Hint.
+  ['\\chi,\ \\int_G\ T\(g\)\ \\bar\{\\varepsilon\}\ \\,\ dg\ \\right\\rangle', '\chi, \int_G T(g) \xi \, dg \right\rangle'],
+  # The transcript has 'in $(L)^*$:'; the scan prints "in $(L')^*$:".
+  ['in\ \$\(L\)\^\*\$:', '''in $(L')^*$:'''],
+  # The transcript has 'functional on $L$.'; the scan prints "functional on $L'$.".
+  ['functional\ on\ \$L\$\.', '''functional on $L'$.'''],
+  # The transcript has 'P \\bar{\\varepsilon} = \\int_G'; the scan prints 'P \\xi = \\int_G'.
+  ['P\ \\bar\{\\varepsilon\}\ =\ \\int_G', 'P \xi = \int_G'],
+  # The transcript has 'T(g) \\bar{\\varepsilon} \\, dg'; the scan prints 'T(g) \\xi \\, dg'.
+  ['T\(g\)\ \\bar\{\\varepsilon\}\ \\,\ dg', 'T(g) \xi \, dg'],
+  # The transcript has 'for all $\\bar{\\varepsilon} \\in V$.'; the scan prints 'for all $\\xi \\in V$.'.
+  ['for\ all\ \$\\bar\{\\varepsilon\}\ \\in\ V\$\.', 'for all $\xi \in V$.'],
+  # The transcript has '\\langle \\chi, P \\bar{\\varepsilon} \\rangle'; the scan prints '\\langle \\chi, P \\xi \\rangle'.
+  ['\\langle\ \\chi,\ P\ \\bar\{\\varepsilon\}\ \\rangle', '\langle \chi, P \xi \rangle'],
+  # The transcript has 'that $P(\\bar{\\varepsilon}) ='; the scan prints 'that $P(\\xi) ='.
+  ['that\ \$P\(\\bar\{\\varepsilon\}\)\ =', 'that $P(\xi) ='],
+  # The transcript has '= \\bar{\\varepsilon}$ for all'; the scan prints '= \\xi$ for all'.
+  ['=\ \\bar\{\\varepsilon\}\$\ for\ all', '= \xi$ for all'],
+  # The transcript has 'all $\\bar{\\varepsilon} \\in V_0$.'; the scan prints 'all $\\xi \\in V_0$.'.
+  ['all\ \$\\bar\{\\varepsilon\}\ \\in\ V_0\$\.', 'all $\xi \in V_0$.'],
+  # The transcript has 'For all $\\bar{\\varepsilon} \\in V$ and'; the scan prints 'For all $\\xi \\in V$ and'.
+  ['For\ all\ \$\\bar\{\\varepsilon\}\ \\in\ V\$\ and', 'For all $\xi \in V$ and'],
+  # The transcript has 'A \\, P \\, \\bar{\\varepsilon} \\rangle'; the scan prints 'A \\, P \\, \\xi \\rangle'.
+  ['A\ \\,\ P\ \\,\ \\bar\{\\varepsilon\}\ \\rangle', 'A \, P \, \xi \rangle'],
+  # The transcript has 'T(g) \\, \\bar{\\varepsilon} \\rangle'; the scan prints 'T(g) \\, \\xi \\rangle'.
+  ['T\(g\)\ \\,\ \\bar\{\\varepsilon\}\ \\rangle', 'T(g) \, \xi \rangle'],
+]
+145 = [
+  # The scan prints conjugation bar over \langle \chi, T(g) \eta \rangle and right-margin equation number (3).
+  ['\(\\xi,\ \\eta\)_\\chi\ =\ \\int_G\ \\langle\ \\chi,\ T\(g\)\ \\xi\ \\rangle\ \\langle\ \\chi,\ T\(g\)\ \\eta\ \\rangle\ \\,\ dg', '(\xi, \eta)_\chi = \int_G \langle \chi, T(g) \xi \rangle \overline{\langle \chi, T(g) \eta \rangle} \, dg \quad (3)'],
+  # Scan typo: the representation $T$ can (p145_231 prints 'the representation V can', where V is the space of T)
+  ['the\ representation\ \$V\$\ can', 'the representation $T$ can'],
+  # The transcript has 't_{\\xi_2, \\eta_2}(g)'; the scan prints '\\overline{t_{\\xi_2, \\eta_2}(g)}'.
+  ['t_\{\\xi_2,\ \\eta_2\}\(g\)', '\overline{t_{\xi_2, \eta_2}(g)}'],
+  # The transcript has '(\\eta_1, \\eta_2).'; the scan prints '\\overline{(\\eta_1, \\eta_2)}.'.
+  ['\(\\eta_1,\ \\eta_2\)\.', '\overline{(\eta_1, \eta_2)}.'],
+  # The scan prints right-margin equation number (4).
+  ['\\int_G\ t_\{\\xi_1,\ \\eta_1\}\(g\)\ \\overline\{t_\{\\xi_2,\ \\eta_2\}\(g\)\}\ \\,\ dg\ =\ \\frac\{1\}\{\\dim\ T\}\ \(\\xi_1,\ \\xi_2\)\ \\overline\{\(\\eta_1,\ \\eta_2\)\}\.', '\int_G t_{\xi_1, \eta_1}(g) \overline{t_{\xi_2, \eta_2}(g)} \, dg = \frac{1}{\dim T} (\xi_1, \xi_2) \overline{(\eta_1, \eta_2)}. \quad (4)'],
+]
+146 = [
+  # The scan prints conjugation bar over (\eta_1, \eta_2).
+  ['=\ c\ \\cdot\ \(\\eta_1,\ \\eta_2\)\$\.', '= c \cdot \overline{(\eta_1, \eta_2)}$.'],
+  # The transcript has 'upon $\\xi_2$. $\\eta_1$'; the scan prints 'upon $\\xi_2,$ $\\eta_1$'.
+  ['upon\ \$\\xi_2\$\.\ \$\\eta_1\$', 'upon $\xi_2,$ $\eta_1$'],
+  # The transcript has '\\mathcal{C}(T) = C \\cdot 1'; the scan prints '\\mathcal{C}(T) = \\mathbf{C} \\cdot 1'.
+  ['\\mathcal\{C\}\(T\)\ =\ C\ \\cdot\ 1', '\mathcal{C}(T) = \mathbf{C} \cdot 1'],
+]
+147 = [
+  # The scan prints upward arrows i_1..i_{k+2} in an 11-column diagram with eq (6).
+  ['\$\$\\begin\{array\}\{cccccc\}\n\\mathcal\{F\}\^1\ \&\ \\to\ \\ldots\ \\to\ \\mathcal\{F\}\^k\ \&\ \\to\ \\mathcal\{F\}\^\{k\+1\}\ \&\ \\to\ \\mathcal\{F\}\^\{k\+2\}\ \&\ \\to\ \\ldots\ \\\\\n\\downarrow\ i_1\ \&\ \&\ \\downarrow\ i_k\ \&\ \\downarrow\ i_\{k\+1\}\ \&\ \\downarrow\ i_\{k\+2\}\ \\\\\nC_c\^0\(G,\ V\)\ \\to\ \\ldots\ \\to\ C_c\^\{k\-1\}\(G,\ V\)\ \\to\ C_c\^k\(G,\ V\)\ \\to\ C_c\^\{k\+1\}\(G,\ V\)\ \\to\ \\ldots\n\\end\{array\}\$\$\n\n\(6\)', '''$$
+\begin{array}{ccccccccccc}
+\mathcal{F}^1 & \to & \ldots & \to & \mathcal{F}^k & \to & \mathcal{F}^{k+1} & \to & \mathcal{F}^{k+2} & \to & \ldots \\
+\uparrow_{i_1} & & & & \uparrow_{i_k} & & \uparrow_{i_{k+1}} & & \uparrow_{i_{k+2}} & & \\
+C_c^0(G, V) & \to & \ldots & \to & C_c^{k-1}(G, V) & \to & C_c^k(G, V) & \to & C_c^{k+1}(G, V) & \to & \ldots
+\end{array} \quad (6)
+$$'''],
+  # Scan typo: subgroup $B_c^k(G, M)$ of (p147_239 prints B_c^k(G M) missing the comma)
+  ['subgroup\ \$B_c\^k\(G\ \\\ M\)\$\ of', 'subgroup $B_c^k(G, M)$ of'],
+  # Scan typo: continuous coboundary. (p147_246 prints a trailing comma before Theorem 3)
+  ['continuous\ coboundary,', 'continuous coboundary.'],
+]
+148 = [
+  # The transcript has 'spaces $H_x$,'; the scan prints 'spaces $H_\\chi$,'.
+  ['spaces\ \$H_x\$,', 'spaces $H_\chi$,'],
+  # The transcript has 'representations $T_x$,'; the scan prints 'representations $T_\\chi$,'.
+  ['representations\ \$T_x\$,', 'representations $T_\chi$,'],
+  # The transcript has 'operators $\\phi_x$)'; the scan prints 'operators $\\phi_\\chi$)'.
+  ['operators\ \$\\phi_x\$\)', 'operators $\phi_\chi$)'],
+  # The transcript has '$(\\xi, \\eta)_x$ becomes'; the scan prints '$(\\xi, \\eta)_\\chi$ becomes'.
+  ['\$\(\\xi,\ \\eta\)_x\$\ becomes', '$(\xi, \eta)_\chi$ becomes'],
+  # The transcript has '\\langle x, T(g)\\xi \\rangle'; the scan prints '\\langle \\chi, T(g)\\xi \\rangle'.
+  ['\\langle\ x,\ T\(g\)\\xi\ \\rangle', '\langle \chi, T(g)\xi \rangle'],
+  # The transcript has '\\langle x, T(g)\\eta \\rangle'; the scan prints '\\langle \\chi, T(g)\\eta \\rangle'.
+  ['\\langle\ x,\ T\(g\)\\eta\ \\rangle', '\langle \chi, T(g)\eta \rangle'],
+  # The scan prints right-margin equation number (1).
+  ['\\int_G\ t_\{\\xi_1,\ \\eta_1\}\(g\)\ \\overline\{t_\{\\xi_2,\ \\eta_2\}\(g\)\}\ dg\ =\ c\(\\xi_1,\ \\xi_2\)\ \\overline\{\(\\eta_1,\ \\eta_2\)\}', '\int_G t_{\xi_1, \eta_1}(g) \overline{t_{\xi_2, \eta_2}(g)} dg = c(\xi_1, \xi_2) \overline{(\eta_1, \eta_2)} \quad (1)'],
+]
+149 = [
+  # Convert \left.\begin{array}\right\} system to aligned + (1) for clean Typst/LaTeX compilation.
+  ['\$\$\n\\left\.\n\\begin\{array\}\{l\}\n\\sum_i\ n_i\ g_i\ \+\ \\sum_i\ m_i\ g_i\ =\ \\sum_i\ \(n_i\ \+\ m_i\)\ g_i,\ \\\\\n\\sum_i\ n_i\ g_i\ \\cdot\ \\sum_j\ m_j\ g_j\ =\ \\sum_\{i,j\}\ n_i\ m_j\ g_i\ g_j\.\n\\end\{array\}\n\\right\\\}\n\\quad\ \(1\)\n\$\$', '''$$
+\begin{aligned}
+& \sum_i n_i g_i + \sum_i m_i g_i = \sum_i (n_i + m_i) g_i, \\
+& \sum_i n_i g_i \cdot \sum_j m_j g_j = \sum_{i,j} n_i m_j g_i g_j.
+\end{aligned} \quad (1)
+$$'''],
+  # The transcript has "(Gel'fand-Raikov)."; the scan prints "(Gel'fand-Raĭkov).".
+  ['''\(Gel'fand\-Raikov\)\.''', '''(Gel'fand-Raĭkov).'''],
+  # The transcript has 'in $L^2(G, d_i g)$ by'; the scan prints 'in $L^2(G, d_l g)$ by'.
+  ['in\ \$L\^2\(G,\ d_i\ g\)\$\ by', 'in $L^2(G, d_l g)$ by'],
+  # The transcript has '[T(g)f](g_i) ='; the scan prints '[T(g)f](g_1) ='.
+  ['\[T\(g\)f\]\(g_i\)\ =', '[T(g)f](g_1) ='],
+  # The transcript has '= f(g^{-1} g_i)'; the scan prints '= f(g^{-1} g_1)'.
+  ['=\ f\(g\^\{\-1\}\ g_i\)', '= f(g^{-1} g_1)'],
+]
+150 = [
+  # The transcript has '[G] \\otimes_K K$'; the scan prints '[G] \\underset{\\mathbf{Z}}{\\otimes} K$'.
+  ['\[G\]\ \\otimes_K\ K\$', '[G] \underset{\mathbf{Z}}{\otimes} K$'],
+]
+151 = [
+  # Scan typo: \prod_{i=1}^{r} \mathrm{End} V_i (page151 Problem 1 prints upper limit k instead of r, while T_i is indexed 1 \le i \le r)
+  ['\\prod_\{i=1\}\^\{k\}\ \\mathrm\{End\}\ V_i', '\prod_{i=1}^{r} \mathrm{End} V_i'],
+]
+152 = [
+  # The transcript has '\\overline{f(g^{-1})} d\\mu(g) \\, .'; the scan prints '\\overline{f(g^{-1}) d\\mu(g)} \\, .'.
+  ['\\overline\{f\(g\^\{\-1\}\)\}\ d\\mu\(g\)\ \\,\ \.', '\overline{f(g^{-1}) d\mu(g)} \, .'],
+]
+153 = [
+  # The transcript has '\\mathcal{A}_G(g) \\overline{f(g^{-1})}.'; the scan prints '\\Delta_G(g) \\overline{f(g^{-1})}.'.
+  ['\\mathcal\{A\}_G\(g\)\ \\overline\{f\(g\^\{\-1\}\)\}\.', '\Delta_G(g) \overline{f(g^{-1})}.'],
+  # Scan typo: as $C^*(L^1(G, d_l g))$ (see (page153 item 4 prints only one closing parenthesis before '(see 4.3)')
+  ['as\ \$C\^\*\(L\^1\(G,\ d_l\ g\)\$\ \(see', 'as $C^*(L^1(G, d_l g))$ (see'],
+]
+154 = [
+  # The transcript has 'I_{\\mu *}(\\xi, \\chi) ='; the scan prints 'I_{\\mu^*}(\\xi, \\chi) ='.
+  ['I_\{\\mu\ \*\}\(\\xi,\ \\chi\)\ =', 'I_{\mu^*}(\xi, \chi) ='],
+  # The transcript has 'algebra $L^1(G, d_1 g)$.'; the scan prints 'algebra $L^1(G, d_l g)$.'.
+  ['algebra\ \$L\^1\(G,\ d_1\ g\)\$\.', 'algebra $L^1(G, d_l g)$.'],
+  # The transcript has 'algebras $L^1(G, d_1 g)$ and'; the scan prints 'algebras $L^1(G, d_l g)$ and'.
+  ['algebras\ \$L\^1\(G,\ d_1\ g\)\$\ and', 'algebras $L^1(G, d_l g)$ and'],
+  # The transcript has 'algebra $L^1(G, d_1 g)$ or'; the scan prints 'algebra $L^1(G, d_l g)$ or'.
+  ['algebra\ \$L\^1\(G,\ d_1\ g\)\$\ or', 'algebra $L^1(G, d_l g)$ or'],
+  # The transcript has 'algebra $L^1(G, d_1 g)$ (or'; the scan prints 'algebra $L^1(G, d_l g)$ (or'.
+  ['algebra\ \$L\^1\(G,\ d_1\ g\)\$\ \(or', 'algebra $L^1(G, d_l g)$ (or'],
+  # The transcript has 'f(g) d_1 g = 1$'; the scan prints 'f(g) d_l g = 1$'.
+  ['f\(g\)\ d_1\ g\ =\ 1\$', 'f(g) d_l g = 1$'],
+  # Scan typo: f_\alpha(g) d_l g = 1$; (page154 condition 1) prints dotted d_i g as a typo for left Haar measure d_l g; transcript has d_1 g)
+  ['f_\\alpha\(g\)\ d_1\ g\ =\ 1\$;', 'f_\alpha(g) d_l g = 1$;'],
+]
+155 = [
+  # Convert \left.\begin{array}\right\} system to aligned + (1) for clean Typst/LaTeX compilation.
+  ['\$\$\n\\left\.\ \\begin\{array\}\{l\}\nT_x\(a_1\ \+\ a_2\)\ =\ T_x\(a_1\)\ \+\ T_x\(a_2\),\ \\\\\nT_x\(a_1\ a_2\)\ =\ T_x\(a_1\)\ T_x\(a_2\),\ \\\\\nT_x\(\\lambda\ a\)\ =\ \\lambda\ T_x\(a\),\ \\\\\nT_x\(a\^\*\)\ =\ T_x\(a\)\^\*\.\n\\end\{array\}\ \\right\\\}\ \\quad\ \(1\)\n\$\$', '''$$
+\begin{aligned}
+& T_x(a_1 + a_2) = T_x(a_1) + T_x(a_2), \\
+& T_x(a_1 a_2) = T_x(a_1) T_x(a_2), \\
+& T_x(\lambda a) = \lambda T_x(a), \\
+& T_x(a^*) = T_x(a)^*.
+\end{aligned} \quad (1)
+$$'''],
+  # The transcript has 'space $L^1(G, d_t g)$ is'; the scan prints 'space $L^1(G, d_l g)$ is'.
+  ['space\ \$L\^1\(G,\ d_t\ g\)\$\ is', 'space $L^1(G, d_l g)$ is'],
+  # The transcript has 'Let $\\mathfrak{U}$ be a'; the scan prints 'Let $\\mathfrak{A}$ be a'.
+  ['Let\ \$\\mathfrak\{U\}\$\ be\ a', 'Let $\mathfrak{A}$ be a'],
+  # The transcript has 'that $\\mathfrak{U}$ is an'; the scan prints 'that $\\mathfrak{A}$ is an'.
+  ['that\ \$\\mathfrak\{U\}\$\ is\ an', 'that $\mathfrak{A}$ is an'],
+  # The transcript has 'to $\\mathfrak{U}$ if need'; the scan prints 'to $\\mathfrak{A}$ if need'.
+  ['to\ \$\\mathfrak\{U\}\$\ if\ need', 'to $\mathfrak{A}$ if need'],
+  # The transcript has 'elements of $\\mathfrak{U}$ with'; the scan prints 'elements of $\\mathfrak{A}$ with'.
+  ['elements\ of\ \$\\mathfrak\{U\}\$\ with', 'elements of $\mathfrak{A}$ with'],
+  # The transcript has '$a \\in \\mathfrak{U}$, are'; the scan prints '$a \\in \\mathfrak{A}$, are'.
+  ['\$a\ \\in\ \\mathfrak\{U\}\$,\ are', '$a \in \mathfrak{A}$, are'],
+  # The transcript has 'a_1, a_2 \\in \\mathfrak{U}, \\lambda'; the scan prints 'a_1, a_2 \\in \\mathfrak{A}, \\lambda'.
+  ['a_1,\ a_2\ \\in\ \\mathfrak\{U\},\ \\lambda', 'a_1, a_2 \in \mathfrak{A}, \lambda'],
+]
+156 = [
+  # The transcript has "(Gel'fand-Raikov)."; the scan prints "(Gel'fand-Raĭkov).".
+  ['''\(Gel'fand\-Raikov\)\.''', '''(Gel'fand-Raĭkov).'''],
+  # The transcript has 'set $K$ in $C^*(G)$.'; the scan prints "set $K$ in $C^*(G)'$.".
+  ['set\ \$K\$\ in\ \$C\^\*\(G\)\$\.', '''set $K$ in $C^*(G)'$.'''],
+]
+157 = [
+  # The transcript has 'annihilates $L^1(G, d_{i}g)$'; the scan prints 'annihilates $L^1(G, d_l g)$'.
+  ['annihilates\ \$L\^1\(G,\ d_\{i\}g\)\$', 'annihilates $L^1(G, d_l g)$'],
+]
+158 = [
+  # The transcript has 'of $L^1(G, d_1 g)$ by'; the scan prints 'of $L^1(G, d_l g)$ by'.
+  ['of\ \$L\^1\(G,\ d_1\ g\)\$\ by', 'of $L^1(G, d_l g)$ by'],
+  # Scan typo: \chi_1 * \chi_2, \phi (page158 prints \chi_1 * \lambda_2 while defining formula and Problem 3 use \chi_2)
+  ['\\chi_1\ \*\ \\lambda_2,\ \\phi', '\chi_1 * \chi_2, \phi'],
+  # Scan typo: The case in which $G$ (p158_282 prints 'The case is which G')
+  ['The\ case\ is\ which\ \$G\$', 'The case in which $G$'],
+]
+159 = [
+  # The scan prints the commutative triangle diagram with Fraktur \mathfrak{g}, A_1, A_2 and arrows \psi_1, \alpha, \psi_2.
+  ['diagrams\ of\ the\ form\n\nwhere', '''diagrams of the form
+
+$$
+\begin{array}{ccc}
+\mathfrak{g} & \xrightarrow{\psi_1} & A_1 \\
+\searrow_{\psi_2} & & \downarrow^{\alpha} \\
+& & A_2,
+\end{array}
+$$
+
+where'''],
+]
+160 = [
+  # Scan typo: \bigoplus_{l=0}^k T^l (p160_286 prints t=0 as a scan typo for index l=0 matching T^l; transcript has r=0)
+  ['\\bigoplus_\{r=0\}\^k\ T\^l', '\bigoplus_{l=0}^k T^l'],
+  # Scan typo: c_{k_1, \ldots, k_n} (page160 eq (4) drops ', ..., k_n' out of subscript to baseline, whereas later lines print c_{k_1,...,k_n})
+  ['c_\{k_1\},\ \\ldots,\ k_n', 'c_{k_1, \ldots, k_n}'],
+]
+161 = [
+  # The transcript has 'tion $\\widehat{\\text{Ad}}$ in'; the scan prints 'tion $\\widetilde{\\text{Ad}}$ in'.
+  ['tion\ \$\\widehat\{\\text\{Ad\}\}\$\ in', 'tion $\widetilde{\text{Ad}}$ in'],
+  # The transcript has 'that $\\widehat{\\text{Ad}}g$ be'; the scan prints 'that $\\widetilde{\\text{Ad}}g$ be'.
+  ['that\ \$\\widehat\{\\text\{Ad\}\}g\$\ be', 'that $\widetilde{\text{Ad}}g$ be'],
+  # The transcript has 'tion $\\widehat{\\text{ad}}$ of'; the scan prints 'tion $\\widetilde{\\text{ad}}$ of'.
+  ['tion\ \$\\widehat\{\\text\{ad\}\}\$\ of', 'tion $\widetilde{\text{ad}}$ of'],
+  # The transcript has 'tion $\\widehat{\\text{Ad}}$ of'; the scan prints 'tion $\\widetilde{\\text{Ad}}$ of'.
+  ['tion\ \$\\widehat\{\\text\{Ad\}\}\$\ of', 'tion $\widetilde{\text{Ad}}$ of'],
+  # The transcript has '\\widehat{\\text{ad}} X: Y'; the scan prints '\\widetilde{\\text{ad}} X: Y'.
+  ['\\widehat\{\\text\{ad\}\}\ X:\ Y', '\widetilde{\text{ad}} X: Y'],
+  # The transcript has 'that $\\widehat{\\text{ad}}X$ is'; the scan prints 'that $\\widetilde{\\text{ad}}X$ is'.
+  ['that\ \$\\widehat\{\\text\{ad\}\}X\$\ is', 'that $\widetilde{\text{ad}}X$ is'],
+  # The transcript has '$(\\widehat{\\text{ad}}X)Y = 0$'; the scan prints '$(\\widetilde{\\text{ad}}X)Y = 0$'.
+  ['\$\(\\widehat\{\\text\{ad\}\}X\)Y\ =\ 0\$', '$(\widetilde{\text{ad}}X)Y = 0$'],
+]
+162 = [
+  # Scan typo: equivalent to $X_2 Z_2 Z^{-1}$. (page162 prints X_1 Z_1 Z^{-1} again for the second fraction X_2 Y_2^{-1})
+  ['equivalent\ to\ \$X_1\ Z_1\ Z\^\{\-1\}\$\.', 'equivalent to $X_2 Z_2 Z^{-1}$.'],
+]
+163 = [
+  # The scan prints right-margin equation number (1).
+  ['\\langle\ \\eta,\ T\(\\chi\)\ \\xi\ \\rangle\ =\ \\langle\ \\chi,\ t_\{\\xi,\ \\eta\}\ \\rangle,', '\langle \eta, T(\chi) \xi \rangle = \langle \chi, t_{\xi, \eta} \rangle, \quad (1)'],
+  # Scan typo: $V \underset{G}{\widehat{\otimes}} C^\infty(G)$ (page163 prints G subscripted on V as V_G instead of underneath \widehat{\otimes}, matching C^\infty(G) \underset{G}{\widehat{\otimes}} C^\infty(G) on p165)
+  ['\$V_G\ \\widehat\{\\otimes\}\ C\^\\infty\(G\)\$', '$V \underset{G}{\widehat{\otimes}} C^\infty(G)$'],
+]
+164 = [
+  # The scan prints right-margin equation number (2).
+  ['\$\$L\(g\)\(\\psi\ \*\ \\phi\)\ =\ \\psi\ \*\ L\(g\)\\phi,\$\$', '$$L(g)(\psi * \phi) = \psi * L(g)\phi, \quad (2)$$'],
+  # The transcript has 'T(g) d_g,$$'; the scan prints 'T(g) d_r g,$$'.
+  ['T\(g\)\ d_g,\$\$', 'T(g) d_r g,$$'],
+  # The transcript has '\\phi(g) d_g g = 1$.'; the scan prints '\\phi(g) d_r g = 1$.'.
+  ['t_G\ \\phi\(g\)\ d_g\ g\ =\ 1\$\.\ The', 't_G \phi(g) d_r g = 1$. The'],
+  # Scan typo: left invariant field $X$ is (p164_301 prints K instead of X, while the next formula uses X)
+  ['left\ invariant\ field\ \$K\$\ is', 'left invariant field $X$ is'],
+]
+165 = [
+  # The transcript has '\\hat{\\otimes} \\underset{G}'; the scan prints '\\underset{G}{\\widehat{\\otimes}}'.
+  ['\\hat\{\\otimes\}\ \\underset\{G\}', '\underset{G}{\widehat{\otimes}}'],
+  # The transcript has '\\mathcal{C}^{\\infty}(G)'; the scan prints 'C^{\\infty}(G)'.
+  ['\\mathcal\{C\}\^\{\\infty\}\(G\)', 'C^{\infty}(G)'],
+  # The transcript has 't_{\\xi, A^*\\eta}^{(1)}'; the scan prints "t_{\\xi, A'\\eta}^{(1)}".
+  ['t_\{\\xi,\ A\^\*\\eta\}\^\{\(1\)\}', '''t_{\xi, A'\eta}^{(1)}'''],
+  # Scan typo: and $\eta \in V_2'$. (p165_305 omits the dual prime on V_2 where A'\eta requires \eta \in V_2')
+  ['and\ \$\\eta\ \\in\ V_2\$\.', '''and $\eta \in V_2'$.'''],
+  # Scan typo: from problem 5 and the fact that (p165_306 prints 'and fact that' missing 'the')
+  ['from\ problem\ 5\ and\ fact\ that', 'from problem 5 and the fact that'],
+  # The transcript has 'S. G. Krein and'; the scan prints 'S. G. Kreĭn and'.
+  ['S\.\ G\.\ Krein\ and', 'S. G. Kreĭn and'],
+]
+166 = [
+  # The transcript has "R_\\lambda(T^0(X))''"; the scan prints 'R_\\lambda(T^0(X))^n'.
+  ["R_\\\\lambda\\(T\\^0\\(X\\)\\)''", 'R_\lambda(T^0(X))^n'],
+  # The transcript has '|\\cdot |\\mathrm{Re}'; the scan prints '||\\mathrm{Re}'.
+  ['\|\\cdot\ \|\\mathrm\{Re\}', '||\mathrm{Re}'],
+  # The transcript has "- \\varepsilon|''"; the scan prints '- \\varepsilon|^n'.
+  ["\\-\\ \\\\varepsilon\\|''", '- \varepsilon|^n'],
+  # Scan typo: \chi_T(g)
+  ['\\chi_r\(g\)', '\chi_T(g)'],
+]
+168 = [
+  # The transcript has '\\dim_{\\mathbb{R}}'; the scan prints '\\dim_{\\mathbf{R}}'.
+  ['\\dim_\{\\mathbb\{R\}\}', '\dim_{\mathbf{R}}'],
+  # The transcript has '(2)'; the scan prints "(2')".
+  ['uad\ \(2\)\$\$', '''uad (2')$$'''],
+  # The transcript has 'T_{\\mathbb{R}}'; the scan prints 'T_{\\mathbf{R}}'.
+  ['tation\ \$T_\{\\mathbb\{R\}\}\$\ is\ of\ ', 'tation $T_{\mathbf{R}}$ is of '],
+  # The transcript has '\\chi_{S^2} \\tau(g)'; the scan prints '\\chi_{S^2 T}(g)'.
+  ['\\chi_\{S\^2\}\ \\tau\(g\)', '\chi_{S^2 T}(g)'],
+  # The transcript has '\\chi_{\\wedge^2} \\tau(g)'; the scan prints '\\chi_{\\wedge^2 T}(g)'.
+  ['\\chi_\{\\wedge\^2\}\ \\tau\(g\)', '\chi_{\wedge^2 T}(g)'],
+]
+169 = [
+  # Scan typo: \wedge^2 T for \wedge^2 V.
+  ['\\wedge\^2\ T\$', '\wedge^2 V$'],
+  # The scan prints bold \mathbf{C}.
+  ['O\(n,\ \\mathbb\{C\}\)\$,', 'O(n, \mathbf{C})$,'],
+  # The scan prints bold \mathbf{C}.
+  ['O\(n,\ \\mathbb\{C\}\)\$\ is', 'O(n, \mathbf{C})$ is'],
+  # The scan prints bold \mathbf{R}.
+  ['O\(n,\ \\mathbb\{R\}\)\$\.', 'O(n, \mathbf{R})$.'],
+  # The scan prints bold \mathbf{H}.
+  ['\\mathbb\{H\}\$\ with', '\mathbf{H}$ with'],
+  # The transcript has 'k \\in \\mathbb{H}'; the scan prints 'k \\in \\mathbf{H}'.
+  ['k\ \\in\ \\mathbb\{H\}', 'k \in \mathbf{H}'],
+  # The transcript has 'T_{\\mathbb{R}}'; the scan prints 'T_{\\mathbf{R}}'.
+  ['T_\{\\mathbb\{R\}\}', 'T_{\mathbf{R}}'],
+  # The transcript has '\\lambda \\in \\mathbb{C}'; the scan prints '\\lambda \\in \\mathbf{C}'.
+  ['\\lambda\ \\in\ \\mathbb\{C\}', '\lambda \in \mathbf{C}'],
+  # Scan typo: a_1 \lambda^{n-1} + \ldots
+  ['a_1\ \\lambda\ \+\ \\ldots', 'a_1 \lambda^{n-1} + \ldots'],
+  # The transcript has 'a_i \\in \\mathbb{Z}'; the scan prints 'a_i \\in \\mathbf{Z}'.
+  ['a_i\ \\in\ \\mathbb\{Z\}', 'a_i \in \mathbf{Z}'],
+]
+170 = [
+  # Scan typo: \{\lambda_i \pm \mu_j\}
+  ['\\\{\\lambda_i\ \\pm\ \\mu_i\\\}', '\{\lambda_i \pm \mu_j\}'],
+]
+171 = [
+  # The transcript has "\\gamma \\in D_T(G)'"; the scan prints "\\chi \\in D_T(G)'".
+  ["\\\\gamma\\ \\\\in\\ D_T\\(G\\)'", "\\chi \\in D_T(G)'"],
+  # The transcript has 'character $\\gamma$ is'; the scan prints 'character $\\chi$ is'.
+  ['character\ \$\\gamma\$\ is', 'character $\chi$ is'],
+  # The transcript has 'character $\\gamma$ has'; the scan prints 'character $\\chi$ has'.
+  ['character\ \$\\gamma\$\ has', 'character $\chi$ has'],
+]
+172 = [
+  # The transcript has '(a, b)_x'; the scan prints '(a, b)_\\chi'.
+  ['\(a,\ b\)_x', '(a, b)_\chi'],
+  # The transcript has 'Let $H_x$'; the scan prints 'Let $H_\\chi$'.
+  ['Let\ \$H_x\$', 'Let $H_\chi$'],
+  # The transcript has 'of $H_x$'; the scan prints 'of $H_\\chi$'.
+  ['ism\ of\ \$H_x\$\ ont', 'ism of $H_\chi$ ont'],
+  # The transcript has 'in $H_x$'; the scan prints 'in $H_\\chi$'.
+  ['in\ \$H_x\$', 'in $H_\chi$'],
+  # The transcript has 'of $H_x$.'; the scan prints 'of $H_\\chi$.'.
+  ['of\ \$H_x\$\.', 'of $H_\chi$.'],
+]
+173 = [
+  # The transcript has 'L^1(G, d_i g)$ in'; the scan prints 'L^1(G, d_l g)$ in'.
+  ['L\^1\(G,\ d_i\ g\)\$\ in', 'L^1(G, d_l g)$ in'],
+  # The transcript has 'L^1(G, d_i g)$ is'; the scan prints 'L^1(G, d_l g)$ is'.
+  ['L\^1\(G,\ d_i\ g\)\$\ is', 'L^1(G, d_l g)$ is'],
+  # The transcript has 'U(\\mathfrak{g})$. and'; the scan prints 'U(\\mathfrak{g})$, and'.
+  ['U\(\\mathfrak\{g\}\)\$\.\ and', 'U(\mathfrak{g})$, and'],
+  # The transcript has '\\delta_{\\exp Y * X}'; the scan prints '\\delta_{\\exp Y} * X'.
+  ['\\delta_\{\\exp\ Y\ \*\ X\}', '\delta_{\exp Y} * X'],
+]
+175 = [
+  # The scan prints Fraktur \mathfrak{g}.
+  ['Q\ \\in\ U\(g\)\$\.', 'Q \in U(\mathfrak{g})$.'],
+  # The transcript has 'z \\in Z(g).'; the scan prints 'z \\in Z(\\mathfrak{g}).'.
+  ['z\ \\in\ Z\(g\)\.', 'z \in Z(\mathfrak{g}).'],
+  # The transcript has 'of the algebra $Z(g)$.'; the scan prints 'of the algebra $Z(\\mathfrak{g})$.'.
+  ['of\ the\ algebra\ \$Z\(g\)\$\.', 'of the algebra $Z(\mathfrak{g})$.'],
+  # The transcript has 'Z(g)$ coincides'; the scan prints 'Z(\\mathfrak{g})$ coincides'.
+  ['Z\(g\)\$\ coincides', 'Z(\mathfrak{g})$ coincides'],
+  # The transcript has '$S(g)^G$'; the scan prints '$S(\\mathfrak{g})^G$'.
+  ['\$S\(g\)\^G\$', '$S(\mathfrak{g})^G$'],
+  # The transcript has 'algebra $S(g)$.'; the scan prints 'algebra $S(\\mathfrak{g})$.'.
+  ['algebra\ \$S\(g\)\$\.', 'algebra $S(\mathfrak{g})$.'],
+  # The transcript has 'algebra $Z(g)$ is'; the scan prints 'algebra $Z(\\mathfrak{g})$ is'.
+  ['algebra\ \$Z\(g\)\$\ is', 'algebra $Z(\mathfrak{g})$ is'],
+  # The transcript has '$\\operatorname{gr} Z(g)$.'; the scan prints '$\\operatorname{gr} Z(\\mathfrak{g})$.'.
+  ['\$\\operatorname\{gr\}\ Z\(g\)\$\.', '$\operatorname{gr} Z(\mathfrak{g})$.'],
+  # The transcript has 'skew field $D(g)$'; the scan prints 'skew field $D(\\mathfrak{g})$'.
+  ['skew\ field\ \$D\(g\)\$', 'skew field $D(\mathfrak{g})$'],
+  # The transcript has 'center of $D(g)$.'; the scan prints 'center of $D(\\mathfrak{g})$.'.
+  ['center\ of\ \$D\(g\)\$\.', 'center of $D(\mathfrak{g})$.'],
+  # The transcript has 'of $U(g)$,'; the scan prints 'of $U(\\mathfrak{g})$,'.
+  ['of\ \$U\(g\)\$,', 'of $U(\mathfrak{g})$,'],
+  # Scan typo: T^\infty(P) = \lambda T^\infty(Q)
+  ['T\^\\infty\(P\)\ =\ \\lambda\ T\^\\infty\(G\)', 'T^\infty(P) = \lambda T^\infty(Q)'],
+  # Scan typo: in the general
+  ['in\ the\ the\ general', 'in the general'],
+]
+176 = [
+  # Scan typo: point $\lambda \in \hat{G}$
+  ['point\ \$\\lambda\ \\in\ G\$', 'point $\lambda \in \hat{G}$'],
+  # The transcript has 'L^1(G, d_t g)$,'; the scan prints 'L^1(G, d_l g)$,'.
+  ['L\^1\(G,\ d_t\ g\)\$,', 'L^1(G, d_l g)$,'],
+  # The transcript has 'T_\\lambda(g) \\, d_t g.'; the scan prints 'T_\\lambda(g) \\, d_l g.'.
+  ['T_\\lambda\(g\)\ \\,\ d_t\ g\.', 'T_\lambda(g) \, d_l g.'],
+]
+177 = [
+  # The transcript has '(\\hat{G})^* = \\hat{G}'; the scan prints '(\\hat{G})^\\wedge = \\hat{\\hat{G}}'.
+  ['\(\\hat\{G\}\)\^\*\ =\ \\hat\{G\}', '(\hat{G})^\wedge = \hat{\hat{G}}'],
+  # The transcript has 'of $G$ into $\\hat{G}$,'; the scan prints 'of $G$ into $\\hat{\\hat{G}}$,'.
+  ['of\ \$G\$\ into\ \$\\hat\{G\}\$,', 'of $G$ into $\hat{\hat{G}}$,'],
+]
+178 = [
+  # Convert \left.\begin{array}\right\} system to aligned + (2) for clean Typst/LaTeX compilation.
+  ['\$\$\n\\left\.\ \\begin\{array\}\{l\}\n\\tilde\{f\}\(\\chi\)\ =\ \\int_G\ f\(g\)\ \\chi\(g\)\ dg,\ \\\\\nf\(g\)\ =\ \\int_\{\\hat\{G\}\}\ \\tilde\{f\}\(\\chi\)\ \\overline\{\\chi\(g\)\}\ d\\chi,\ \\\\\n\\int_G\ \|f\(g\)\|\^2\ dg\ =\ \\int_\{\\hat\{G\}\}\ \|\\tilde\{f\}\(\\chi\)\|\^2\ d\\chi\.\n\\end\{array\}\ \\right\\\}\ \\quad\ \(2\)\n\$\$', '''$$
+\begin{aligned}
+& \tilde{f}(\chi) = \int_G f(g) \chi(g) dg, \\
+& f(g) = \int_{\hat{G}} \tilde{f}(\chi) \overline{\chi(g)} d\chi, \\
+& \int_G |f(g)|^2 dg = \int_{\hat{G}} |\tilde{f}(\chi)|^2 d\chi.
+\end{aligned} \quad (2)
+$$'''],
+  # The transcript has 'the group $\\hat{G}$ is'; the scan prints 'the group $\\hat{\\hat{G}}$ is'.
+  ['es,\ the\ group\ \$\\hat\{G\}\$\ is\ iso', 'es, the group $\hat{\hat{G}}$ is iso'],
+  # The transcript has 'to $\\hat{G} \\approx G$'; the scan prints 'to $\\hat{\\hat{G}} \\approx G$'.
+  ['to\ \$\\hat\{G\}\ \\approx\ G\$', 'to $\hat{\hat{G}} \approx G$'],
+  # The transcript has 'into $\\hat{G}$ is'; the scan prints 'into $\\hat{\\hat{G}}$ is'.
+  ['into\ \$\\hat\{G\}\$\ is', 'into $\hat{\hat{G}}$ is'],
+  # The transcript has 'to $\\hat{G} = G$'; the scan prints 'to $\\hat{\\hat{G}} = G$'.
+  ['to\ \$\\hat\{G\}\ =\ G\$', 'to $\hat{\hat{G}} = G$'],
+]
+179 = [
+  # The transcript has 'D. A. Raíkov.'; the scan prints 'D. A. Raĭkov.'.
+  ['D\.\ A\.\ Raíkov\.', 'D. A. Raĭkov.'],
+  # The transcript has '(f_1 * f_2^*)^*(\\chi)'; the scan prints '(f_1 * f_2^*)^\\sim(\\chi)'.
+  ['\(f_1\ \*\ f_2\^\*\)\^\*\(\\chi\)', '(f_1 * f_2^*)^\sim(\chi)'],
+]
+180 = [
+  # The scan prints double-hat \hat{\hat{G}} on both occurrences.
+  ['in\ \$\\hat\{G\}\$\.', 'in $\hat{\hat{G}}$.'],
+  # The transcript has 'and $\\hat{G}$ are'; the scan prints 'and $\\hat{\\hat{G}}$ are'.
+  ['and\ \$\\hat\{G\}\$\ are', 'and $\hat{\hat{G}}$ are'],
+  # The transcript has 'into $\\hat{G}$ is'; the scan prints 'into $\\hat{\\hat{G}}$ is'.
+  ['into\ \$\\hat\{G\}\$\ is', 'into $\hat{\hat{G}}$ is'],
+  # Scan typo: (\phi * f)(e)
+  ['\(\\phi\ \*\ f\)\(c\)', '(\phi * f)(e)'],
+]
+181 = [
+  # The transcript has '(\\phi * f)^* d\\chi,'; the scan prints '(\\phi * f)^\\sim d\\chi,'.
+  ['\(\\phi\ \*\ f\)\^\*\ d\\chi,', '(\phi * f)^\sim d\chi,'],
+  # The transcript has '\\xleftarrow{i}'; the scan prints '\\xleftarrow{\\hat{i}}'.
+  ['\\xleftarrow\{i\}', '\xleftarrow{\hat{i}}'],
+]
+182 = [
+  # Scan typo: \partial x_n^2
+  ['\\partial\ x_k\^2', '\partial x_n^2'],
+]
+183 = [
+  # Scan typo: $C^\infty(G)$ (scan prints typo C^\gamma(G))
+  ['\$C\^\\gamma\(G\)\$', '$C^\infty(G)$'],
+]
+184 = [
+  # Scan typo: \sum_{\lambda \in \hat{G}}
+  ['\\sum_\{\\lambda\ \\in\ G\}', '\sum_{\lambda \in \hat{G}}'],
+  # The transcript has '\\tilde{\\chi}_\\lambda(\\mu)'; the scan prints '\\hat{\\chi}_\\lambda(\\mu)'.
+  ['\\tilde\{\\chi\}_\\lambda\(\\mu\)', '\hat{\chi}_\lambda(\mu)'],
+]
+185 = [
+  # The scan prints superscript \nu.
+  ['\$N_\{\\lambda,\ \\mu\}\^v\$\ denotes', '$N_{\lambda, \mu}^\nu$ denotes'],
+  # Scan typo: $$L(T_\lambda) \otimes
+  ['\$\$L\(T_\\mu\)\ \\otimes', '$$L(T_\lambda) \otimes'],
+  # Scan typo: L(T_\mu) \approx (scan prints typo L(T_\nu) for L(T_\mu))
+  ['L\(T_v\)\ \\approx', 'L(T_\mu) \approx'],
+  # Scan typo: \otimes T_\mu)$$ (scan prints typo T_\nu for T_\mu)
+  ['\\otimes\ T_v\)\$\$', '\otimes T_\mu)$$'],
+  # The transcript has 'N_{\\lambda, \\mu}^v L(T_v).'; the scan prints 'N_{\\lambda, \\mu}^\\nu L(T_\\nu).'.
+  ['N_\{\\lambda,\ \\mu\}\^v\ L\(T_v\)\.', 'N_{\lambda, \mu}^\nu L(T_\nu).'],
+  # The transcript has 'component $T_v$ in'; the scan prints 'component $T_\\nu$ in'.
+  ['component\ \$T_v\$\ in', 'component $T_\nu$ in'],
+]
+186 = [
+  # The transcript has '(\\phi_a \\to \\phi'; the scan prints '(\\phi_\\alpha \\to \\phi'.
+  ['\(\\phi_a\ \\to\ \\phi', '(\phi_\alpha \to \phi'],
+  # The transcript has '\\phi_a(T) \\to \\phi(T)'; the scan prints '\\phi_\\alpha(T) \\to \\phi(T)'.
+  ['\\phi_a\(T\)\ \\to\ \\phi\(T\)', '\phi_\alpha(T) \to \phi(T)'],
+]
+187 = [
+  # The transcript has 'M. G. Krein'; the scan prints 'M. G. Kreĭn'.
+  ['\*\*\ \(M\.\ G\.\ Krein\)\.\ \*', '** (M. G. Kreĭn). *'],
+  # The transcript has 'M. G. Krein,'; the scan prints 'M. G. Kreĭn,'.
+  ['M\.\ G\.\ Krein,', 'M. G. Kreĭn,'],
+  # The transcript has 'Tannaka-Krein duality'; the scan prints 'Tannaka-Kreĭn duality'.
+  ['Tannaka\-Krein\ duality', 'Tannaka-Kreĭn duality'],
+  # The transcript has 'Tannaka-Krein dual'; the scan prints 'Tannaka-Kreĭn dual'.
+  ['Tannaka\-Krein\ dual', 'Tannaka-Kreĭn dual'],
+  # The transcript has 'Tannaka-Krein *for'; the scan prints 'Tannaka-Kreĭn *for'.
+  ['Tannaka\-Krein\ \*for', 'Tannaka-Kreĭn *for'],
+  # The transcript has "Krein's original"; the scan prints "Kreĭn's original".
+  ['''Krein's\ original''', '''Kreĭn's original'''],
+]
+188 = [
+  # The scan prints the commutative diamond diagram for comultiplication m.
+  ['diagram\ is\ commutative:\n\nA\ coalgebra', '''diagram is commutative:
+
+$$
+\begin{array}{ccccc}
+& & L \underset{K}{\otimes} L & & \\
+& \nearrow^{m} & & \searrow^{m \otimes 1} & \\
+L & & & & L \underset{K}{\otimes} L \underset{K}{\otimes} L. \\
+& \searrow_{m} & & \nearrow_{1 \otimes m} & \\
+& & L \underset{K}{\otimes} L & &
+\end{array}
+$$
+
+A coalgebra'''],
+  # The transcript has 'm: L \\to L \\otimes L'; the scan prints 'm: L \\to L \\otimes_K L'.
+  ['m:\ L\ \\to\ L\ \\otimes\ L', 'm: L \to L \otimes_K L'],
+  # The transcript has 'L^* \\otimes L^* \\to L^*'; the scan prints 'L^* \\otimes_K L^* \\to L^*'.
+  ['L\^\*\ \\otimes\ L\^\*\ \\to\ L\^\*', 'L^* \otimes_K L^* \to L^*'],
+]
+189 = [
+  # The transcript has 'M. G. Krein and'; the scan prints 'M. G. Kreĭn and'.
+  ['M\.\ G\.\ Krein\ and', 'M. G. Kreĭn and'],
+]
+190 = [
+  # Scan typo: \int_{\hat{G}} \text{tr}
+  ['\\int_G\ \\text\{tr\}', '\int_{\hat{G}} \text{tr}'],
+]
+191 = [
+  # The transcript has 'G = SL(2, \\mathbb{C})'; the scan prints 'G = SL(2, \\mathbf{C})'.
+  ['G\ =\ SL\(2,\ \\mathbb\{C\}\)', 'G = SL(2, \mathbf{C})'],
+]
+192 = [
+  # Scan typo: of all functions on $X$,
+  ['of\ all\ functions\ on\ \$G\$,', 'of all functions on $X$,'],
+]
+193 = [
+  # Scan typo: each coset $Hg$.
+  ['each\ coset\ \$H_g\$\.', 'each coset $Hg$.'],
+]
+195 = [
+  # Scan typo: Frobenius's formula (10)
+  ['''Frobenius's\ formula\ \(9\)''', '''Frobenius's formula (10)'''],
+]
+196 = [
+  # The scan prints the commutative triangle diagram (\phi, \phi', \varepsilon).
+  ['a\ commutative\ diagram\n\nwhere\ \$\\varepsilon\$', '''a commutative diagram
+
+$$
+\begin{array}{ccc}
+V & \xrightarrow{\phi} & L \\
+\searrow_{\phi'} & & \downarrow^{\varepsilon} \\
+& & L'
+\end{array}
+$$
+
+where $\varepsilon$'''],
+]
+197 = [
+  # Scan typo: \varepsilon(F) = \sum
+  ['\\varepsilon\(F\)\ \\to\ \\sum', '\varepsilon(F) = \sum'],
+  # The transcript has 'K[G] \\otimes_V V'; the scan prints 'K[G] \\otimes_{K[H]} V'.
+  ['om\ \$K\[G\]\ \\otimes_V\ V\$\ to', 'om $K[G] \otimes_{K[H]} V$ to'],
+  # The transcript has 'K[G] \\otimes_V V.'; the scan prints 'K[G] \\otimes_{K[H]} V.'.
+  ['K\[G\]\ \\otimes_V\ V\.', 'K[G] \otimes_{K[H]} V.'],
+]
+198 = [
+  # The transcript has '$G$. Mackey'; the scan prints 'G. Mackey'.
+  ['\$G\$\.\ Mackey', 'G. Mackey'],
+  # Scan typo: (F_1(g), F_2(g))_V
+  ['\(G_1\(g\),\ F_2\(g\)\)_V', '(F_1(g), F_2(g))_V'],
+  # The transcript has 'and let $v_s$ be'; the scan prints 'and let $\\nu_s$ be'.
+  ['and\ let\ \$v_s\$\ be', 'and let $\nu_s$ be'],
+]
+199 = [
+  # The transcript has 'd v_s(x)'; the scan prints 'd \\nu_s(x)'.
+  ['d\ v_s\(x\)', 'd \nu_s(x)'],
+  # The transcript has 'd_r h,'; the scan prints 'd_l h,'.
+  ['d_r\ h,', 'd_l h,'],
+  # The transcript has 'L^2(X, v_s, V)'; the scan prints 'L^2(X, \\nu_s, V)'.
+  ['L\^2\(X,\ v_s,\ V\)', 'L^2(X, \nu_s, V)'],
+  # The transcript has 'measure $v_s$.'; the scan prints 'measure $\\nu_s$.'.
+  ['measure\ \$v_s\$\.', 'measure $\nu_s$.'],
+]
+200 = [
+  # The scan prints right-margin equation number (8).
+  ['A\(g,x\)\ =\ U_0\(h\),', 'A(g,x) = U_0(h), \quad (8)'],
+  # The scan prints right-margin equation number (9).
+  ['s\(x\)g\ =\ hs\(xg\)\.', 's(x)g = hs(xg). \quad (9)'],
+  # Scan typo: x \in X.
+  ['u\ \\in\ X\.', 'x \in X.'],
+  # The scan prints right-margin equation number (10).
+  ['A\(g_1,\ x\)\ A\(g_2,\ x\ g_1\)\ =\ A\(g_1\ g_2,\ x\)', 'A(g_1, x) A(g_2, x g_1) = A(g_1 g_2, x) \quad (10)'],
+]
+203 = [
+  # Scan typo: \Delta_G(g)^{-1}.
+  ['\\Delta_G\ \(g_1\)\^\{\-1\}\.', '\Delta_G(g)^{-1}.'],
+  # The transcript has 'L^2(X, v_s, V)'; the scan prints 'L^2(X, \\nu_s, V)'.
+  ['L\^2\(X,\ v_s,\ V\)', 'L^2(X, \nu_s, V)'],
+]
+204 = [
+  # The scan prints right-margin equation number (17).
+  ['\$\$\n\(\\theta_1,\ \\theta_2\)\ =\ \(\\Phi\(\\alpha\)\\xi,\ \\xi\)\n\$\$', '''$$
+(\theta_1, \theta_2) = (\Phi(\alpha)\xi, \xi) \quad (17)
+$$'''],
+  # The scan prints right-margin equation number (18) and omits stray (17).
+  ['\$\$\n\[U\(h\)\\theta\]\(g\)\ =\ \\Delta_H\(h\)\^\{\-1/2\}\ \\Delta_G\(h\)\^\{\-1/2\}\ \\theta\(h\^\{\-1\}\ g\)\.\n\$\$\n\n\(17\)', '''$$
+[U(h)\theta](g) = \Delta_H(h)^{-1/2} \Delta_G(h)^{-1/2} \theta(h^{-1} g). \quad (18)
+$$'''],
+  # The transcript has '\\xi(g_1)) \\nu \\rho'; the scan prints '\\xi(g_1))_V \\rho'.
+  ['1\),\ \\xi\(g_1\)\)\ \\nu\ \\rho\(g_1', '1), \xi(g_1))_V \rho(g_1'],
+  # The transcript has 'g_2) \\xi(g_1 g_2), \\xi(g_1)) \\nu'; the scan prints 'g_2) (\\xi(g_1 g_2), \\xi(g_1))_V'.
+  ['\(h\ g_1,\ g_2\)\ \\xi\(g_1\ g_2\),\ \\xi\(g_1\)\)\ \\nu\ \\rho\(g_', '(h g_1, g_2) (\xi(g_1 g_2), \xi(g_1))_V \rho(g_'],
+  # The transcript has '\\xi(g_1)) \\nu d_r'; the scan prints '\\xi(g_1))_V d_r'.
+  ['\\xi\(g_1\)\)\ \\nu\ d_r', '\xi(g_1))_V d_r'],
+  # The transcript has '(L(h)\\theta)^\\sim'; the scan prints '(L(h)\\theta)^\\wedge'.
+  ['\(L\(h\)\\theta\)\^\\sim', '(L(h)\theta)^\wedge'],
+]
+205 = [
+  # The transcript has 'representation $\\Gamma$ is'; the scan prints 'representation $T$ is'.
+  ['representation\ \$\\Gamma\$\ is', 'representation $T$ is'],
+  # The scan prints right-margin equation number (19).
+  ['F\(hg_1,\ g_2\)\ =\ \\Delta_G\^\{\-1\}\(h\)\ F\(g_1,\ h\^\{\-1\}\ g_2\)\ \\,\.', 'F(hg_1, g_2) = \Delta_G^{-1}(h) F(g_1, h^{-1} g_2) \,. \quad (19)'],
+  # The scan prints right-margin equation number (20).
+  ['\(F_1,\ F_2\)\ =\ \\int\ \(F_1\(g,\ \\cdot\),\ F_2\(g,\ \\cdot\)\)_\{C_0\(G\)\}\ \\rho\(g\)\ d_r\ g\ \\,\.', '(F_1, F_2) = \int (F_1(g, \cdot), F_2(g, \cdot))_{C_0(G)} \rho(g) d_r g \,. \quad (20)'],
+  # The scan prints right-margin equation number (21).
+  ['F\(g_1,\ g_2\)\ =\ \\alpha\ \(Hg_1,\ g_1\^\{\-1\}\ g_2\)\ \\Delta_G\ \(g_1\)\^\{\-1\}\ \\,\.', 'F(g_1, g_2) = \alpha (Hg_1, g_1^{-1} g_2) \Delta_G (g_1)^{-1} \,. \quad (21)'],
+]
+206 = [
+  # The scan prints right-margin equation number (1).
+  ['T\|_N\ =\ \\int_\{\\hat\{N\}\}\ W_\\lambda\ d\\mu\(\\lambda\),', 'T|_N = \int_{\hat{N}} W_\lambda d\mu(\lambda), \quad (1)'],
+  # The scan prints right-margin equation number (2).
+  ['L\ =\ \\int_\{\\hat\{N\}\}\ L_\\lambda\ d\\mu\(\\lambda\)', 'L = \int_{\hat{N}} L_\lambda d\mu(\lambda) \quad (2)'],
+  # The scan prints right-margin equation number (3).
+  ['\(P\(f\)\\xi\)\(\\lambda\)\ =\ f\(\\lambda\)\\xi\(\\lambda\)\.', '(P(f)\xi)(\lambda) = f(\lambda)\xi(\lambda). \quad (3)'],
+]
+207 = [
+  # The transcript has 'and $n \\mapsto U_x(n_1'; the scan prints 'and $n \\to U_x(n_1'.
+  ['and\ \$n\ \\mapsto\ U_x\(n_1', 'and $n \to U_x(n_1'],
+]
+208 = [
+  # The transcript has 'Let $\\hat{N}$ be'; the scan prints 'Let $\\tilde{N}$ be'.
+  ['Let\ \$\\hat\{N\}\$\ be', 'Let $\tilde{N}$ be'],
+  # The transcript has 'of $\\hat{N}$ under'; the scan prints 'of $\\tilde{N}$ under'.
+  ['of\ \$\\hat\{N\}\$\ under', 'of $\tilde{N}$ under'],
+  # Scan typo: of $G$ on $\hat{N}$ satisfies
+  ['of\ \$G\$\ on\ \$N\$\ satisfies', 'of $G$ on $\hat{N}$ satisfies'],
+]
+210 = [
+  # The transcript has "E'_U = G \\times_V H"; the scan prints "E'_U = G \\times_H V".
+  ['''E'_U\ =\ G\ \\times_V\ H''', '''E'_U = G \times_H V'''],
+  # The transcript has '(y, v) \\mapsto (s_i(y), v)'; the scan prints '(y, v) \\to (s_i(y), v)'.
+  ['\(y,\ v\)\ \\mapsto\ \(s_i\(y\),\ v\)', '(y, v) \to (s_i(y), v)'],
+  # The transcript has 'into $G \\times V$.'; the scan prints 'into $G \\times_H V$.'.
+  ['into\ \$G\ \\times\ V\$\.', 'into $G \times_H V$.'],
+  # The transcript has 'E_U = G \\times V$ is'; the scan prints 'E_U = G \\times_H V$ is'.
+  ['E_U\ =\ G\ \\times\ V\$\ is', 'E_U = G \times_H V$ is'],
+]
+211 = [
+  # The scan prints \otimes_\mathbf{R} \mathbf{C}.
+  ['\\otimes\ \\mathbb\{C\}\$\.', '\otimes_\mathbf{R} \mathbf{C}$.'],
+  # Scan typo: L_X f + U_*(X)f
+  ['L_x\ f\ \+\ U_\*\(X\)f', 'L_X f + U_*(X)f'],
+  # Scan typo: where $L_X$ is
+  ['where\ \$L_x\$\ is', 'where $L_X$ is'],
+  # Scan typo: X \mapsto L_X
+  ['X\ \\mapsto\ L_x', 'X \mapsto L_X'],
+  # The transcript has '\\mathfrak{g}_\\mathbb{C} ='; the scan prints '\\mathfrak{g}_\\mathbf{C} ='.
+  ['\\mathfrak\{g\}_\\mathbb\{C\}\ =', '\mathfrak{g}_\mathbf{C} ='],
+  # Scan typo: L_X f + \rho(X)f
+  ['L_x\ f\ \+\ \\rho\(X\)f', 'L_X f + \rho(X)f'],
+]
+212 = [
+  # The transcript has 'in which $n$ is'; the scan prints 'in which $\\mathfrak{n}$ is'.
+  ['in\ which\ \$n\$\ is', 'in which $\mathfrak{n}$ is'],
+  # The transcript has 'Then $L(G, n, \\rho)$'; the scan prints 'Then $L(G, \\mathfrak{n}, \\rho)$'.
+  ['Then\ \$L\(G,\ n,\ \\rho\)\$', 'Then $L(G, \mathfrak{n}, \rho)$'],
+  # The transcript has '$n \\neq \\bar{n}$'; the scan prints '$\\mathfrak{n} \\neq \\bar{\\mathfrak{n}}$'.
+  ['\$n\ \\neq\ \\bar\{n\}\$', '$\mathfrak{n} \neq \bar{\mathfrak{n}}$'],
+  # The transcript has 'and for $n$,'; the scan prints 'and for $\\mathfrak{n}$,'.
+  ['and\ for\ \$n\$,', 'and for $\mathfrak{n}$,'],
+  # The transcript has 'representation $n$ which'; the scan prints 'representation $\\mathfrak{n}$ which'.
+  ['representation\ \$n\$\ which', 'representation $\mathfrak{n}$ which'],
+  # The transcript has 'C^\\infty(G, n, \\rho)'; the scan prints 'C^\\infty(G, \\mathfrak{n}, \\rho)'.
+  ['ce\ \$C\^\\infty\(G,\ n,\ \\rho\)\$\ is', 'ce $C^\infty(G, \mathfrak{n}, \rho)$ is'],
+  # The transcript has '$n \\cap \\bar{n}$'; the scan prints '$\\mathfrak{n} \\cap \\bar{\\mathfrak{n}}$'.
+  ['\$n\ \\cap\ \\bar\{n\}\$', '$\mathfrak{n} \cap \bar{\mathfrak{n}}$'],
+  # Scan typo: hull $\mathfrak{b}_c$ of
+  ['hull\ \$\\mathfrak\{h\}_c\$\ of', 'hull $\mathfrak{b}_c$ of'],
+  # The transcript has '\\mathfrak{b} = n \\cap \\mathfrak{g}'; the scan prints '\\mathfrak{b} = \\mathfrak{n} \\cap \\mathfrak{g}'.
+  ['\\mathfrak\{b\}\ =\ n\ \\cap\ \\mathfrak\{g\}', '\mathfrak{b} = \mathfrak{n} \cap \mathfrak{g}'],
+  # The transcript has 'subalgebra $n$;'; the scan prints 'subalgebra $\\mathfrak{n}$;'.
+  ['subalgebra\ \$n\$;', 'subalgebra $\mathfrak{n}$;'],
+  # The transcript has '$n + \\bar{n} = m_c$'; the scan prints '$\\mathfrak{n} + \\bar{\\mathfrak{n}} = \\mathfrak{m}_c$'.
+  ['\$n\ \+\ \\bar\{n\}\ =\ m_c\$', '$\mathfrak{n} + \bar{\mathfrak{n}} = \mathfrak{m}_c$'],
+  # The transcript has '(here $m$ is'; the scan prints '(here $\\mathfrak{m}$ is'.
+  ['\(here\ \$m\$\ is', '(here $\mathfrak{m}$ is'],
+  # The transcript has 'and $m_c$ is'; the scan prints 'and $\\mathfrak{m}_c$ is'.
+  ['and\ \$m_c\$\ is', 'and $\mathfrak{m}_c$ is'],
+  # The transcript has 'hull of $m$).'; the scan prints 'hull of $\\mathfrak{m}$).'.
+  ['hull\ of\ \$m\$\)\.', 'hull of $\mathfrak{m}$).'],
+  # The transcript has 'subalgebra $n$.'; the scan prints 'subalgebra $\\mathfrak{n}$.'.
+  ['subalgebra\ \$n\$\.', 'subalgebra $\mathfrak{n}$.'],
+]
+213 = [
+  # Scan typo: \mathcal{E}_U = G \times_H V
+  ['\\mathcal\{E\}_U\ =\ G\ \\times_V\ U', '\mathcal{E}_U = G \times_H V'],
+  # The transcript has 'If $a$ is'; the scan prints 'If $\\mathfrak{a}$ is'.
+  ['If\ \$a\$\ is', 'If $\mathfrak{a}$ is'],
+  # The transcript has 'A \\in a.'; the scan prints 'A \\in \\mathfrak{a}.'.
+  ['A\ \\in\ a\.', 'A \in \mathfrak{a}.'],
+  # The transcript has 'space $a$.'; the scan prints 'space $\\mathfrak{a}$.'.
+  ['space\ \$a\$\.', 'space $\mathfrak{a}$.'],
+  # Scan typo: in $\tilde{N} \setminus \tilde{M}_c$ is
+  ['in\ \$\\tilde\{M\}\ \\setminus\ \\tilde\{M\}_c\$\ is', 'in $\tilde{N} \setminus \tilde{M}_c$ is'],
+  # The transcript has 'element $A \\in a$ defined'; the scan prints 'element $A \\in \\mathfrak{a}$ defined'.
+  ['element\ \$A\ \\in\ a\$\ defined', 'element $A \in \mathfrak{a}$ defined'],
+]
+214 = [
+  # The transcript has 'subspace $b \\subset g$'; the scan prints 'subspace $\\mathfrak{b} \\subset \\mathfrak{g}$'.
+  ['subspace\ \$b\ \\subset\ g\$', 'subspace $\mathfrak{b} \subset \mathfrak{g}$'],
+  # The transcript has 'complementary to $m$.'; the scan prints 'complementary to $\\mathfrak{m}$.'.
+  ['complementary\ to\ \$m\$\.', 'complementary to $\mathfrak{m}$.'],
+  # The transcript has 'B \\in b.'; the scan prints 'B \\in \\mathfrak{b}.'.
+  ['B\ \\in\ b\.', 'B \in \mathfrak{b}.'],
+  # The transcript has '$A \\in a$, $B \\in b$.'; the scan prints '$A \\in \\mathfrak{a}$, $B \\in \\mathfrak{b}$.'.
+  ['\$A\ \\in\ a\$,\ \$B\ \\in\ b\$\.', '$A \in \mathfrak{a}$, $B \in \mathfrak{b}$.'],
+  # The transcript has 'algebra $n$.'; the scan prints 'algebra $\\mathfrak{n}$.'.
+  ['algebra\ \$n\$\.', 'algebra $\mathfrak{n}$.'],
+  # Scan typo: \mathcal{E}_{\rho} = \tilde{M}_c \times_N V
+  ['\\mathcal\{E\}_\{\\rho\}\ =\ \\tilde\{M\}_c\ \\times\ V', '\mathcal{E}_{\rho} = \tilde{M}_c \times_N V'],
+  # The transcript has '\\mathcal{E}_U = G \\times V'; the scan prints '\\mathcal{E}_U = G \\times_M V'.
+  ['\\mathcal\{E\}_U\ =\ G\ \\times\ V', '\mathcal{E}_U = G \times_M V'],
+  # Scan typo: region in $\mathbf{C}^n$,
+  ['region\ in\ \$\\mathcal\{C\}\^n\$,', 'region in $\mathbf{C}^n$,'],
+  # The transcript has 'L(G, n, H, \\rho, U)'; the scan prints 'L(G, \\mathfrak{n}, H, \\rho, U)'.
+  ['L\(G,\ n,\ H,\ \\rho,\ U\)', 'L(G, \mathfrak{n}, H, \rho, U)'],
+  # The transcript has 'when $n + \\bar{n}$ is'; the scan prints 'when $\\mathfrak{n} + \\bar{\\mathfrak{n}}$ is'.
+  ['when\ \$n\ \+\ \\bar\{n\}\$\ is', 'when $\mathfrak{n} + \bar{\mathfrak{n}}$ is'],
+  # The transcript has 'space $L(G, n, \\rho)$'; the scan prints 'space $L(G, \\mathfrak{n}, \\rho)$'.
+  ['space\ \$L\(G,\ n,\ \\rho\)\$', 'space $L(G, \mathfrak{n}, \rho)$'],
+]
+215 = [
+  # Scan typo: K(h_1 g h_2)
+  ['K\(h_1\ g_1\ h_2\)', 'K(h_1 g h_2)'],
+]
+216 = [
+  # The transcript has 'C_{\\mathbf{k}} f(g_1)'; the scan prints 'C_K f(g_1)'.
+  ['C_\{\\mathbf\{k\}\}\ f\(g_1\)', 'C_K f(g_1)'],
+  # Scan typo: supp} f \subset X
+  ['supp\}\ f\ \\in\ X', 'supp} f \subset X'],
+  # Scan typo: } F_0(x) \quad
+  ['\}\ F\(x\)\ \\quad', '} F_0(x) \quad'],
+]
+217 = [
+  # The transcript has '\\Phi(g) d_g g,$$'; the scan prints '\\Phi(g) d_r g,$$'.
+  ['\\Phi\(g\)\ d_g\ g,\$\$', '\Phi(g) d_r g,$$'],
+  # The transcript has '\\rho(hg) d_h h \\equiv 1'; the scan prints '\\rho(hg) d_l h \\equiv 1'.
+  ['\\rho\(hg\)\ d_h\ h\ \\equiv\ 1', '\rho(hg) d_l h \equiv 1'],
+  # Scan typo: U(g)^{-1} F(x)
+  ['U\(G\)\^\{\-1\}\ F\(x\)', 'U(g)^{-1} F(x)'],
+  # The transcript has 'Pjateckii-Šapiro'; the scan prints 'Pjateckiĭ-Šapiro'.
+  ['Pjateckii\-Šapiro', 'Pjateckiĭ-Šapiro'],
+  # The transcript has "G. I. Ol'sanskii"; the scan prints "G. I. Ol'šanskiĭ".
+  ['''\]\)\.\ G\.\ I\.\ Ol'sanskii\ \[12''', ''']). G. I. Ol'šanskiĭ [12'''],
+  # The transcript has "(G. I. Ol'sanskii)."; the scan prints "(G. I. Ol'šanskiĭ).".
+  ['''\(G\.\ I\.\ Ol'sanskii\)\.''', '''(G. I. Ol'šanskiĭ).'''],
+]
+218 = [
+  # Scan typo: Suppose that $A \in \mathcal{C}
+  ['Suppose\ that\ \$A\ \\subset\ \\mathcal\{C\}', 'Suppose that $A \in \mathcal{C}'],
+  # Scan typo: \tilde{A}\xi_n \to f
+  ['\\tilde\{A\}\\xi_i\ \\to\ f', '\tilde{A}\xi_n \to f'],
+]
+219 = [
+  # The scan prints right-margin equation number (1).
+  ['\$\$g\ =\ hs\(x\),\ \\quad\ h\ \\in\ H,\ \\quad\ x\ \\in\ X,\$\$', '$$g = hs(x), \quad h \in H, \quad x \in X, \quad (1)$$'],
+  # The scan prints d_l g = d_l h d\nu_s(x) and right-margin (2).
+  ['\$\$d_t\ g\ =\ d_t\ h\ d\ v_s\(x\)\$\$', '$$d_l g = d_l h \, d\nu_s(x) \quad (2)$$'],
+  # The scan prints right-margin equation number (3).
+  ['\$\$\\langle\ \\chi\^x,\ \\phi\ \\rangle\ =\ \\langle\ \\chi,\ \\phi_x\ \\rangle\$\$', '$$\langle \chi^x, \phi \rangle = \langle \chi, \phi_x \rangle \quad (3)$$'],
+  # The scan prints right-margin equation number (4).
+  ['\$\$U_0\(h\)\ =\ \\left\[\ \\frac\{\\Delta_H\(h\)\}\{\\Delta_G\(h\)\}\ \\right\]\^\{1/2\}\ U\(h\)\.\$\$', '$$U_0(h) = \left[ \frac{\Delta_H(h)}{\Delta_G(h)} \right]^{1/2} U(h). \quad (4)$$'],
+  # The transcript has 'd v_s(x)$$'; the scan prints 'd\\nu_s(x)$$'.
+  ['d\ v_s\(x\)\$\$', 'd\nu_s(x)$$'],
+]
+220 = [
+  # The scan prints d_l h by.
+  ['\$d_ih\$\ by', '$d_l h$ by'],
+  # The transcript has 'by $A_H(h(x))^{-1}$.'; the scan prints 'by $\\Delta_H(h(x))^{-1}$.'.
+  ['by\ \$A_H\(h\(x\)\)\^\{\-1\}\$\.', 'by $\Delta_H(h(x))^{-1}$.'],
+  # The transcript has 'by $A_H(h(x)^{-1})$ when'; the scan prints 'by $\\Delta_H(h(x)^{-1})$ when'.
+  ['by\ \$A_H\(h\(x\)\^\{\-1\}\)\$\ when', 'by $\Delta_H(h(x)^{-1})$ when'],
+  # The transcript has 'The measure $v_s$,'; the scan prints "The measure $\\nu_{s'}$,".
+  ['The\ measure\ \$v_s\$,', '''The measure $\nu_{s'}$,'''],
+  # The transcript has 'the measure $v_s$ by'; the scan prints 'the measure $\\nu_s$ by'.
+  ['the\ measure\ \$v_s\$\ by', 'the measure $\nu_s$ by'],
+  # The transcript has '$dv_s = dv_s(x)'; the scan prints "$d\\nu_{s'} = d\\nu_s(x)".
+  ['\$dv_s\ =\ dv_s\(x\)', '''$d\nu_{s'} = d\nu_s(x)'''],
+  # The transcript has 'A_H(h(x)^{-1})$.'; the scan prints '\\Delta_H(h(x)^{-1})$.'.
+  ['A_H\(h\(x\)\^\{\-1\}\)\$\.', '\Delta_H(h(x)^{-1})$.'],
+  # The transcript has '\\phi(g)d_ig$'; the scan prints '\\phi(g)d_lg$'.
+  ['\\phi\(g\)d_ig\$', '\phi(g)d_lg$'],
+  # The transcript has 'f(y)dv_s(y),$$'; the scan prints 'f(y)d\\nu_s(y),$$'.
+  ['f\(y\)dv_s\(y\),\$\$', 'f(y)d\nu_s(y),$$'],
+  # Scan typo: U_0(h) d_lh.$$
+  ['U_0\(h\)\ d_ih\.\$\$', 'U_0(h) d_lh.$$'],
+  # The transcript has '$v_s(X \\setminus X_0) = 0$'; the scan prints '$\\nu_s(X \\setminus X_0) = 0$'.
+  ['\$v_s\(X\ \\setminus\ X_0\)\ =\ 0\$', '$\nu_s(X \setminus X_0) = 0$'],
+]
+221 = [
+  # The transcript has '\\Delta_X = X \\times X'; the scan prints '\\Delta_X \\subset X \\times X'.
+  ['\\Delta_X\ =\ X\ \\times\ X', '\Delta_X \subset X \times X'],
+  # The transcript has 'A} \\mathcal{K}_\\alpha'; the scan prints 'A} \\operatorname{tr} \\mathcal{K}_\\alpha'.
+  ['A\}\ \\mathcal\{K\}_\\alpha', 'A} \operatorname{tr} \mathcal{K}_\alpha'],
+]
+222 = [
+  # The transcript has '$K_a(x, y)$'; the scan prints '$K_\\alpha(x, y)$'.
+  ['\$K_a\(x,\ y\)\$', '$K_\alpha(x, y)$'],
+  # Scan typo: \|P_\phi \mathcal{K}\|_1
+  ['\\\|P_\\phi\ K\\\|_1', '\|P_\phi \mathcal{K}\|_1'],
+  # Scan typo: eigenvalues of the operator $\mathcal{K}$
+  ['eigenvalues\ of\ the\ operator\ \$K\$', 'eigenvalues of the operator $\mathcal{K}$'],
+]
+223 = [
+  # The transcript has '\\operatorname{tr} \\mathcal{H}'; the scan prints '\\operatorname{tr} \\mathcal{K}'.
+  ['\$\$\\operatorname\{tr\}\ \\mathcal\{H\}\ =\ \\sum_', '$$\operatorname{tr} \mathcal{K} = \sum_'],
+  # The transcript has 'that $\\Phi \\mathcal{H}$ is'; the scan prints 'that $\\Phi \\mathcal{K}$ is'.
+  ['that\ \$\\Phi\ \\mathcal\{H\}\$\ is', 'that $\Phi \mathcal{K}$ is'],
+  # The transcript has 'operator $\\Phi \\mathcal{H}$ is'; the scan prints 'operator $\\Phi \\mathcal{K}$ is'.
+  ['operator\ \$\\Phi\ \\mathcal\{H\}\$\ is', 'operator $\Phi \mathcal{K}$ is'],
+  # The transcript has '\\operatorname{tr} \\mathcal{H} ='; the scan prints '\\operatorname{tr} \\mathcal{K} ='.
+  ['\\operatorname\{tr\}\ \\mathcal\{H\}\ =', '\operatorname{tr} \mathcal{K} ='],
+]
+224 = [
+  # Scan typo: assertion of problem 7.
+  ['assertion\ of\ problem\ 8\.', 'assertion of problem 7.'],
+]
+225 = [
+  # Scan typo: \Delta_H(h_0)
+  ['\\Delta_K\(h_0\)', '\Delta_H(h_0)'],
+]
+226 = [
+  # The transcript has 'X \\to AXA^{-1}'; the scan prints 'X \\mapsto AXA^{-1}'.
+  ['X\ \\to\ AXA\^\{\-1\}', 'X \mapsto AXA^{-1}'],
+]
+227 = [
+  # The transcript has 'points $h_x, \\alpha \\in A$'; the scan prints 'points $h_\\alpha, \\alpha \\in A$'.
+  ['points\ \$h_x,\ \\alpha\ \\in\ A\$', 'points $h_\alpha, \alpha \in A$'],
+  # Scan typo: all $h \in P(H)$
+  ['all\ \$h\ \\in\ P\(A\)\$', 'all $h \in P(H)$'],
+]
+228 = [
+  # The transcript has 'into the group $PU(H)$.'; the scan prints 'into the group $P\\tilde{U}(H)$.'.
+  ['into\ the\ group\ \$PU\(H\)\$\.', 'into the group $P\tilde{U}(H)$.'],
+]
+229 = [
+  # The transcript has 'defined by the equality (7).'; the scan prints "defined by the equality (7').".
+  ['defined\ by\ the\ equality\ \(7\)\.', '''defined by the equality (7').'''],
+  # Scan typo: The equality $A \otimes B
+  ['The\ quality\ \$A\ \\otimes\ B', 'The equality $A \otimes B'],
+  # Scan typo: S(k_1 k_2)
+  ['S\(k_1,\ k_2\)', 'S(k_1 k_2)'],
+]
+231 = [
+  # The transcript has '(g_1, g_2) \\mapsto \\alpha_{(g_1, g_2)}'; the scan prints '(g_1, g_2) \\to \\alpha_{(g_1, g_2)}'.
+  ['\(g_1,\ g_2\)\ \\mapsto\ \\alpha_\{\(g_1,\ g_2\)\}', '(g_1, g_2) \to \alpha_{(g_1, g_2)}'],
+  # Scan typo: annihilator of $Z_1^2(G, K^*)$.
+  ['annihilator\ of\ \$Z_1\^2\(G,\ K\)\$\.', 'annihilator of $Z_1^2(G, K^*)$.'],
+  # Scan typo: subgroup $Z_1^2(G, K^*)$ having
+  ['subgroup\ \$Z_1\^2\(G,\ K\)\$\ having', 'subgroup $Z_1^2(G, K^*)$ having'],
+]
+233 = [
+  # The transcript has '\\lambda \\in \\mathbb{C}^*'; the scan prints '\\lambda \\in \\mathbf{C}^*'.
+  ['\\lambda\ \\in\ \\mathbb\{C\}\^\*', '\lambda \in \mathbf{C}^*'],
+  # The transcript has '1 \\to \\mathbb{C}^* \\to'; the scan prints '1 \\to \\mathbf{C}^* \\to'.
+  ['1\ \\to\ \\mathbb\{C\}\^\*\ \\to', '1 \to \mathbf{C}^* \to'],
+  # Scan typo: of $G_1$ which
+  ['of\ \$\\tilde\{G\}\$\ which', 'of $G_1$ which'],
+  # The transcript has '1 \\to \\mathbb{T} \\to'; the scan prints '1 \\to \\mathbf{T} \\to'.
+  ['1\ \\to\ \\mathbb\{T\}\ \\to', '1 \to \mathbf{T} \to'],
+  # The transcript has 'W \\times \\mathbb{T}'; the scan prints 'W \\times \\mathbf{T}'.
+  ['W\ \\times\ \\mathbb\{T\}', 'W \times \mathbf{T}'],
+]
+234 = [
+  # The scan prints 9-column exact sequence diagram with \parallel outer columns and vertical arrows.
+  ['\$\$\n\\begin\{array\}\{cccc\}\n1\ \\leftarrow\ \\tilde\{G\}\ \\leftarrow\ \\tilde\{G\}_1\ \\leftarrow\ \\mathbf\{R\}\ \\leftarrow\ 1\ \\\\\n\\parallel\ \\downarrow\ \\downarrow\ \\downarrow\ \\downarrow\ \\parallel\ \\\\\n1\ \\leftarrow\ G\ \\leftarrow\ G_1\ \\leftarrow\ \\mathbf\{T\}\ \\leftarrow\ 1,\n\\end\{array\}\n\$\$', '''$$
+\begin{array}{ccccccccc}
+1 & \leftarrow & \tilde{G} & \leftarrow & \tilde{G}_1 & \leftarrow & \mathbf{R} & \leftarrow & 1 \\
+\parallel & & \downarrow & & \downarrow & & \downarrow & & \parallel \\
+1 & \leftarrow & G & \leftarrow & G_1 & \leftarrow & \mathbf{T} & \leftarrow & 1,
+\end{array}
+$$'''],
+]
+235 = [
+  # Scan typo: a & b & u \\
+  ['a\ \&\ c\ \&\ u\ \\\\', 'a & b & u \\'],
+  # Scan typo: condition $a = b = c = 0$ corresponds
+  ['condition\ \$a\ =\ 0\$\ corresponds', 'condition $a = b = c = 0$ corresponds'],
+]
+236 = [
+  # The transcript has 'dual space $g^*$ of'; the scan prints 'dual space $\\mathfrak{g}^*$ of'.
+  ['dual\ space\ \$g\^\*\$\ of', 'dual space $\mathfrak{g}^*$ of'],
+  # The transcript has 'Lie algebra $g$ of'; the scan prints 'Lie algebra $\\mathfrak{g}$ of'.
+  ['Lie\ algebra\ \$g\$\ of', 'Lie algebra $\mathfrak{g}$ of'],
+  # The transcript has '$p: g^* \\to \\mathfrak{h}^*$'; the scan prints '$p: \\mathfrak{g}^* \\to \\mathfrak{h}^*$'.
+  ['\$p:\ g\^\*\ \\to\ \\mathfrak\{h\}\^\*\$', '$p: \mathfrak{g}^* \to \mathfrak{h}^*$'],
+  # The transcript has '$g$ its Lie algebra'; the scan prints '$\\mathfrak{g}$ its Lie algebra'.
+  ['\$g\$\ its\ Lie\ algebra', '$\mathfrak{g}$ its Lie algebra'],
+  # The transcript has '$g^*$ the dual'; the scan prints '$\\mathfrak{g}^*$ the dual'.
+  ['\$g\^\*\$\ the\ dual', '$\mathfrak{g}^*$ the dual'],
+  # The transcript has 'dual space to $g$.'; the scan prints 'dual space to $\\mathfrak{g}$.'.
+  ['dual\ space\ to\ \$g\$\.', 'dual space to $\mathfrak{g}$.'],
+  # The transcript has 'acts in $g$ with'; the scan prints 'acts in $\\mathfrak{g}$ with'.
+  ['acts\ in\ \$g\$\ with', 'acts in $\mathfrak{g}$ with'],
+  # The transcript has 'in $g^*$ with'; the scan prints 'in $\\mathfrak{g}^*$ with'.
+  ['in\ \$g\^\*\$\ with', 'in $\mathfrak{g}^*$ with'],
+  # The transcript has 'algebra $g$ is'; the scan prints 'algebra $\\mathfrak{g}$ is'.
+  ['algebra\ \$g\$\ is', 'algebra $\mathfrak{g}$ is'],
+  # The transcript has 'realize $g^*$ in'; the scan prints 'realize $\\mathfrak{g}^*$ in'.
+  ['realize\ \$g\^\*\$\ in', 'realize $\mathfrak{g}^*$ in'],
+]
+237 = [
+  # The scan prints bold \mathbf{C}.
+  ['\\text\{Mat\}_n\(\\mathbb\{C\}\)\$\.', '\text{Mat}_n(\mathbf{C})$.'],
+  # The transcript has '$G = GL(n, \\mathbb{C})$'; the scan prints '$G = GL(n, \\mathbf{C})$'.
+  ['\$G\ =\ GL\(n,\ \\mathbb\{C\}\)\$', '$G = GL(n, \mathbf{C})$'],
+  # The transcript has 'space $\\text{Mat}_n(\\mathbb{C})$'; the scan prints 'space $\\text{Mat}_n(\\mathbf{C})$'.
+  ['space\ \$\\text\{Mat\}_n\(\\mathbb\{C\}\)\$', 'space $\text{Mat}_n(\mathbf{C})$'],
+  # Scan typo: A \in \text{Mat}_n(\mathbf{C}), (1)
+  ['A\ \\in\ \\text\{Mat\}_n\(\\mathbb\{C\}\),', 'A \in \text{Mat}_n(\mathbf{C}), (1)'],
+  # The transcript has 'of $\\text{Mat}_n(\\mathbb{C})$'; the scan prints 'of $\\text{Mat}_n(\\mathbf{C})$'.
+  ['ace\ of\ \$\\text\{Mat\}_n\(\\mathbb\{C\}\)\$\ can', 'ace of $\text{Mat}_n(\mathbf{C})$ can'],
+  # The transcript has 'with $\\text{Mat}_n(\\mathbb{C})$'; the scan prints 'with $\\text{Mat}_n(\\mathbf{C})$'.
+  ['with\ \$\\text\{Mat\}_n\(\\mathbb\{C\}\)\$', 'with $\text{Mat}_n(\mathbf{C})$'],
+  # The transcript has '(over $\\mathbb{R}$)'; the scan prints '(over $\\mathbf{R}$)'.
+  ['\(over\ \$\\mathbb\{R\}\$\)', '(over $\mathbf{R}$)'],
+  # The transcript has '= \\text{Retr } XY.'; the scan prints '= \\text{Retr } XY. (2)'.
+  ['=\ \\text\{Retr\ \}\ XY\.', '= \text{Retr } XY. (2)'],
+  # The transcript has 'B \\in \\text{Mat}_n(\\mathbb{C})'; the scan prints 'B \\in \\text{Mat}_n(\\mathbf{C}) (3)'.
+  ['B\ \\in\ \\text\{Mat\}_n\(\\mathbb\{C\}\)', 'B \in \text{Mat}_n(\mathbf{C}) (3)'],
+  # The transcript has 'GL(n, \\mathbb{C})'; the scan prints 'GL(n, \\mathbf{C})'.
+  ['of\ \$GL\(n,\ \\mathbb\{C\}\)\$\ co', 'of $GL(n, \mathbf{C})$ co'],
+  # The transcript has '\\text{Mat}_n(\\mathbb{C})'; the scan prints '\\text{Mat}_n(\\mathbf{C})'.
+  ['\\text\{Mat\}_n\(\\mathbb\{C\}\)', '\text{Mat}_n(\mathbf{C})'],
+  # The transcript has 'X \\in V, \\quad g \\in G.'; the scan prints 'X \\in V, \\quad g \\in G. (4)'.
+  ['X\ \\in\ V,\ \\quad\ g\ \\in\ G\.', 'X \in V, \quad g \in G. (4)'],
+]
+238 = [
+  # The transcript has '\\wedge^l(\\mathfrak{b}^{\\perp})'; the scan prints '\\wedge^l(\\mathfrak{h}^{\\perp})'.
+  ['\\wedge\^l\(\\mathfrak\{b\}\^\{\\perp\}\)', '\wedge^l(\mathfrak{h}^{\perp})'],
+  # The transcript has 'space $\\mathfrak{b}^{\\perp}$.'; the scan prints 'space $\\mathfrak{h}^{\\perp}$.'.
+  ['space\ \$\\mathfrak\{b\}\^\{\\perp\}\$\.', 'space $\mathfrak{h}^{\perp}$.'],
+]
+239 = [
+  # The transcript has '\\Lambda(\\mathfrak{b}^{\\perp})'; the scan prints '\\Lambda(\\mathfrak{h}^{\\perp})'.
+  ['in\ \$\\Lambda\(\\mathfrak\{b\}\^\{\\perp\}\)\$,\ a', 'in $\Lambda(\mathfrak{h}^{\perp})$, a'],
+  # The transcript has '\\Lambda^k(\\mathfrak{b}^{\\perp})'; the scan prints '\\Lambda^k(\\mathfrak{h}^{\\perp})'.
+  ['\\Lambda\^k\(\\mathfrak\{b\}\^\{\\perp\}\)', '\Lambda^k(\mathfrak{h}^{\perp})'],
+  # The transcript has '\\Lambda^{k+1}(\\mathfrak{b}^{\\perp})'; the scan prints '\\Lambda^{k+1}(\\mathfrak{h}^{\\perp})'.
+  ['\\Lambda\^\{k\+1\}\(\\mathfrak\{b\}\^\{\\perp\}\)', '\Lambda^{k+1}(\mathfrak{h}^{\perp})'],
+]
+240 = [
+  # Scan typo: assertions of problem 7 and
+  ['assertions\ of\ problem\ 6\ and', 'assertions of problem 7 and'],
+  # Scan typo: 2-form $B_\Omega$ on
+  ['2\-form\ \$B_\\Phi\$\ on', '2-form $B_\Omega$ on'],
+  # Scan typo: vector $\xi_X(F)$ goes
+  ['vector\ \$\\xi_F\(X\)\$\ goes', 'vector $\xi_X(F)$ goes'],
+]
+241 = [
+  # Scan typo: it has the form
+  ['it\ has\ the\ form\ 1', 'it has the form'],
+]
+242 = [
+  # Scan typo: -(\iota(\xi_G)B)(\xi_F)
+  ['\-\(\\iota\(\\xi_F\)B\)\(\\xi_F\)', '-(\iota(\xi_G)B)(\xi_F)'],
+]
+243 = [
+  # The scan prints a 2D commutative diagram with upward arrow \mathfrak{g} -> C^\infty(M, \mathbf{R}) and bold H^1(M, \mathbf{R}).
+  ['\$\$\n\\begin\{array\}\{r\}\n0\ \\\\\n\\downarrow\ \\\\\n0\ \\to\ \\mathbf\{R\}\ \\to\ C\^\\infty\(M,\ \\mathbf\{R\}\)\ \\to\ H_0\(M\)\ \\to\ 0\ \\\\\n\\uparrow\ \\downarrow\ \\\\\n\\mathfrak\{g\}\ \\to\ H\(M\)\ \\\\\n\\downarrow\ \\\\\nH\^1\(M,\ R\)\ \\\\\n\\downarrow\ \\\\\n0\n\\end\{array\}\n\$\$', '''$$
+\begin{array}{ccccccccc}
+& & & & 0 & & & & \\
+& & & & \downarrow & & & & \\
+0 & \to & \mathbf{R} & \to & C^\infty(M, \mathbf{R}) & \to & H_0(M) & \to & 0 \\
+& & & & \uparrow & & \downarrow & & \\
+& & & & \mathfrak{g} & \to & H(M) & & \\
+& & & & & & \downarrow & & \\
+& & & & & & H^1(M, \mathbf{R}) & & \\
+& & & & & & \downarrow & & \\
+& & & & & & 0 & &
+\end{array}
+$$'''],
+  # Scan typo: R for bold \mathbf{R}.
+  ['H\ \\in\ C\^\\infty\(M,\ R\)\$\.', 'H \in C^\infty(M, \mathbf{R})$.'],
+  # The transcript has '\\xi L_{\\eta F} = L_{\\eta} \\xi_F'; the scan prints '^{\\xi}L_{\\eta^F} = L_{\\eta}\\xi_F'.
+  ['\\xi\ L_\{\\eta\ F\}\ =\ L_\{\\eta\}\ \\xi_F', '^{\xi}L_{\eta^F} = L_{\eta}\xi_F'],
+  # The transcript has '\\xi_{\\{F,G\\}} = [\\xi_F, \\xi_G] ,'; the scan prints '\\xi_{\\{F,G\\}} = [\\xi_F, \\xi_G], (8)'.
+  ['\\xi_\{\\\{F,G\\\}\}\ =\ \[\\xi_F,\ \\xi_G\]\ ,', '\xi_{\{F,G\}} = [\xi_F, \xi_G], (8)'],
+  # The transcript has '\\xrightarrow{j} H_0(M) \\to 0 ,'; the scan prints '\\xrightarrow{j} H_0(M) \\to 0, (9)'.
+  ['\\xrightarrow\{j\}\ H_0\(M\)\ \\to\ 0\ ,', '\xrightarrow{j} H_0(M) \to 0, (9)'],
+  # The transcript has 'F_{\\{X, \\eta\\}} = \\{F_X, F_Y\\}'; the scan prints 'F_{[X, Y]} = \\{F_X, F_Y\\} (10)'.
+  ['F_\{\\\{X,\ \\eta\\\}\}\ =\ \\\{F_X,\ F_Y\\\}', 'F_{[X, Y]} = \{F_X, F_Y\} (10)'],
+]
+244 = [
+  # The transcript has '= F_X(m).'; the scan prints '= F_X(m). (11)'.
+  ['=\ F_X\(m\)\.', '= F_X(m). (11)'],
+]
+246 = [
+  # Scan typo: \operatorname{codim} \mathfrak{n} =
+  ['\\operatorname\{codim\}\ n\ =', '\operatorname{codim} \mathfrak{n} ='],
+  # Scan typo: $F \in \mathfrak{g}^*$
+  ['\$F\ \\subset\ \\mathfrak\{g\}\^\*\$', '$F \in \mathfrak{g}^*$'],
+]
+247 = [
+  # The transcript has 'If $n$ is'; the scan prints 'If $\\mathfrak{n}$ is'.
+  ['If\ \$n\$\ is', 'If $\mathfrak{n}$ is'],
+  # The transcript has '$Adg n$ is'; the scan prints '$Ad\\,g\\mathfrak{n}$ is'.
+  ['\$Adg\ n\$\ is', '$Ad\,g\mathfrak{n}$ is'],
+  # The transcript has '$F \\in g^*$'; the scan prints '$F \\in \\mathfrak{g}^*$'.
+  ['\$F\ \\in\ g\^\*\$', '$F \in \mathfrak{g}^*$'],
+  # The transcript has 'algebra $g = \\mathfrak{st}'; the scan prints 'algebra $\\mathfrak{g} = \\mathfrak{st}'.
+  ['algebra\ \$g\ =\ \\mathfrak\{st\}', 'algebra $\mathfrak{g} = \mathfrak{st}'],
+  # The transcript has '0 & 0 & 0 \\end{pmatrix},'; the scan prints '0 & 0 & 0 \\end{pmatrix}, (6)'.
+  ['0\ \&\ 0\ \&\ 0\ \\end\{pmatrix\},', '0 & 0 & 0 \end{pmatrix}, (6)'],
+  # The transcript has 'in $g_c$ that'; the scan prints 'in $\\mathfrak{g}_c$ that'.
+  ['in\ \$g_c\$\ that', 'in $\mathfrak{g}_c$ that'],
+  # The transcript has "2\\lambda \\xi_1' J \\xi_2"; the scan prints "2\\lambda \\xi_1' J \\xi_2 (7)".
+  ['''2\\lambda\ \\xi_1'\ J\ \\xi_2''', '''2\lambda \xi_1' J \xi_2 (7)'''],
+  # The transcript has 'subspace $g_{F_\\lambda}$'; the scan prints 'subspace $\\mathfrak{g}_{F_\\lambda}$'.
+  ['subspace\ \$g_\{F_\\lambda\}\$', 'subspace $\mathfrak{g}_{F_\lambda}$'],
+  # Scan typo: subspace $\mathfrak{n}$ for
+  ['subspace\ \$n\$\ for', 'subspace $\mathfrak{n}$ for'],
+  # The transcript has 'in $g_c$ consists'; the scan prints 'in $\\mathfrak{g}_c$ consists'.
+  ['in\ \$g_c\$\ consists', 'in $\mathfrak{g}_c$ consists'],
+  # The transcript has 'c \\in \\mathbf{C}.'; the scan prints 'c \\in \\mathbf{C}. (8)'.
+  ['c\ \\in\ \\mathbf\{C\}\.', 'c \in \mathbf{C}. (8)'],
+]
+248 = [
+  # The transcript has 'if $x$ is the'; the scan prints 'if $\\mathfrak{x}$ is the'.
+  ['if\ \$x\$\ is\ the', 'if $\mathfrak{x}$ is the'],
+  # The transcript has '\\mathfrak{n} \\cap x_c'; the scan prints '\\mathfrak{n} \\cap \\mathfrak{x}_c'.
+  ['\\mathfrak\{n\}\ \\cap\ x_c', '\mathfrak{n} \cap \mathfrak{x}_c'],
+  # Scan typo: $f = F|_{\mathfrak{x}}$;
+  ['\$f\ =\ F\|_x\$;', '$f = F|_{\mathfrak{x}}$;'],
+]
+249 = [
+  # Scan typo: $H^2(G, \mathbf{R}) = 0$
+  ['\$H\^2\(G,\ R\)\ =\ 0\$', '$H^2(G, \mathbf{R}) = 0$'],
+  # Scan typo: equal to an integer (namely,
+  ['equal\ to\ an\ integral\ \(namely,', 'equal to an integer (namely,'],
+]
+250 = [
+  # Scan typo: the isomorphism (12) gives
+  ['the\ isomorphism\ \(11\)\ gives', 'the isomorphism (12) gives'],
+  # The transcript has 'functionals $F_t$,'; the scan prints 'functionals $F_i$,'.
+  ['functionals\ \$F_t\$,', 'functionals $F_i$,'],
+]
+251 = [
+  # Move footnote superscript outside closing emphasis asterisk on Theorem 4.
+  ['in\ \$\\mathfrak\{g\}\^\*\$\.¹\*', 'in $\mathfrak{g}^*$.*¹'],
+]
+252 = [
+  # The transcript has '\\dot{F} = \\{H, F\\}.'; the scan prints '\\dot{F} = \\{H, F\\}. (1)'.
+  ['\\dot\{F\}\ =\ \\\{H,\ F\\\}\.', '\dot{F} = \{H, F\}. (1)'],
+  # The transcript has 'e^{i t \\frac{i \\hbar}{2 \\pi} H}.'; the scan prints 'e^{\\frac{ith}{2\\pi} H}.'.
+  ['e\^\{i\ t\ \\frac\{i\ \\hbar\}\{2\ \\pi\}\ H\}\.', 'e^{\frac{ith}{2\pi} H}.'],
+  # The transcript has '\\frac{i \\hbar}{2 \\pi} [H, F].'; the scan prints '\\frac{ih}{2\\pi}[H, F]. (2)'.
+  ['\\frac\{i\ \\hbar\}\{2\ \\pi\}\ \[H,\ F\]\.', '\frac{ih}{2\pi}[H, F]. (2)'],
+  # The transcript has '\\{\\hat{F}_1, \\hat{F}_2\\} ='; the scan prints '\\widehat{\\{F_1, F_2\\}} ='.
+  ['\\\{\\hat\{F\}_1,\ \\hat\{F\}_2\\\}\ =', '\widehat{\{F_1, F_2\}} ='],
+  # The transcript has '\\frac{i \\hbar}{2 \\pi} [\\hat{F}_1,'; the scan prints '\\frac{ih}{2\\pi}[\\hat{F}_1,'.
+  ['\\frac\{i\ \\hbar\}\{2\ \\pi\}\ \[\\hat\{F\}_1,', '\frac{ih}{2\pi}[\hat{F}_1,'],
+  # The transcript has '[\\hat{F}_1, \\hat{F}_2].'; the scan prints '[\\hat{F}_1, \\hat{F}_2]. (3)'.
+  ['\[\\hat\{F\}_1,\ \\hat\{F\}_2\]\.', '[\hat{F}_1, \hat{F}_2]. (3)'],
+]
+253 = [
+  # The transcript has '\\text{(identity operator)}'; the scan prints '\\text{(identity operator)} (4)'.
+  ['\\text\{\(identity\ operator\)\}', '\text{(identity operator)} (4)'],
+  # The transcript has '+ F + \\alpha(\\xi_F).'; the scan prints '+ F + \\alpha(\\xi_F). (5)'.
+  ['\+\ F\ \+\ \\alpha\(\\xi_F\)\.', '+ F + \alpha(\xi_F). (5)'],
+  # The transcript has 'd\\alpha = \\omega'; the scan prints 'd\\alpha = \\omega (6)'.
+  ['d\\alpha\ =\ \\omega', 'd\alpha = \omega (6)'],
+  # The transcript has '\\frac{\\partial F}{\\partial p_j}.'; the scan prints "\\frac{\\partial F}{\\partial p_j}. (5')".
+  ['\\frac\{\\partial\ F\}\{\\partial\ p_j\}\.', '''\frac{\partial F}{\partial p_j}. (5')'''],
+  # The transcript has '\\partial p_j} + q_j.'; the scan prints '\\partial p_j} + q_j. (7)'.
+  ['\\partial\ p_j\}\ \+\ q_j\.', '\partial p_j} + q_j. (7)'],
+]
+254 = [
+  # The transcript has aligned; the scan prints a tall right curly brace spanning system (9).
+  ['\$\$\\begin\{aligned\}\ g_\{jj\}\ \&\\equiv\ 1\ \\quad\ \\text\{in\}\ \\quad\ U_j,\ \\quad\ g_\{jk\}\ g_\{kj\}\ \\equiv\ 1\ \\quad\ \\text\{in\}\ \\quad\ U_j\ \\cap\ U_k,\ \\\\\ g_\{jk\}\ g_\{kl\}\ g_\{lj\}\ \&\\equiv\ 1\ \\quad\ \\text\{in\}\ \\quad\ U_j\ \\cap\ U_k\ \\cap\ U_l\.\ \\end\{aligned\}\$\$', '$$\begin{matrix} g_{jj} \equiv 1 \text{ in } U_j, \quad g_{jk} g_{kj} \equiv 1 \text{ in } U_j \cap U_k, & \\ g_{jk} g_{kl} g_{lj} \equiv 1 \text{ in } U_j \cap U_k \cap U_l. & \end{matrix} \;\bigg\}$$'],
+  # The transcript has '\\alpha_j - \\alpha_k = d\\alpha_{jk}'; the scan prints '\\alpha_j - \\alpha_k = da_{jk}'.
+  ['\\alpha_j\ \-\ \\alpha_k\ =\ d\\alpha_\{jk\}', '\alpha_j - \alpha_k = da_{jk}'],
+  # The transcript has 'U_j \\times \\mathbb{C}'; the scan prints 'U_j \\times \\mathbf{C}'.
+  ['U_j\ \\times\ \\mathbb\{C\}', 'U_j \times \mathbf{C}'],
+  # Scan typo: smooth sections of $E$
+  ['smooth\ section\ of\ \$E\$', 'smooth sections of $E$'],
+  # Scan typo: \hat{F}_j \phi_j
+  ['\\tilde\{F\}_j\ \\phi_j', '\hat{F}_j \phi_j'],
+]
+255 = [
+  # The transcript has 'H^2(M, \\mathbb{C})'; the scan prints 'H^2(M, \\mathbf{C})'.
+  ['H\^2\(M,\ \\mathbb\{C\}\)', 'H^2(M, \mathbf{C})'],
+  # The transcript has 'H^1(M, \\mathbb{C}^*)'; the scan prints 'H^1(M, \\mathbf{C}^*)'.
+  ['up\ \$H\^1\(M,\ \\mathbb\{C\}\^\*\)\$\ is', 'up $H^1(M, \mathbf{C}^*)$ is'],
+  # The transcript has 'h_j = e^{2\\pi i t b j / h}'; the scan prints 'h_j = e^{2\\pi i b_j / h}'.
+  ['h_j\ =\ e\^\{2\\pi\ i\ t\ b\ j\ /\ h\}', 'h_j = e^{2\pi i b_j / h}'],
+  # The transcript has 'representation $\\tilde{F}_E$ by'; the scan prints 'representation $\\hat{F}_E$ by'.
+  ['representation\ \$\\tilde\{F\}_E\$\ by', 'representation $\hat{F}_E$ by'],
+  # The transcript has '$\\tilde{F}_E = h \\circ'; the scan prints '$\\hat{F}_{\\tilde{E}} = h \\circ'.
+  ['\$\\tilde\{F\}_E\ =\ h\ \\circ', '$\hat{F}_{\tilde{E}} = h \circ'],
+  # The transcript has '\\circ \\tilde{F}_E \\circ h^{-1}$'; the scan prints '\\circ \\hat{F}_E \\circ h^{-1}$'.
+  ['\\circ\ \\tilde\{F\}_E\ \\circ\ h\^\{\-1\}\$', '\circ \hat{F}_E \circ h^{-1}$'],
+  # The transcript has 'group $\\mathbb{C}^*$'; the scan prints 'group $\\mathbf{C}^*$'.
+  ['group\ \$\\mathbb\{C\}\^\*\$', 'group $\mathbf{C}^*$'],
+]
+256 = [
+  # Scan typo: F \in P_0(U).
+  ['F\ \\subset\ P_0\(U\)\.', 'F \in P_0(U).'],
+]
+257 = [
+  # The scan prints bold \mathbf{C}^* (scan typo k for *).
+  ['\$H\^1\(M,\ \\mathbb\{C\}\^k\)\$', '$H^1(M, \mathbf{C}^*)$'],
+  # The transcript has '$H^1(M, \\mathbb{T})$'; the scan prints '$H^1(M, \\mathbf{T})$'.
+  ['oup\ \$H\^1\(M,\ \\mathbb\{T\}\)\$\ coi', 'oup $H^1(M, \mathbf{T})$ coi'],
+  # The transcript has 'circle $\\mathbb{T}$'; the scan prints 'circle $\\mathbf{T}$'.
+  ['circle\ \$\\mathbb\{T\}\$', 'circle $\mathbf{T}$'],
+]
+258 = [
+  # The transcript has 'covering group $\\hat{G}$ of'; the scan prints 'covering group $\\tilde{G}$ of'.
+  ['covering\ group\ \$\\hat\{G\}\$\ of', 'covering group $\tilde{G}$ of'],
+  # The transcript has 'space $\\Gamma_o(E)$ invariant'; the scan prints 'space $\\Gamma_0(E)$ invariant'.
+  ['space\ \$\\Gamma_o\(E\)\$\ invariant', 'space $\Gamma_0(E)$ invariant'],
+  # Scan typo: universal formula $(\Phi)$
+  ['universal\ form\ \$\(\\Phi\)\$', 'universal formula $(\Phi)$'],
+]
+260 = [
+  # Scan typo: U_t(\exp \tau X_0 h
+  ['U_t\(\\exp\ X_0\ h', 'U_t(\exp \tau X_0 h'],
+]
+261 = [
+  # Scan typo: measure on $\mathfrak{g}$, 
+  ['measure\ on\ \$\\mathfrak\{g\}\^\*\$,\ ', 'measure on $\mathfrak{g}$,'],
+  # Scan typo: (k \text{ factors})
+  ['\(2k\ \\text\{\ factors\}\)', '(k \text{ factors})'],
+]
+263 = [
+  # Scan typo: \phi(e) = \int_{\hat{G}} \operatorname{tr}
+  ['\\phi\(e\)\ =\ \\int_G\ \\operatorname\{tr\}', '\phi(e) = \int_{\hat{G}} \operatorname{tr}'],
+  # The transcript has 'measure on $g^*$ in'; the scan prints 'measure on $\\mathfrak{g}^*$ in'.
+  ['measure\ on\ \$g\^\*\$\ in', 'measure on $\mathfrak{g}^*$ in'],
+]
+264 = [
+  # The scan prints period without \, and right-margin (9).
+  ['I_\{\\Omega\}\(\\exp\ X\)\ d\\mu\(\\Omega\)\ \\,\.', 'I_{\Omega}(\exp X) d\mu(\Omega). \quad (9)'],
+  # The scan prints period without \, and right-margin (10).
+  ['\\chi_\{\\Omega\}\(g\)\ d\\mu\(\\Omega\)\ \\,\.', '\chi_{\Omega}(g) d\mu(\Omega). \quad (10)'],
+  # The scan prints right-margin (11).
+  ['\\ldots\ =\ \\phi_\{2n\}\ =\ 0', '\ldots = \phi_{2n} = 0 \quad (11)'],
+  # Scan typo: measure $dF$ on $\mathfrak{g}^*$
+  ['measure\ \$dF\$\ on\ \$g\^\*\$', 'measure $dF$ on $\mathfrak{g}^*$'],
+  # The transcript has 'measure in $g^*$, the'; the scan prints 'measure in $\\mathfrak{g}^*$, the'.
+  ['measure\ in\ \$g\^\*\$,\ the', 'measure in $\mathfrak{g}^*$, the'],
+  # The transcript has 'coordinates on $g^*$'; the scan prints 'coordinates on $\\mathfrak{g}^*$'.
+  ['coordinates\ on\ \$g\^\*\$', 'coordinates on $\mathfrak{g}^*$'],
+  # The transcript has 'submanifold $S$ in $g^*$,'; the scan prints 'submanifold $S$ in $\\mathfrak{g}^*$,'.
+  ['submanifold\ \$S\$\ in\ \$g\^\*\$,', 'submanifold $S$ in $\mathfrak{g}^*$,'],
+  # The transcript has 'functions on $g^*$. Both'; the scan prints 'functions on $\\mathfrak{g}^*$. Both'.
+  ['functions\ on\ \$g\^\*\$\.\ Both', 'functions on $\mathfrak{g}^*$. Both'],
+  # The transcript has 't functions on $g^*$.'; the scan prints 't functions on $\\mathfrak{g}^*$.'.
+  ['t\ functions\ on\ \$g\^\*\$\.', 't functions on $\mathfrak{g}^*$.'],
+  # The transcript has '$G = GL(n, \\mathbb{C})$'; the scan prints '$G = GL(n, \\mathbf{C})$'.
+  ['\$G\ =\ GL\(n,\ \\mathbb\{C\}\)\$', '$G = GL(n, \mathbf{C})$'],
+  # The transcript has '$g \\approx g^* ='; the scan prints '$\\mathfrak{g} \\approx \\mathfrak{g}^* ='.
+  ['\$g\ \\approx\ g\^\*\ =', '$\mathfrak{g} \approx \mathfrak{g}^* ='],
+  # The transcript has '\\text{Mat}_n \\mathbb{C}$.'; the scan prints '\\text{Mat}_n \\mathbf{C}$.'.
+  ['\\text\{Mat\}_n\ \\mathbb\{C\}\$\.', '\text{Mat}_n \mathbf{C}$.'],
+  # The transcript has '$G$-orbits in $g^*$ are'; the scan prints '$G$-orbits in $\\mathfrak{g}^*$ are'.
+  ['\$G\$\-orbits\ in\ \$g\^\*\$\ are', '$G$-orbits in $\mathfrak{g}^*$ are'],
+]
+266 = [
+  # The transcript has '\\wedge d\\lambda_k,'; the scan prints '\\wedge d\\lambda_k, (16)'.
+  ['\\wedge\ d\\lambda_k,', '\wedge d\lambda_k, (16)'],
+  # The transcript has 'T(X) = \\lambda_T(X) \\cdot 1.'; the scan prints 'T(X) = \\lambda_T(X) \\cdot 1. (1)'.
+  ['T\(X\)\ =\ \\lambda_T\(X\)\ \\cdot\ 1\.', 'T(X) = \lambda_T(X) \cdot 1. (1)'],
+  # The transcript has '\\langle F, X \\rangle.'; the scan prints "\\langle F, X \\rangle. (1')".
+  ['\\langle\ F,\ X\ \\rangle\.', '''\langle F, X \rangle. (1')'''],
+]
+267 = [
+  # The transcript has 'of $Z(g)$ and'; the scan prints 'of $Z(\\mathfrak{g})$ and'.
+  ['of\ \$Z\(g\)\$\ and', 'of $Z(\mathfrak{g})$ and'],
+  # The transcript has 'and $I(g)$ is'; the scan prints 'and $I(\\mathfrak{g})$ is'.
+  ['and\ \$I\(g\)\$\ is', 'and $I(\mathfrak{g})$ is'],
+  # The transcript has '\\lambda_T = \\lambda_\\Omega'; the scan prints '\\lambda_T = \\lambda_\\Omega (2)'.
+  ['\\lambda_T\ =\ \\lambda_\\Omega', '\lambda_T = \lambda_\Omega (2)'],
+  # The transcript has 'functions on $g^*$'; the scan prints 'functions on $\\mathfrak{g}^*$'.
+  ['functions\ on\ \$g\^\*\$', 'functions on $\mathfrak{g}^*$'],
+  # The transcript has 'between $Z(g)$ and'; the scan prints 'between $Z(\\mathfrak{g})$ and'.
+  ['between\ \$Z\(g\)\$\ and', 'between $Z(\mathfrak{g})$ and'],
+  # The transcript has 'polynomials on $g^*$ is'; the scan prints 'polynomials on $\\mathfrak{g}^*$ is'.
+  ['polynomials\ on\ \$g\^\*\$\ is', 'polynomials on $\mathfrak{g}^*$ is'],
+  # The transcript has '\\tilde{\\phi}$ on $g^*$ by'; the scan prints '\\tilde{\\phi}$ on $\\mathfrak{g}^*$ by'.
+  ['\\tilde\{\\phi\}\$\ on\ \$g\^\*\$\ by', '\tilde{\phi}$ on $\mathfrak{g}^*$ by'],
+  # The transcript has '\\int_g q^{-1}'; the scan prints '\\int_{\\mathfrak{g}} q^{-1}'.
+  ['\\int_g\ q\^\{\-1\}', '\int_{\mathfrak{g}} q^{-1}'],
+  # The transcript has 'polynomials on $g^*$'; the scan prints 'polynomials on $\\mathfrak{g}^*$'.
+  ['polynomials\ on\ \$g\^\*\$', 'polynomials on $\mathfrak{g}^*$'],
+]
+268 = [
+  # The transcript has 'skew field $D(g)$,'; the scan prints 'skew field $D(\\mathfrak{g})$,'.
+  ['skew\ field\ \$D\(g\)\$,', 'skew field $D(\mathfrak{g})$,'],
+  # The transcript has 'Lie algebra $g$ (see'; the scan prints 'Lie algebra $\\mathfrak{g}$ (see'.
+  ['Lie\ algebra\ \$g\$\ \(see', 'Lie algebra $\mathfrak{g}$ (see'],
+]
+271 = [
+  # The transcript has broken <th-$T_T$</th> and < th>$T_C$</th> tags and <th> in tbody.
+  ['<table>\n<thead>\n\ \ <tr\ class="table\-header">\n\ \ \ \ <th></th>\n\ \ \ \ <th>\$T_F\$</th>\n\ \ \ \ <th>\$T_V\$</th>\n\ \ \ \ <th>\$T_D\$</th>\n\ \ \ \ <th>\$T_T\$</th>\n\ \ \ \ <th>\$T_C\$</th>\n\ \ </tr>\n</thead>\n<tbody>\n\ \ <tr\ class="row\-odd">\n\ \ \ \ <th>\$T_F\$</th>\n\ \ \ \ <th>3</th>\n\ \ \ \ <th>2</th>\n\ \ \ \ <th>1</th>\n\ \ \ \ <th>1</th>\n\ \ \ \ <th>1</th>\n\ \ </tr>\n\ \ <tr\ class="row\-even">\n\ \ \ \ <th>\$T_V\$</th>\n\ \ \ \ <th>2</th>\n\ \ \ \ <th>4</th>\n\ \ \ \ <th>2</th>\n\ \ \ \ <th>2</th>\n\ \ \ \ <th>1</th>\n\ \ </tr>\n\ \ <tr\ class="row\-odd">\n\ \ \ \ <th>\$T_D\$</th>\n\ \ \ \ <th>1</th>\n\ \ \ \ <th>2</th>\n\ \ \ \ <th>2</th>\n\ \ \ \ <th>1</th>\n\ \ \ \ <th>1</th>\n\ \ </tr>\n\ \ <tr\ class="row\-even">\n\ \ \ \ <th\-\$T_T\$</th>\n\ \ \ \ <th>1</th>\n\ \ \ \ <th>2</th>\n\ \ \ \ <th>1</th>\n\ \ \ \ <th>2</th>\n\ \ \ \ <th>1</th>\n\ \ </tr>\n\ \ <tr\ class="row\-odd">\n\ \ \ \ <\ th>\$T_C\$</th>\n\ \ \ \ <th>1</th>\n\ \ \ \ <th>1</th>\n\ \ \ \ <th>1</th>\n\ \ \ \ <th>1</th>\n\ \ \ \ <th>1</th>\n\n\ \ </tr>\n</tbody>\n</table>', '''<table>
+<thead>
+  <tr class="table-header">
+    <th></th>
+    <th>$T_F$</th>
+    <th>$T_V$</th>
+    <th>$T_D$</th>
+    <th>$T_T$</th>
+    <th>$T_C$</th>
+  </tr>
+</thead>
+<tbody>
+  <tr class="row-odd">
+    <td>$T_F$</td>
+    <td>3</td>
+    <td>2</td>
+    <td>1</td>
+    <td>1</td>
+    <td>1</td>
+  </tr>
+  <tr class="row-even">
+    <td>$T_V$</td>
+    <td>2</td>
+    <td>4</td>
+    <td>2</td>
+    <td>2</td>
+    <td>1</td>
+  </tr>
+  <tr class="row-odd">
+    <td>$T_D$</td>
+    <td>1</td>
+    <td>2</td>
+    <td>2</td>
+    <td>1</td>
+    <td>1</td>
+  </tr>
+  <tr class="row-even">
+    <td>$T_T$</td>
+    <td>1</td>
+    <td>2</td>
+    <td>1</td>
+    <td>2</td>
+    <td>1</td>
+  </tr>
+  <tr class="row-odd">
+    <td>$T_C$</td>
+    <td>1</td>
+    <td>1</td>
+    <td>1</td>
+    <td>1</td>
+    <td>1</td>
+  </tr>
+</tbody>
+</table>'''],
+]
+272 = [
+  # Scan typo: sum zero on $X_T$ and
+  ['sum\ zero\ on\ \$T_T\$\ and', 'sum zero on $X_T$ and'],
+  # The transcript has "$W'''$ is three-dimensional"; the scan prints "$W''$ is three-dimensional".
+  ["\\$W'''\\$\\ is\\ three\\-dimensional", '''$W''$ is three-dimensional'''],
+]
+273 = [
+  # The transcript has "representation $T'_\\alpha$"; the scan prints "representation $T'_\\alpha,$".
+  ['''representation\ \$T'_\\alpha\$''', '''representation $T'_\alpha,$'''],
+  # The transcript has '|X_i| = n_i$ and that'; the scan prints '|X_i| = n_i,$ and that'.
+  ['\|X_i\|\ =\ n_i\$\ and\ that', '|X_i| = n_i,$ and that'],
+]
+274 = [
+  # The transcript has '\\ldots, n_k^*)$'; the scan prints '\\ldots, n_l^*)$'.
+  ['\\ldots,\ n_k\^\*\)\$', '\ldots, n_l^*)$'],
+  # The transcript has '$(x, y)$, $x \\in X_x$,'; the scan prints '$(x, y)$, $x \\in X_\\alpha$,'.
+  ['\$\(x,\ y\)\$,\ \$x\ \\in\ X_x\$,', '$(x, y)$, $x \in X_\alpha$,'],
+]
+275 = [
+  # Scan typo: and that every conjugacy
+  ['and\ then\ every\ conjugacy', 'and that every conjugacy'],
+  # Scan typo: $\sigma \in S_n$,
+  ['\$\\sigma\ \\in\ S_m\$,', '$\sigma \in S_n$,'],
+  # The transcript has 'field $\\mathbf{F}_{q^2}$.'; the scan prints 'field $\\mathbf{F}_q$.'.
+  ['field\ \$\\mathbf\{F\}_\{q\^2\}\$\.', 'field $\mathbf{F}_q$.'],
+  # The transcript has '= q(q^2 - 1).'; the scan prints '= q(q^2 - 1). (2)'.
+  ['=\ q\(q\^2\ \-\ 1\)\.', '= q(q^2 - 1). (2)'],
+  # Scan typo: |G| = |H| \cdot |X|
+  ['\|G\|\ =\ \|N\|\ \\cdot\ \|X\|', '|G| = |H| \cdot |X|'],
+]
+277 = [
+  # The transcript has '\\chi \\in F_q^*'; the scan prints '\\chi \\in \\mathbf{F}_q^*'.
+  ['\\chi\ \\in\ F_q\^\*', '\chi \in \mathbf{F}_q^*'],
+  # The transcript has '\\lambda \\in F_q^*'; the scan prints '\\lambda \\in \\mathbf{F}_q^*'.
+  ['\\lambda\ \\in\ F_q\^\*', '\lambda \in \mathbf{F}_q^*'],
+  # The transcript has 's \\in F_q^*'; the scan prints 's \\in \\mathbf{F}_q^*'.
+  ['s\ \\in\ F_q\^\*', 's \in \mathbf{F}_q^*'],
+]
+278 = [
+  # The transcript has '\\chi_e(x)'; the scan prints '\\chi_\\varepsilon(x)'.
+  ['\\chi_e\(x\)', '\chi_\varepsilon(x)'],
+  # The transcript has 'V_{\\chi_e}'; the scan prints 'V_{\\chi_\\varepsilon}'.
+  ['V_\{\\chi_e\}', 'V_{\chi_\varepsilon}'],
+]
+280 = [
+  # Use <td> in tbody and math minus signs matching the scan.
+  ['<table>\n<thead>\n\ \ <tr\ class="table\-header">\n\ \ \ \ <th>\$k\ \\bmod\ 8\$</th>\n\ \ \ \ <th>0</th>\n\ \ \ \ <th>1</th>\n\ \ \ \ <th>2</th>\n\ \ \ \ <th>3</th>\n\ \ \ \ <th>4</th>\n\ \ \ \ <th>5</th>\n\ \ \ \ <th>6</th>\n\ \ \ \ <th>7</th>\n\ \ </tr>\n</thead>\n<tbody>\n\ \ <tr\ class="table\-row">\n\ \ \ \ <th>sign</th>\n\ \ \ \ <th>\+</th>\n\ \ \ \ <th>0</th>\n\ \ \ \ <th>−</th>\n\ \ \ \ <th>−</th>\n\ \ \ \ <th>−</th>\n\ \ \ \ <th>0</th>\n\ \ \ \ <th>\+</th>\n\ \ \ \ <th>\+</th>\n\ \ </tr>\n</tbody>\n</table>', '''<table>
+<thead>
+  <tr class="table-header">
+    <th>$k \bmod 8$</th>
+    <th>0</th>
+    <th>1</th>
+    <th>2</th>
+    <th>3</th>
+    <th>4</th>
+    <th>5</th>
+    <th>6</th>
+    <th>7</th>
+  </tr>
+</thead>
+<tbody>
+  <tr class="row-odd">
+    <td>sign</td>
+    <td>$+$</td>
+    <td>$0$</td>
+    <td>$-$</td>
+    <td>$-$</td>
+    <td>$-$</td>
+    <td>$0$</td>
+    <td>$+$</td>
+    <td>$+$</td>
+  </tr>
+</tbody>
+</table>'''],
+]
+281 = [
+  # The transcript has '\\sup_{y \\in K}'; the scan prints "\\sup_{y \\in K'}".
+  ['\\sup_\{y\ \\in\ K\}', '''\sup_{y \in K'}'''],
+]
+282 = [
+  # The transcript has 'f(x) = \\frac{1}{2} r_x^2,'; the scan prints 'f(x) = \\frac{1}{2} r_x^2, (3)'.
+  ['f\(x\)\ =\ \\frac\{1\}\{2\}\ r_x\^2,', 'f(x) = \frac{1}{2} r_x^2, (3)'],
+  # The transcript has '\\int_C f(x) dx.'; the scan prints '\\int_C f(x) dx. (4)'.
+  ['\\int_C\ f\(x\)\ dx\.', '\int_C f(x) dx. (4)'],
+  # The transcript has 'Jf(x) = \\int_{C_x} f(y) dy,'; the scan prints 'Jf(x) = \\int_{C_x} f(y) dy, (5)'.
+  ['Jf\(x\)\ =\ \\int_\{C_x\}\ f\(y\)\ dy,', 'Jf(x) = \int_{C_x} f(y) dy, (5)'],
+]
+284 = [
+  # The transcript has '\\right]_{z=1}'; the scan prints '\\right]|_{z=1}'.
+  ['\\right\]_\{z=1\}', '\right]|_{z=1}'],
+  # Scan typo: (-1)^k (2k)! C_{2k}^k
+  ['\(2k\)!\ C_\{2k\}\^k', '(-1)^k (2k)! C_{2k}^k'],
+  # Scan typo: (-1)^k 2\pi \frac{(2k-1)!!}{2k!!}
+  ['2\\pi\ \\frac\{\(2k\-1\)!!\}\{2k!!\}', '(-1)^k 2\pi \frac{(2k-1)!!}{2k!!}'],
+]
+285 = [
+  # The transcript has 'A^{k,l} = A^{l,k}'; the scan prints 'A^{\\overline{k,l}} = A^{l,k}'.
+  ['A\^\{k,l\}\ =\ A\^\{l,k\}', 'A^{\overline{k,l}} = A^{l,k}'],
+  # The transcript has '\\mathcal{F} = \\sum_{k,l}'; the scan prints '\\mathscr{T} = \\sum_{k,l}'.
+  ['\\mathcal\{F\}\ =\ \\sum_\{k,l\}', '\mathscr{T} = \sum_{k,l}'],
+]
+286 = [
+  # Scan typo: exercise
+  ['excercise', 'exercise'],
+  # The transcript has 'SO(n, K) \\to 1.'; the scan prints 'SO(n, K) \\to 1. (1)'.
+  ['SO\(n,\ K\)\ \\to\ 1\.', 'SO(n, K) \to 1. (1)'],
+  # The transcript has 'i \\neq j, \\quad e_i^2 = 1'; the scan prints 'i \\neq j, \\quad e_i^2 = 1 (2)'.
+  ['i\ \\neq\ j,\ \\quad\ e_i\^2\ =\ 1', 'i \neq j, \quad e_i^2 = 1 (2)'],
+]
+287 = [
+  # The transcript has 'C_k \\otimes C_2'; the scan prints 'C_k \\otimes_{\\mathbf{C}} C_2'.
+  ['C_k\ \\otimes\ C_2', 'C_k \otimes_{\mathbf{C}} C_2'],
+  # Scan typo: C_1 = \mathbf{C} \oplus \mathbf{C}
+  ['C_1\ =\ \\mathbf\{C\}\ \\otimes\ \\mathbf\{C\}', 'C_1 = \mathbf{C} \oplus \mathbf{C}'],
+  # The transcript has 'e_i \\mapsto \\sum_j a_{ij} e_j'; the scan prints 'e_i \\to \\sum_j a_{ij} e_j'.
+  ['e_i\ \\mapsto\ \\sum_j\ a_\{ij\}\ e_j', 'e_i \to \sum_j a_{ij} e_j'],
+  # The transcript has '\\mathrm{Mat}_{2k}(\\mathbf{C})'; the scan prints '\\mathrm{Mat}_{2^k}(\\mathbf{C})'.
+  ['\\mathrm\{Mat\}_\{2k\}\(\\mathbf\{C\}\)', '\mathrm{Mat}_{2^k}(\mathbf{C})'],
+  # The transcript has '\\tilde{\\rho}_* = \\rho_*'; the scan prints '\\tilde{\\rho}_* (= \\rho_*)'.
+  ['\\tilde\{\\rho\}_\*\ =\ \\rho_\*', '\tilde{\rho}_* (= \rho_*)'],
+  # The transcript has 'A \\in SO(n, \\mathbf{C})'; the scan prints 'A \\in \\mathfrak{so}(n, \\mathbf{C})'.
+  ['et\ \$A\ \\in\ SO\(n,\ \\mathbf\{C\}\)\$\ be', 'et $A \in \mathfrak{so}(n, \mathbf{C})$ be'],
+]
+288 = [
+  # The transcript has 'representations $\\rho_+$'; the scan prints 'representations $\\rho_\\pm$'.
+  ['the\ representations\ \$\\rho_\+\$\ to\ ', 'the representations $\rho_\pm$ to '],
+]
+289 = [
+  # The transcript has '$g_1 = \\mathfrak{sl}'; the scan prints '$\\mathfrak{g}_1 = \\mathfrak{sl}'.
+  ['\$g_1\ =\ \\mathfrak\{sl\}', '$\mathfrak{g}_1 = \mathfrak{sl}'],
+  # The transcript has '$g_2 = \\mathfrak{so}'; the scan prints '$\\mathfrak{g}_2 = \\mathfrak{so}'.
+  ['\$g_2\ =\ \\mathfrak\{so\}', '$\mathfrak{g}_2 = \mathfrak{so}'],
+  # The transcript has '$g_1$'; the scan prints '$\\mathfrak{g}_1$'.
+  ['he\ algebras\ \$g_1\$\ and\ \$g_2\$\ a', 'he algebras $\mathfrak{g}_1$ and $g_2$ a'],
+  # The transcript has '$g_2$'; the scan prints '$\\mathfrak{g}_2$'.
+  ['and\ \$g_2\$\ are', 'and $\mathfrak{g}_2$ are'],
+  # The transcript has '$g = \\mathfrak{sl}'; the scan prints '$\\mathfrak{g} = \\mathfrak{sl}'.
+  ['\$g\ =\ \\mathfrak\{sl\}', '$\mathfrak{g} = \mathfrak{sl}'],
+  # The transcript has 'In $g$ ,'; the scan prints 'In $\\mathfrak{g}$,'.
+  ['In\ \$g\$\ ,', 'In $\mathfrak{g}$,'],
+  # The transcript has '[X_0, X_+] = \\pm 2X_+'; the scan prints '[X_0, X_\\pm] = \\pm 2X_\\pm'.
+  ['\[X_0,\ X_\+\]\ =\ \\pm\ 2X_\+', '[X_0, X_\pm] = \pm 2X_\pm'],
+]
+290 = [
+  # Convert \left.\begin{array}\right\} system to aligned + (4) for clean Typst/LaTeX compilation.
+  ['\$\$\n\\left\.\ \\begin\{array\}\{l\}\nT\(X_\-\)\\xi_k\ =\ \\xi_\{k\+1\},\ \\\\\nT\(X_0\)\\xi_k\ =\ \(n\ \-\ 2k\)\\xi_k,\ \\\\\nT\(X_\+\)\ \\xi_k\ =\ k\(n\ \-\ k\ \+\ 1\)\\xi_\{k\-1\}\.\n\\end\{array\}\ \\right\\\}\ \\quad\ \(4\)\n\$\$', '''$$
+\begin{aligned}
+& T(X_-)\xi_k = \xi_{k+1}, \\
+& T(X_0)\xi_k = (n - 2k)\xi_k, \\
+& T(X_+) \xi_k = k(n - k + 1)\xi_{k-1}.
+\end{aligned} \quad (4)
+$$'''],
+]
+291 = [
+  # The transcript has 'of $g$ are'; the scan prints 'of $\\mathfrak{g}$ are'.
+  ['of\ \$g\$\ are', 'of $\mathfrak{g}$ are'],
+  # Scan typo: T_*(X_0)
+  ['T\^\*\(X_0\)', 'T_*(X_0)'],
+]
+292 = [
+  # The transcript has \begin{cases}...\end{cases}; the scan prints a right curly brace spanning the two lines.
+  ['\$\$\\begin\{cases\}\ p\ \\mapsto\ ap\ \+\ bq,\ \\\\\ q\ \\mapsto\ cp\ \+\ dq\ \\end\{cases\}\ \\quad\ \(3\)\$\$', '$$\begin{matrix} p &\mapsto ap + bq, \\ q &\mapsto cp + dq \end{matrix} \;\bigg\} \quad (3)$$'],
+  # Scan typo: \sum_{j=0}^{\infty} \frac{1}{j! 2^j}
+  ['\\sum_\{k=0\}\^\{\\infty\}\ \\frac\{1\}\{j!\ 2\^j\}', '\sum_{j=0}^{\infty} \frac{1}{j! 2^j}'],
+  # The transcript has 'subspaces $\\vec{V}_n$'; the scan prints 'subspaces $\\tilde{V}_n$'.
+  ['subspaces\ \$\\vec\{V\}_n\$', 'subspaces $\tilde{V}_n$'],
+  # The transcript has 'dimension of $\\vec{V}_n$'; the scan prints 'dimension of $\\tilde{V}_n$'.
+  ['dimension\ of\ \$\\vec\{V\}_n\$', 'dimension of $\tilde{V}_n$'],
+  # The transcript has 'image of $\\vec{V}_n$'; the scan prints 'image of $\\tilde{V}_n$'.
+  ['image\ of\ \$\\vec\{V\}_n\$', 'image of $\tilde{V}_n$'],
+]
+293 = [
+  # The transcript has '\\frac{1}{2^{j \\cdot j!}}'; the scan prints '\\frac{1}{2^j \\cdot j!}'.
+  ['\\frac\{1\}\{2\^\{j\ \\cdot\ j!\}\}', '\frac{1}{2^j \cdot j!}'],
+  # Scan typo: case $n = 1$
+  ['case\ \$k\ =\ 1\$', 'case $n = 1$'],
+  # The transcript has '$U(g)$'; the scan prints '$U(\\mathfrak{g})$'.
+  ['algebra\ \$U\(g\)\$\ for\ the', 'algebra $U(\mathfrak{g})$ for the'],
+  # The transcript has 'for $g ='; the scan prints 'for $\\mathfrak{g} ='.
+  ['for\ \$g\ =', 'for $\mathfrak{g} ='],
+  # The transcript has 'algebra $g ='; the scan prints 'algebra $\\mathfrak{g} ='.
+  ['algebra\ \$g\ =', 'algebra $\mathfrak{g} ='],
+]
+294 = [
+  # The transcript has 'ZX - XZ = Y.'; the scan prints 'ZX - XZ = Y. (1)'.
+  ['ZX\ \-\ XZ\ =\ Y\.', 'ZX - XZ = Y. (1)'],
+  # The transcript has '\\partial Z^2} = 0.'; the scan prints '\\partial Z^2} = 0. (2)'.
+  ['\\partial\ Z\^2\}\ =\ 0\.', '\partial Z^2} = 0. (2)'],
+  # The transcript has '-2X + \\frac{\\partial}{\\partial X_0}'; the scan prints '-2X_+ \\frac{\\partial}{\\partial X_0}'.
+  ['\-2X\ \+\ \\frac\{\\partial\}\{\\partial\ X_0\}', '-2X_+ \frac{\partial}{\partial X_0}'],
+]
+295 = [
+  # The transcript has 'e^{tT(X \\cdot)}'; the scan prints 'e^{tT(X_+)}'.
+  ['e\^\{tT\(X\ \\cdot\)\}', 'e^{tT(X_+)}'],
+  # Scan typo: unique up to a constant multiple
+  ['unique\ up\ a\ constant\ multiple', 'unique up to a constant multiple'],
+]
+296 = [
+  # Scan typo: \{f_n\}
+  ['\\\{F_n\\\}', '\{f_n\}'],
+  # The transcript has 'k = 0, 1, 2, \\ldots,'; the scan prints 'k = 0, 1, 2, \\ldots, (3)'.
+  ['k\ =\ 0,\ 1,\ 2,\ \\ldots,', 'k = 0, 1, 2, \ldots, (3)'],
+]
+297 = [
+  # The transcript has 'p_1 \\ldots p_m, q_1 \\ldots q_n'; the scan prints 'p_1 \\ldots p_n, q_1 \\ldots q_n'.
+  ['es\ \$p_1\ \\ldots\ p_m,\ q_1\ \\ldots\ q_n\$\ is', 'es $p_1 \ldots p_n, q_1 \ldots q_n$ is'],
+  # The transcript has 'ideal $n$ in'; the scan prints 'ideal $\\mathfrak{n}$ in'.
+  ['ideal\ \$n\$\ in', 'ideal $\mathfrak{n}$ in'],
+  # The transcript has 'Let $m$ denote'; the scan prints 'Let $\\mathfrak{m}$ denote'.
+  ['Let\ \$m\$\ denote', 'Let $\mathfrak{m}$ denote'],
+  # The transcript has 'let $a$ denote'; the scan prints 'let $\\mathfrak{a}$ denote'.
+  ['let\ \$a\$\ denote', 'let $\mathfrak{a}$ denote'],
+  # The transcript has '[a, a]'; the scan prints '[\\mathfrak{a}, \\mathfrak{a}]'.
+  ['\[a,\ a\]', '[\mathfrak{a}, \mathfrak{a}]'],
+  # The transcript has '\\subset a'; the scan prints '\\subset \\mathfrak{a}'.
+  ['\\subset\ a', '\subset \mathfrak{a}'],
+  # The transcript has '[a, m]'; the scan prints '[\\mathfrak{a}, \\mathfrak{m}]'.
+  ['\[a,\ m\]', '[\mathfrak{a}, \mathfrak{m}]'],
+  # The transcript has '\\subset m'; the scan prints '\\subset \\mathfrak{m}'.
+  ['\\subset\ m', '\subset \mathfrak{m}'],
+  # The transcript has '[m, m]'; the scan prints '[\\mathfrak{m}, \\mathfrak{m}]'.
+  ['\[m,\ m\]', '[\mathfrak{m}, \mathfrak{m}]'],
+  # The transcript has '\\widehat{St}(n, \\mathbf{R})'; the scan prints '\\widetilde{St}(n, \\mathbf{R})'.
+  ['at\ \$\\widehat\{St\}\(n,\ \\mathbf\{R\}\)\ =\ A', 'at $\widetilde{St}(n, \mathbf{R}) = A'],
+  # The transcript has '$a, n$'; the scan prints '$\\mathfrak{a}, \\mathfrak{n}$'.
+  ['\$a,\ n\$', '$\mathfrak{a}, \mathfrak{n}$'],
+  # The transcript has 'algebra $a$ is'; the scan prints 'algebra $\\mathfrak{a}$ is'.
+  ['algebra\ \$a\$\ is', 'algebra $\mathfrak{a}$ is'],
+  # The transcript has '$a$ in $m$'; the scan prints '$\\mathfrak{a}$ in $\\mathfrak{m}$'.
+  ['\$a\$\ in\ \$m\$', '$\mathfrak{a}$ in $\mathfrak{m}$'],
+]
+298 = [
+  # The transcript has '\\widehat{St}(n, \\mathbf{R})'; the scan prints '\\widetilde{St}(n, \\mathbf{R})'.
+  ['\\widehat\{St\}\(n,\ \\mathbf\{R\}\)', '\widetilde{St}(n, \mathbf{R})'],
+]
+299 = [
+  # Scan typo: \cos \phi & \sin \phi
+  ['\\cos\ \\phi\ \&\ \-\\sin\ \\phi', '\cos \phi & \sin \phi'],
+]
+301 = [
+  # Scan typo: \dim V_j = j
+  ['V_k\ =\ k', '\dim V_j = j'],
+  # Scan typo: \mathbf{R}^1 \subset \mathbf{R}^2
+  ['\\mathbf\{R\}_1\^1\ \\subset\ \\mathbf\{R\}_2\^2', '\mathbf{R}^1 \subset \mathbf{R}^2'],
+  # Scan typo: \subset \mathbf{R}^k$
+  ['\\subset\ \\mathbf\{R\}_k\$', '\subset \mathbf{R}^k$'],
+  # Scan typo: in $\mathbf{R}^k$
+  ['in\ \$\\mathbf\{R\}_k\$', 'in $\mathbf{R}^k$'],
+  # Scan typo: such that $e_1, \ldots, e_j$
+  ['such\ that\ \$e_1,\ \\ldots,\ e_k\$', 'such that $e_1, \ldots, e_j$'],
+]
+302 = [
+  # The transcript has 'e^{C} \\sum_{j=1}^{k}'; the scan prints '\\varepsilon^{C} \\sum_{j=1}^{k}'.
+  ['e\^\{C\}\ \\sum_\{j=1\}\^\{k\}', '\varepsilon^{C} \sum_{j=1}^{k}'],
+  # Scan typo: \prod_{j=1}^k a_j^{2\pi i d_j}
+  ['\\sum_\{j=1\}\^\{k\}\ a_j\^\{2\ \\pi\ i\ d_j\}', '\prod_{j=1}^k a_j^{2\pi i d_j}'],
+]
+303 = [
+  # Scan typo: ae^{-it}, be^{-i\alpha t}
+  ['ae\^\{\-it\},\ be\^\{\-it\},\ be\^\{\-i\\alpha\ t\}', 'ae^{-it}, be^{-i\alpha t}'],
+  # Scan typo: z = x + iy
+  ['x\ =\ z\ \+\ iy', 'z = x + iy'],
+  # The transcript has '\\int \\int \\int f'; the scan prints '\\int \\int \\int \\int f'.
+  ['\\int\ \\int\ \\int\ f', '\int \int \int \int f'],
+  # The transcript has '\\mathbf{R} \\cdot ('; the scan prints '\\mathrm{Re}('.
+  ['\ =\ e\^\{i\ \\mathbf\{R\}\ \\cdot\ \(\\mathbf\{', ' = e^{i \mathrm{Re}(\mathbf{'],
+  # The transcript has '\\mathbf{a} \\xi + \\mathbf{b} \\eta'; the scan prints 'a\\bar{z} + b\\bar{w}'.
+  ['\\mathbf\{a\}\ \\xi\ \+\ \\mathbf\{b\}\ \\eta', 'a\bar{z} + b\bar{w}'],
+  # The transcript has '\\mathbf{e}^{it} \\mathbf{a} \\xi'; the scan prints 'e^{it} a \\xi'.
+  ['\\mathbf\{e\}\^\{it\}\ \\mathbf\{a\}\ \\xi', 'e^{it} a \xi'],
+  # The transcript has '\\mathbf{e}^{i\\alpha t}'; the scan prints 'e^{i\\alpha t}'.
+  ['\\mathbf\{e\}\^\{i\\alpha\ t\}', 'e^{i\alpha t}'],
+  # Scan typo: b\bar{\eta}
+  ['b\ \\tilde\{\\eta\}', 'b\bar{\eta}'],
+]
+304 = [
+  # The transcript has 'e^{i\\pi t}'; the scan prints 'e^{i\\alpha t}'.
+  ['i\ \+\ e\^\{i\\pi\ t\}b\\ba', 'i + e^{i\alpha t}b\ba'],
+  # The transcript has 'be^{i\\pi\\tau}'; the scan prints 'be^{i\\alpha\\tau}'.
+  ['be\^\{i\\pi\\tau\}', 'be^{i\alpha\tau}'],
+  # The transcript has 'e^{-i\\pi t}w'; the scan prints 'e^{-i\\alpha t}w'.
+  ['e\^\{\-i\\pi\ t\}w', 'e^{-i\alpha t}w'],
+  # The transcript has '\\int \\int \\int \\int \\phi'; the scan prints '\\int \\int \\int \\int \\int \\phi'.
+  ['\\int\ \\int\ \\int\ \\int\ \\phi', '\int \int \int \int \int \phi'],
+  # The transcript has 'e^{i\\pi} a\\xi'; the scan prints 'e^{i\\tau} a\\xi'.
+  ['=\ e\^\{i\ \\mathrm\{Re\}\(\\tau\ s\ \+\ e\^\{i\\pi\}\ a\\xi\ \+\ e\^\{i\\pi\ t\}\ b\\bar\{\\eta\}\)\}\\', '= e^{i \mathrm{Re}(\tau s + e^{i\tau} a\xi + e^{i\pi t} b\bar{\eta})}\'],
+  # Scan typo: e^{i\alpha\tau} b\bar{\eta}
+  ['i\ \+\ e\^\{i\\pi\ t\}\ b\\bar\{\\eta\}\)\}\\p', 'i + e^{i\alpha\tau} b\bar{\eta})}\p'],
+  # The transcript has 'e^{i\\pi t} b)'; the scan prints 'e^{i\\alpha\\tau} b)'.
+  ['hi\(e\^\{i\\tau\}\ a,\ e\^\{i\\pi\ t\}\ b\)\.', 'hi(e^{i\tau} a, e^{i\alpha\tau} b).'],
+]
+308 = [
+  # The transcript has 'D. A. Raïkov'; the scan prints 'D. A. Raĭkov'.
+  ['D\.\ A\.\ Raïkov', 'D. A. Raĭkov'],
+  # The transcript has "Adel'son-Vel'skiï"; the scan prints "Adel'son-Vel'skiĭ".
+  ['''Adel'son\-Vel'skiï''', '''Adel'son-Vel'skiĭ'''],
+  # The transcript has 'and M. A. Naïmark [84]'; the scan prints 'and M. A. Naĭmark [84]'.
+  ['and\ M\.\ A\.\ Naïmark\ \[84\]', 'and M. A. Naĭmark [84]'],
+  # The transcript has 'and M. A. Naïmark appeared'; the scan prints 'and M. A. Naĭmark appeared'.
+  ['and\ M\.\ A\.\ Naïmark\ appeared', 'and M. A. Naĭmark appeared'],
+  # The transcript has 'and M.A. Naïmark'; the scan prints 'and M.A. Naĭmark'.
+  ['and\ M\.A\.\ Naïmark', 'and M.A. Naĭmark'],
+]
+309 = [
+  # The transcript has 'Pjateckii-Šapiro'; the scan prints 'Pjateckiĭ-Šapiro'.
+  ['Pjateckii\-Šapiro', 'Pjateckiĭ-Šapiro'],
+  # The transcript has "G. I. Ol'sanskii"; the scan prints "G. I. Ol'šanskiĭ".
+  ['''G\.\ I\.\ Ol'sanskii''', '''G. I. Ol'šanskiĭ'''],
+  # The transcript has 'M. A. Naimark'; the scan prints 'M. A. Naĭmark'.
+  ['M\.\ A\.\ Naimark', 'M. A. Naĭmark'],
+]
+310 = [
+  # The transcript has "Gel'fand and Naimark"; the scan prints "Gel'fand and Naĭmark".
+  ['''Gel'fand\ and\ Naimark''', '''Gel'fand and Naĭmark'''],
+]
+312 = [
+  # Remove duplicate Bibliography heading with superscript.
+  ['^# Bibliography¹\n\n', ''],
+  # Format translator's note as italics without duplicate note number.
+  ['''(?m)^¹ (Translator's note\.[^\n]*)$''', '*\1*'],
+  # The transcript has "Adel'son-Vel'skiï"; the scan prints "Adel'son-Vel'skiĭ".
+  ['''Adel'son\-Vel'skiï''', '''Adel'son-Vel'skiĭ'''],
+]
+313 = [
+  # The transcript has 'Deuxième edition.'; the scan prints 'Deuxième édition.'.
+  ['Deuxième\ edition\.', 'Deuxième édition.'],
+  # The transcript has 'Pjateckii-Sapiro'; the scan prints 'Pjateckiĭ-Šapiro'.
+  ['Pjateckii\-Sapiro', 'Pjateckiĭ-Šapiro'],
+  # The transcript has 'Пятцкий-Шапиро'; the scan prints 'Пятецкий-Шапиро'.
+  ['Пятцкий\-Шапиро', 'Пятецкий-Шапиро'],
+  # The transcript has 'Z. Ja. Sapiro'; the scan prints 'Z. Ja. Šapiro'.
+  ['Z\.\ Ja\.\ Sapiro', 'Z. Ja. Šapiro'],
+  # The transcript has 'M. A. Naïmark'; the scan prints 'M. A. Naĭmark'.
+  ['M\.\ A\.\ Naïmark', 'M. A. Naĭmark'],
+  # The transcript has 'D. A. Raïkov'; the scan prints 'D. A. Raĭkov'.
+  ['D\.\ A\.\ Raïkov', 'D. A. Raĭkov'],
+  # The transcript has 'Tôhoku Math. J. (2) 9,'; the scan prints 'Tôhoku Math. J. (2) **9**,'.
+  ['Tôhoku\ Math\.\ J\.\ \(2\)\ 9,', 'Tôhoku Math. J. (2) **9**,'],
+]
+314 = [
+  # The transcript has '40. Ljubarskiï'; the scan prints '40. Ljubarskiĭ'.
+  ['40\.\ Ljubarskiï', '40. Ljubarskiĭ'],
+  # The transcript has '42. Naïmark'; the scan prints '42. Naĭmark'.
+  ['42\.\ Naïmark', '42. Naĭmark'],
+]
+315 = [
+  # False negative (the page check missed it): replace raw HTML <sup> with math superscript.
+  ['2<sup>e</sup>\ édition', '2$^e$ édition'],
+  # The transcript has 'Ann. of Math. (2) 86,'; the scan prints 'Ann. of Math. (2) **86**,'.
+  ['Ann\.\ of\ Math\.\ \(2\)\ 86,', 'Ann. of Math. (2) **86**,'],
+  # The transcript has 'Bull. Amer. Math. Soc. 73,'; the scan prints 'Bull. Amer. Math. Soc. **73**,'.
+  ['Bull\.\ Amer\.\ Math\.\ Soc\.\ 73,', 'Bull. Amer. Math. Soc. **73**,'],
+  # The transcript has 'Ann. of Math. (2) 48,'; the scan prints 'Ann. of Math. (2) **48**,'.
+  ['Ann\.\ of\ Math\.\ \(2\)\ 48,', 'Ann. of Math. (2) **48**,'],
+  # The transcript has 'Ann. of Math. (2) 59,'; the scan prints 'Ann. of Math. (2) **59**,'.
+  ['Ann\.\ of\ Math\.\ \(2\)\ 59,', 'Ann. of Math. (2) **59**,'],
+  # The transcript has 'Trudy Moskov. Mat. Obšč. 6,'; the scan prints 'Trudy Moskov. Mat. Obšč. **6**,'.
+  ['Trudy\ Moskov\.\ Mat\.\ Obšč\.\ 6,', 'Trudy Moskov. Mat. Obšč. **6**,'],
+  # The transcript has 'same Trudy 12,'; the scan prints 'same Trudy **12**,'.
+  ['same\ Trudy\ 12,', 'same Trudy **12**,'],
+  # The transcript has 'Amer. Math. Soc. Transl. (2) 21,'; the scan prints 'Amer. Math. Soc. Transl. (2) **21**,'.
+  ['on:\ Amer\.\ Math\.\ Soc\.\ Transl\.\ \(2\)\ 21,\ 193', 'on: Amer. Math. Soc. Transl. (2) **21**, 193'],
+  # The transcript has 'Trudy Moskov. Mat. Obšč. 5,'; the scan prints 'Trudy Moskov. Mat. Obšč. **5**,'.
+  ['Trudy\ Moskov\.\ Mat\.\ Obšč\.\ 5,', 'Trudy Moskov. Mat. Obšč. **5**,'],
+  # The transcript has 'École Norm. Sup. (3) 82,'; the scan prints 'École Norm. Sup. (3) **82**,'.
+  ['École\ Norm\.\ Sup\.\ \(3\)\ 82,', 'École Norm. Sup. (3) **82**,'],
+  # The transcript has 'Amer. J. Math. 83,'; the scan prints 'Amer. J. Math. **83**,'.
+  ['Amer\.\ J\.\ Math\.\ 83,', 'Amer. J. Math. **83**,'],
+  # The transcript has 'Ann. of Math. (2) 66,'; the scan prints 'Ann. of Math. (2) **66**,'.
+  ['Ann\.\ of\ Math\.\ \(2\)\ 66,', 'Ann. of Math. (2) **66**,'],
+  # The transcript has 'Bull. Soc. Math. France 84,'; the scan prints 'Bull. Soc. Math. France **84**,'.
+  ['Bull\.\ Soc\.\ Math\.\ France\ 84,', 'Bull. Soc. Math. France **84**,'],
+]
+316 = [
+  # False negative (the page check missed it): remove spurious space in surname.
+  ['Ки\ риллов', 'Кириллов'],
+  # Scan typo: de ses sous-groupes
+  ['des\ ses\ sous\-groupes', 'de ses sous-groupes'],
+  # The transcript has 'Fourier, Grenoble, 7,'; the scan prints 'Fourier, Grenoble, **7**,'.
+  ['Fourier,\ Grenoble,\ 7,', 'Fourier, Grenoble, **7**,'],
+  # The transcript has 'Norm. Sup. (4) 3,'; the scan prints 'Norm. Sup. (4) **3**,'.
+  ['Norm\.\ Sup\.\ \(4\)\ 3,', 'Norm. Sup. (4) **3**,'],
+  # The transcript has 'Anal. i Priložen. 4,'; the scan prints 'Anal. i Priložen. **4**,'.
+  ['Anal\.\ i\ Priložen\.\ 4,', 'Anal. i Priložen. **4**,'],
+  # The transcript has 'Functional Anal. Appl. 4,'; the scan prints 'Functional Anal. Appl. **4**,'.
+  ['Functional\ Anal\.\ Appl\.\ 4,', 'Functional Anal. Appl. **4**,'],
+  # The transcript has 'инфинитиемального'; the scan prints 'инфинитезимального'.
+  ['инфинитиемального', 'инфинитезимального'],
+  # Scan typo: группового кольца
+  ['группого\ кольца', 'группового кольца'],
+  # The transcript has 'Anal. i Priložen. 3,'; the scan prints 'Anal. i Priložen. **3**,'.
+  ['Anal\.\ i\ Priložen\.\ 3,', 'Anal. i Priložen. **3**,'],
+  # The transcript has 'M. A. Naïmark'; the scan prints 'M. A. Naĭmark'.
+  ['''4\.\ Gel'fand,\ I\.\ M\.,\ and\ M\.\ A\.\ Naïmark\ \[Гельфанд,\ И\.М\.\ и\ М\.\ А\.''', '''4. Gel'fand, I. M., and M. A. Naĭmark [Гельфанд, И.М. и М. А.'''],
+  # The transcript has 'Anal. i Priložen. 5,'; the scan prints 'Anal. i Priložen. **5**,'.
+  ['Anal\.\ i\ Priložen\.\ 5,', 'Anal. i Priložen. **5**,'],
+]
+317 = [
+  # Scan typo: Théorie des caractères
+  ['Theorie\ des\ caractères', 'Théorie des caractères'],
+  # Scan typo: of Sp(n, C).
+  ['of\ Sp\(n,\ c\)\.', 'of Sp(n, C).'],
+]
+318 = [
+  # Replace Unicode superscript 2 with math $L^2$.
+  ['‘L²\-cohomologies’', '‘$L^2$-cohomologies’'],
+  # The transcript has '111. Krein, S. G.,'; the scan prints '111. Kreĭn, S. G.,'.
+  ['111\.\ Krein,\ S\.\ G\.,', '111. Kreĭn, S. G.,'],
+  # The transcript has '[Креин, С. Г.'; the scan prints '[Крейн, С. Г.'.
+  ['\[Креин,\ С\.\ Г\.', '[Крейн, С. Г.'],
+  # The transcript has 'Anal. i Priložen. 4,'; the scan prints 'Anal. i Priložen. **4**,'.
+  ['Anal\.\ i\ Priložen\.\ 4,', 'Anal. i Priložen. **4**,'],
+  # The transcript has 'Functional Anal. Appl. 4,'; the scan prints 'Functional Anal. Appl. **4**,'.
+  ['Functional\ Anal\.\ Appl\.\ 4,', 'Functional Anal. Appl. **4**,'],
+  # The transcript has 'Sci. U.S.A. 35,'; the scan prints 'Sci. U.S.A. **35**,'.
+  ['Sci\.\ U\.S\.A\.\ 35,', 'Sci. U.S.A. **35**,'],
+  # The transcript has 'Acta Math. 99,'; the scan prints 'Acta Math. **99**,'.
+  ['Acta\ Math\.\ 99,', 'Acta Math. **99**,'],
+  # The transcript has 'Math. Soc. 69,'; the scan prints 'Math. Soc. **69**,'.
+  ['Math\.\ Soc\.\ 69,', 'Math. Soc. **69**,'],
+  # The transcript has 'Ann. of Math. (2) 51,'; the scan prints 'Ann. of Math. (2) **51**,'.
+  ['Ann\.\ of\ Math\.\ \(2\)\ 51,', 'Ann. of Math. (2) **51**,'],
+  # The transcript has '(1950), 52,'; the scan prints '(1950), **52**,'.
+  ['\(1950\),\ 52,', '(1950), **52**,'],
+  # The transcript has 'Math. Soc. 78,'; the scan prints 'Math. Soc. **78**,'.
+  ['Math\.\ Soc\.\ 78,', 'Math. Soc. **78**,'],
+  # The transcript has 'Pacific J. Math. 12,'; the scan prints 'Pacific J. Math. **12**,'.
+  ['Pacific\ J\.\ Math\.\ 12,', 'Pacific J. Math. **12**,'],
+  # The transcript has 'Math. Soc. 113,'; the scan prints 'Math. Soc. **113**,'.
+  ['Math\.\ Soc\.\ 113,', 'Math. Soc. **113**,'],
+  # The transcript has '120. Naïmark'; the scan prints '120. Naĭmark'.
+  ['120\.\ Naïmark', '120. Naĭmark'],
+  # The transcript has 'N. S. 35 (77),'; the scan prints 'N. S. **35 (77)**,'.
+  ['N\.\ S\.\ 35\ \(77\),', 'N. S. **35 (77)**,'],
+  # The transcript has '(1954), 37 (79),'; the scan prints '(1954), **37 (79)**,'.
+  ['\(1954\),\ 37\ \(79\),', '(1954), **37 (79)**,'],
+  # The transcript has 'Ann. of Math. (2) 91,'; the scan prints 'Ann. of Math. (2) **91**,'.
+  ['Ann\.\ of\ Math\.\ \(2\)\ 91,', 'Ann. of Math. (2) **91**,'],
+  # The transcript has 'Ann. of Math. (2) 70,'; the scan prints 'Ann. of Math. (2) **70**,'.
+  ['Ann\.\ of\ Math\.\ \(2\)\ 70,', 'Ann. of Math. (2) **70**,'],
+  # The transcript has '124. Ol’šanskī'; the scan prints '124. Ol’šanskiĭ'.
+  ['124\.\ Ol’šanskī', '124. Ol’šanskiĭ'],
+  # The transcript has 'Anal. i Priložen. 3,'; the scan prints 'Anal. i Priložen. **3**,'.
+  ['Anal\.\ i\ Priložen\.\ 3,', 'Anal. i Priložen. **3**,'],
+  # The transcript has 'Math. Soc. Japan 23,'; the scan prints 'Math. Soc. Japan **23**,'.
+  ['Math\.\ Soc\.\ Japan\ 23,', 'Math. Soc. Japan **23**,'],
+  # The transcript has 'Ann. of Math. (2) 96,'; the scan prints 'Ann. of Math. (2) **96**,'.
+  ['Ann\.\ of\ Math\.\ \(2\)\ 96,', 'Ann. of Math. (2) **96**,'],
+  # The transcript has 'J. Functional Analysis 2,'; the scan prints 'J. Functional Analysis **2**,'.
+  ['J\.\ Functional\ Analysis\ 2,', 'J. Functional Analysis **2**,'],
+  # The transcript has 'J. Functional Analysis 3,'; the scan prints 'J. Functional Analysis **3**,'.
+  ['J\.\ Functional\ Analysis\ 3,', 'J. Functional Analysis **3**,'],
+]
+319 = [
+  # Strip continuation running heading on Bibliography page.
+  ['^# Bibliography\n*', ''],
+  # The transcript has '131. Smorodinskii'; the scan prints '131. Smorodinskiĭ'.
+  ['131\.\ Smorodinskii', '131. Smorodinskiĭ'],
+  # Scan typo: of SL(N, C).
+  ['of\ SL\(N,\ c\)\.', 'of SL(N, C).'],
+  # The transcript has 'M. A. Naïmark'; the scan prints 'M. A. Naĭmark'.
+  ['M\.\ A\.\ Naïmark', 'M. A. Naĭmark'],
+]
+320 = [
+  # Scan typo: omit misplaced duplicate 'closed set 6' under 'closed'.
+  ['(?m)^closed set 6[ \t]*\n?', ''],
+  # Scan typo: of an infinite
+  ['of\ a\ infinite', 'of an infinite'],
+  # False negative (the page check missed it): separate adjacent Subject Index entries with a blank line.
+  ['(?m)^(?![ \t]*$|#)(.+?)[ \t]*\n(?![ \t]*\n)', '\1\n\n'],
+  # False negative (the page check missed it): keep Subject Index entries across page boundaries separate.
+  ['\Z', '''
+
+@@PAGEBREAK@@'''],
+]
+321 = [
+  # Scan typo: Dynkin diagram
+  ['Dynkin\ diagramm', 'Dynkin diagram'],
+  # Scan typo: enveloping algebra
+  ['envelopping\ algebra', 'enveloping algebra'],
+  # False negative (the page check missed it): separate adjacent Subject Index entries with a blank line.
+  ['(?m)^(?![ \t]*$|#)(.+?)[ \t]*\n(?![ \t]*\n)', '\1\n\n'],
+  # False negative (the page check missed it): keep Subject Index entries across page boundaries separate.
+  ['\Z', '''
+
+@@PAGEBREAK@@'''],
+]
+322 = [
+  # The transcript has '—Naïmark'; the scan prints '—-Naĭmark'.
+  ['—Naïmark', '—-Naĭmark'],
+  # The transcript has '—Raïkov'; the scan prints '—-Raĭkov'.
+  ['—Raïkov', '—-Raĭkov'],
+  # Scan typo: Gleason-Montgomery-Zippin
+  ['—\ —\ Gleason\-Montgomery\-Zippin', 'Gleason-Montgomery-Zippin'],
+  # The transcript has "Kreïn-Mil'man"; the scan prints "Kreĭn-Mil'man".
+  ['''Kreïn\-Mil'man''', '''Kreĭn-Mil'man'''],
+  # False negative (the page check missed it): separate adjacent Subject Index entries with a blank line.
+  ['(?m)^(?![ \t]*$|#)(.+?)[ \t]*\n(?![ \t]*\n)', '\1\n\n'],
+  # False negative (the page check missed it): keep Subject Index entries across page boundaries separate.
+  ['\Z', '''
+
+@@PAGEBREAK@@'''],
+]
+323 = [
+  # The transcript has "Ol'sanskii's"; the scan prints "Ol'šanskiĭ's".
+  ['''Ol'sanskii's''', '''Ol'šanskiĭ's'''],
+  # False negative (the page check missed it): separate adjacent Subject Index entries with a blank line.
+  ['(?m)^(?![ \t]*$|#)(.+?)[ \t]*\n(?![ \t]*\n)', '\1\n\n'],
+  # False negative (the page check missed it): keep Subject Index entries across page boundaries separate.
+  ['\Z', '''
+
+@@PAGEBREAK@@'''],
+]
+324 = [
+  # False negative (the page check missed it): separate adjacent Subject Index entries with a blank line.
+  ['(?m)^(?![ \t]*$|#)(.+?)[ \t]*\n(?![ \t]*\n)', '\1\n\n'],
+  # False negative (the page check missed it): keep Subject Index entries across page boundaries separate.
+  ['\Z', '''
+
+@@PAGEBREAK@@'''],
+]
+325 = [
+  # Strip continuation running heading on Subject Index page.
+  ['^# Subject Index\n*', ''],
+  # False negative (the page check missed it): separate adjacent Subject Index entries with a blank line.
+  ['(?m)^(?![ \t]*$|#)(.+?)[ \t]*\n(?![ \t]*\n)', '\1\n\n'],
+]
+
+[page_fixups]
+41 = [
+  [
+    '''\(M\^\*\)\^\* \\approx M, \\quad \\operatorname\{Hom\}_K\(M, N\) \\approx \\operatorname\{Hom\}_K\(N\^\*, M\^\*\) = M\^\* \\otimes_K N, \\\\\n\\left\( M \\otimes_K N \\right\)\^\* \\approx M\^\* \\otimes_K N\^\*\.''',
+    '''\begin{gathered}
+(M^*)^* \approx M, \quad \operatorname{Hom}_K(M, N) \approx \operatorname{Hom}_K(N^*, M^*) = M^* \otimes_K N, \\
+\left( M \otimes_K N \right)^* \approx M^* \otimes_K N^*.
+\end{gathered}''',
+  ],
+]
+293 = [
+  [
+    '''&= \\sigma\(p\^n q\^m\) \+ \\frac\{nm\}\{2\} \\sigma\(p\^\{n-1\} q\^\{m-1\}\) \+ \\frac\{n\(n-1\)m\(m-1\)\}\{8\} \\sigma\(p\^\{n-2\} q\^\{m-2\}\) \+ \\ldots''',
+    '''&= \sigma(p^n q^m) + \frac{nm}{2} \sigma(p^{n-1} q^{m-1}) \\
+&\quad + \frac{n(n-1)m(m-1)}{8} \sigma(p^{n-2} q^{m-2}) + \ldots''',
+  ],
+]

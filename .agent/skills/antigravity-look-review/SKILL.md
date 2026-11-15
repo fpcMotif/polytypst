@@ -1,6 +1,6 @@
 ---
 name: antigravity-look-review
-description: Look review of one group (G1 to G9) of unchecked math books in polytypst, run as an orchestrator that sends every page group to a subagent, a three-group sample first. Use when asked to run, resume or merge a look review for a group or a book of the Groups table.
+description: Look review of one group (G1 to G9) of unchecked math books in polytypst, run as an orchestrator that sends every page group to a subagent, a three-group sample first. Use when asked to run, resume or merge a look review for a group or a book of the Groups table. Never use it for work on one book, such as a fresh OCR run, a build, an audit or a fix.
 ---
 
 # Look review of the unchecked math books
