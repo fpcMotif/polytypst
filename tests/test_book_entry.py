@@ -86,6 +86,12 @@ def three_page_scan(path: Path) -> Path:
     return path
 
 
+def test_adhoc_book_declares_circled_notes_and_numbers_them_with_circles(tmp_path: Path) -> None:
+    spec = Book.adhoc(three_page_scan(tmp_path / "scan.pdf"), tmp_path / "out", footnote_style="circled").spec
+
+    assert (spec.footnote_style, spec.footnote_numbering) == ("circled", "circled")
+
+
 def test_build_renders_the_scan_pages_that_its_figures_read(tmp_path: Path) -> None:
     scan = three_page_scan(tmp_path / "scan.pdf")
     out_dir = tmp_path / "out"

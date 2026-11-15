@@ -311,6 +311,7 @@ def adhoc_spec(
     publisher_key: str = "cambridge",
     lang: str = "en",
     domain: str = "math",
+    footnote_style: str = "",
 ) -> MonographSpec:
     """A one-chapter spec for a source scan that no book in `books/<key>/` describes."""
     comp = resolve_composition(publisher=publisher_key, lang=lang, domain=domain)
@@ -339,6 +340,8 @@ def adhoc_spec(
         chapters=chapters,
         figures=fig_layout,
         chapter_heading="{number} {title}",
+        footnote_style=footnote_style,
+        footnote_numbering="circled" if footnote_style == "circled" else "1",
     )
 
 
@@ -2008,9 +2011,16 @@ class MonographCompiler:
         out_dir = Path(out_dir)
         md_dir = book_state(out_dir) / spec.markdown_dir
         store = TranscriptStore(md_dir)
-        page_texts = [store.text(p) or "" for p in store.pages()]
-        if not spec.footnote_style and any(has_circled_footnotes(t, spec.folio_pattern) for t in page_texts):
-            spec = self.spec = replace(spec, footnote_style="circled", footnote_numbering="circled")
+        page_numbers = store.pages()
+        page_texts = [store.text(pno) or "" for pno in page_numbers]
+        if not spec.footnote_style and (
+            circled := [pno for pno, t in zip(page_numbers, page_texts) if has_circled_footnotes(t, spec.folio_pattern)]
+        ):
+            raise ValueError(
+                f"{spec.slug} declares no footnote_style; add footnote_style = \"circled\" and "
+                f"footnote_numbering = \"circled\" to its book.toml, or pass --footnote-style circled for a new scan; "
+                f"circled notes on pages {', '.join(map(str, circled[:10]))}"
+            )
         fig_dir = out_dir / spec.figure_dir
         self._out_dir = out_dir
         self.cleaner = PageCleaner.for_spec(spec, out_dir)

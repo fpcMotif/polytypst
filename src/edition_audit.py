@@ -100,6 +100,7 @@ def audit_edition(book: Book, name: str, stages: frozenset[str] = STAGES) -> Edi
     without a PDF. A rule that cannot run, such as facsimile layout without its scan, lands in `skipped`.
     """
     edition = book.editions[name]
+    built = edition.built_spec
     hits: dict[str, list[Hit]] = {}
     skipped: dict[str, str] = {}
     profile = None
@@ -107,7 +108,7 @@ def audit_edition(book: Book, name: str, stages: frozenset[str] = STAGES) -> Edi
     if tiers:
         if missing := [f for f in sorted(edition.formats | {"pdf"}) if not output_path(edition, f).exists()]:
             raise EditionNotBuilt(edition, missing)
-        spec = AuditSpec.from_monograph(edition.spec) if edition.spec else AuditSpec()
+        spec = AuditSpec.from_monograph(built) if built else AuditSpec()
         spec = replace(spec, scan_line_breaks=edition.scan_line_breaks)
         for fmt in sorted(f for f in edition.formats | {"pdf"} if f in DOCUMENT_FORMATS):
             path = output_path(edition, fmt)
@@ -117,8 +118,8 @@ def audit_edition(book: Book, name: str, stages: frozenset[str] = STAGES) -> Edi
                 hits.setdefault(f"{DOCUMENT_FORMATS[fmt]}{issue.rule_name}", []).append(hit)
             if fmt == "pdf" and (measured := checker.type_profile()):
                 profile = TypeProfile(*measured)
-    if edition.spec and "source" in stages:
-        for rule, found in edition_literal_hits(edition.rebuilt, edition.spec).items():
+    if built and "source" in stages:
+        for rule, found in edition_literal_hits(edition.rebuilt, built).items():
             hits.setdefault(rule, []).extend(Hit("source", f"{path}:{hit.line}", hit.text) for path, hit in found)
     if edition.spec and "source" in stages and (md := build_source(edition.rebuilt, "md")).exists():
         for misuse in array_misuses(md.read_text(encoding="utf-8")):

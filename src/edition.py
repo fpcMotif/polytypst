@@ -1,5 +1,6 @@
 """A book is a source scan plus the editions polytypst can rebuild from it; `polytypst build` and `polytypst parity` read these."""
 
+import json
 import shutil
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -80,10 +81,20 @@ class Edition:
     build_pages: Callable[[Path | None, set[int]], None] | None = None
     facsimile: FacsimileStyle | None = None
 
+    @property
+    def build_record(self) -> Path:
+        return self.rebuilt.with_suffix(".build.json")
+
+    @property
+    def built_spec(self) -> MonographSpec | None:
+        if self.spec is None or not self.build_record.exists():
+            return self.spec
+        footnotes = json.loads(self.build_record.read_text(encoding="utf-8")).get("footnotes", "original")
+        return running_footnotes(self.spec) if footnotes == "running" else self.spec
+
     def source(self, ext: str) -> Path:
         """The `ext` file, such as `typ`, `tex` or `md`, that the build wrote into `build/` beside the PDF."""
         return build_source(self.rebuilt, ext)
-
 
 @dataclass(frozen=True)
 class Book:
@@ -105,10 +116,10 @@ class Book:
     @classmethod
     def adhoc(
         cls, source: Path, out_dir: Path | None = None, publisher_key: str = "cambridge", lang: str = "en",
-        domain: str = "math",
+        domain: str = "math", footnote_style: str = "",
     ) -> Book:
         """A one-chapter book for a source scan that no `books/<key>/` describes, in `output/<slug>` by default."""
-        spec = adhoc_spec(Path(source), SourceScan(source).page_count, publisher_key, lang, domain)
+        spec = adhoc_spec(Path(source), SourceScan(source).page_count, publisher_key, lang, domain, footnote_style)
         out_dir = out_dir or OUTPUT / spec.slug
         return cls(spec, out_dir, {"monograph": monograph_edition(spec, out_dir, "one chapter, generic rules")})
 
@@ -161,6 +172,9 @@ class Book:
         edition.build(
             source, edition.formats if formats is None else formats, footnotes
         )
+        if edition.spec is not None:
+            edition.build_record.parent.mkdir(parents=True, exist_ok=True)
+            _ = edition.build_record.write_text(json.dumps({"footnotes": footnotes}) + "\n", encoding="utf-8")
         return edition
 
 
