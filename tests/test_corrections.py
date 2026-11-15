@@ -14,6 +14,7 @@ from polytypst.corrections import (
     causes,
     changed_lines,
     history,
+    main,
     record,
 )
 
@@ -192,3 +193,38 @@ def test_changed_lines_keeps_each_changed_line_whole_and_names_the_words_that_di
 def test_changed_lines_refuses_a_change_of_line_count() -> None:
     with pytest.raises(ValueError):
         changed_lines("a\nb", "a")
+
+
+def _record_command(tmp_path: Path, before: str, after: str, *extra: str) -> int:
+    old, new = tmp_path / "old.md", tmp_path / "p_091.md"
+    old.write_text(before, encoding="utf-8")
+    new.write_text(after, encoding="utf-8")
+    argv = ["record", "newbook", "91", "--kind", "ocr", "--before", str(old), "--after", str(new)]
+    return main([*argv, "--scan-reads", "determinant bars", "--evidence", "page_renders/p_091.png", *extra], tmp_path)
+
+
+def test_the_record_command_writes_the_lines_that_differ_between_two_page_files(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = _record_command(tmp_path, "17. \\begin{bmatrix} a\n\nkept", "17. \\begin{vmatrix} a\n\nkept")
+    assert code == 0
+    (linked,) = history("newbook", tmp_path).corrections
+    assert linked.correction.page == 91
+    assert linked.correction.kind == "ocr"
+    assert linked.correction.fixed_in == str(tmp_path / "p_091.md")
+    assert linked.correction.lines == (Line(before="17. \\begin{bmatrix} a", after="17. \\begin{vmatrix} a"),)
+    assert "'\\\\begin{bmatrix}' -> '\\\\begin{vmatrix}'" in capsys.readouterr().out
+
+
+def test_the_record_command_keeps_a_block_whole_when_the_line_count_changes(tmp_path: Path) -> None:
+    assert _record_command(tmp_path, "top\n<div>\nlost\n</div>\nend", "top\n| a | b |\nend") == 0
+    (linked,) = history("newbook", tmp_path).corrections
+    assert linked.correction.lines == (Line(before="<div>\nlost\n</div>", after="| a | b |"),)
+
+
+def test_the_record_command_refuses_two_equal_pages_and_an_unknown_finding(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit):
+        _record_command(tmp_path, "same", "same")
+    with pytest.raises(SystemExit):
+        _record_command(tmp_path, "a", "b", "--finding", "Bnone-1")
+    assert history("newbook", tmp_path).corrections == ()

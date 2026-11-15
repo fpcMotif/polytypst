@@ -187,7 +187,7 @@ def gate(check: PageCheck, pdf: Path | None = None, manifest: Path | None = None
         not bare,
         f"transcripts: {len(edited)} pages edited after the OCR"
         + (
-            f", no correction for {ranges(bare)}; record each with record() in src/corrections.py"
+            f", no correction for {ranges(bare)}; record each with `polytypst corrections record`"
             if bare
             else ", each with a correction" * bool(edited)
         ),

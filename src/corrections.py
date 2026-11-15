@@ -167,15 +167,73 @@ def changed_lines(before: str, after: str) -> list[Line]:
     ]
 
 
-def main(argv: list[str]) -> int:
+def changed_blocks(before: str, after: str) -> list[Line]:
+    """The runs of lines that differ between two copies of one transcript page, each run whole."""
+    a, b = before.split("\n"), after.split("\n")
+    ops = difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
+    return [
+        Line(before="\n".join(a[i1:i2]), after="\n".join(b[j1:j2]))
+        for op, i1, i2, j1, j2 in ops
+        if op != "equal"
+    ]
+
+
+RECORD_HELP = """Record one fixed transcript page. Copy the page before you edit it: --before is that copy,
+--after is the edited page in the transcript store. The command finds the changed lines itself.
+
+  polytypst corrections record KEY 91 --kind ocr --before "OUT/before/p_091.md" \\
+      --after "STORE/KEY/markdown_pages/p_091.md" --scan-reads "Ex. 17 prints determinant bars" \\
+      --evidence "OUT/page_renders/p_091.png"
+"""
+
+
+def main(argv: list[str], root: Path = QUALITY) -> int:
     parser = argparse.ArgumentParser(
         prog="polytypst corrections",
-        description="Show a book's corrections and open verdicts.",
+        description="Show a book's corrections and open verdicts, or record the fix of one transcript page.",
     )
-    parser.add_argument("command", choices=["show"])
-    parser.add_argument("book")
+    sub = parser.add_subparsers(dest="command", required=True)
+    show = sub.add_parser("show", help="list a book's corrections and its open verdicts")
+    show.add_argument("book")
+    rec = sub.add_parser(
+        "record",
+        help="record the fix of one transcript page from its copies before and after",
+        description=RECORD_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    rec.add_argument("book")
+    rec.add_argument("page", type=int, help="scan page: the 1-based page of the scan PDF, as in p_NNN.md")
+    rec.add_argument("--kind", required=True, choices=KINDS, help="whose fault the error was")
+    rec.add_argument("--before", required=True, type=Path, help="a copy of the page from before the fix")
+    rec.add_argument("--after", required=True, type=Path, help="the fixed page")
+    rec.add_argument("--scan-reads", required=True, help="what the scan prints at the fixed place")
+    rec.add_argument("--evidence", required=True, help="the scan page image or crop that shows it")
+    rec.add_argument("--finding", default="", help="id of the verdict this fix answers")
+    rec.add_argument("--cause", default="", help="id of the shared root cause, such as RC-06")
     args = parser.parse_args(argv)
-    got = history(args.book)
+    if args.command == "record":
+        lines = changed_blocks(args.before.read_text(encoding="utf-8"), args.after.read_text(encoding="utf-8"))
+        entry = Correction(
+            book=args.book,
+            page=args.page,
+            kind=args.kind,
+            lines=tuple(lines),
+            scan_reads=args.scan_reads,
+            evidence=args.evidence,
+            fixed_in=str(args.after),
+            finding=args.finding,
+            cause=args.cause,
+        )
+        try:
+            record(entry, root)
+        except ValueError as error:
+            rec.error(str(error))
+        for line in lines:
+            for w in line.words():
+                print(f"    {w['before']!r} -> {w['after']!r}")
+        print(f"recorded p{args.page} {args.kind}: {len(lines)} changed runs of lines")
+        return 0
+    got = history(args.book, root)
     for linked in got.corrections:
         c = linked.correction
         cause = f" {c.cause} ({linked.cause.status})" if linked.cause else ""

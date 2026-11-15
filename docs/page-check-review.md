@@ -161,6 +161,6 @@ Done when every caption has a line in `output/render_check/KEY/`, and the review
 uv run polytypst page-check gate BOOK
 ```
 
-`gate` checks the page-check receipts, the lint run and the verdicts. It checks that each transcript page edited after the OCR has a correction: record one with `record()` in `src/corrections.py` for each page that the `transcripts` line names. It also checks that each figure caption in the scan is in `figures_manifest.json` and in the rebuilt PDF, and that `polytypst audit` exits 0. It prints one `PASS`, `WARN` or `FAIL` line for each check. The last line is `PASS` only when no check failed. Otherwise the command exits 1. A `WARN` line for 0 issues from more than 100 pages means that you open five pages beside their scans and compare them.
+`gate` checks the page-check receipts, the lint run and the verdicts. It checks that each transcript page edited after the OCR has a correction: record one with `polytypst corrections record` for each page that the `transcripts` line names. Its `--help` shows the call. It also checks that each figure caption in the scan is in `figures_manifest.json` and in the rebuilt PDF, and that `polytypst audit` exits 0. It prints one `PASS`, `WARN` or `FAIL` line for each check. The last line is `PASS` only when no check failed. Otherwise the command exits 1. A `WARN` line for 0 issues from more than 100 pages means that you open five pages beside their scans and compare them.
 
 Done when the last line is `PASS`. Quote the whole output in your report.

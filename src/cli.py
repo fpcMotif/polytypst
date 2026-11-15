@@ -29,6 +29,7 @@ book commands (see `polytypst COMMAND --help`):
   polytypst page-check grep REGEX [BOOK ...]  transcript lines that match, across every book by default
   polytypst findings [ID ...] [--cause C]  review findings by id, book, cause, severity, status or text, with verdicts
   polytypst corrections show BOOK         list a book's corrections with their verdicts and causes, and its open verdicts
+  polytypst corrections record BOOK PAGE  record one fixed transcript page from its copies before and after
   polytypst charts KEY [IDS] [--check]    redraw a book's charts from books/KEY/charts; --check lists stale SVGs
 """
 
