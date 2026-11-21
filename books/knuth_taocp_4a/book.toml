@@ -1,0 +1,167 @@
+slug = 'knuth_taocp_4a'
+name = 'knuth2011-taocp-4a'
+aliases = ['knuth4a', 'taocp4a']
+title = 'The Art of Computer Programming'
+subtitle = 'Volume 4A: Combinatorial Algorithms, Part 1'
+author = 'Donald E. Knuth'
+publisher = 'Addison-Wesley'
+series = ''
+year = 2011
+domain = 'math'
+lang = 'en'
+source_pdf = 'The art of computer programming. 4A  Part 1. Combinatorial algorithms (Donald Ervin Knuth).pdf'
+pdf_name_markers = ['art of computer programming', '4A', 'Combinatorial algorithms', 'Knuth']
+pdf_page_count = 898
+require_vector_figures = false
+cross_references = true
+skip_page_markers = []
+index_pages = [848, 897]
+index_title = 'Index and Glossary'
+index_subentries = true
+pre_math_rewrites = [['&#36;', '\$'], ['\\begin\{vmatrix\}((?:(?![&$]|\\begin\{)[\s\S])*?)\\end\{vmatrix\}', '\\begin{bmatrix}\\text{⁣}\1\\end{bmatrix}'], ['\\left\s*\\?\|\s*\\begin\{(?:array\}\{c\}|(?:small)?matrix\})((?:(?![&$]|\\begin\{)[\s\S])*?)\\end\{(?:array|(?:small)?matrix)\}\s*\\right\s*\\?\|', '\\begin{bmatrix}\\text{⁣}\1\\end{bmatrix}'], ['\\left\s*\\langle\s*\\begin\{(?:array\}\{c\}|(?:small)?matrix\})((?:(?![&$]|\\begin\{)[\s\S])*?)\\end\{(?:array|(?:small)?matrix)\}\s*\\right\s*\\rangle', '\\begin{bmatrix}\\text{⁤}\1\\end{bmatrix}']]
+typst_preamble = '''
+@ENGINE_PREAMBLE@
+#set text(font: ("New Computer Modern", "New Computer Modern Math", "STIX Two Math", "SF Hebrew", "Arial Hebrew", "Geeza Pro", "Devanagari Sangam MN", "Kohinoor Bangla", "Oriya Sangam MN", "Tamil Sangam MN", "Kohinoor Telugu", "Noto Sans Kannada", "Malayalam Sangam MN", "Apple SD Gothic Neo", "Hiragino Sans GB", "PingFang SC", "Arial Unicode MS", "Apple Symbols", "Zapf Dingbats", "Menlo"))
+#show math.equation: set text(font: ("New Computer Modern Math", "STIX Two Math", "New Computer Modern", "Apple Symbols", "Zapf Dingbats"))
+#show "❘": "|"
+#show "⁣": none
+#show "⁤": none
+#show math.mat: it => if it.delim == ("[", "]") and repr(it.rows.at(0, default: ()).at(0, default: none)).contains("⁣") { math.mat(delim: "|", ..it.rows) } else if it.delim == ("[", "]") and repr(it.rows.at(0, default: ()).at(0, default: none)).contains("⁤") { math.mat(delim: "⟨", ..it.rows) } else { it }
+'''
+typst_front_matter = '''
+@ENGINE_TITLE_PAGE@
+#show figure.where(kind: image): set figure(supplement: [Fig.], numbering: source-figure-plain)
+#show figure.where(kind: table): set figure(supplement: [Table])
+#show figure.caption: it => [
+  #v(0.45em)
+  #text(9pt)[#if it.supplement != none [#if it.body != [] [#grid(columns: (auto, 1fr), column-gutter: 0.45em, align: top, strong[#it.supplement #context it.counter.display(it.numbering).], align(left)[#it.body])] else [#strong[#it.supplement #context it.counter.display(it.numbering).]]] else [#it.body]]
+]
+'''
+latex_preamble = '''
+\usepackage{newunicodechar}
+\newfontfamily\hebrewfont[Path=/System/Library/Fonts/]{SFHebrew.ttf}
+\newfontfamily\arabicfont[Path=/System/Library/Fonts/]{GeezaPro.ttc}
+\newfontfamily\devanagarifont[Path=/System/Library/Fonts/Supplemental/]{Devanagari Sangam MN.ttc}
+\newfontfamily\bengalifont[Path=/System/Library/Fonts/]{KohinoorBangla.ttc}
+\newfontfamily\oriyafont[Path=/System/Library/Fonts/Supplemental/]{Oriya Sangam MN.ttc}
+\newfontfamily\tamilfont[Path=/System/Library/Fonts/Supplemental/]{Tamil Sangam MN.ttc}
+\newfontfamily\telugufont[Path=/System/Library/Fonts/]{KohinoorTelugu.ttc}
+\newfontfamily\kannadafont[Path=/System/Library/Fonts/]{NotoSansKannada.ttc}
+\newfontfamily\malayalamfont[Path=/System/Library/Fonts/Supplemental/]{Malayalam Sangam MN.ttc}
+\newfontfamily\cjkfont[Path=/System/Library/Fonts/]{Hiragino Sans GB.ttc}
+\newfontfamily\hangulfont[Path=/System/Library/Fonts/]{AppleSDGothicNeo.ttc}
+\newfontfamily\unifont[Path=/System/Library/Fonts/Supplemental/]{Arial Unicode.ttf}
+\newfontfamily\symfont[Path=/System/Library/Fonts/]{Apple Symbols.ttf}
+\usepackage[Latin,Greek,Cyrillic,Hebrew,Arabic,Devanagari,Bengali,Oriya,Tamil,Telugu,Kannada,Malayalam,CJK,Korean]{ucharclasses}
+\providecommand{\mathdollar}{\$}
+\setDefaultTransitions{\normalfont}{}
+\setTransitionTo{Hebrew}{\hebrewfont}
+\setTransitionTo{Arabic}{\arabicfont}
+\setTransitionTo{Devanagari}{\devanagarifont}
+\setTransitionTo{Bengali}{\bengalifont}
+\setTransitionTo{Oriya}{\oriyafont}
+\setTransitionTo{Tamil}{\tamilfont}
+\setTransitionTo{Telugu}{\telugufont}
+\setTransitionTo{Kannada}{\kannadafont}
+\setTransitionTo{Malayalam}{\malayalamfont}
+\setTransitionTo{CJK}{\cjkfont}
+\setTransitionTo{Korean}{\hangulfont}
+\setTransitionTo{Greek}{\unifont}
+\setTransitionTo{Cyrillic}{\unifont}
+\newunicodechar{⅄}{\ensuremath{\text{\symfont ⅄}}}
+\newunicodechar{♠}{{\symfont ♠}}\newunicodechar{♡}{{\symfont ♡}}\newunicodechar{♢}{{\symfont ♢}}\newunicodechar{♣}{{\symfont ♣}}\newunicodechar{♥}{{\symfont ♥}}\newunicodechar{♦}{{\symfont ♦}}
+\newunicodechar{♯}{{\symfont ♯}}\newunicodechar{♭}{{\symfont ♭}}\newunicodechar{♮}{{\symfont ♮}}
+\newunicodechar{◡}{{\symfont ◡}}\newunicodechar{⏑}{{\symfont ⏑}}\newunicodechar{␣}{{\symfont ␣}}\newunicodechar{∸}{\ensuremath{\mathbin{\dot{-}}}}
+\newunicodechar{▶}{{\symfont ▶}}\newunicodechar{►}{{\symfont ►}}\newunicodechar{■}{{\symfont ■}}\newunicodechar{□}{\ensuremath{\square}}\newunicodechar{○}{\ensuremath{\circ}}\newunicodechar{●}{{\symfont ●}}
+\newunicodechar{⊥}{\ensuremath{\perp}}\newunicodechar{⊤}{\ensuremath{\top}}\newunicodechar{⊕}{\ensuremath{\oplus}}\newunicodechar{⊔}{\ensuremath{\sqcup}}\newunicodechar{⊆}{\ensuremath{\subseteq}}
+\newunicodechar{←}{\ensuremath{\leftarrow}}\newunicodechar{↑}{\ensuremath{\uparrow}}\newunicodechar{→}{\ensuremath{\rightarrow}}\newunicodechar{↓}{\ensuremath{\downarrow}}\newunicodechar{↔}{\ensuremath{\leftrightarrow}}\newunicodechar{⇒}{\ensuremath{\Rightarrow}}
+\newunicodechar{∃}{\ensuremath{\exists}}\newunicodechar{∅}{\ensuremath{\emptyset}}\newunicodechar{−}{\ensuremath{-}}\newunicodechar{∞}{\ensuremath{\infty}}\newunicodechar{∧}{\ensuremath{\land}}\newunicodechar{∨}{\ensuremath{\lor}}\newunicodechar{∪}{\ensuremath{\cup}}
+\newunicodechar{∼}{\ensuremath{\sim}}\newunicodechar{≈}{\ensuremath{\approx}}\newunicodechar{≠}{\ensuremath{\neq}}\newunicodechar{≤}{\ensuremath{\le}}\newunicodechar{≥}{\ensuremath{\ge}}\newunicodechar{≫}{\ensuremath{\gg}}
+\newunicodechar{⟨}{\ensuremath{\langle}}\newunicodechar{⟩}{\ensuremath{\rangle}}\newunicodechar{′}{\ensuremath{'}}\newunicodechar{⁺}{\ensuremath{^{+}}}\newunicodechar{⁻}{\ensuremath{^{-}}}
+\newunicodechar{₀}{\ensuremath{_{0}}}\newunicodechar{₁}{\ensuremath{_{1}}}\newunicodechar{₂}{\ensuremath{_{2}}}\newunicodechar{₃}{\ensuremath{_{3}}}\newunicodechar{₄}{\ensuremath{_{4}}}\newunicodechar{₅}{\ensuremath{_{5}}}\newunicodechar{₆}{\ensuremath{_{6}}}\newunicodechar{₇}{\ensuremath{_{7}}}\newunicodechar{₈}{\ensuremath{_{8}}}\newunicodechar{₉}{\ensuremath{_{9}}}
+\newunicodechar{☰}{{\symfont ☰}}\newunicodechar{☱}{{\symfont ☱}}\newunicodechar{☲}{{\symfont ☲}}\newunicodechar{☳}{{\symfont ☳}}\newunicodechar{☴}{{\symfont ☴}}\newunicodechar{☵}{{\symfont ☵}}\newunicodechar{☶}{{\symfont ☶}}\newunicodechar{☷}{{\symfont ☷}}\newunicodechar{⚊}{{\symfont ⚊}}\newunicodechar{⚋}{{\symfont ⚋}}
+\newunicodechar{䷀}{{\symfont ䷀}}\newunicodechar{䷁}{{\symfont ䷁}}\newunicodechar{䷂}{{\symfont ䷂}}\newunicodechar{䷃}{{\symfont ䷃}}\newunicodechar{䷄}{{\symfont ䷄}}\newunicodechar{䷅}{{\symfont ䷅}}\newunicodechar{䷆}{{\symfont ䷆}}\newunicodechar{䷇}{{\symfont ䷇}}
+\newunicodechar{䷈}{{\symfont ䷈}}\newunicodechar{䷉}{{\symfont ䷉}}\newunicodechar{䷊}{{\symfont ䷊}}\newunicodechar{䷋}{{\symfont ䷋}}\newunicodechar{䷌}{{\symfont ䷌}}\newunicodechar{䷍}{{\symfont ䷍}}\newunicodechar{䷎}{{\symfont ䷎}}\newunicodechar{䷏}{{\symfont ䷏}}
+\newunicodechar{䷐}{{\symfont ䷐}}\newunicodechar{䷑}{{\symfont ䷑}}\newunicodechar{䷒}{{\symfont ䷒}}\newunicodechar{䷓}{{\symfont ䷓}}\newunicodechar{䷔}{{\symfont ䷔}}\newunicodechar{䷕}{{\symfont ䷕}}\newunicodechar{䷖}{{\symfont ䷖}}\newunicodechar{䷗}{{\symfont ䷗}}
+\newunicodechar{䷘}{{\symfont ䷘}}\newunicodechar{䷙}{{\symfont ䷙}}\newunicodechar{䷚}{{\symfont ䷚}}\newunicodechar{䷛}{{\symfont ䷛}}\newunicodechar{䷜}{{\symfont ䷜}}\newunicodechar{䷝}{{\symfont ䷝}}\newunicodechar{䷞}{{\symfont ䷞}}\newunicodechar{䷟}{{\symfont ䷟}}
+\newunicodechar{䷠}{{\symfont ䷠}}\newunicodechar{䷡}{{\symfont ䷡}}\newunicodechar{䷢}{{\symfont ䷢}}\newunicodechar{䷣}{{\symfont ䷣}}\newunicodechar{䷤}{{\symfont ䷤}}\newunicodechar{䷥}{{\symfont ䷥}}\newunicodechar{䷦}{{\symfont ䷦}}\newunicodechar{䷧}{{\symfont ䷧}}
+\newunicodechar{䷨}{{\symfont ䷨}}\newunicodechar{䷩}{{\symfont ䷩}}\newunicodechar{䷪}{{\symfont ䷪}}\newunicodechar{䷫}{{\symfont ䷫}}\newunicodechar{䷬}{{\symfont ䷬}}\newunicodechar{䷭}{{\symfont ䷭}}\newunicodechar{䷮}{{\symfont ䷮}}\newunicodechar{䷯}{{\symfont ䷯}}
+\newunicodechar{䷰}{{\symfont ䷰}}\newunicodechar{䷱}{{\symfont ䷱}}\newunicodechar{䷲}{{\symfont ䷲}}\newunicodechar{䷳}{{\symfont ䷳}}\newunicodechar{䷴}{{\symfont ䷴}}\newunicodechar{䷵}{{\symfont ䷵}}\newunicodechar{䷶}{{\symfont ䷶}}\newunicodechar{䷷}{{\symfont ䷷}}
+\newunicodechar{䷸}{{\symfont ䷸}}\newunicodechar{䷹}{{\symfont ䷹}}\newunicodechar{䷺}{{\symfont ䷺}}\newunicodechar{䷻}{{\symfont ䷻}}\newunicodechar{䷼}{{\symfont ䷼}}\newunicodechar{䷽}{{\symfont ䷽}}\newunicodechar{䷾}{{\symfont ䷾}}\newunicodechar{䷿}{{\symfont ䷿}}
+\newunicodechar{𝌀}{{\symfont 𝌀}}\newunicodechar{𝌁}{{\symfont 𝌁}}\newunicodechar{𝌂}{{\symfont 𝌂}}\newunicodechar{𝌃}{{\symfont 𝌃}}\newunicodechar{𝌄}{{\symfont 𝌄}}\newunicodechar{𝌅}{{\symfont 𝌅}}\newunicodechar{𝌆}{{\symfont 𝌆}}\newunicodechar{𝌇}{{\symfont 𝌇}}
+\newunicodechar{𝌈}{{\symfont 𝌈}}\newunicodechar{𝌉}{{\symfont 𝌉}}\newunicodechar{𝌊}{{\symfont 𝌊}}\newunicodechar{𝌋}{{\symfont 𝌋}}\newunicodechar{𝌌}{{\symfont 𝌌}}\newunicodechar{𝌍}{{\symfont 𝌍}}\newunicodechar{𝌎}{{\symfont 𝌎}}\newunicodechar{𝌏}{{\symfont 𝌏}}
+\newunicodechar{𝌐}{{\symfont 𝌐}}\newunicodechar{𝌑}{{\symfont 𝌑}}\newunicodechar{𝌒}{{\symfont 𝌒}}\newunicodechar{𝌓}{{\symfont 𝌓}}\newunicodechar{𝌔}{{\symfont 𝌔}}\newunicodechar{𝌕}{{\symfont 𝌕}}\newunicodechar{𝌖}{{\symfont 𝌖}}\newunicodechar{𝌗}{{\symfont 𝌗}}
+\newunicodechar{𝌘}{{\symfont 𝌘}}\newunicodechar{𝌙}{{\symfont 𝌙}}\newunicodechar{𝌚}{{\symfont 𝌚}}\newunicodechar{𝌛}{{\symfont 𝌛}}\newunicodechar{𝌜}{{\symfont 𝌜}}\newunicodechar{𝌝}{{\symfont 𝌝}}\newunicodechar{𝌞}{{\symfont 𝌞}}\newunicodechar{𝌟}{{\symfont 𝌟}}
+\newunicodechar{𝌠}{{\symfont 𝌠}}\newunicodechar{𝌡}{{\symfont 𝌡}}\newunicodechar{𝌢}{{\symfont 𝌢}}\newunicodechar{𝌣}{{\symfont 𝌣}}\newunicodechar{𝌤}{{\symfont 𝌤}}\newunicodechar{𝌥}{{\symfont 𝌥}}\newunicodechar{𝌦}{{\symfont 𝌦}}\newunicodechar{𝌧}{{\symfont 𝌧}}
+\newunicodechar{𝌨}{{\symfont 𝌨}}\newunicodechar{𝌩}{{\symfont 𝌩}}\newunicodechar{𝌪}{{\symfont 𝌪}}\newunicodechar{𝌫}{{\symfont 𝌫}}\newunicodechar{𝌬}{{\symfont 𝌬}}\newunicodechar{𝌭}{{\symfont 𝌭}}\newunicodechar{𝌮}{{\symfont 𝌮}}\newunicodechar{𝌯}{{\symfont 𝌯}}
+\newunicodechar{𝌰}{{\symfont 𝌰}}\newunicodechar{𝌱}{{\symfont 𝌱}}\newunicodechar{𝌲}{{\symfont 𝌲}}\newunicodechar{𝌳}{{\symfont 𝌳}}\newunicodechar{𝌴}{{\symfont 𝌴}}\newunicodechar{𝌵}{{\symfont 𝌵}}\newunicodechar{𝌶}{{\symfont 𝌶}}\newunicodechar{𝌷}{{\symfont 𝌷}}
+\newunicodechar{𝌸}{{\symfont 𝌸}}\newunicodechar{𝌹}{{\symfont 𝌹}}\newunicodechar{𝌺}{{\symfont 𝌺}}\newunicodechar{𝌻}{{\symfont 𝌻}}\newunicodechar{𝌼}{{\symfont 𝌼}}\newunicodechar{𝌽}{{\symfont 𝌽}}\newunicodechar{𝌾}{{\symfont 𝌾}}\newunicodechar{𝌿}{{\symfont 𝌿}}
+\newunicodechar{𝍀}{{\symfont 𝍀}}\newunicodechar{𝍁}{{\symfont 𝍁}}\newunicodechar{𝍂}{{\symfont 𝍂}}\newunicodechar{𝍃}{{\symfont 𝍃}}\newunicodechar{𝍄}{{\symfont 𝍄}}\newunicodechar{𝍅}{{\symfont 𝍅}}\newunicodechar{𝍆}{{\symfont 𝍆}}\newunicodechar{𝍇}{{\symfont 𝍇}}
+\newunicodechar{𝍈}{{\symfont 𝍈}}\newunicodechar{𝍉}{{\symfont 𝍉}}\newunicodechar{𝍊}{{\symfont 𝍊}}\newunicodechar{𝍋}{{\symfont 𝍋}}\newunicodechar{𝍌}{{\symfont 𝍌}}\newunicodechar{𝍍}{{\symfont 𝍍}}\newunicodechar{𝍎}{{\symfont 𝍎}}\newunicodechar{𝍏}{{\symfont 𝍏}}
+\newunicodechar{𝍐}{{\symfont 𝍐}}\newunicodechar{𝍑}{{\symfont 𝍑}}\newunicodechar{𝍒}{{\symfont 𝍒}}\newunicodechar{𝍓}{{\symfont 𝍓}}\newunicodechar{𝍔}{{\symfont 𝍔}}\newunicodechar{𝍕}{{\symfont 𝍕}}\newunicodechar{𝍖}{{\symfont 𝍖}}
+\newunicodechar{𝔻}{\ensuremath{\mathbb{D}}}\newunicodechar{⊅}{\ensuremath{\not\supset}}\newunicodechar{↛}{\ensuremath{\not\rightarrow}}
+\newunicodechar{⊎}{\ensuremath{\uplus}}\newunicodechar{⊞}{\ensuremath{\boxplus}}\newunicodechar{⊠}{\ensuremath{\boxtimes}}\newunicodechar{△}{\ensuremath{\triangle}}\newunicodechar{ℓ}{\ensuremath{\ell}}\newunicodechar{℘}{\ensuremath{\wp}}\newunicodechar{❘}{\textbar}
+\newunicodechar{︽}{\text{\XeTeXinterchartokenstate=0 \unifont ︽}}\newunicodechar{︾}{\text{\XeTeXinterchartokenstate=0 \unifont ︾}}\newunicodechar{解}{{\XeTeXinterchartokenstate=0 \cjkfont 解}}\newunicodechar{説}{{\XeTeXinterchartokenstate=0 \cjkfont 説}}
+\newunicodechar{ἀ}{{\XeTeXinterchartokenstate=0 \unifont ἀ}}\newunicodechar{ἅ}{{\XeTeXinterchartokenstate=0 \unifont ἅ}}\newunicodechar{ώ}{{\XeTeXinterchartokenstate=0 \unifont ώ}}\newunicodechar{ί}{{\XeTeXinterchartokenstate=0 \unifont ί}}\newunicodechar{ά}{{\XeTeXinterchartokenstate=0 \unifont ά}}\newunicodechar{α}{{\XeTeXinterchartokenstate=0 \unifont α}}\newunicodechar{δ}{{\XeTeXinterchartokenstate=0 \unifont δ}}\newunicodechar{η}{{\XeTeXinterchartokenstate=0 \unifont η}}\newunicodechar{θ}{{\XeTeXinterchartokenstate=0 \unifont θ}}\newunicodechar{ι}{{\XeTeXinterchartokenstate=0 \unifont ι}}\newunicodechar{μ}{{\XeTeXinterchartokenstate=0 \unifont μ}}\newunicodechar{ν}{{\XeTeXinterchartokenstate=0 \unifont ν}}\newunicodechar{ο}{{\XeTeXinterchartokenstate=0 \unifont ο}}\newunicodechar{π}{{\XeTeXinterchartokenstate=0 \unifont π}}\newunicodechar{ρ}{{\XeTeXinterchartokenstate=0 \unifont ρ}}\newunicodechar{σ}{{\XeTeXinterchartokenstate=0 \unifont σ}}\newunicodechar{υ}{{\XeTeXinterchartokenstate=0 \unifont υ}}\newunicodechar{χ}{{\XeTeXinterchartokenstate=0 \unifont χ}}\newunicodechar{ω}{{\XeTeXinterchartokenstate=0 \unifont ω}}
+\newunicodechar{य}{{\XeTeXinterchartokenstate=0 \devanagarifont य}}\newunicodechar{म}{{\XeTeXinterchartokenstate=0 \devanagarifont म}}\newunicodechar{ा}{{\XeTeXinterchartokenstate=0 \devanagarifont ा}}\newunicodechar{त}{{\XeTeXinterchartokenstate=0 \devanagarifont त}}\newunicodechar{र}{{\XeTeXinterchartokenstate=0 \devanagarifont र}}\newunicodechar{ज}{{\XeTeXinterchartokenstate=0 \devanagarifont ज}}\newunicodechar{भ}{{\XeTeXinterchartokenstate=0 \devanagarifont भ}}\newunicodechar{न}{{\XeTeXinterchartokenstate=0 \devanagarifont न}}\newunicodechar{स}{{\XeTeXinterchartokenstate=0 \devanagarifont स}}\newunicodechar{ल}{{\XeTeXinterchartokenstate=0 \devanagarifont ल}}\newunicodechar{ग}{{\XeTeXinterchartokenstate=0 \devanagarifont ग}}\newunicodechar{्}{{\XeTeXinterchartokenstate=0 \devanagarifont ्}}
+\setcounter{MaxMatrixCols}{32}
+\newcommand{\csch}{\operatorname{csch}}
+\AtBeginDocument{\newunicodechar{′}{\ensuremath{\prime}}\renewcommand{\setminus}{\mathbin{\backslash}}\newunicodechar{⁠}{}}
+'''
+unnumbered_titles = [
+  'Preface',
+  'Notes on the Exercises',
+  'Hommage à Bach',
+  'Answers to Exercises',
+  'Appendix A — Tables of Numerical Quantities',
+  'Appendix B — Notations',
+  'Appendix C — Index to Algorithms and Theorems',
+  'Appendix D — Combinatorial Problems',
+  'Index and Glossary',
+  'ASCII Characters and MMIX Operation Codes',
+]
+chapters = [
+  { number = 0, title = 'Preface', start_page = 3, end_page = 8 },
+  { number = 0, title = 'Notes on the Exercises', start_page = 9, end_page = 12 },
+  { number = 0, title = 'Hommage à Bach', start_page = 14, end_page = 14 },
+  { number = 7, label = '7', title = 'Combinatorial Searching', start_page = 15, end_page = 527 },
+  { number = 0, title = 'Answers to Exercises', start_page = 528, end_page = 831 },
+  { number = 0, title = 'Appendix A — Tables of Numerical Quantities', start_page = 832, end_page = 835 },
+  { number = 0, title = 'Appendix B — Notations', start_page = 836, end_page = 841 },
+  { number = 0, title = 'Appendix C — Index to Algorithms and Theorems', start_page = 842, end_page = 843 },
+  { number = 0, title = 'Appendix D — Combinatorial Problems', start_page = 844, end_page = 847 },
+  { number = 0, title = 'ASCII Characters and MMIX Operation Codes', start_page = 898, end_page = 898 },
+]
+header_zone_lines = 2
+running_header_regexes = [
+  '''^(?:[ivxlcdm]+\s+|\d{1,3}\s+)?(?:PREFACE|NOTES ON THE EXERCISES|CONTENTS|COMBINATORIAL SEARCHING|ZEROS AND ONES|BOOLEAN BASICS|BOOLEAN EVALUATION|BITWISE TRICKS AND TECHNIQUES|BINARY DECISION DIAGRAMS|GENERATING ALL POSSIBILITIES|GENERATING BASIC COMBINATORIAL PATTERNS|GENERATING ALL [nN]-TUPLES|GENERATING ALL PERMUTATIONS|GENERATING ALL COMBINATIONS|GENERATING ALL PARTITIONS|GENERATING ALL SET PARTITIONS|GENERATING ALL TREES|HISTORY AND FURTHER REFERENCES|ANSWERS TO EXERCISES|TABLES OF NUMERICAL QUANTITIES|INDEX TO NOTATIONS|INDEX TO ALGORITHMS AND THEOREMS|INDEX TO COMBINATORIAL PROBLEMS|INDEX AND GLOSSARY)(?:\s+(?:[ivxlcdm]+|\d{1,3}|7(?:\.\d+)*|A|B|C|D))?$''',
+  '''^(?:7(?:\.\d+)*|A|B|C|D)\s+(?:COMBINATORIAL SEARCHING|ZEROS AND ONES|BOOLEAN BASICS|BOOLEAN EVALUATION|BITWISE TRICKS AND TECHNIQUES|BINARY DECISION DIAGRAMS|GENERATING ALL POSSIBILITIES|GENERATING BASIC COMBINATORIAL PATTERNS|GENERATING ALL [nN]-TUPLES|GENERATING ALL PERMUTATIONS|GENERATING ALL COMBINATIONS|GENERATING ALL PARTITIONS|GENERATING ALL SET PARTITIONS|GENERATING ALL TREES|HISTORY AND FURTHER REFERENCES|ANSWERS TO EXERCISES|TABLES OF NUMERICAL QUANTITIES|INDEX TO NOTATIONS|INDEX TO ALGORITHMS AND THEOREMS|INDEX TO COMBINATORIAL PROBLEMS)\s+\d{1,3}$''',
+  '''^(?-i:[ivxlcdm]+|\d{1,3})$''',
+]
+
+[sections]
+"7.1" = [61, 'Zeros and Ones']
+"7.2" = [295, 'Generating All Possibilities']
+
+[figures]
+caption_pattern = '^(?:!\[.*?\]\(.*?\)\s*)?(?:\*\*)?Fig\.\s*(?P<number>\d+[a-z]?)\.?(?:\*\*)?(?:\s+(?P<tail>.*))?\s*$'
+caption_format = 'Fig. {number}'
+svg_single_pct = 86
+svg_scan_text_width = 0.78
+pair_figures = false
+supplement_none = false
+
+[hooks]
+figures = 'draw_figures'
+
+[editions.monograph]
+summary = 'monograph'
+
+[editions.illustrated]
+summary = 'illustrated monograph with 3Blue1Brown dark-theme vector figures'
+
+[editions.illustrated.spec]
+slug = 'knuth_taocp_4a_illustrated'
+subtitle = 'Illustrated Edition with 3Blue1Brown Vector Diagrams'
+figure_dir = 'figures_color'
+pre_math_rewrites = [['&#36;', '\$'], ['\]\(figures/', '](figures_color/'], ['\\begin\{vmatrix\}((?:(?![&$]|\\begin\{)[\s\S])*?)\\end\{vmatrix\}', '\\begin{bmatrix}\\text{⁣}\1\\end{bmatrix}'], ['\\left\s*\\?\|\s*\\begin\{(?:array\}\{c\}|(?:small)?matrix\})((?:(?![&$]|\\begin\{)[\s\S])*?)\\end\{(?:array|(?:small)?matrix)\}\s*\\right\s*\\?\|', '\\begin{bmatrix}\\text{⁣}\1\\end{bmatrix}'], ['\\left\s*\\langle\s*\\begin\{(?:array\}\{c\}|(?:small)?matrix\})((?:(?![&$]|\\begin\{)[\s\S])*?)\\end\{(?:array|(?:small)?matrix)\}\s*\\right\s*\\rangle', '\\begin{bmatrix}\\text{⁤}\1\\end{bmatrix}']]
